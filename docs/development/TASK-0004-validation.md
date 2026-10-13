@@ -4,7 +4,7 @@
 
 ## 本地完整门禁
 
-`./scripts/verify.ps1` 全部通过：契约/正反例/任务追踪/State生成、Ruff、严格Mypy（27个源文件）、145项Pytest（0失败/0跳过）、真实HTTP健康检查、真实进程身份与项目业务检查。独立环境重新安装可编辑项目并执行pip check，无依赖冲突。
+`./scripts/verify.ps1` 全部通过：契约/正反例/任务追踪/State生成、Ruff、严格Mypy（27个源文件）、152项Pytest（0失败/0跳过）、真实HTTP健康检查、真实进程身份与项目业务检查。独立环境重新安装可编辑项目并执行pip check，无依赖冲突。
 
 业务进程从显式迁移后的隔离SQLite库启动，实际HTTP登录、项目创建/读回/版本更新/历史、登出后401；服务进程已经停止，测试库与XML保留在忽略的.verification目录。本地SQLite不能作为PostgreSQL验收证据。
 
@@ -23,7 +23,9 @@
 
 新增 `.github/workflows/verify.yml` 的 postgres 作业，PostgreSQL16临时服务；固定验证库名 task0004_verification，拒绝对已有tenant库运行。`scripts/check_postgres.py`使用独立非超级用户/非BYPASSRLS运行API，验证升级/重复升级/ORM漂移、实际登录与项目接口、六路并发创建幂等、并发版本更新、事务后租户上下文清除、原始SQL的RLS隔离与写拒绝、复合FK、追加触发器、超级用户运行API失败、空库降级再升级。
 
-远程结果待实际运行后补充，当前任务保持in_progress。本机Docker Linux Engine管道不存在，未将本机PostgreSQL验证记为通过。
+首次真实远程验收：提交5e31bea9c21e8ae58f0999ac892cf7e46e4877c8，运行https://github.com/w186www/Tender-Review/actions/runs/38392061114；baseline与postgres均completed/success。该次baseline为145项；最终复核又增加7项用例，本地152项通过。此链接指明历史源码版本，后续提交另外触发CI，不将该SHA称作当前HEAD。本机Docker Linux Engine管道不存在，未将本机PostgreSQL验证记为通过。
+
+最终复核补充：即使签名正确，Token里的role也不构成授权；篡改tenant不匹配会话而401。同一幂等键在两个租户产生独立项目；数值字段不接受字符串和布尔隐式转换。服务层拒绝写操作前设置事务租户范围；非幂等唯一冲突的数据库异常保留原始原因进入安全诊断。数据库初始化与账号CLI的驱动配置异常采用固定错误与安全诊断，合成敏感驱动名不会泄露。任务移入completed后已重新运行完整门禁。
 
 ## 未交付范围
 

@@ -2,6 +2,9 @@
 
 import json
 import logging
+import os
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -331,3 +334,78 @@ def test_anonymous_and_input_boundaries(system):
     assert client.get("/api/v1/projects?limit=101", headers=headers).status_code == 422
     assert client.get("/api/v1/projects?offset=-1", headers=headers).status_code == 422
     assert json.loads(client.get("/api/v1/auth/me", headers=headers).text)["tenant_id"] == "a"
+
+
+def test_signed_role_and_tenant_claims_cannot_override_database_identity(system):
+    client, _, settings, _ = system
+    token = sign_in(system, role="auditor")["Authorization"].removeprefix("Bearer ")
+    key = settings.auth_signing_key.get_secret_value()
+    claims = jwt.decode(token, key, algorithms=["HS256"], audience=settings.auth_audience)
+    claims["role"] = "reviewer"
+    forged = jwt.encode(claims, key, algorithm="HS256")
+    assert create(client, {"Authorization": "Bearer " + forged}).status_code == 403
+    claims["tenant_id"] = "b"
+    forged = jwt.encode(claims, key, algorithm="HS256")
+    assert (
+        client.get("/api/v1/auth/me", headers={"Authorization": "Bearer " + forged}).status_code
+        == 401
+    )
+
+
+def test_idempotency_key_is_scoped_to_tenant(system):
+    client, _, _, _ = system
+    key = str(uuid4())
+    responses = [
+        client.post(
+            "/api/v1/projects",
+            json=BODY,
+            headers={**sign_in(system, tenant=tenant), "Idempotency-Key": key},
+        )
+        for tenant in ("a", "b")
+    ]
+    assert all(r.status_code == 201 for r in responses)
+    assert {r.json()["tenant_id"] for r in responses} == {"a", "b"}
+    assert len({r.json()["project_id"] for r in responses}) == 2
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("budget_amount", "1200"),
+        ("budget_amount", True),
+        ("expected_version", "1"),
+        ("expected_version", True),
+    ],
+)
+def test_numeric_request_fields_follow_json_contract(system, field, value):
+    client, _, _, _ = system
+    headers = sign_in(system)
+    if field == "budget_amount":
+        response = create(client, headers, budget_amount=value)
+    else:
+        project = create(client, headers).json()
+        response = client.put(
+            "/api/v1/projects/" + project["project_id"],
+            headers=headers,
+            json={**BODY, "expected_version": value},
+        )
+    assert response.status_code == 422
+
+
+def test_invalid_database_driver_is_sanitized_at_both_cli_boundaries():
+    sensitive = "synthetic" + uuid4().hex
+    environment = os.environ.copy()
+    environment.update(APP_ENV="test", DATABASE_URL=sensitive + "://synthetic")
+    for args in (["-m", "bidding_compliance.api"], ["scripts/manage_identity.py", "migrate"]):
+        result = subprocess.run(  # noqa: S603 - fixed local CLIs; no shell or external executable
+            [sys.executable, *args],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=10,
+            check=False,
+        )
+        assert result.returncode in (1, 2)
+        assert sensitive not in result.stdout + result.stderr

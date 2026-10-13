@@ -49,6 +49,10 @@ def test_health_matches_contract_and_runtime_operation():
         runtime_spec = client.get("/openapi.json").json()
         assert runtime_spec["paths"]["/api/v1/health"]["get"]["operationId"] == "getHealth"
         assert runtime_spec["paths"]["/api/v1/projects"]["post"]["operationId"] == "createProject"
+        assert runtime_spec["paths"]["/api/v1/projects"]["post"]["responses"]["422"]["content"][
+            "application/json"
+        ]["schema"]["$ref"].endswith("/ErrorResponse")
+        assert runtime_spec["components"]["securitySchemes"]["bearerAuth"]["bearerFormat"] == "JWT"
 
 
 def test_valid_request_id_is_preserved_and_logged(caplog):

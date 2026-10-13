@@ -24,9 +24,16 @@ from .project_schemas import (
     ProjectResponse,
     ProjectUpdate,
 )
+from .schemas import ErrorResponse
 
-router = APIRouter(prefix="/api/v1")
-bearer = HTTPBearer(auto_error=False)
+router = APIRouter(
+    prefix="/api/v1",
+    responses={
+        status: {"model": ErrorResponse, "description": "统一安全错误"}
+        for status in (400, 401, 403, 404, 409, 422, 500)
+    },
+)
+bearer = HTTPBearer(auto_error=False, scheme_name="bearerAuth", bearerFormat="JWT")
 
 
 def get_session(request: Request) -> Iterator[Session]:

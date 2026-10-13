@@ -4,11 +4,13 @@ import argparse
 import logging
 import sys
 from typing import TypedDict
+from uuid import uuid4
 
 import uvicorn
 from pydantic import ValidationError
 
 from bidding_compliance.core.config import Settings
+from bidding_compliance.core.diagnostics import report_exception
 from bidding_compliance.core.logging import configure_logging
 
 from .app import create_app
@@ -36,8 +38,14 @@ def main() -> int:
         return 2
     configure_logging(settings.log_level)
     logging.getLogger("bidding_compliance").info("server_starting")
+    try:
+        app = create_app(settings)
+    except Exception as exc:
+        report_exception(exc, str(uuid4()))
+        print("后端初始化失败，请检查数据库与身份配置。", file=sys.stderr)
+        return 2
     uvicorn.run(
-        create_app(settings),
+        app,
         host=settings.host,
         port=settings.port,
         log_config=None,

@@ -4,6 +4,7 @@ import argparse
 import getpass
 from uuid import uuid4
 
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from bidding_compliance.core.config import Settings
@@ -23,8 +24,9 @@ def main() -> int:
     bootstrap.add_argument("--username", required=True)
     bootstrap.add_argument("--role", choices=[r.value for r in Role], required=True)
     args = parser.parse_args()
-    engine = make_engine(Settings())
+    engine: Engine | None = None
     try:
+        engine = make_engine(Settings())
         if args.action == "migrate":
             migrate(engine)
         else:
@@ -61,7 +63,8 @@ def main() -> int:
         print("Identity administration failed; check configuration and database state.")
         return 1
     finally:
-        engine.dispose()
+        if engine is not None:
+            engine.dispose()
 
 
 if __name__ == "__main__":

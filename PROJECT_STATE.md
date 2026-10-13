@@ -2,7 +2,7 @@
 
 更新时间：2026-10-13  
 架构基线：Word V2.0 + ADR-0001 至 ADR-0007 / 开发契约v1alpha2
-当前里程碑：M1后端与文件接入（TASK-0002已完成，0004进行中，0005待开发）
+当前里程碑：M1后端与文件接入（TASK-0002/0004已完成，0005待开发）
 
 ## 已完成
 
@@ -17,22 +17,25 @@
 - TASK-0002：可启动FastAPI/Uvicorn后端、健康检查、环境配置、请求追踪、统一错误和结构化安全日志。
 - TASK-0015：夹具位置、独立诊断、错误码契约、模型数据策略、秘密扫描与文档冲突修复；首次Git提交已推送、CI已成功。
 
+- TASK-0004：显式数据库迁移、可撤销JWT身份、租户/RBAC、版本化项目与事务幂等；PostgreSQL真实CI通过。
+
 ## 正在进行
 
-- TASK-0004进行中：身份认证、服务端租户/RBAC边界、版本化项目与核心迁移。
+- 无；TASK-0004局部验收完成，下一项TASK-0005。
 
 ## 下一步
 
-1. 执行TASK-0004：身份、租户、权限与数据库迁移，先定义数据与API契约。
-2. 执行TASK-0005：安全文件接入、解析、原文定位和上下文确认。
+1. 执行TASK-0005：安全文件接入、解析、原文定位和上下文确认。
+2. 基于TASK-0004的Principal与租户复合键接入文件/任务，不从请求或模型取授权。
 3. 按依赖建立法规检索、规则Skill和两个模型适配器。
 4. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
 
-- TASK-0004本地：完整verify.ps1通过，145项测试、0失败/0跳过，Mypy检查27个源文件；真实HTTP身份与项目流程通过。SQLite快速回归不代替PostgreSQL验收，远程新增postgres作业待运行。
+- TASK-0004本地最新：完整verify.ps1通过，152项测试、0失败/0跳过，Mypy检查27个源文件；真实HTTP身份与项目流程通过。
+- TASK-0004远程实证：提交5e31bea9c21e8ae58f0999ac892cf7e46e4877c8，https://github.com/w186www/Tender-Review/actions/runs/38392061114 的baseline与postgres均completed/success。该次baseline为145项；最终复核后本地152项。此链接是明确的历史源代码SHA，后续提交需另核验自己的CI。
 
-- 本地最新：TASK-0015按项修复后完整verify.ps1通过，121项测试、0失败；Mypy检查18个应用源文件，真实HTTP检查通过。分项记录见docs/development/TASK-0015-validation.md。
+- TASK-0015历史结果：按项修复后完整verify.ps1通过，121项测试、0失败；当时Mypy检查18个应用源文件，真实HTTP检查通过。分项记录见docs/development/TASK-0015-validation.md。
 - 健康200、未知路径404、请求编号一致；临时服务已停止。默认启动方式：./scripts/start.ps1。
 - 独立环境安装与pip check通过，实际版本已锁定；TASK-0002证据见docs/development/TASK-0002-validation.md，M0历史证据见baseline-validation.md。
 - 远程CI已实际成功：提交1e744ed15e7d35934cbe536695ab2b8276b02980，运行https://github.com/w186www/Tender-Review/actions/runs/38388275001，状态completed/success。该链接核验对应源代码提交；证据提交会另行触发CI，不能将历史SHA冒充当前HEAD。
@@ -40,7 +43,8 @@
 
 ## 已知问题
 
-- 后端新增数据库/身份权限与项目读写；TASK-0004等待实际PostgreSQL CI验收。Worker、文件接入、审查能力和前端尚未实现。
+- 后端数据库/身份权限与项目读写已实现；Worker、文件接入、审查能力和前端尚未实现。
+- 本机Docker Linux Engine不可用；PostgreSQL16验收在独立远程CI临时数据库实际完成，不冒充本机数据库验收。
 - Windows受限沙箱会阻断asyncio内部回环连接；完整验收须允许本机回环网络，不能跳过测试。
 - 系统默认Python存在打包路径/ensurepip问题。已使用独立Python 3.12.14环境，统一脚本优先使用.venv；新环境按README创建，测试临时目录限定在项目内。
 - 法规索引中有若干“未核实版本”；进入生产知识库前必须人工核验效力状态与发布日期。
@@ -52,7 +56,7 @@
 - DEC-001：首个部署目标（本地 Docker Compose、云主机或 Kubernetes）。
 - DEC-002：首选 LLM 与数据出境约束。
 - DEC-003：OCR 首选实现和扫描件性能预算。
-- DEC-004：前端技术栈与统一身份认证方式。
+- DEC-004：前端技术栈与企业OIDC集成；首期本地认证已按ADR-0007落地。
 
 ## 数据与迁移
 

@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0004",
   "title": "身份、租户与核心数据迁移",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "codex",
   "depends_on": [
     "TASK-0002"
@@ -51,16 +51,24 @@
     {
       "id": "TASK0004-001",
       "description": "干净数据库可迁移；项目查询包含租户范围",
-      "evidence": []
+      "evidence": [
+        "docs/development/TASK-0004-validation.md",
+        "tests/test_identity_projects.py",
+        "scripts/check_postgres.py"
+      ]
     },
     {
       "id": "TASK0004-002",
       "description": "跨租户和角色越权用例被拒绝，日志无秘密",
-      "evidence": []
+      "evidence": [
+        "docs/development/TASK-0004-validation.md",
+        "tests/test_identity_projects.py",
+        "scripts/check_postgres.py"
+      ]
     }
   ],
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。 为实际PostgreSQL门禁增加CI工作流范围，未缩减验收。"
+  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。 为实际PostgreSQL门禁增加CI工作流范围，未缩减验收。 已实现本任务；上传、Worker、业务审查和生产全项安全仍待后续任务。"
 }

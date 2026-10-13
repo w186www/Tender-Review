@@ -17,6 +17,7 @@ from bidding_compliance.services.identity import audit
 
 
 def require_write(session: Session, principal: Principal) -> None:
+    set_tenant(session, principal.tenant_id)
     if not principal.can_write_project():
         audit(session, principal.tenant_id, principal.user_id, "project.denied")
         session.commit()
@@ -125,12 +126,14 @@ def create_project(
             session, principal.tenant_id, principal.user_id, "project.created", project.project_id
         )
         session.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         session.rollback()
         set_tenant(session, principal.tenant_id)
         existing = session.get(IdempotencyRecord, identity)
-        if existing is None or existing.request_hash != request_hash:
-            raise FileExistsError("idempotency conflict") from None
+        if existing is None:
+            raise
+        if existing.request_hash != request_hash:
+            raise FileExistsError("idempotency conflict") from exc
         return existing.response
     return result
 
