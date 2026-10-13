@@ -61,8 +61,8 @@ git rev-parse HEAD
 
 远程模式在干净工作区更新main时使用git pull --ff-only。若发生分叉，保存并报告现状，不能强行重置。具体软件是否自动读取AGENTS不能假设；启动提示词应明确要求读取。没有仓库读写、终端或Git能力的软件只能提供建议，不能冒充已经执行任务。
 
-## 当前可交给DeepSeek的工作
+## TASK-0006 当前安排（用户已变更）
 
-见tasks/dispatch/TASK-0006.md：目前为discovery阶段，仅进行法规资料盘点与契约/方案草案。正式任务仍planned，尚无人领取；提交者开始执行时再登记in_progress。该草案需要6.1审定后进入implementation，不能把派工单理解为法规效力已核实或完整检索设计已批准。
+2026-10-14 用户取消后续 DeepSeek 接力，改由下一轮 Codex GPT-6.1 Sol（中）完成设计修订与实现。当前派工以 tasks/dispatch/TASK-0006.md 为准；旧 DeepSeek 启动提示词不再适用于当前任务，历史草案/交接仍保留作为审查输入。
 
-直接复制docs/development/prompts/deepseek-task-0006.md到DeepSeek所在软件即可开始第一阶段；交接后在GPT软件使用gpt-review.md。当前没有把实施任务自动发往另一个软件。
+Sol 先解决 tasks/reviews/TASK-0006.md 的 D01–D07，再固化契约/ADR、实现并验证。单模型对自己编写内容的检查称自检/维护者核验；独立代码审查须由未参与实现的实际审查者执行，不自动恢复另一软件派工。其余通用跨软件流程保留供未来明确需要时使用。

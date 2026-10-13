@@ -3,7 +3,7 @@
   "task_id": "TASK-0006",
   "title": "法规版本摄取与适用范围检索",
   "status": "in_progress",
-  "owner": "deepseek",
+  "owner": "codex",
   "depends_on": [
     "TASK-0004"
   ],
@@ -63,5 +63,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "2026-10-14由DeepSeek V4.1 Flash（另一软件）按tasks/dispatch/TASK-0006.md领取discovery阶段：分支work/TASK-0006，base SHA bd2da2da984b6d1c34f3cfdb7da69e21661523be。本阶段只交付docs/development/TASK-0006-design.md与tasks/handoffs/TASK-0006.md两份草案记录，无业务代码、无正式契约修改。默认DeepSeek实施、GPT-6.1 Sol设计/最终审查；设计审定通过前不进入代码实施。related_acceptance不自动视为已完成。"
+  "handoff_notes": "2026-10-14用户取消后续DeepSeek接力，改由Codex GPT-6.1 Sol（中）完成。分支work/TASK-0006，接手输入HEAD f1a088dbf1c009e49c4b61c70d83d83ccd629054；设计候选4e908713323805bf0a73345f2bfd352d51039ea3的独立设计审查为changes_requested，D01–D07见tasks/reviews/TASK-0006.md。下一轮Sol先修订设计与契约/ADR，再常规及核心实现；当前无业务实现、局部验收仍空。DeepSeek历史资料保留但当前派工撤销，不自动启动或通知其他软件。Sol对自己编写的代码检查应记自检，不称独立审查。当前聊天完成整理记录并提交后停止写入。"
 }
