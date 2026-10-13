@@ -47,3 +47,14 @@
 - 未执行业务测试、完整 verify.ps1、PostgreSQL 集成或在线法规效力核验。本轮仅独立设计复审，以上不构成代码或法规效力验收，也不沿用历史 215 项为新候选结果。
 
 实施者处理 R01/R02 后停止写入、提交新 SHA；本代理复审具体纠正设计，随后由独立代码审查者审实现。正式 TASK 保持 in_progress，归档权不属于实施者。
+
+## R01/R02 修订复审（2026-10-14）
+
+- 实际 checkout/candidate：`c232e4bb1a4fa2483d6e5c6453d5ca7cf7f5ba95`，基线仍为 `bd2da2da984b6d1c34f3cfdb7da69e21661523be`。实施者/root 已明确停止写入，接手时 `git status --short` 空。
+- 实际读取 `91b4c1b..c232e4b` 差异：仅 ADR-0010、correction-design 和本独立审查记录三个文件；无业务代码、契约、迁移或测试变更。`git diff --check` 通过。本轮未运行业务测试、verify.ps1 或 PostgreSQL，不宣称实现验收。
+- R01：**已解决（设计层）**。ADR 已明确 Manifest/Index 保持 v1alpha1，Query/Result/RunSnapshot 为 v1alpha2；明确显式迁移 202610141200、无旧运行回填、FORCE RLS、最小 INSERT/SELECT 权限、追加写保护及备份/停写后的有损降级，与 correction-design 一致。
+- R02：**已解决（设计层）**。完整 request_snapshot 冻结项目 context/version、原始请求、规范查询、身份与运行标识、日期来源及算法/地区映射/索引版本；规定固定 JSON 参数、ISO 日期与 UTF-8 SHA-256。结果哈希对完整 result 计算，RunSnapshot 不含 result_hash 自身；读取需复核两个哈希、context_hash 与关联字段，且旧运行不按当前 context 重算。输入/输出篡改与重开 Session 验收已明确。
+- 本轮具体纠正方案结论：**approved**，范围仅为在效状态、地区规范化/显式失败排除、日期来源绑定及持久不可变运行，采用本候选中的方案并满足上文代码验收要求后可实施。本结论来自未参与实施的独立代理，不是实施者自审；不批准原始草案所有方案或完整 TASK 收尾，不把 ADR 的全部长期余项自动标为 accepted。
+- 完整 TASK-0006：**仍 changes_requested / in_progress**。原 D01/D02/D03/D04/D05/D07 的部分余项不变；D06 当前无缓存边界的判断不变。每项余项必须保留，代码实现后仍需独立代码审查及真实完整门禁，实施者不得归档。
+
+本代理完成追加后停止写入，将实施权交回 root；正式 Schema、数据库迁移与实现须按已批准的具体修复方案同步，代码候选变更后独立审查绑定新 SHA。

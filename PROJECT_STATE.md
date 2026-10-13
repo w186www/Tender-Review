@@ -1,7 +1,7 @@
 # PROJECT_STATE
 
 更新时间：2026-10-14
-架构基线：Word V2.0 + ADR-0001 至 ADR-0010 / 开发契约v1alpha2
+架构基线：Word V2.0 + ADR-0001 至 ADR-0009，ADR-0010法规方案proposed / 开发契约v1alpha2
 当前里程碑：M1基础退出检查已通过；M2法规检索实现；规则与模型网关待开始
 
 ## 已完成
@@ -24,7 +24,7 @@
 
 ## 正在进行
 
-- TASK-0006处于design_revision；本轮修复必须先经独立设计复审，再实施并提交代码审查。正式任务保持in_progress。M1基础验收通过不代表完整业务审查或生产安全总体验收。
+- TASK-0006修复设计c232e4bb经独立复审通过；本轮实现及完整自测通过，准备提交代码候选并停止写入，独立代码审查未开始。完整D余项仍changes_requested，正式任务in_progress。M1基础验收通过不代表完整业务审查或生产安全总体验收。
 
 ## 下一步
 
@@ -35,7 +35,9 @@
 
 ## 最近验证
 
-- TASK-0006专项：25项通过；Mypy46源文件无错误；真实43版本/3120条款摄取、新版84条完整提取与政府工程投标保证金检索通过。归档后最终完整verify.ps1通过215项、0失败/0错误/0跳过（JUnit已核对），真实HTTP健康及身份/项目/撤销流程通过；Ruff与契约/生成一致性通过。见docs/development/TASK-0006-validation.md。
+- TASK-0006本轮纠正：最终完整verify.ps1通过251项、0失败/0错误/0跳过（JUnit已核对），Mypy48文件；真实HTTP健康/身份/项目/撤销通过。56项法规专项、109项组合检查通过；临时PostgreSQL16增量/重复迁移、RLS/WITH CHECK、最小权限、运行读取/撤权/触发器/完整回滚实证通过，容器已清理。两次中间失败保留在TASK-0006-validation.md；无远端CI新证据。
+
+- TASK-0006历史恢复分支自测（不是独立审查）：25项通过；Mypy46源文件无错误；真实43版本/3120条款摄取、新版84条完整提取与政府工程投标保证金检索通过。归档后最终完整verify.ps1通过215项、0失败/0错误/0跳过（JUnit已核对），真实HTTP健康及身份/项目/撤销流程通过；Ruff与契约/生成一致性通过。见docs/development/TASK-0006-validation.md。
 
 - TASK-0005本地：完整verify.ps1通过，186项、0失败/0跳过，Mypy41源文件；真实解析隔离、官方源码MinIO/ClamAV/OCR/扫描PDF/HTTP及PostgreSQL增量迁移/RLS均通过。
 - TASK-0005最终源码远程实证：4d6fca6b16fbae66aed82041e08097162a444468，https://github.com/w186www/Tender-Review/actions/runs/38424742422 的baseline/postgres/ingestion均completed/success；已下载JUnit核验186项、0失败/0错误/0跳过。详细范围见docs/development/TASK-0005-validation.md。本次归档证据提交另触发相同CI，链接绑定明确源码版本，不将该SHA冒充后续HEAD。
@@ -69,7 +71,7 @@
 
 ## 数据与迁移
 
-- 数据库迁移版本：202610131300（显式执行，API不自动建表）；降级移除新增解析历史，先备份并停止写入，见secure-ingestion-start.md。
+- 数据库迁移版本：202610141200（新增检索运行历史）（显式执行，API不自动建表）；降级移除新增解析历史，先备份并停止写入，见secure-ingestion-start.md。
 - 契约集合版本：`v1alpha2`；事件信封和模型profile示例维持各自v1alpha1，详见contracts/VERSION.md。
 - 生产数据：无。
 

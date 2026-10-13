@@ -7,6 +7,8 @@ from collections.abc import Mapping, Sequence
 from typing import Protocol
 
 from .contracts import (
+    Excluded,
+    ExclusionReason,
     LegalHit,
     LegalIndex,
     LegalVersion,
@@ -50,17 +52,26 @@ def cosine(left: Mapping[str, float], right: Mapping[str, float]) -> float:
     return sum(x * right.get(k, 0) for k, x in left.items()) / norm if norm else 0.0
 
 
-def scope_matches(version: LegalVersion, query: RetrievalQuery) -> bool:
-    return (
-        ("CN" in version.jurisdictions or any(
+def scope_exclusions(version: LegalVersion, query: RetrievalQuery) -> list[ExclusionReason]:
+    reasons: list[ExclusionReason] = []
+    if not ("CN" in version.jurisdictions or any(
             query.region == region or query.region.startswith(region + "/")
             for region in version.jurisdictions
-        ))
-        and query.procurement_type in version.procurement_types
-        and query.project_type in version.project_types
-        and (version.effective_from is None or query.review_date >= version.effective_from)
-        and (version.effective_to is None or query.review_date < version.effective_to)
-    )
+        )):
+        reasons.append("jurisdiction_mismatch")
+    if query.procurement_type not in version.procurement_types:
+        reasons.append("procurement_mismatch")
+    if query.project_type not in version.project_types:
+        reasons.append("project_type_mismatch")
+    if version.effective_from and query.review_date < version.effective_from:
+        reasons.append("not_yet_effective")
+    if version.effective_to and query.review_date >= version.effective_to:
+        reasons.append("expired")
+    return reasons
+
+
+def scope_matches(version: LegalVersion, query: RetrievalQuery) -> bool:
+    return not scope_exclusions(version, query)
 
 
 class LegalRetriever:
@@ -74,6 +85,17 @@ class LegalRetriever:
 
     def search(self, query: RetrievalQuery) -> RetrievalResult:
         versions = {(v.law_id, v.version): v for v in self.index.manifest.versions}
+        excluded: list[Excluded] = []
+        for version in versions.values():
+            reasons = scope_exclusions(version, query)
+            if version.verification == "unverified":
+                reasons.append("unverified")
+            elif version.verified_through is None or query.review_date > version.verified_through:
+                reasons.append("outside_verification_horizon")
+            if reasons:
+                excluded.append(Excluded(
+                    law_id=version.law_id, version=version.version, reasons=tuple(reasons),
+                ))
         eligible = []
         for clause in self.index.clauses:
             version = versions[(clause.law_id, clause.version)]
@@ -87,6 +109,13 @@ class LegalRetriever:
             )
             if reason == "valid" or query.include_references:
                 eligible.append((clause, version, reason))
+            elif reason == "unlocated" and not any(
+                x.law_id == version.law_id and x.version == version.version
+                and "unlocated" in x.reasons for x in excluded
+            ):
+                excluded.append(Excluded(
+                    law_id=version.law_id, version=version.version, reasons=("unlocated",),
+                ))
         scores: dict[str, float] = {}
         counts = [Counter(terms(c.quote)) for c, _, _ in eligible]
         query_terms = set(terms(query.text))
@@ -122,7 +151,9 @@ class LegalRetriever:
             clause, version, reason = lookup[key]
             status: VersionStatus = (
                 "unverified" if reason != "valid" else
-                "verified_historical" if version.effective_to else "verified_current"
+                "verified_historical" if (
+                    version.effective_to is not None and query.review_date >= version.effective_to
+                ) else "verified_current"
             )
             hits.append(LegalHit(
                 evidence_id=key, law_id=version.law_id, title=version.title,
@@ -134,4 +165,15 @@ class LegalRetriever:
                 version_status=status, eligible_for_confirmation=reason == "valid",
                 reason=reason, score=score,
             ))
-        return RetrievalResult(snapshot_hash=self.snapshot_hash, query=query, hits=tuple(hits))
+        matched_versions = {(lookup[key][0].law_id, lookup[key][0].version) for key in scores}
+        for version_key, version in versions.items():
+            if version_key not in matched_versions and not any(
+                x.law_id == version.law_id and x.version == version.version for x in excluded
+            ):
+                excluded.append(Excluded(
+                    law_id=version.law_id, version=version.version, reasons=("no_text_match",),
+                ))
+        return RetrievalResult(
+            snapshot_hash=self.snapshot_hash, query=query, hits=tuple(hits),
+            excluded=tuple(excluded),
+        )

@@ -30,3 +30,9 @@ project、project_version、document、review_task、idempotency_record和audit_
 
 升级、受限角色权限和有损降级的备份要求见 docs/development/secure-ingestion-start.md。降级将已解析文档改为 failed，移除新表和属性，保留原始对象；不会自动恢复历史。冻结DDL为权威契约，不修改旧迁移。
 
+
+## TASK-0006 检索运行增量契约
+
+迁移202610141200_legal_retrieval_run.py在202610131300之上只新增legal_retrieval_run，不改旧表。tenant+run复合主键，tenant/project和tenant/actor复合外键，完整请求/上下文快照和输出分别存JSON及规范SHA-256。PostgreSQL FORCE RLS/WITH CHECK，运行角色仅GRANT SELECT, INSERT；追加写触发器拒绝UPDATE/DELETE，SQLite也有同等触发器。运行与审计同事务提交，按租户重新鉴权读取并验证两端哈希及关联字段。
+
+部署需显式迁移，再由运维给已受限运行账号授予SELECT/INSERT ON legal_retrieval_run；不要用superuser/BYPASSRLS运行服务。旧数据不回填；降级会删除检索运行历史，必须备份并停止写入。没有global publication/current管理表，不把本地索引保存当作法规发布审批。

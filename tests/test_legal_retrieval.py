@@ -77,7 +77,7 @@ def test_exact_article_source_and_determinism(tmp_path):
 
 
 @pytest.mark.parametrize("change", [
-    {"region": "CN/福建省外"}, {"region": "CN/广东"},
+    {"region": "CN/广东"},
     {"procurement_type": "enterprise"}, {"project_type": "goods"},
     {"review_date": "2019-12-31"},
 ])
@@ -85,11 +85,11 @@ def test_scope_filter_before_ranking(tmp_path, change):
     assert not search(tmp_path, version(tmp_path), query(**change)).hits
 
 
-def test_end_date_exclusive_and_historical_version(tmp_path):
+def test_end_date_exclusive_and_current_at_review_date(tmp_path):
     metadata = version(tmp_path, effective_to="2026-10-14")
     assert not search(tmp_path, metadata).hits
     result = search(tmp_path, metadata, query(review_date="2026-10-13"))
-    assert result.hits[0].version_status == "verified_historical"
+    assert result.hits[0].version_status == "verified_current"
 
 
 @pytest.mark.parametrize("changes,reason", [
@@ -130,7 +130,7 @@ def test_immutable_snapshot_tamper_and_source_tamper(tmp_path):
     path = save_index(index, tmp_path / "indexes")
     assert save_index(index, path.parent) == path
     assert load_index(tmp_path, path, path.stem) == index
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     payload["clauses"][0]["quote"] = "伪造原文"
     data = json.dumps(payload).encode()
     fake = tmp_path / "fake.json"

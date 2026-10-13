@@ -1,6 +1,6 @@
 # 法规摄取与检索启动（TASK-0006）
 
-依据：ADR-0010；契约：`contracts/schemas/legal-{manifest,index,query,result}.schema.json`。DTO先生成契约后实现消费者；生成器`--check`进入统一验证。无数据库迁移，现有State和EvidenceRef保持兼容。检索结果增加独立的`eligible_for_confirmation`，只表示法规依据符合本模块门禁，不代表风险已确认为违规；最终原文与推理强度门禁由后续Evidence Checker执行。
+依据：ADR-0010；契约：`contracts/schemas/legal-{manifest,index,query,result}.schema.json`。DTO先生成契约后实现消费者；生成器`--check`进入统一验证。新增显式迁移202610141200，只新增租户检索运行历史；升级/回滚见contracts/database/README.md。现有State和EvidenceRef保持兼容，Query/Result升v1alpha2。检索结果增加独立的`eligible_for_confirmation`，只表示法规依据符合本模块门禁，不代表风险已确认为违规；最终原文与推理强度门禁由后续Evidence Checker执行。
 
 ## 构建与查询
 
@@ -21,7 +21,7 @@ $env:PYTHONUTF8 = '1'
 ## 范围与门禁
 
 - 有效区间`[effective_from,effective_to)`，终止日不包含。核验截止日包含当天；翌日即使没有失效日期也只作为参考。
-- 全国代码`CN`；地方代码如`CN/福建`，只匹配自身及以`/`分隔的子地区；不得用模糊前缀将福建省外项目匹配进来。入口上下文需录入统一地区代码。
+- 地区使用regions.py固定注册映射：全国CN及省级、福建九市、广州/深圳，确定别名（如福建省福州市）规范化为CN/福建/福州。未支持市、未知省、错误父子关系或额外层级返回context_incomplete+excluded并落库，不能静默为空。合法异地/时间/采购不适用在excluded保留全部原因。
 - 采购制度沿用`government/enterprise/other`，项目类型沿用`works/goods/services`，分别过滤。新增《实施条例》仅审定工程范围，货物与服务暂不提供其确定依据，不从标题推断完整法律适用性。
 - 默认不返回未核实、超出核验截止日、无条号的参考；`include_references=true`才显式返回并标注原因。已知失效/未生效、地区或采购范围不匹配始终不返回。
 - 结果含标题、条号、版本、原文、官方URL、来源/文本/引用哈希、字符定位、有效期、证据资格与索引哈希。中文条号切分保留全部条款，长条款分片沿用条号，通知无条号不伪造条号。
@@ -33,3 +33,9 @@ $env:PYTHONUTF8 = '1'
 ## 更新法规
 
 用户已授权本任务更新法规库。旧42份原文保留；新版本新增到`knowledge/legal/versions`，来源HTML新增到`snapshots`，同步修改manifest并计算原始字节SHA-256。核验必须记录来源、修订链、有效时间、审定范围及核验日期，不能只提高`verification`字段。先检查新网页结构及完整条数，再构建与测试；法规审批发布/回滚由后续管理任务实现。本期只更新《实施条例》作为真实端到端样本，其余法规的效力核验仍是明确待办。
+
+## 可追溯基准日与检索运行
+
+review_date由已鉴权操作者显式指定，来源标为explicit_actor_input，不冒充项目发布日期。每次业务调用生成独立run UUID并在legal_retrieval_run冻结完整项目context/version、原始请求与规范查询、身份、日期来源、索引/算法/地区映射版本、输入/输出规范JSON哈希。RunSnapshot不含result_hash自身；规范JSON固定sort_keys/无空白/UTF-8/禁止NaN，读回校验双方哈希及关联字段。改变日期或上下文产生新运行，旧运行通过read_run重验会话与项目权限读取，不重新按现行上下文计算。context_incomplete同样记录并审计。
+
+先前实施者自行归档已撤销。原D01–D07逐项回应见TASK-0006-correction-design.md，独立设计复审见tasks/reviews/TASK-0006-design-rereview.md；完整任务保持in_progress。采购方式、双框架与条款级适用、局部废止、全局发布/回滚、EvidenceRef同制品映射等剩余阻断尚未关闭，检索结果不能直接替代最终确定违规结论。

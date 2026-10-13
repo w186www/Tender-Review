@@ -1,2 +1,2 @@
-knowledge/legal/snapshots/** -text
+knowledge/legal/snapshots/** -text -diff
 knowledge/legal/versions/** -text

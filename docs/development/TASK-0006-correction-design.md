@@ -1,6 +1,6 @@
 # TASK-0006 修订设计与D01–D07回应
 
-2026-10-14；状态：待独立设计复审。原changes_requested保留在tasks/reviews/TASK-0006.md；旧草案不是已批准实现依据。此次纠正实施者自行归档，不用215项自测代替独立审查。ADR-0009为协作关卡，法规方案使用ADR-0010。
+2026-10-14；状态：本轮修复方案c232e4bb经独立设计复审approved；完整任务仍changes_requested。原changes_requested保留在tasks/reviews/TASK-0006.md；旧草案不是已批准实现依据。此次纠正实施者自行归档，不用215项自测代替独立审查。ADR-0009为协作关卡，法规方案使用ADR-0010。
 
 ## 本轮具体设计
 
@@ -32,3 +32,13 @@
 
 - R01已在ADR-0010同步Manifest/Index v1alpha1、Query/Result/运行v1alpha2及增量迁移、RLS、权限和有损降级。尚无运行历史，不需要旧数据回填；新result不静默兼容旧v1alpha1。
 - R02：request_snapshot必须包含完整项目context而不是仅哈希，含context_version及其规范JSON SHA-256、原始请求与规范查询、actor/tenant/project/run、日期与explicit_actor_input来源、算法/地区映射版本及索引哈希。规范JSON固定sort_keys=True、ensure_ascii=False、separators=(",",":")、allow_nan=False，日期先转ISO；UTF-8字节SHA-256。RunSnapshot只含request_hash，不包含result_hash；表result_hash计算完整result序列化。读回复核request_hash、context_hash、result_hash及请求-结果关联字段一致性，禁止重新按当前项目上下文计算。补旧上下文变更后读取、重开Session、输入/输出篡改反例。
+
+## 本轮实现对应证据（非自审通过）
+
+- D01部分：scope_exclusions及review_date/effective_to比较；test_start_and_pre_end_are_current_not_historical/test_excluded_time_boundaries。局部废止及未知上界余项保留。
+- D02部分：legal_retrieval_run冻结完整context和请求、索引哈希；test_two_dates_and_context_change_are_frozen_across_sessions。publication/current/并发回滚仍推迟，原阻断未关闭。
+- D03部分：v1alpha2结果一致性模型/Schema及正反例；test_result_contradictions_and_old_version_rejected。正式EvidenceRef引用完整性仍推迟，不直接输出最终finding。
+- D04部分：regions.py、服务context_incomplete持久化与excluded；注册/未知地区、错父子/额外层级、两日期/改上下文测试。采购方式/双框架/条款级适用仍推迟，原阻断未关闭。
+- D05部分：require_identity/read_run、真实PostgreSQL FORCE RLS、撤权/跨租户/触发器与读取哈希验证。全局语料运维发布授权仍推迟，无租户admin管理面。
+- D06已解决（当前无缓存）：每次独立run与完整输入，不跨run复用；两个日期/上下文产生独立运行并保存旧输出。启用缓存需新审查。
+- D07部分：原始来源-text固定、各层哈希与正文字符定位；重新获取来源后生成新索引哈希。HTML/PDF清洗覆盖映射与EvidenceRef同制品仍推迟，原阻断未关闭。

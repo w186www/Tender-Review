@@ -243,3 +243,27 @@ class AuditEvent(Base):
     resource_id: Mapped[str | None] = mapped_column(String(64))
     request_id: Mapped[str] = mapped_column(String(36))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LegalRetrievalRun(Base):
+    __tablename__ = "legal_retrieval_run"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id"], ["project.tenant_id", "project.project_id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "actor_id"], ["app_user.tenant_id", "app_user.user_id"],
+        ),
+        CheckConstraint("context_version >= 1"),
+        CheckConstraint("length(request_hash) = 64 AND length(result_hash) = 64"),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    context_version: Mapped[int] = mapped_column(Integer)
+    request_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
+    request_hash: Mapped[str] = mapped_column(String(64))
+    result: Mapped[dict[str, Any]] = mapped_column(JSON)
+    result_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

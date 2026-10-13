@@ -12,7 +12,73 @@
       "title": "Review Date",
       "type": "string"
     },
+    "limit": {
+      "default": 10,
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+    },
+    "include_references": {
+      "default": false,
+      "title": "Include References",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "v1alpha2",
+      "default": "v1alpha2",
+      "title": "Schema Version",
+      "type": "string"
+    },
     "region": {
+      "enum": [
+        "CN",
+        "CN/上海",
+        "CN/云南",
+        "CN/内蒙古",
+        "CN/北京",
+        "CN/台湾",
+        "CN/吉林",
+        "CN/四川",
+        "CN/天津",
+        "CN/宁夏",
+        "CN/安徽",
+        "CN/山东",
+        "CN/山西",
+        "CN/广东",
+        "CN/广东/广州",
+        "CN/广东/深圳",
+        "CN/广西",
+        "CN/新疆",
+        "CN/江苏",
+        "CN/江西",
+        "CN/河北",
+        "CN/河南",
+        "CN/浙江",
+        "CN/海南",
+        "CN/湖北",
+        "CN/湖南",
+        "CN/澳门",
+        "CN/甘肃",
+        "CN/福建",
+        "CN/福建/三明",
+        "CN/福建/南平",
+        "CN/福建/厦门",
+        "CN/福建/宁德",
+        "CN/福建/泉州",
+        "CN/福建/漳州",
+        "CN/福建/福州",
+        "CN/福建/莆田",
+        "CN/福建/龙岩",
+        "CN/西藏",
+        "CN/贵州",
+        "CN/辽宁",
+        "CN/重庆",
+        "CN/陕西",
+        "CN/青海",
+        "CN/香港",
+        "CN/黑龙江"
+      ],
       "maxLength": 200,
       "minLength": 1,
       "title": "Region",
@@ -35,18 +101,6 @@
       ],
       "title": "Project Type",
       "type": "string"
-    },
-    "limit": {
-      "default": 10,
-      "maximum": 50,
-      "minimum": 1,
-      "title": "Limit",
-      "type": "integer"
-    },
-    "include_references": {
-      "default": false,
-      "title": "Include References",
-      "type": "boolean"
     }
   },
   "required": [
