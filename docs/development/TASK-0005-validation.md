@@ -17,6 +17,8 @@
 
 收尾并发复核发现人工转录与上下文确认可能竞争同一上下文版本；文本修正现在同时校验parse_version与context_version，冲突409，不覆盖已确认快照或产生500。对应实际接口交错回归已通过。
 
+Word图片质量占位同时覆盖正文、页眉页脚和脚注/尾注，页脚图片不因正文已有足量文字而被遗漏；扩展既有回归样本后完整186项门禁再次通过。
+
 源码eafecccc40e45447cda92b2315a9a9c475c7230b的CI运行 https://github.com/w186www/Tender-Review/actions/runs/38423430948 三个作业均completed/success（当时185项）；包括官方源码MinIO、扫描PDF与真实隔离探针。最后并发修复的186项版本另行推送验收，不将该历史SHA冒充新HEAD。
 
 ## 局部验收证据

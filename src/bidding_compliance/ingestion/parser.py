@@ -342,6 +342,9 @@ def parse_docx(payload: bytes, policy: IngestionPolicy) -> list[Fragment]:
                             )
                         )
             check_limits(fragments, policy)
+        drawings = list(tree.findall(".//w:drawing", namespace)) + list(
+            tree.findall(".//w:pict", namespace)
+        )
         for name in sorted(names):
             if (
                 name.startswith("word/")
@@ -349,6 +352,8 @@ def parse_docx(payload: bytes, policy: IngestionPolicy) -> list[Fragment]:
                 and any(part in name for part in ("header", "footer", "footnotes", "endnotes"))
             ):
                 auxiliary = SafeXML.fromstring(archive.read(name), forbid_dtd=True)
+                drawings.extend(auxiliary.findall(".//w:drawing", namespace))
+                drawings.extend(auxiliary.findall(".//w:pict", namespace))
                 for index, paragraph in enumerate(auxiliary.findall(".//w:p", namespace)):
                     text = "".join(n.text or "" for n in paragraph.iter() if n.tag.endswith("}t"))
                     if text:
@@ -386,9 +391,6 @@ def parse_docx(payload: bytes, policy: IngestionPolicy) -> list[Fragment]:
                     )
                 )
         # Embedded Word images cannot be silently omitted or assigned fictitious rendered pages.
-        drawings = list(tree.findall(".//w:drawing", namespace)) + list(
-            tree.findall(".//w:pict", namespace)
-        )
         for index, _ in enumerate(drawings):
             fragments.append(
                 Fragment(

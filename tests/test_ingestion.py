@@ -411,12 +411,15 @@ def test_docx_footer_nested_table_and_embedded_image_do_not_disappear():
     Image.new("RGB", (100, 100), "white").save(picture, format="PNG")
     picture.seek(0)
     document.add_picture(picture)
+    picture.seek(0)
+    document.sections[0].footer.paragraphs[0].add_run().add_picture(picture)
     output = io.BytesIO()
     document.save(output)
     parsed = parse(output.getvalue(), "docx", load_policy(), UnitOCR())
     assert any("footer qualification" in f.text for f in parsed.fragments)
     assert any("nested table condition" in f.text for f in parsed.fragments)
     assert any(f.locator.startswith("ooxml/embedded-image/") for f in parsed.fragments)
+    assert sum(f.locator.startswith("ooxml/embedded-image/") for f in parsed.fragments) == 2
     assert parsed.quality == "requires_review" and parsed.issues == ["LOW_QUALITY"]
 
 
