@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/events/review-task-event.schema.json",
+  "title": "ReviewTaskEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "event_type", "schema_version", "occurred_at", "tenant_id", "project_id", "review_task_id", "run_id", "payload"],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "event_type": {"type": "string", "enum": ["review.queued", "review.started", "review.waiting_human", "review.completed", "review.failed", "review.cancelled"]},
+    "schema_version": {"const": "v1alpha1"},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "tenant_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "project_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "review_task_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "idempotency_key": {"type": ["string", "null"], "maxLength": 200},
+    "payload": {"type": "object"}
+  }
+}
+

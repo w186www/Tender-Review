@@ -1,0 +1,53 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0001",
+  "title": "建立工程治理与初始协议（仅M0基线）",
+  "status": "completed",
+  "owner": "codex",
+  "depends_on": [],
+  "related_requirements": [
+    "NFR-007",
+    "NFR-008",
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-010",
+    "AC-012"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md"
+  ],
+  "allowed_paths": [
+    "**"
+  ],
+  "must_not_change": [],
+  "steps": [
+    "建立需求、ADR、任务与项目状态",
+    "建立初始协议和统一验证入口"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0001-001",
+      "description": "仓库存在长期规则、当前状态和文档入口",
+      "evidence": [
+        "AGENTS.md",
+        "PROJECT_STATE.md",
+        "docs/index.md"
+      ]
+    },
+    {
+      "id": "TASK0001-002",
+      "description": "定义模型网关协议与用途配置，未验收运行时模型替换",
+      "evidence": [
+        "src/bidding_compliance/model_gateway/protocol.py",
+        "config/model_profiles.example.yaml"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "修正历史范围：只完成工程基线。AC-010的两个适配器由TASK-0008验收；AC-012的干净环境接手由TASK-0014验收。"
+}

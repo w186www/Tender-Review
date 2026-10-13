@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/model-policy.schema.json",
+  "title": "ModelPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile", "timeout_seconds", "max_attempts", "max_input_tokens", "max_output_tokens", "temperature", "data_policy"],
+  "properties": {
+    "profile": {"type": "string", "minLength": 1, "maxLength": 100},
+    "timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
+    "max_attempts": {"type": "integer", "minimum": 1, "maximum": 3},
+    "max_input_tokens": {"type": ["integer", "null"], "minimum": 1},
+    "max_output_tokens": {"type": ["integer", "null"], "minimum": 1},
+    "temperature": {"type": "number", "minimum": 0, "maximum": 2},
+    "data_policy": {"type": "string", "enum": ["public", "internal", "confidential", "restricted"]}
+  }
+}

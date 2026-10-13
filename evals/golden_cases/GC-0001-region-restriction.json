@@ -1,0 +1,22 @@
+{
+  "case_id": "GC-0001",
+  "title": "疑似地域限制条件",
+  "project_context": {
+    "procurement_type": "government",
+    "project_type": "works",
+    "region": "示例省示例市"
+  },
+  "document_excerpt": {
+    "page": 10,
+    "section": "投标人资格要求",
+    "text": "投标人必须在本市设立分公司满三年。"
+  },
+  "expected": {
+    "category": "qualification",
+    "minimum_status": "suspected",
+    "requires_legal_evidence": true,
+    "requires_human_review": true
+  },
+  "synthetic": true
+}
+

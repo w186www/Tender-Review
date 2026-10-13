@@ -1,0 +1,65 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0014",
+  "title": "正式交付与跨模型独立接手演练",
+  "status": "planned",
+  "owner": "unassigned",
+  "depends_on": [
+    "TASK-0013"
+  ],
+  "related_requirements": [
+    "NFR-008",
+    "NFR-012"
+  ],
+  "related_acceptance": [
+    "AC-012",
+    "AC-006",
+    "AC-011"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "对齐Word与仓库差异，生成部署、用户、运维和交接材料",
+    "在干净环境由新开发者依仓库资料安装、运行验证并处理独立任务"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0014-001",
+      "description": "无聊天上下文可启动应用、运行验收与完成一个变更",
+      "evidence": []
+    },
+    {
+      "id": "TASK0014-002",
+      "description": "交付版本、制品、SBOM、已知问题、费用和验收证据完整",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+}

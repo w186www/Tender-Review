@@ -1,0 +1,43 @@
+schema_version: v1alpha1
+profiles:
+  fast_extract:
+    purpose: 章节分类与结构化提取
+    route: primary_fast
+    timeout_seconds: 30
+    max_attempts: 2
+    max_input_tokens: 32000
+    max_output_tokens: 4000
+    temperature: 0
+    data_policy: confidential
+  reasoning_review:
+    purpose: 结合项目上下文的风险分析
+    route: primary_reasoning
+    timeout_seconds: 90
+    max_attempts: 2
+    max_input_tokens: 64000
+    max_output_tokens: 8000
+    temperature: 0
+    data_policy: confidential
+  evidence_check:
+    purpose: 证据与推理强度核验
+    route: primary_reasoning
+    timeout_seconds: 60
+    max_attempts: 2
+    max_input_tokens: 32000
+    max_output_tokens: 4000
+    temperature: 0
+    data_policy: confidential
+routes:
+  primary_fast:
+    providers:
+      - adapter: configured_provider_a
+        model: configured-fast-model
+      - adapter: configured_provider_b
+        model: configured-fallback-model
+  primary_reasoning:
+    providers:
+      - adapter: configured_provider_a
+        model: configured-reasoning-model
+      - adapter: configured_provider_b
+        model: configured-fallback-model
+

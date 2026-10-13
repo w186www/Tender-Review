@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/compliance-state.schema.json",
+  "title": "ComplianceReviewState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tenant_id", "project_id", "review_task_id", "run_id", "status", "document_refs", "findings", "errors"],
+  "properties": {
+    "schema_version": {"const": "v1alpha2"},
+    "tenant_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "project_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "review_task_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "status": {"type": "string", "enum": ["queued", "running", "waiting_human", "succeeded", "failed", "cancelled"]},
+    "project_context_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "review_snapshot_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "document_refs": {"type": "array", "items": {"type": "string", "maxLength": 2048}},
+    "section_index_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "parse_quality_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "review_plan_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "discovery_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "rule_findings_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "retrieval_results_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "model_findings_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "findings": {"type": "array", "items": {"$ref": "risk.schema.json"}},
+    "pending_review_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "maxLength": 128}},
+    "report_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "retryable"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1, "maxLength": 100},
+          "message": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "node": {"type": ["string", "null"], "maxLength": 100},
+          "retryable": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}
+

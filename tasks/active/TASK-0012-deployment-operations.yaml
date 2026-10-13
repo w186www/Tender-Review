@@ -1,0 +1,73 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0012",
+  "title": "部署、配置发布、配额和运维恢复",
+  "status": "planned",
+  "owner": "unassigned",
+  "depends_on": [
+    "TASK-0010"
+  ],
+  "related_requirements": [
+    "FR-013",
+    "NFR-001",
+    "NFR-002",
+    "NFR-003",
+    "NFR-004",
+    "NFR-006",
+    "NFR-011",
+    "SEC-008",
+    "SEC-012",
+    "SEC-013"
+  ],
+  "related_acceptance": [
+    "AC-007",
+    "AC-011"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "建立Compose、环境说明、部署镜像和配置发布审批",
+    "接入指标、追踪、限流、队列背压和成本预算",
+    "实现备份验证、回滚、安全扫描与依赖许可证门禁"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0012-001",
+      "description": "新环境可依文档启动，备份恢复和灰度回滚可演练",
+      "evidence": []
+    },
+    {
+      "id": "TASK0012-002",
+      "description": "规定性能环境下达标，超限返回明确状态，发布门禁不跳过",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+}

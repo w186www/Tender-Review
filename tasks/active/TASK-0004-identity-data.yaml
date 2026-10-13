@@ -1,0 +1,65 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0004",
+  "title": "身份、租户与核心数据迁移",
+  "status": "planned",
+  "owner": "unassigned",
+  "depends_on": [
+    "TASK-0002"
+  ],
+  "related_requirements": [
+    "FR-001",
+    "SEC-001",
+    "SEC-002",
+    "SEC-007"
+  ],
+  "related_acceptance": [
+    "AC-008"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "先定义用户、租户、角色、项目、文档和审查任务数据契约",
+    "实现数据库迁移、项目管理与服务端权限边界"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0004-001",
+      "description": "干净数据库可迁移；项目查询包含租户范围",
+      "evidence": []
+    },
+    {
+      "id": "TASK0004-002",
+      "description": "跨租户和角色越权用例被拒绝，日志无秘密",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+}

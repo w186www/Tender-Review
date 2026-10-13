@@ -1,0 +1,29 @@
+schema_version: v1alpha2
+task_id: TASK-0003
+title: 修正契约、编排依赖与工程验收机制
+status: completed
+owner: codex
+depends_on: [TASK-0001]
+related_requirements: [NFR-007, NFR-008, NFR-009, FR-006, FR-007, FR-009, FR-010]
+related_acceptance: [AC-004, AC-010, AC-012]
+read_first: [AGENTS.md, PROJECT_STATE.md, docs/index.md]
+allowed_paths: ["**"]
+must_not_change: ["docs/reference/*.docx", "knowledge/legal/**"]
+steps:
+  - 正式解析 YAML、校验 Schema 和 OpenAPI，检测缺失引用
+  - 修正响应契约并建立 State 生成检查
+  - 明确法规参与分析的数据依赖、复核状态和版本兼容性
+  - 建立局部验收证据、任务依赖和完整里程碑计划
+  - 统一本地与 CI 的测试、类型、代码和契约检查
+acceptance_checks:
+  - id: BASELINE-001
+    description: 损坏 YAML、错误 Schema、响应字段冲突和生成代码漂移被自动拦截
+    evidence: [tests/test_contract_validation.py, tests/test_repository_checks.py, docs/development/baseline-validation.md]
+  - id: BASELINE-002
+    description: 原文证据、法规判断、人工复核和模型响应边界通过契约测试
+    evidence: [contracts/examples/manifest.yaml, tests/test_model_response_boundaries.py, docs/development/baseline-validation.md]
+  - id: BASELINE-003
+    description: 空测试集失败，统一命令通过，任务证据和里程碑依赖可查询
+    evidence: [scripts/verify.ps1, docs/development/roadmap.yaml, docs/development/baseline-validation.md]
+verify: ["./scripts/verify.ps1"]
+handoff_notes: 2026-10-13统一验证通过，50项测试通过。仅交付M0修正，下一任务TASK-0002；业务API、适配器与生产验收仍待实现。

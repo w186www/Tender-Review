@@ -1,0 +1,42 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0000",
+  "title": "替换为一个可验收成果",
+  "status": "planned",
+  "owner": "unassigned",
+  "depends_on": [],
+  "related_requirements": [
+    "NFR-009"
+  ],
+  "related_acceptance": [],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "tasks/**",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md"
+  ],
+  "must_not_change": [
+    "docs/reference/*.docx",
+    "knowledge/legal/**"
+  ],
+  "steps": [
+    "定义实现与验收步骤"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0000-001",
+      "description": "写明任务局部通过条件，不把相关全局AC视为已完成",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "复制模板后替换ID、依赖、范围和检查项；完成时逐项填写可验证证据文件。"
+}

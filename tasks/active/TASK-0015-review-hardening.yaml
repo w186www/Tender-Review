@@ -1,0 +1,32 @@
+schema_version: v1alpha2
+task_id: TASK-0015
+title: 修正复查缺陷并建立远程CI实证
+status: in_progress
+owner: codex
+depends_on: [TASK-0002]
+related_requirements: [SEC-007, NFR-006, NFR-009, NFR-008]
+related_acceptance: [AC-011, AC-012]
+read_first: [AGENTS.md, PROJECT_STATE.md, docs/index.md, docs/development/TASK-0002-validation.md]
+allowed_paths: ["**"]
+must_not_change: ["knowledge/legal/**", "docs/reference/*.docx"]
+steps:
+  - 修复夹具位置依赖并纠正过期验收记录
+  - 建立不泄露敏感信息的独立异常诊断通道
+  - 定义错误码与模型数据策略的契约和回归用例
+  - 登记Word差异，补齐ADR与索引，修复扫描与显式依赖
+  - 各项完成后执行完整门禁，提交推送并确认远程CI
+acceptance_checks:
+  - id: REVIEW-001
+    description: 任务移动不影响负向测试，完整门禁按真实结果记录
+    evidence: []
+  - id: REVIEW-002
+    description: 诊断通道有异常类型与安全堆栈；响应与普通日志无敏感数据
+    evidence: []
+  - id: REVIEW-003
+    description: 错误码、数据策略、文档差异及治理检查有契约和测试
+    evidence: []
+  - id: REVIEW-004
+    description: Git提交已推送，远程CI有明确head SHA、状态与运行链接
+    evidence: []
+verify: ["./scripts/verify.ps1"]
+handoff_notes: 不放宽、删除或跳过检查；本地和远程验证必须分别记录。

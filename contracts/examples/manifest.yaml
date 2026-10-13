@@ -1,0 +1,558 @@
+{
+  "synthetic": true,
+  "notes": "所有条文、机构和样本均为合成数据，只验证契约，不验证法律结论。",
+  "fixtures": [
+    {
+      "id": "project-create-valid",
+      "schema": "contracts/openapi.yaml#/components/schemas/ProjectCreate",
+      "data": {
+        "name": "合成项目",
+        "procurement_type": "government",
+        "project_type": "works",
+        "region": "示例地区"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "project-response-valid",
+      "schema": "contracts/openapi.yaml#/components/schemas/Project",
+      "data": {
+        "name": "合成项目",
+        "procurement_type": "government",
+        "project_type": "works",
+        "region": "示例地区",
+        "project_id": "project-1",
+        "tenant_id": "tenant-1",
+        "version": 1,
+        "created_at": "2026-10-13T00:00:00Z"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "project-response-unknown-field",
+      "schema": "contracts/openapi.yaml#/components/schemas/Project",
+      "data": {
+        "name": "合成项目",
+        "procurement_type": "government",
+        "project_type": "works",
+        "region": "示例地区",
+        "project_id": "project-1",
+        "tenant_id": "tenant-1",
+        "version": 1,
+        "created_at": "2026-10-13T00:00:00Z",
+        "unexpected": "bad"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "project-create-response-fields",
+      "schema": "contracts/openapi.yaml#/components/schemas/ProjectCreate",
+      "data": {
+        "name": "合成项目",
+        "procurement_type": "government",
+        "project_type": "works",
+        "region": "示例地区",
+        "tenant_id": "forged"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "state-valid",
+      "schema": "contracts/schemas/compliance-state.schema.json",
+      "data": {
+        "schema_version": "v1alpha2",
+        "tenant_id": "tenant-1",
+        "project_id": "project-1",
+        "review_task_id": "review-1",
+        "run_id": "run-1",
+        "status": "queued",
+        "document_refs": [
+          "fixture://documents/sample"
+        ],
+        "findings": [],
+        "errors": [],
+        "project_context_ref": null,
+        "review_snapshot_ref": "fixture://snapshot/1",
+        "report_ref": null
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "state-old-version",
+      "schema": "contracts/schemas/compliance-state.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "tenant_id": "tenant-1",
+        "project_id": "project-1",
+        "review_task_id": "review-1",
+        "run_id": "run-1",
+        "status": "queued",
+        "document_refs": [],
+        "findings": [],
+        "errors": []
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "risk-candidate",
+      "schema": "contracts/schemas/risk.schema.json",
+      "data": {
+        "finding_id": "finding-1",
+        "category": "qualification",
+        "title": "合成候选问题",
+        "description": "仅供结构测试。",
+        "severity": "medium",
+        "evidence_status": "candidate",
+        "review_status": "pending",
+        "source_excerpt": {
+          "evidence_id": "source-1",
+          "kind": "document",
+          "title": "合成测试招标文件",
+          "quote": "合成测试资格条款。",
+          "source_uri": "fixture://documents/sample",
+          "source_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "version_status": "unverified",
+          "page": 10
+        },
+        "sources": [
+          "rule"
+        ],
+        "evidence": [],
+        "recommendation": "由审核员核验适用性。"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "risk-confirmed-with-evidence",
+      "schema": "contracts/schemas/risk.schema.json",
+      "data": {
+        "finding_id": "finding-1",
+        "category": "qualification",
+        "title": "合成候选问题",
+        "description": "仅供结构测试。",
+        "severity": "medium",
+        "evidence_status": "confirmed",
+        "review_status": "pending",
+        "source_excerpt": {
+          "evidence_id": "source-1",
+          "kind": "document",
+          "title": "合成测试招标文件",
+          "quote": "合成测试资格条款。",
+          "source_uri": "fixture://documents/sample",
+          "source_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "version_status": "unverified",
+          "page": 10
+        },
+        "sources": [
+          "rule"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "law-1",
+            "kind": "law",
+            "title": "合成测试依据（不作真实法规）",
+            "article": "测试条款1",
+            "quote": "仅用于结构校验的合成条文。",
+            "source_uri": "fixture://laws/synthetic",
+            "source_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+            "version_status": "verified_current"
+          }
+        ],
+        "recommendation": "由审核员核验适用性。"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "risk-confirmed-empty-evidence",
+      "schema": "contracts/schemas/risk.schema.json",
+      "data": {
+        "finding_id": "finding-1",
+        "category": "qualification",
+        "title": "合成候选问题",
+        "description": "仅供结构测试。",
+        "severity": "medium",
+        "evidence_status": "confirmed",
+        "review_status": "pending",
+        "source_excerpt": {
+          "evidence_id": "source-1",
+          "kind": "document",
+          "title": "合成测试招标文件",
+          "quote": "合成测试资格条款。",
+          "source_uri": "fixture://documents/sample",
+          "source_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "version_status": "unverified",
+          "page": 10
+        },
+        "sources": [
+          "rule"
+        ],
+        "evidence": [],
+        "recommendation": "由审核员核验适用性。"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "risk-human-accept-insufficient",
+      "schema": "contracts/schemas/risk.schema.json",
+      "data": {
+        "finding_id": "finding-1",
+        "category": "qualification",
+        "title": "合成候选问题",
+        "description": "仅供结构测试。",
+        "severity": "medium",
+        "evidence_status": "insufficient_evidence",
+        "review_status": "accepted",
+        "source_excerpt": {
+          "evidence_id": "source-1",
+          "kind": "document",
+          "title": "合成测试招标文件",
+          "quote": "合成测试资格条款。",
+          "source_uri": "fixture://documents/sample",
+          "source_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "version_status": "unverified",
+          "page": 10
+        },
+        "sources": [
+          "rule"
+        ],
+        "evidence": [],
+        "recommendation": "由审核员核验适用性。",
+        "human_review": {
+          "reviewer_id": "reviewer-1",
+          "decided_at": "2026-10-13T00:00:00Z",
+          "reason": "保留证据不足状态，人工要求补证。"
+        }
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "risk-human-decision-missing-audit",
+      "schema": "contracts/schemas/risk.schema.json",
+      "data": {
+        "finding_id": "finding-1",
+        "category": "qualification",
+        "title": "合成候选问题",
+        "description": "仅供结构测试。",
+        "severity": "medium",
+        "evidence_status": "candidate",
+        "review_status": "accepted",
+        "source_excerpt": {
+          "evidence_id": "source-1",
+          "kind": "document",
+          "title": "合成测试招标文件",
+          "quote": "合成测试资格条款。",
+          "source_uri": "fixture://documents/sample",
+          "source_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "version_status": "unverified",
+          "page": 10
+        },
+        "sources": [
+          "rule"
+        ],
+        "evidence": [],
+        "recommendation": "由审核员核验适用性。"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "risk-source-is-law",
+      "schema": "contracts/schemas/risk.schema.json",
+      "data": {
+        "finding_id": "finding-1",
+        "category": "qualification",
+        "title": "合成候选问题",
+        "description": "仅供结构测试。",
+        "severity": "medium",
+        "evidence_status": "candidate",
+        "review_status": "pending",
+        "source_excerpt": {
+          "evidence_id": "law-1",
+          "kind": "law",
+          "title": "合成测试依据（不作真实法规）",
+          "article": "测试条款1",
+          "quote": "仅用于结构校验的合成条文。",
+          "source_uri": "fixture://laws/synthetic",
+          "source_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "version_status": "verified_current"
+        },
+        "sources": [
+          "rule"
+        ],
+        "evidence": [],
+        "recommendation": "由审核员核验适用性。"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "model-response-valid",
+      "schema": "contracts/schemas/model-response.schema.json",
+      "data": {
+        "call_id": "call-1",
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "evidence_check",
+        "content": {
+          "ok": true
+        },
+        "usage": {
+          "input_tokens": 10,
+          "output_tokens": 3
+        },
+        "latency_ms": 20,
+        "response_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "model-response-bad-hash",
+      "schema": "contracts/schemas/model-response.schema.json",
+      "data": {
+        "call_id": "call-1",
+        "provider": "fixture",
+        "model": "fixture-model",
+        "profile": "evidence_check",
+        "content": {
+          "ok": true
+        },
+        "usage": {
+          "input_tokens": 10,
+          "output_tokens": 3
+        },
+        "latency_ms": 20,
+        "response_hash": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "evidence-valid",
+      "schema": "contracts/schemas/evidence.schema.json",
+      "data": {
+        "evidence_id": "source-1",
+        "kind": "document",
+        "title": "合成测试招标文件",
+        "quote": "合成测试资格条款。",
+        "source_uri": "fixture://documents/sample",
+        "source_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "version_status": "unverified",
+        "page": 10
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "event-valid",
+      "schema": "contracts/events/review-task-event.schema.json",
+      "data": {
+        "event_id": "event-1",
+        "event_type": "review.queued",
+        "schema_version": "v1alpha1",
+        "occurred_at": "2026-10-13T00:00:00Z",
+        "tenant_id": "tenant-1",
+        "project_id": "project-1",
+        "review_task_id": "review-1",
+        "run_id": "run-1",
+        "payload": {}
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "error-invalid_request",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "INVALID_REQUEST",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-unauthenticated",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "UNAUTHENTICATED",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-forbidden",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "FORBIDDEN",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-not_found",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "NOT_FOUND",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-method_not_allowed",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "METHOD_NOT_ALLOWED",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-conflict",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "CONFLICT",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-payload_too_large",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "PAYLOAD_TOO_LARGE",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-unsupported_media_type",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "UNSUPPORTED_MEDIA_TYPE",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-validation_error",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "VALIDATION_ERROR",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-rate_limited",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "RATE_LIMITED",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-internal_error",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "INTERNAL_ERROR",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-http_error",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": true,
+      "data": {
+        "code": "HTTP_ERROR",
+        "message": "合成测试错误",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "error-undeclared-code",
+      "schema": "contracts/openapi.yaml#/components/schemas/Error",
+      "expected_valid": false,
+      "data": {
+        "code": "UNDECLARED_CODE",
+        "message": "合成测试错误",
+        "request_id": "test-id"
+      }
+    },
+    {
+      "id": "policy-public",
+      "schema": "contracts/schemas/model-policy.schema.json",
+      "expected_valid": true,
+      "data": {
+        "profile": "review",
+        "timeout_seconds": 30,
+        "max_attempts": 2,
+        "max_input_tokens": null,
+        "max_output_tokens": null,
+        "temperature": 0,
+        "data_policy": "public"
+      }
+    },
+    {
+      "id": "policy-internal",
+      "schema": "contracts/schemas/model-policy.schema.json",
+      "expected_valid": true,
+      "data": {
+        "profile": "review",
+        "timeout_seconds": 30,
+        "max_attempts": 2,
+        "max_input_tokens": null,
+        "max_output_tokens": null,
+        "temperature": 0,
+        "data_policy": "internal"
+      }
+    },
+    {
+      "id": "policy-confidential",
+      "schema": "contracts/schemas/model-policy.schema.json",
+      "expected_valid": true,
+      "data": {
+        "profile": "review",
+        "timeout_seconds": 30,
+        "max_attempts": 2,
+        "max_input_tokens": null,
+        "max_output_tokens": null,
+        "temperature": 0,
+        "data_policy": "confidential"
+      }
+    },
+    {
+      "id": "policy-restricted",
+      "schema": "contracts/schemas/model-policy.schema.json",
+      "expected_valid": true,
+      "data": {
+        "profile": "review",
+        "timeout_seconds": 30,
+        "max_attempts": 2,
+        "max_input_tokens": null,
+        "max_output_tokens": null,
+        "temperature": 0,
+        "data_policy": "restricted"
+      }
+    },
+    {
+      "id": "policy-unlimited",
+      "schema": "contracts/schemas/model-policy.schema.json",
+      "expected_valid": false,
+      "data": {
+        "profile": "review",
+        "timeout_seconds": 30,
+        "max_attempts": 2,
+        "max_input_tokens": null,
+        "max_output_tokens": null,
+        "temperature": 0,
+        "data_policy": "unlimited"
+      }
+    }
+  ]
+}

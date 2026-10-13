@@ -1,0 +1,239 @@
+{
+  "schema_version": "v1alpha2",
+  "milestones": [
+    {
+      "id": "M0",
+      "name": "工程基线",
+      "status": "completed",
+      "depends_on": [],
+      "tasks": [
+        "TASK-0001",
+        "TASK-0003"
+      ],
+      "related_requirements": [
+        "NFR-007",
+        "NFR-008",
+        "NFR-009"
+      ],
+      "related_acceptance": [
+        "AC-012"
+      ],
+      "deliverables": [
+        "一致的契约、生成State、开发规则、任务证据与依赖图"
+      ],
+      "exit_checks": [
+        "统一验证通过，错误契约和空测试被拒绝"
+      ]
+    },
+    {
+      "id": "M1",
+      "name": "后端与安全文件接入",
+      "status": "in_progress",
+      "depends_on": [
+        "M0"
+      ],
+      "tasks": [
+        "TASK-0002",
+        "TASK-0015",
+        "TASK-0004",
+        "TASK-0005"
+      ],
+      "related_requirements": [
+        "FR-001",
+        "FR-002",
+        "FR-003",
+        "SEC-001",
+        "SEC-002",
+        "SEC-003",
+        "SEC-004",
+        "SEC-007",
+        "SEC-008",
+        "NFR-006"
+      ],
+      "related_acceptance": [
+        "AC-001",
+        "AC-002",
+        "AC-008"
+      ],
+      "deliverables": [
+        "可运行API、权限边界、数据库、原文定位与解析质量门禁"
+      ],
+      "exit_checks": [
+        "干净环境启动与迁移通过，越权和非法文件被拒绝"
+      ]
+    },
+    {
+      "id": "M2",
+      "name": "法规、规则与模型网关",
+      "status": "planned",
+      "depends_on": [
+        "M1"
+      ],
+      "tasks": [
+        "TASK-0006",
+        "TASK-0007",
+        "TASK-0008"
+      ],
+      "related_requirements": [
+        "FR-004",
+        "FR-005",
+        "FR-006",
+        "FR-007",
+        "FR-015",
+        "SEC-005",
+        "SEC-006",
+        "SEC-009",
+        "SEC-013",
+        "NFR-007",
+        "NFR-008",
+        "NFR-011"
+      ],
+      "related_acceptance": [
+        "AC-003",
+        "AC-004",
+        "AC-010"
+      ],
+      "deliverables": [
+        "有效法规快照、五类Skill、两个模型适配器"
+      ],
+      "exit_checks": [
+        "候选结果可追溯、检索过滤有效、适配器合规测试通过"
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "审查闭环与界面",
+      "status": "planned",
+      "depends_on": [
+        "M2"
+      ],
+      "tasks": [
+        "TASK-0009",
+        "TASK-0010",
+        "TASK-0011"
+      ],
+      "related_requirements": [
+        "FR-008",
+        "FR-009",
+        "FR-010",
+        "FR-011",
+        "FR-012",
+        "FR-014",
+        "SEC-010",
+        "SEC-011",
+        "SEC-014",
+        "NFR-005",
+        "NFR-010",
+        "NFR-012"
+      ],
+      "related_acceptance": [
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "AC-007"
+      ],
+      "deliverables": [
+        "完整LangGraph、人工复核、不可变结果、Word/PDF与前端"
+      ],
+      "exit_checks": [
+        "上传到报告端到端通过，复核与恢复行为有证据"
+      ]
+    },
+    {
+      "id": "M4",
+      "name": "部署与运维",
+      "status": "planned",
+      "depends_on": [
+        "M3"
+      ],
+      "tasks": [
+        "TASK-0012"
+      ],
+      "related_requirements": [
+        "FR-013",
+        "SEC-008",
+        "SEC-012",
+        "SEC-013",
+        "NFR-001",
+        "NFR-002",
+        "NFR-003",
+        "NFR-004",
+        "NFR-006",
+        "NFR-011"
+      ],
+      "related_acceptance": [
+        "AC-007",
+        "AC-011"
+      ],
+      "deliverables": [
+        "可部署制品、版本审批、配额、指标、备份与回滚"
+      ],
+      "exit_checks": [
+        "实际环境可恢复，发布扫描与供应链门禁执行"
+      ]
+    },
+    {
+      "id": "M5",
+      "name": "质量与安全验收",
+      "status": "planned",
+      "depends_on": [
+        "M4"
+      ],
+      "tasks": [
+        "TASK-0013"
+      ],
+      "related_requirements": [
+        "SEC-001",
+        "SEC-005",
+        "SEC-012",
+        "NFR-001",
+        "NFR-002",
+        "NFR-009"
+      ],
+      "related_acceptance": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "AC-007",
+        "AC-008",
+        "AC-009",
+        "AC-010",
+        "AC-011"
+      ],
+      "deliverables": [
+        "可复跑黄金集、性能与安全报告、缺陷清单"
+      ],
+      "exit_checks": [
+        "按固定评估条件达到阈值，无未接受高危缺陷"
+      ]
+    },
+    {
+      "id": "M6",
+      "name": "正式交付",
+      "status": "planned",
+      "depends_on": [
+        "M5"
+      ],
+      "tasks": [
+        "TASK-0014"
+      ],
+      "related_requirements": [
+        "NFR-008",
+        "NFR-012"
+      ],
+      "related_acceptance": [
+        "AC-012"
+      ],
+      "deliverables": [
+        "最终Word与仓库对齐、交付制品和独立接手记录"
+      ],
+      "exit_checks": [
+        "新开发者仅靠仓库即可启动并完成独立变更"
+      ]
+    }
+  ]
+}

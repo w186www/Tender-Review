@@ -1,0 +1,77 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0013",
+  "title": "黄金集、注入、越权和性能验收",
+  "status": "planned",
+  "owner": "unassigned",
+  "depends_on": [
+    "TASK-0011",
+    "TASK-0012"
+  ],
+  "related_requirements": [
+    "SEC-001",
+    "SEC-005",
+    "SEC-012",
+    "NFR-001",
+    "NFR-002",
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-001",
+    "AC-002",
+    "AC-003",
+    "AC-004",
+    "AC-007",
+    "AC-008",
+    "AC-009",
+    "AC-010",
+    "AC-011"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "扩充合成与获授权脱敏黄金集并由人工标注",
+    "固定评估环境和版本，生成质量、安全、性能与恢复结果",
+    "关闭阻断缺陷并记录未通过指标"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0013-001",
+      "description": "评估阈值、样本和统计口径可复跑，严重风险单列",
+      "evidence": []
+    },
+    {
+      "id": "TASK0013-002",
+      "description": "所有发布安全门禁实际执行，无未接受高危问题",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+}

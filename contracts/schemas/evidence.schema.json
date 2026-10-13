@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/evidence.schema.json",
+  "title": "EvidenceRef",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["evidence_id", "kind", "title", "quote", "source_uri", "source_hash", "version_status"],
+  "properties": {
+    "evidence_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "kind": {"type": "string", "enum": ["document", "law", "policy", "internal_rule"]},
+    "title": {"type": "string", "minLength": 1, "maxLength": 500},
+    "article": {"type": ["string", "null"], "maxLength": 200},
+    "quote": {"type": "string", "minLength": 1, "maxLength": 8000},
+    "source_uri": {"type": "string", "minLength": 1, "maxLength": 2048},
+    "source_hash": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+    "page": {"type": ["integer", "null"], "minimum": 1},
+    "locator": {"type": ["string", "null"], "maxLength": 500},
+    "effective_from": {"type": ["string", "null"], "format": "date"},
+    "effective_to": {"type": ["string", "null"], "format": "date"},
+    "version_status": {"type": "string", "enum": ["verified_current", "verified_historical", "unverified"]},
+    "jurisdiction": {"type": ["string", "null"], "maxLength": 200}
+  }
+}
+

@@ -1,0 +1,65 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0006",
+  "title": "法规版本摄取与适用范围检索",
+  "status": "planned",
+  "owner": "unassigned",
+  "depends_on": [
+    "TASK-0004"
+  ],
+  "related_requirements": [
+    "FR-006",
+    "NFR-008",
+    "SEC-009"
+  ],
+  "related_acceptance": [
+    "AC-002",
+    "AC-004"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "核验法规元数据，定义生效时间、地区和快照契约",
+    "建立摄取、条款切分、版本索引和混合检索"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0006-001",
+      "description": "无法核实版本的资料不作为确定结论依据",
+      "evidence": []
+    },
+    {
+      "id": "TASK0006-002",
+      "description": "按审查基准日、地区和采购类型返回原文、条号和来源",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+}

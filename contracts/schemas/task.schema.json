@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/task.schema.json",
+  "title": "DevelopmentTask",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "title", "status", "owner", "depends_on", "related_requirements", "related_acceptance", "read_first", "allowed_paths", "must_not_change", "steps", "acceptance_checks", "verify", "handoff_notes"],
+  "properties": {
+    "schema_version": {"const": "v1alpha2"},
+    "task_id": {"type": "string", "pattern": "^TASK-[0-9]{4}$"},
+    "title": {"type": "string", "minLength": 1},
+    "status": {"enum": ["planned", "in_progress", "blocked", "completed"]},
+    "owner": {"type": "string", "minLength": 1},
+    "depends_on": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^TASK-[0-9]{4}$"}},
+    "related_requirements": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^(FR|SEC|NFR)-[0-9]{3}$"}},
+    "related_acceptance": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^AC-[0-9]{3}$"}},
+    "read_first": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "allowed_paths": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "must_not_change": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "steps": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "acceptance_checks": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "description", "evidence"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[A-Z0-9]+-[0-9]{3}$"},
+          "description": {"type": "string", "minLength": 1},
+          "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "verify": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "handoff_notes": {"type": "string"}
+  },
+  "allOf": [{
+    "if": {"properties": {"status": {"const": "completed"}}, "required": ["status"]},
+    "then": {"properties": {"acceptance_checks": {"items": {"properties": {"evidence": {"minItems": 1}}}}}}
+  }]
+}

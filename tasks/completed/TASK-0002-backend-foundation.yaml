@@ -1,0 +1,70 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0002",
+  "title": "建立后端最小可运行底座",
+  "status": "completed",
+  "owner": "codex",
+  "depends_on": [
+    "TASK-0003"
+  ],
+  "related_requirements": [
+    "SEC-007",
+    "NFR-006",
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-011",
+    "AC-012"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/architecture/system.md",
+    "contracts/openapi.yaml",
+    "docs/development/roadmap.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "scripts/**",
+    "config/**",
+    "docs/development/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "docs/reference/**",
+    "knowledge/legal/**"
+  ],
+  "steps": [
+    "建立配置加载、FastAPI应用与/api/v1/health",
+    "实现request_id、统一错误、日志裁剪和本地启动说明"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0002-001",
+      "description": "健康检查可启动且响应满足OpenAPI的健康Schema",
+      "evidence": ["scripts/smoke_backend.py", "tests/test_backend_foundation.py", "docs/development/TASK-0002-validation.md"]
+    },
+    {
+      "id": "TASK0002-002",
+      "description": "请求关联ID进入错误与日志，敏感配置不被打印",
+      "evidence": ["tests/test_backend_foundation.py", "src/bidding_compliance/core/logging.py", "docs/development/TASK-0002-validation.md"]
+    },
+    {
+      "id": "TASK0002-003",
+      "description": "统一验证通过且README可复现启动步骤",
+      "evidence": ["scripts/verify.ps1", "scripts/start.ps1", "README.md", "docs/development/backend-start.md", "docs/development/TASK-0002-validation.md"]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "2026-10-13完整验证通过，71项测试通过，真实启动HTTP健康200/未知路径404。临时服务已清理，日常用scripts/start.ps1启动。下一任务TASK-0004；M1尚未整体完成。"
+}
