@@ -23,7 +23,7 @@
 
 ## 正在进行
 
-- TASK-0006（法规版本摄取与适用范围检索）：discovery阶段由另一软件DeepSeek V4.1 Flash领取并完成资料盘点与设计草案，分支work/TASK-0006，方案提交4e908713323805bf0a73345f2bfd352d51039ea3（docs/development/TASK-0006-design.md）；正式TASK已置in_progress、owner=deepseek。派工单阶段为design_review：等待指定设计审查者GPT-6.1 Sol在tasks/reviews/TASK-0006.md记录绑定该SHA的design结论。实施前必须存在设计审查通过记录；本阶段写入已停止，无人在写该任务。
+- TASK-0006（法规版本摄取与适用范围检索）：discovery阶段由另一软件DeepSeek V4.1 Flash领取并完成资料盘点与设计草案，分支work/TASK-0006已推送origin（主记录见tasks/handoffs/TASK-0006.md），方案提交4e908713323805bf0a73345f2bfd352d51039ea3（docs/development/TASK-0006-design.md）；正式TASK已置in_progress、owner=deepseek。派工单阶段为design_review：等待指定设计审查者GPT-6.1 Sol在tasks/reviews/TASK-0006.md记录绑定该SHA的design结论。实施前必须存在设计审查通过记录；本阶段写入已停止，无人在写该任务。
 - 当前42份法规资料均未做官方核验，设计草案按此把全部版本标为unverified：在完成核验前，检索证据只能支撑“疑似/证据不足”，不能支撑确定性结论（与TASK0006-001一致）。
 
 ## 下一步
