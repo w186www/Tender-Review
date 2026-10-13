@@ -2,8 +2,8 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0006",
   "title": "法规版本摄取与适用范围检索",
-  "status": "planned",
-  "owner": "unassigned",
+  "status": "in_progress",
+  "owner": "deepseek",
   "depends_on": [
     "TASK-0004"
   ],
@@ -63,5 +63,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "第一阶段仅按tasks/dispatch/TASK-0006.md进行资料盘点与设计草案；默认DeepSeek实施、GPT-6.1 Sol设计/最终审查，尚未领取。设计审定后才进入代码实施。related_acceptance不自动视为已完成。"
+  "handoff_notes": "2026-10-14由DeepSeek V4.1 Flash（另一软件）按tasks/dispatch/TASK-0006.md领取discovery阶段：分支work/TASK-0006，base SHA bd2da2da984b6d1c34f3cfdb7da69e21661523be。本阶段只交付docs/development/TASK-0006-design.md与tasks/handoffs/TASK-0006.md两份草案记录，无业务代码、无正式契约修改。默认DeepSeek实施、GPT-6.1 Sol设计/最终审查；设计审定通过前不进入代码实施。related_acceptance不自动视为已完成。"
 }
