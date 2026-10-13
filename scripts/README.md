@@ -1,5 +1,8 @@
 # 统一工程入口
 
+- `verify.ps1`：默认Full；普通文档用`-Mode Quick`，编码过程用`-Mode Focused -TestPaths`明确相关测试文件。完整代码验收与专项检查保留，见docs/development/development-workflow.md。
+- `verification_impact.py`：CI选档，仅白名单普通文档/任务元数据Quick；代码/安全/未知影响或缺对比历史Full。
+
 `verify.ps1` 是所有开发者、AI 模型和 CI 的开发基线入口，自动优先使用项目.venv。安装方式见README。
 
 当前实际执行：

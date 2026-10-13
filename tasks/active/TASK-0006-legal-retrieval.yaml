@@ -27,9 +27,9 @@
     "contracts/schemas/legal-index.schema.json",
     "contracts/schemas/legal-query.schema.json",
     "contracts/schemas/legal-result.schema.json",
-    "docs/decisions/ADR-0009-cross-tool-development.md",
-    "tasks/dispatch/TASK-0006.md",
-    "tasks/reviews/TASK-0006.md"
+    "tasks/reviews/TASK-0006.md",
+    "docs/development/development-workflow.md",
+    "docs/decisions/ADR-0011-development-and-validation.md"
   ],
   "allowed_paths": [
     "src/**",
@@ -80,5 +80,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "2026-10-14撤销实施者自行归档；按用户指令迁移至work/TASK-0006，恢复独立设计及代码审查关卡。历史215项自测不代表审查通过。"
+  "handoff_notes": "用户2026-10-14恢复单Codex实施，取消默认跨软件/独立代理审批；现有检索代码保留，D01–D07等实际问题仍需处理。任务继续in_progress，不能仅因取消角色关卡宣告已验收。过程Focused，最终代码候选Full，纯归档记录Quick并绑定原证据。"
 }

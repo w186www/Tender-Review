@@ -20,7 +20,7 @@
 | 接口与数据 | `../contracts/` | 编码前，且与实现同步 |
 | 身份与数据库启动 | `development/identity-data-start.md` | 认证、权限、迁移、引导与数据库部署变化时 |
 | 安全文件接入启动 | `development/secure-ingestion-start.md` | 上传、扫描、解析、OCR、存储和人工确认变化时 |
-| 模型派工与独立审查 | `development/multi-model-workflow.md`、`../tasks/dispatch/`、`../tasks/handoffs/`、`../tasks/reviews/` | 候选版本、写入权、审查结论变化时 |
+| 单Codex开发与验证 | `development/development-workflow.md`、`development/testing-standard.md` | 实施、验证档位与验收规则变化时 |
 | 法规摄取与检索 | `development/legal-retrieval-start.md` | 来源核验、有效区间、范围、快照和检索算法变化时 |
 
 ## 需求追踪规则

@@ -1,0 +1,16 @@
+{
+  "schema_version":"v1alpha2", "task_id":"TASK-0017",
+  "title":"恢复单Codex实施并落实分层测试与CI门禁", "status":"in_progress", "owner":"Codex",
+  "depends_on":["TASK-0005","TASK-0016"],
+  "related_requirements":["NFR-009"], "related_acceptance":["AC-011","AC-012"],
+  "read_first":["AGENTS.md","PROJECT_STATE.md","docs/index.md","docs/development/testing-standard.md","docs/decisions/ADR-0011-development-and-validation.md"],
+  "allowed_paths":["AGENTS.md","CONTRIBUTING.md","README.md","PROJECT_STATE.md","CHANGELOG.md","docs/**","tasks/**","scripts/verify.ps1","scripts/verification_impact.py","tests/test_verification_modes.py",".github/workflows/verify.yml"],
+  "must_not_change":["src/**","knowledge/legal/**","contracts/**","docs/reference/*.docx"],
+  "steps":["撤销默认双模型/代理关卡并保留业务成果和问题","实现Quick/Focused/Full及失败关闭的CI选档","验证档位边界和完整候选，再按Quick归档记录"],
+  "acceptance_checks":[
+    {"id":"TASK0017-001","description":"默认单Codex直接实施和自检，原问题不被自动关闭","evidence":[]},
+    {"id":"TASK0017-002","description":"完整检查保留，过程选档和CI不能把部分测试误称完整通过","evidence":[]}
+  ],
+  "verify":["./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_verification_modes.py","./scripts/verify.ps1"],
+  "handoff_notes":"仅改变工程工作方式和检查时机；TASK-0006继续in_progress，不回滚或擅自验收检索代码。"
+}

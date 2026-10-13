@@ -3,13 +3,52 @@ name: verify
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'work/**']
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  impact:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.select.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Select fail-closed verification scope
+        id: select
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: python scripts/verification_impact.py --event "$GITHUB_EVENT_PATH" --event-name "$EVENT_NAME"
+  quick:
+    needs: impact
+    if: needs.impact.outputs.mode == 'quick'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.lock
+      - name: Install locked environment
+        run: |
+          python -m pip install -r requirements-dev.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+          python -m pip check
+      - name: Repository, contract and secret checks for documentation only
+        shell: pwsh
+        run: ./scripts/verify.ps1 -Mode Quick
   ingestion:
+    needs: impact
+    if: needs.impact.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -44,6 +83,8 @@ jobs:
           if-no-files-found: warn
           include-hidden-files: true
   postgres:
+    needs: impact
+    if: needs.impact.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -74,6 +115,8 @@ jobs:
           POSTGRES_VERIFY_URL: postgresql+psycopg://postgres:${{ github.run_id }}@localhost:5432/task0004_verification
         run: python scripts/check_postgres.py
   baseline:
+    needs: impact
+    if: needs.impact.outputs.mode == 'full'
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
@@ -102,4 +145,26 @@ jobs:
           name: baseline-test-results
           path: .verification/pytest-result.xml
           if-no-files-found: warn
+
+  verify-required:
+    needs: [impact, quick, baseline, postgres, ingestion]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every applicable verification job to succeed
+        env:
+          IMPACT: ${{ needs.impact.result }}
+          MODE: ${{ needs.impact.outputs.mode }}
+          QUICK: ${{ needs.quick.result }}
+          BASELINE: ${{ needs.baseline.result }}
+          POSTGRES: ${{ needs.postgres.result }}
+          INGESTION: ${{ needs.ingestion.result }}
+        run: |
+          set -eu
+          test "$IMPACT" = success
+          case "$MODE" in
+            quick) test "$QUICK" = success ;;
+            full) test "$BASELINE" = success && test "$POSTGRES" = success && test "$INGESTION" = success ;;
+            *) echo "Unknown verification scope"; exit 1 ;;
+          esac
 

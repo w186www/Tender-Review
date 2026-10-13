@@ -8,7 +8,7 @@
 
 ## 新开发者或 AI 的入口
 
-两个软件协作开发时，先读[模型分工与仓库派工](docs/development/multi-model-workflow.md)。当前可交给DeepSeek的是[TASK-0006第一阶段](tasks/dispatch/TASK-0006.md)，可复制[启动提示词](docs/development/prompts/deepseek-task-0006.md)；设计审定后再进入业务代码实现。
+默认使用单Codex按正式TASK直接实施、自检与收尾，见[开发与验证规则](docs/development/development-workflow.md)和[接手提示词](docs/development/prompts/codex-task.md)。默认跨软件和独立代理关卡已撤销，既有代码及问题记录保留。
 
 1. 阅读 [AGENTS.md](AGENTS.md)。
 2. 阅读 [PROJECT_STATE.md](PROJECT_STATE.md)。
@@ -22,7 +22,7 @@ python -m venv .venv
 ./.venv/Scripts/python.exe -m pip install --no-deps --no-build-isolation -e .
 ```
 
-6. 提交前运行（自动优先使用项目虚拟环境）：
+6. 最终代码候选运行（默认Full；过程文档用-Mode Quick，模块改动用-Mode Focused -TestPaths相关测试文件）：
 
 ```powershell
 ./scripts/verify.ps1

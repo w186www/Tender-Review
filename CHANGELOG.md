@@ -6,6 +6,8 @@
 
 ### Added
 
+- TASK-0017：verify.ps1增加Quick/Focused并保留默认Full；显式测试路径防越界、独立局部JUnit、失败关闭的CI选档及verify-required汇总门禁。
+
 - TASK-0006纠正：在效版本状态按基准日比较；注册地区映射、context_incomplete与excluded原因；新增202610141200检索运行快照/基准日来源/哈希、读取重新鉴权、RLS和追加写触发器，Query/Result v1alpha2。
 
 - TASK-0006：法规来源/文本哈希、有效区间、核验截止日及范围契约；不可变索引、精确条款定位、BM25与字符向量混合检索，服务端身份/项目范围检查。
@@ -30,6 +32,8 @@
 - Uvicorn启动入口、PowerShell启动脚本、后端接口测试和真实HTTP启动检查。
 
 ### Changed
+
+- 用户要求恢复单Codex直接实施/自检/收尾，ADR-0011替代默认跨软件/独立代理审批；既有TASK-0006代码和问题保留。纯记录/归档改动Quick，代码候选Full，取消相同源码反复全测。
 
 - TASK-0006实施者自行归档已撤销；迁移work/TASK-0006并恢复ADR-0009独立审查关卡，正式任务in_progress。
 
