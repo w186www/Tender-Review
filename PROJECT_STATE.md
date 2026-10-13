@@ -2,7 +2,7 @@
 
 更新时间：2026-10-13  
 架构基线：Word V2.0 + ADR-0001 至 ADR-0008 / 开发契约v1alpha2
-当前里程碑：M1后端与文件接入（TASK-0002/0004已完成，0005进行中）
+当前里程碑：M1基础退出检查已通过；M2法规、规则与模型网关准备开始
 
 ## 已完成
 
@@ -18,21 +18,23 @@
 - TASK-0015：夹具位置、独立诊断、错误码契约、模型数据策略、秘密扫描与文档冲突修复；首次Git提交已推送、CI已成功。
 
 - TASK-0004：显式数据库迁移、可撤销JWT身份、租户/RBAC、版本化项目与事务幂等；PostgreSQL真实CI通过。
+- TASK-0005：安全文件上传、持久作业、ClamAV强制扫描、受限Docker解析、PDF/DOCX/扫描件定位、人工质量/上下文版本、鉴权下载；真实容器与远程三作业CI通过。
 
 ## 正在进行
 
-- TASK-0005收尾：安全上传、持久作业、隔离解析、OCR与可定位片段、人工上下文/质量修正已实现；完整门禁和远程三作业CI复验后归档。
+- 无代码任务进行中；TASK-0005已归档到tasks/completed。M1基础验收通过不代表完整业务审查或生产安全总体验收。
 
 ## 下一步
 
-1. 执行TASK-0005：安全文件接入、解析、原文定位和上下文确认。
-2. 基于TASK-0004的Principal与租户复合键接入文件/任务，不从请求或模型取授权。
-3. 按依赖建立法规检索、规则Skill和两个模型适配器。
+1. 执行TASK-0006：核验法规元数据，定义有效时间/地区/采购范围/来源快照，完成条款摄取与混合检索。
+2. 无法核实效力版本的资料只能作为待核实参考，不作为确定结论依据；不修改knowledge/legal原始资料。
+3. 按依赖继续TASK-0007规则Skill与TASK-0008两个模型适配器。
 4. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
 
-- TASK-0005本地：完整verify.ps1通过，186项、0失败/0跳过，Mypy41源文件；真实解析隔离、官方源码MinIO/ClamAV/OCR/扫描PDF/HTTP及PostgreSQL增量迁移/RLS均通过。源码eafecccc40e45447cda92b2315a9a9c475c7230b的远程运行38423430948三作业成功（185项历史版本）；最后并发修复的186项版本待推送复验，详见docs/development/TASK-0005-validation.md。
+- TASK-0005本地：完整verify.ps1通过，186项、0失败/0跳过，Mypy41源文件；真实解析隔离、官方源码MinIO/ClamAV/OCR/扫描PDF/HTTP及PostgreSQL增量迁移/RLS均通过。
+- TASK-0005最终源码远程实证：4d6fca6b16fbae66aed82041e08097162a444468，https://github.com/w186www/Tender-Review/actions/runs/38424742422 的baseline/postgres/ingestion均completed/success；已下载JUnit核验186项、0失败/0错误/0跳过。详细范围见docs/development/TASK-0005-validation.md。本次归档证据提交另触发相同CI，链接绑定明确源码版本，不将该SHA冒充后续HEAD。
 
 - TASK-0004本地最新：完整verify.ps1通过，152项测试、0失败/0跳过，Mypy检查27个源文件；真实HTTP身份与项目流程通过。
 - TASK-0004最终代码远程实证：提交5dca2e341b97ce08d830a91936ca4d3d0f511aaa，https://github.com/w186www/Tender-Review/actions/runs/38393126223 的baseline与postgres均completed/success。已下载远程JUnit核验152 tests、0 failures、0 errors、0 skipped。链接对应明确的代码SHA；本证据文档提交自身另触发CI，不将代码SHA冒充后续HEAD。
@@ -47,7 +49,7 @@
 
 - 后端数据库/身份权限、项目读写、安全文件接入和独立单作业Worker已实现；持续队列调度、LangGraph业务审查、报告和前端尚未实现。
 - Word内嵌图片需人工转录；DOCX外部关系含超链接严格拒绝；中文复杂版面质量仍需黄金集验收。详见secure-ingestion-start.md。
-- 本机Docker Linux Engine已可用（29.2.1）；临时PostgreSQL16本机迁移/权限/RLS/并发/回滚检查通过，容器已清理。用户安装的PowerShell7.6.6运行完整门禁，152项全通过。
+- 本机Docker Linux Engine已可用（29.2.1）；临时PostgreSQL16本机迁移/权限/RLS/并发/回滚与真实S3/扫描/OCR检查通过，仅测试服务已清理。用户安装的PowerShell7.6.6运行最新完整门禁，186项全通过。
 - Windows受限沙箱会阻断asyncio内部回环连接；完整验收须允许本机回环网络，不能跳过测试。
 - 系统默认Python存在打包路径/ensurepip问题。已使用独立Python 3.12.14环境，统一脚本优先使用.venv；新环境按README创建，测试临时目录限定在项目内。
 - 法规索引中有若干“未核实版本”；进入生产知识库前必须人工核验效力状态与发布日期。

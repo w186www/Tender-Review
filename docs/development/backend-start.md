@@ -36,7 +36,10 @@ APP_BASE_URL和OBJECT_STORAGE_ENDPOINT为公开基础地址，不允许账号、
 | APP_PORT | 1至65535 | 8000 |
 | APP_BASE_URL | 外部访问地址，当前只作为配置 | http://localhost:8000 |
 | DATABASE_URL、REDIS_URL | 后续服务连接配置，按秘密处理 | 未设置 |
-| OBJECT_STORAGE_ENDPOINT/BUCKET | 后续存储配置 | 未设置/bidding-compliance |
+| OBJECT_STORAGE_ENDPOINT/BUCKET | S3存储配置，见secure-ingestion-start.md | 未设置/bidding-compliance |
+| OBJECT_STORAGE_MODE/ROOT | 本地开发对象存储，生产使用s3 | local/data/runtime/objects |
+| OBJECT_STORAGE_ACCESS_ID/ACCESS_SECRET | S3秘密配置，不记录值 | 未设置 |
+| PARSER_IMAGE、CLAMD_HOST/PORT | Worker固定镜像ID与扫描端点 | 未设置/未设置/3310 |
 | MODEL_PROFILE | 后续模型路由profile | local-development |
 
 ## 接口和错误

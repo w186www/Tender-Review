@@ -10,7 +10,7 @@
 - `scripts/check_ingestion_containers.py` 实际通过：真实 MinIO/S3、ClamAV 新鲜病毒库、合成 EICAR 检出、PDF/DOCX/PNG 上传、真实隔离解析和 Tesseract OCR、202/持久作业、人工上下文确认、鉴权下载字节一致、跨租户404、主动内容PDF拒绝、日志无运行时秘密。测试后仅自己的服务和容器已清理。
 - `scripts/check_postgres.py` 在独立临时 PostgreSQL16 实际通过：增量升级/重复升级/ORM一致、受限角色API上传、作业RLS隔离、租户复合FK、并发幂等/版本更新、追加触发器、上下文清除、超级用户运行拒绝、空库降级再升级。测试容器已清理。
 - 修复后完整 verify.ps1 通过：186项测试、0失败/0错误/0跳过，Mypy检查41个源文件，Ruff/契约/State漂移检查通过；真实HTTP健康200/404和请求编号、登录/项目版本/登出撤销均通过。一个pypdf 6.x合成主动内容测试使用弃用API的警告，不是失败或跳过，依赖已锁定在7以下。
-- 首轮源码d137acf0fe37e24e407c5715cf1b2c48e9f191f6，CI运行38421983074的S3验证镜像拉取失败（minio/minio公共镜像不可获取），未通过。已改为固定官方源码归档与Go镜像摘要构建真实MinIO，保留许可证，不跳过真实S3检查。修正后的远程CI待推送独立核验。
+- 首轮源码d137acf0fe37e24e407c5715cf1b2c48e9f191f6，CI运行38421983074的S3验证镜像拉取失败（minio/minio公共镜像不可获取），未通过。已改为固定官方源码归档与Go镜像摘要构建真实MinIO，保留许可证，不跳过真实S3检查；最终成功实证见下文。
 - 补充真实扫描PDF：PDFium渲染与Tesseract识别成功，保留原始页1与PDF点坐标；文字PDF、DOCX、PNG及扫描PDF均完成HTTP→S3→扫描→解析→人工确认→下载一致流程。
 
 新增租约测试曾发现 SQLite 时间类型导致 ORM 在 Python 中比较时区不同的时间而报错。已改由数据库执行租约条件、fetch 同步 ORM；保留重复领取/接管后旧 Worker 不得发布的回归测试，最终门禁复验。
@@ -19,7 +19,11 @@
 
 Word图片质量占位同时覆盖正文、页眉页脚和脚注/尾注，页脚图片不因正文已有足量文字而被遗漏；扩展既有回归样本后完整186项门禁再次通过。
 
-源码eafecccc40e45447cda92b2315a9a9c475c7230b的CI运行 https://github.com/w186www/Tender-Review/actions/runs/38423430948 三个作业均completed/success（当时185项）；包括官方源码MinIO、扫描PDF与真实隔离探针。最后并发修复的186项版本另行推送验收，不将该历史SHA冒充新HEAD。
+最终源码4d6fca6b16fbae66aed82041e08097162a444468，CI运行 https://github.com/w186www/Tender-Review/actions/runs/38424742422 的baseline、postgres、ingestion三个作业均completed/success。已下载baseline-test-results远程JUnit制品核验：186 tests、0 failures、0 errors、0 skipped。真实隔离探针、官方源码MinIO、ClamAV、Tesseract、扫描PDF和HTTP文件闭环全部通过；未由单元替身或本地成功推断远程结果。
+
+任务归档和本证据更新为后续文档提交，会独立触发相同CI；上述链接绑定明确源码SHA，不冒充后续HEAD。历史修正源码eafecccc40e45447cda92b2315a9a9c475c7230b的运行38423430948三作业也成功（185项），最终验收以4d6fca6及186项制品为准。
+
+任务移入completed、填写全部局部证据、更新PROJECT_STATE与M1基础阶段状态后，再次执行完整verify.ps1：186项、0失败/0错误/0跳过，41源文件类型检查、契约/静态检查和两个实际HTTP检查均通过；独立环境pip check无损坏依赖。
 
 ## 局部验收证据
 

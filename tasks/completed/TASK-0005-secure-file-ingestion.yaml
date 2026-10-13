@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0005",
   "title": "文件安全接入、解析与上下文确认",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "codex",
   "depends_on": [
     "TASK-0004"
@@ -57,16 +57,27 @@
     {
       "id": "TASK0005-001",
       "description": "非法格式、超限和恶意文件被拒绝，解析在受控环境执行",
-      "evidence": []
+      "evidence": [
+        "docs/development/TASK-0005-validation.md",
+        "tests/test_ingestion.py",
+        "scripts/check_parser_sandbox.py",
+        "scripts/check_ingestion_containers.py",
+        "docs/decisions/ADR-0008-secure-ingestion.md"
+      ]
     },
     {
       "id": "TASK0005-002",
       "description": "样本保留页码或稳定定位，低质量文件不能静默继续",
-      "evidence": []
+      "evidence": [
+        "docs/development/TASK-0005-validation.md",
+        "tests/test_ingestion.py",
+        "scripts/check_ingestion_containers.py",
+        "contracts/schemas/parsed-document.schema.json"
+      ]
     }
   ],
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。 按ADR-0008增加受控解析镜像、独立锁文件及真实容器CI，未缩减验收范围。"
+  "handoff_notes": "局部验收已完成，186项完整门禁和三个真实CI作业通过；启动见secure-ingestion-start.md。持续调度、完整LangGraph审查、复杂中文黄金集和生产安全总体验收按后续任务交付，不能从TASK-0005完成推断全局AC完成。"
 }

@@ -28,7 +28,7 @@
     {
       "id": "M1",
       "name": "后端与安全文件接入",
-      "status": "in_progress",
+      "status": "completed",
       "depends_on": [
         "M0"
       ],
