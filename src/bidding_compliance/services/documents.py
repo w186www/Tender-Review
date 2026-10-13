@@ -364,6 +364,7 @@ def correct_text(
             Document.tenant_id == principal.tenant_id,
             Document.document_id == document_id,
             Document.parse_version == decision.expected_parse_version,
+            Document.context_version == document.context_version,
             Document.status.in_(["needs_review", "needs_confirmation", "ready"]),
         )
         .values(

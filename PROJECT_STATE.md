@@ -32,7 +32,7 @@
 
 ## 最近验证
 
-- TASK-0005本地：完整verify.ps1通过，185项、0失败/0跳过，Mypy41源文件；真实解析隔离、MinIO/ClamAV/OCR/HTTP及PostgreSQL增量迁移/RLS均通过。远程三作业CI待推送核验；详细范围见docs/development/TASK-0005-validation.md。
+- TASK-0005本地：完整verify.ps1通过，186项、0失败/0跳过，Mypy41源文件；真实解析隔离、官方源码MinIO/ClamAV/OCR/扫描PDF/HTTP及PostgreSQL增量迁移/RLS均通过。源码eafecccc40e45447cda92b2315a9a9c475c7230b的远程运行38423430948三作业成功（185项历史版本）；最后并发修复的186项版本待推送复验，详见docs/development/TASK-0005-validation.md。
 
 - TASK-0004本地最新：完整verify.ps1通过，152项测试、0失败/0跳过，Mypy检查27个源文件；真实HTTP身份与项目流程通过。
 - TASK-0004最终代码远程实证：提交5dca2e341b97ce08d830a91936ca4d3d0f511aaa，https://github.com/w186www/Tender-Review/actions/runs/38393126223 的baseline与postgres均completed/success。已下载远程JUnit核验152 tests、0 failures、0 errors、0 skipped。链接对应明确的代码SHA；本证据文档提交自身另触发CI，不将代码SHA冒充后续HEAD。

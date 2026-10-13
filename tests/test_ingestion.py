@@ -480,6 +480,54 @@ def test_submitter_revoked_during_parse_cannot_publish(system):
         assert list(db.scalars(select(DocumentSection))) == []
 
 
+def test_text_correction_racing_context_confirmation_returns_conflict(system, monkeypatch):
+    from bidding_compliance.services import documents
+
+    client, _, _, _ = system
+    project, uploaded = upload(system)
+    document = uploaded.json()["document_id"]
+    assert process(system, document).status == "needs_confirmation"
+    headers = sign_in(system)
+    path = f"/api/v1/projects/{project}/documents/{document}"
+    items = client.get(path + "/sections", headers=headers).json()["items"]
+    original_quality = documents.quality
+
+    def confirm_during_correction(fragments, policy):
+        confirmation = client.post(
+            path + "/context",
+            headers=headers,
+            json={
+                "expected_version": 1,
+                "reason": "Synthetic concurrent confirmation",
+                "context": dict(
+                    name="synthetic",
+                    procurement_type="government",
+                    project_type="works",
+                    region="synthetic",
+                ),
+            },
+        )
+        assert confirmation.status_code == 200
+        return original_quality(fragments, policy)
+
+    monkeypatch.setattr(documents, "quality", confirm_during_correction)
+    correction = client.post(
+        path + "/corrections",
+        headers=headers,
+        json={
+            "expected_parse_version": 1,
+            "reason": "Synthetic concurrent transcription",
+            "corrections": [
+                {"section_id": items[0]["section_id"], "text": "Verified source text."}
+            ],
+        },
+    )
+    assert correction.status_code == 409, correction.text
+    current = client.get(path, headers=headers).json()
+    assert current["context_version"] == 2 and current["parse_version"] == 1
+    assert client.get(path + "/context", headers=headers).json()["confirmed"]
+
+
 def test_parser_response_exclusivity_and_table_indices_are_contract_constraints():
     from jsonschema import ValidationError
 
