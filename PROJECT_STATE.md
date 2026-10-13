@@ -33,7 +33,7 @@
 ## 最近验证
 
 - TASK-0004本地最新：完整verify.ps1通过，152项测试、0失败/0跳过，Mypy检查27个源文件；真实HTTP身份与项目流程通过。
-- TASK-0004远程实证：提交5e31bea9c21e8ae58f0999ac892cf7e46e4877c8，https://github.com/w186www/Tender-Review/actions/runs/38392061114 的baseline与postgres均completed/success。该次baseline为145项；最终复核后本地152项。此链接是明确的历史源代码SHA，后续提交需另核验自己的CI。
+- TASK-0004最终代码远程实证：提交5dca2e341b97ce08d830a91936ca4d3d0f511aaa，https://github.com/w186www/Tender-Review/actions/runs/38393126223 的baseline与postgres均completed/success。已下载远程JUnit核验152 tests、0 failures、0 errors、0 skipped。链接对应明确的代码SHA；本证据文档提交自身另触发CI，不将代码SHA冒充后续HEAD。
 
 - TASK-0015历史结果：按项修复后完整verify.ps1通过，121项测试、0失败；当时Mypy检查18个应用源文件，真实HTTP检查通过。分项记录见docs/development/TASK-0015-validation.md。
 - 健康200、未知路径404、请求编号一致；临时服务已停止。默认启动方式：./scripts/start.ps1。
