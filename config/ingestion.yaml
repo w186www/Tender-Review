@@ -1,0 +1,17 @@
+{
+  "max_upload_bytes": 10485760,
+  "max_pages": 300,
+  "max_ocr_pages": 30,
+  "max_image_pixels": 20000000,
+  "max_zip_entries": 2000,
+  "max_uncompressed_bytes": 104857600,
+  "max_compression_ratio": 100,
+  "max_fragments": 10000,
+  "max_text_chars": 2000000,
+  "min_text_chars": 20,
+  "min_ocr_confidence": 0.65,
+  "parser_timeout_seconds": 60,
+  "parser_output_bytes": 8388608,
+  "job_lease_seconds": 180,
+  "max_attempts": 3
+}

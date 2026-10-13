@@ -19,6 +19,7 @@
 | 里程碑与依赖 | `development/roadmap.yaml`、`development/roadmap.md` | 任务或验收阶段改变时 |
 | 接口与数据 | `../contracts/` | 编码前，且与实现同步 |
 | 身份与数据库启动 | `development/identity-data-start.md` | 认证、权限、迁移、引导与数据库部署变化时 |
+| 安全文件接入启动 | `development/secure-ingestion-start.md` | 上传、扫描、解析、OCR、存储和人工确认变化时 |
 
 ## 需求追踪规则
 

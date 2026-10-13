@@ -34,6 +34,13 @@ def set_tenant(session: Session, tenant_id: str) -> None:
         )
 
 
+def require_runtime_role(session: Session) -> None:
+    if session.get_bind().dialect.name == "postgresql" and session.scalar(
+        text("SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user")
+    ):
+        raise PermissionError("privileged database roles cannot run application operations")
+
+
 def migrate(engine: Engine, revision: str = "head") -> None:
     root = Path(__file__).resolve().parents[3]
     config = Config()

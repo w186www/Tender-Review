@@ -1,5 +1,6 @@
 """Validated configuration; secret values never appear in its representation."""
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
@@ -43,8 +44,32 @@ class Settings(BaseSettings):
     )
     auth_issuer: str = Field(default="bidding-compliance", validation_alias="AUTH_ISSUER")
     auth_audience: str = Field(default="bidding-api", validation_alias="AUTH_AUDIENCE")
-    auth_ttl_seconds: int = Field(
-        default=900, ge=60, le=3600, validation_alias="AUTH_TTL_SECONDS"
+    auth_ttl_seconds: int = Field(default=900, ge=60, le=3600, validation_alias="AUTH_TTL_SECONDS")
+    object_storage_mode: Literal["local", "s3"] = Field(
+        default="local", validation_alias="OBJECT_STORAGE_MODE"
+    )
+    object_storage_root: Path = Field(
+        default=Path("data/runtime/objects"), validation_alias="OBJECT_STORAGE_ROOT"
+    )
+    object_storage_access_id: SecretStr | None = Field(
+        default=None, repr=False, validation_alias="OBJECT_STORAGE_ACCESS_ID"
+    )
+    object_storage_access_secret: SecretStr | None = Field(
+        default=None, repr=False, validation_alias="OBJECT_STORAGE_ACCESS_SECRET"
+    )
+    parser_image: str | None = Field(
+        default=None, pattern="^sha256:[a-f0-9]{64}$", validation_alias="PARSER_IMAGE"
+    )
+    clamd_host: str | None = Field(default=None, validation_alias="CLAMD_HOST")
+    clamd_port: int = Field(default=3310, ge=1, le=65535, validation_alias="CLAMD_PORT")
+    clamd_timeout_seconds: int = Field(
+        default=20, ge=1, le=60, validation_alias="CLAMD_TIMEOUT_SECONDS"
+    )
+    clamd_max_database_age_seconds: int = Field(
+        default=604800,
+        ge=3600,
+        le=604800,
+        validation_alias="CLAMD_MAX_DATABASE_AGE_SECONDS",
     )
 
     @field_validator("auth_signing_key")

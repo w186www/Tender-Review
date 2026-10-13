@@ -11,10 +11,12 @@ from bidding_compliance import __version__
 from bidding_compliance.core.config import Settings
 from bidding_compliance.persistence.database import make_engine
 
+from .documents import router as documents_router
 from .errors import http_error_handler, validation_error_handler
 from .middleware import RequestContextMiddleware
 from .projects import router
 from .schemas import HealthResponse
+from .upload_limit import UploadBodyLimit
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -40,6 +42,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = configuration
     app.state.engine = make_engine(configuration) if configuration.database_url else None
     app.include_router(router)
+    app.include_router(documents_router)
+    app.add_middleware(UploadBodyLimit)
     app.add_middleware(RequestContextMiddleware)
     app.add_exception_handler(HTTPException, http_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)

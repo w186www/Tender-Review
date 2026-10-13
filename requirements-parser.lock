@@ -1,0 +1,16 @@
+# Parser-only dependencies, independent of API/model/database secrets.
+Pillow==12.3.0
+annotated-types==0.8.0
+cffi==2.1.1
+charset-normalizer==3.5.2
+cryptography==50.0.2
+defusedxml==0.7.1
+pdfminer.six==20260107
+pdfplumber==0.11.10
+pycparser==3.11
+pydantic==2.14.1
+pydantic_core==2.50.1
+pypdf==6.20.1
+pypdfium2==5.14.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0

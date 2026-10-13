@@ -1,0 +1,401 @@
+{
+  "$defs": {
+    "Fragment": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "page": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "bbox": {
+                "items": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              }
+            },
+            "required": [
+              "page",
+              "bbox"
+            ]
+          },
+          "if": {
+            "properties": {
+              "coordinate_system": {
+                "const": "ooxml"
+              }
+            },
+            "required": [
+              "coordinate_system"
+            ]
+          },
+          "then": {
+            "properties": {
+              "page": {
+                "type": "null"
+              },
+              "bbox": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "table_cell"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "table": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "row": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "column": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "table",
+              "row",
+              "column"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "locator": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "maximum": 300,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "coordinate_system": {
+          "enum": [
+            "pdf_points",
+            "image_pixels",
+            "ooxml"
+          ],
+          "title": "Coordinate System",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "paragraph",
+            "table_cell",
+            "ocr"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "section": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Section",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 8000,
+          "title": "Text",
+          "type": "string"
+        },
+        "text_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Text Sha256",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "native",
+            "ocr",
+            "manual"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Table"
+        },
+        "row": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row"
+        },
+        "column": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column"
+        }
+      },
+      "required": [
+        "locator",
+        "coordinate_system",
+        "kind",
+        "text",
+        "text_sha256",
+        "source"
+      ],
+      "title": "Fragment",
+      "type": "object"
+    },
+    "ParsedDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "pdf",
+            "docx",
+            "png",
+            "jpeg"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "page_count": {
+          "anyOf": [
+            {
+              "maximum": 300,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Count"
+        },
+        "fragments": {
+          "items": {
+            "$ref": "#/$defs/Fragment"
+          },
+          "maxItems": 10000,
+          "title": "Fragments",
+          "type": "array"
+        },
+        "quality": {
+          "enum": [
+            "passed",
+            "requires_review"
+          ],
+          "title": "Quality",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "enum": [
+              "TYPE_MISMATCH",
+              "SIZE_LIMIT",
+              "MALICIOUS_CONTENT",
+              "ARCHIVE_LIMIT",
+              "INVALID_FILE",
+              "ENCRYPTED_FILE",
+              "PAGE_LIMIT",
+              "IMAGE_LIMIT",
+              "TEXT_LIMIT",
+              "OCR_LIMIT",
+              "LOW_QUALITY",
+              "SCANNER_UNAVAILABLE",
+              "SCANNER_STALE",
+              "PARSE_TIMEOUT",
+              "PARSE_FAILED",
+              "HASH_MISMATCH",
+              "ACTOR_FORBIDDEN",
+              "OUTPUT_LIMIT"
+            ],
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Issues",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_hash",
+        "format",
+        "fragments",
+        "quality",
+        "issues"
+      ],
+      "title": "ParsedDocument",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "result": {
+          "type": "object"
+        },
+        "error": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "result"
+      ]
+    },
+    {
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "result": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "error"
+      ]
+    }
+  ],
+  "properties": {
+    "result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ParsedDocument"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "error": {
+      "anyOf": [
+        {
+          "enum": [
+            "TYPE_MISMATCH",
+            "SIZE_LIMIT",
+            "MALICIOUS_CONTENT",
+            "ARCHIVE_LIMIT",
+            "INVALID_FILE",
+            "ENCRYPTED_FILE",
+            "PAGE_LIMIT",
+            "IMAGE_LIMIT",
+            "TEXT_LIMIT",
+            "OCR_LIMIT",
+            "LOW_QUALITY",
+            "SCANNER_UNAVAILABLE",
+            "SCANNER_STALE",
+            "PARSE_TIMEOUT",
+            "PARSE_FAILED",
+            "HASH_MISMATCH",
+            "ACTOR_FORBIDDEN",
+            "OUTPUT_LIMIT"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    }
+  },
+  "title": "ParserResponse",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/parser-response.schema.json"
+}

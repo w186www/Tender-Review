@@ -1,0 +1,10 @@
+FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-chi-sim \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements-parser.lock /tmp/requirements-parser.lock
+RUN pip install --no-cache-dir -r /tmp/requirements-parser.lock
+COPY src/bidding_compliance /app/bidding_compliance
+COPY scripts/parser_entry.py /app/parser_entry.py
+ENV PYTHONDONTWRITEBYTECODE=1 OMP_THREAD_LIMIT=1
+USER 65532:65532
+ENTRYPOINT ["python", "-I", "/app/parser_entry.py"]

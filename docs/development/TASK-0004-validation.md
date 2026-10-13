@@ -32,3 +32,7 @@
 ## 未交付范围
 
 文档/审查任务表是后续功能的数据基础，不表示上传、Worker、LangGraph审查或报告已实现。网页身份授权审批、TLS、认证限流、完整运维防篡改审计和数据保留仍按后续任务交付。生产模型和法规效力尚未验收。
+
+## 本机环境复验
+
+用户启动Docker并安装PowerShell7后，实际检查Docker29.2.1 Linux引擎、PowerShell7.6.6；用随机端口与临时容器执行同一check_postgres.py，迁移/API/RLS/FK/并发/回滚全部通过，仅测试容器已删除。两个官方镜像来源postgres:16与AWS Docker官方副本摘要一致（sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d）。通过用户安装的pwsh7.6.6再次执行verify.ps1，152项通过、0失败/0跳过，真实业务HTTP检查通过。以上补充本机实证，不改写先前远程记录。

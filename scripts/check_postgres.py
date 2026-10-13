@@ -1,8 +1,10 @@
 """Mandatory PostgreSQL CI gate: fresh disposable verification database only."""
 
+import io
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 from alembic import command
@@ -10,6 +12,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from fastapi.testclient import TestClient
+from reportlab.pdfgen import canvas
 from sqlalchemy import inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError, IntegrityError
@@ -18,7 +21,14 @@ from sqlalchemy.orm import Session
 from bidding_compliance.api import create_app
 from bidding_compliance.core.config import Settings
 from bidding_compliance.persistence.database import make_engine, migrate, set_tenant
-from bidding_compliance.persistence.models import Base, Document, Project, Tenant, User
+from bidding_compliance.persistence.models import (
+    Base,
+    Document,
+    IngestionJob,
+    Project,
+    Tenant,
+    User,
+)
 from bidding_compliance.services.identity import PASSWORDS
 
 
@@ -31,6 +41,7 @@ def main() -> None:
         app_env="test",
         database_url=url.render_as_string(hide_password=False),
         auth_signing_key=str(uuid4()) + str(uuid4()),
+        object_storage_root=Path(".verification") / ("pg-objects-" + uuid4().hex),
     )
     admin = make_engine(settings)
     if "tenant" in inspect(admin).get_table_names():
@@ -75,6 +86,21 @@ def main() -> None:
         connection.execute(
             text("GRANT SELECT, INSERT, UPDATE ON auth_session, project TO task4_runtime")
         )
+        connection.execute(text("GRANT SELECT, INSERT, UPDATE ON ingestion_job TO task4_runtime"))
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT ON document_section, section_revision, "
+                "document_context_version TO task4_runtime"
+            )
+        )
+        policies = connection.execute(
+            text(
+                "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class "
+                "WHERE relname IN ('ingestion_job','document_section','section_revision',"
+                "'document_context_version')"
+            )
+        ).all()
+        assert len(policies) == 4 and all(p[1] and p[2] for p in policies)
         connection.execute(
             text(
                 "GRANT SELECT, INSERT ON project_version, idempotency_record, "
@@ -126,6 +152,25 @@ def main() -> None:
             writes = list(pool.map(change, range(2)))
         assert sorted(r.status_code for r in writes) == [200, 409]
         assert len(client.get(path + "/versions", headers=a).json()["items"]) == 2
+        buffer = io.BytesIO()
+        sample = canvas.Canvas(buffer)
+        sample.drawString(50, 700, "Synthetic PostgreSQL durable upload fixture.")
+        sample.save()
+        uploaded = client.post(
+            path + "/documents",
+            headers={**a, "Idempotency-Key": str(uuid4())},
+            files={"file": ("synthetic.pdf", buffer.getvalue(), "application/pdf")},
+        )
+        assert uploaded.status_code == 202, uploaded.text
+        document_id = uploaded.json()["document_id"]
+        assert client.get(path + "/documents/" + document_id, headers=b).status_code == 404
+        with Session(runtime) as db:
+            set_tenant(db, "b")
+            assert list(db.scalars(select(IngestionJob))) == []
+            db.rollback()
+            set_tenant(db, "a")
+            jobs = list(db.scalars(select(IngestionJob)))
+            assert len(jobs) == 1 and jobs[0].document_id == document_id
         assert client.post("/api/v1/auth/logout", headers=a).status_code == 200
         assert client.get(path, headers=a).status_code == 401
 
@@ -190,8 +235,6 @@ def main() -> None:
             == 500
         )
     # Initial downgrade/upgrade is exercised only in this fresh disposable database.
-    from pathlib import Path
-
     config = Config()
     config.set_main_option("path_separator", "os")
     root = Path(__file__).resolve().parents[1]

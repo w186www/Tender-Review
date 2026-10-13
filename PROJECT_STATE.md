@@ -1,8 +1,8 @@
 # PROJECT_STATE
 
 更新时间：2026-10-13  
-架构基线：Word V2.0 + ADR-0001 至 ADR-0007 / 开发契约v1alpha2
-当前里程碑：M1后端与文件接入（TASK-0002/0004已完成，0005待开发）
+架构基线：Word V2.0 + ADR-0001 至 ADR-0008 / 开发契约v1alpha2
+当前里程碑：M1后端与文件接入（TASK-0002/0004已完成，0005进行中）
 
 ## 已完成
 
@@ -21,7 +21,7 @@
 
 ## 正在进行
 
-- 无；TASK-0004局部验收完成，下一项TASK-0005。
+- TASK-0005收尾：安全上传、持久作业、隔离解析、OCR与可定位片段、人工上下文/质量修正已实现；完整门禁和远程三作业CI复验后归档。
 
 ## 下一步
 
@@ -31,6 +31,8 @@
 4. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
+
+- TASK-0005本地：完整verify.ps1通过，185项、0失败/0跳过，Mypy41源文件；真实解析隔离、MinIO/ClamAV/OCR/HTTP及PostgreSQL增量迁移/RLS均通过。远程三作业CI待推送核验；详细范围见docs/development/TASK-0005-validation.md。
 
 - TASK-0004本地最新：完整verify.ps1通过，152项测试、0失败/0跳过，Mypy检查27个源文件；真实HTTP身份与项目流程通过。
 - TASK-0004最终代码远程实证：提交5dca2e341b97ce08d830a91936ca4d3d0f511aaa，https://github.com/w186www/Tender-Review/actions/runs/38393126223 的baseline与postgres均completed/success。已下载远程JUnit核验152 tests、0 failures、0 errors、0 skipped。链接对应明确的代码SHA；本证据文档提交自身另触发CI，不将代码SHA冒充后续HEAD。
@@ -43,24 +45,25 @@
 
 ## 已知问题
 
-- 后端数据库/身份权限与项目读写已实现；Worker、文件接入、审查能力和前端尚未实现。
-- 本机Docker Linux Engine不可用；PostgreSQL16验收在独立远程CI临时数据库实际完成，不冒充本机数据库验收。
+- 后端数据库/身份权限、项目读写、安全文件接入和独立单作业Worker已实现；持续队列调度、LangGraph业务审查、报告和前端尚未实现。
+- Word内嵌图片需人工转录；DOCX外部关系含超链接严格拒绝；中文复杂版面质量仍需黄金集验收。详见secure-ingestion-start.md。
+- 本机Docker Linux Engine已可用（29.2.1）；临时PostgreSQL16本机迁移/权限/RLS/并发/回滚检查通过，容器已清理。用户安装的PowerShell7.6.6运行完整门禁，152项全通过。
 - Windows受限沙箱会阻断asyncio内部回环连接；完整验收须允许本机回环网络，不能跳过测试。
 - 系统默认Python存在打包路径/ensurepip问题。已使用独立Python 3.12.14环境，统一脚本优先使用.venv；新环境按README创建，测试临时目录限定在项目内。
 - 法规索引中有若干“未核实版本”；进入生产知识库前必须人工核验效力状态与发布日期。
 - 《建设工程施工合同（示范文本）》等 3 项资料未收录，详见 `knowledge/legal/索引.md`。
-- 尚未确定首选模型、OCR 服务、对象存储和部署环境；实现必须保持适配层独立。
+- 默认OCR已按ADR-0008采用中英文Tesseract端口、存储提供S3和本地开发适配；首选模型、生产服务和部署环境仍待确定。
 
 ## 待决策
 
 - DEC-001：首个部署目标（本地 Docker Compose、云主机或 Kubernetes）。
 - DEC-002：首选 LLM 与数据出境约束。
-- DEC-003：OCR 首选实现和扫描件性能预算。
+- DEC-003：Tesseract为首期实现；生产扫描件性能预算与复杂中文版面效果待评估。
 - DEC-004：前端技术栈与企业OIDC集成；首期本地认证已按ADR-0007落地。
 
 ## 数据与迁移
 
-- 数据库迁移版本：202610131200（显式执行，API不自动建表）。
+- 数据库迁移版本：202610131300（显式执行，API不自动建表）；降级移除新增解析历史，先备份并停止写入，见secure-ingestion-start.md。
 - 契约集合版本：`v1alpha2`；事件信封和模型profile示例维持各自v1alpha1，详见contracts/VERSION.md。
 - 生产数据：无。
 

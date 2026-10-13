@@ -24,3 +24,9 @@
 
 project、project_version、document、review_task、idempotency_record和audit_event在PostgreSQL启用并强制RLS；身份表不开放业务HTTP查询。SQLite与PostgreSQL均拒绝覆盖/删除历史和审计。其余计划表按后续任务增量创建；不存在的接口不能称为已实现。迁移与身份选择见ADR-0007，权限与升级/回滚步骤见identity-data-start.md。
 
+## TASK-0005 增量契约
+
+`202610131300_secure_ingestion.py` 在首版之上保留已有文档并增加格式、大小、解析/上下文版本、问题码及质量状态。新增 ingestion_job（幂等键、提交者、尝试数和租约）、document_section（不可覆盖自动片段）、section_revision（人工转录追加历史）、document_context_version（上下文追加快照）。所有关系使用租户复合外键，四张新表 FORCE RLS。修订/上下文快照拒绝修改删除，自动解析 payload 不可覆盖。
+
+升级、受限角色权限和有损降级的备份要求见 docs/development/secure-ingestion-start.md。降级将已解析文档改为 failed，移除新表和属性，保留原始对象；不会自动恢复历史。冻结DDL为权威契约，不修改旧迁移。
+

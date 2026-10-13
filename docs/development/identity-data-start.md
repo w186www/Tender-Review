@@ -43,7 +43,7 @@ $env:AUTH_SIGNING_KEY = & ./.venv/Scripts/python.exe -c "import secrets; print(s
 
 运维通过秘密管理配置迁移身份的 DATABASE_URL，运行同一 migrate 与 bootstrap 命令，然后切换到权限受限的 API DATABASE_URL 启动。不得使用超级用户或 BYPASSRLS 身份运行API，发现会关闭业务接口。
 
-API数据库角色需要：schema USAGE；tenant/app_user SELECT；app_user仅password_hash列UPDATE（升级哈希）；auth_session和project SELECT/INSERT/UPDATE；project_version、idempotency_record、audit_event SELECT/INSERT；document/review_task权限待文件/任务功能实现后授予。没有DDL或角色管理权限。迁移由独立身份执行。
+API数据库角色需要：schema USAGE；tenant/app_user SELECT；app_user仅password_hash列UPDATE（升级哈希）；auth_session和project SELECT/INSERT/UPDATE；project_version、idempotency_record、audit_event SELECT/INSERT。TASK-0005新增文档/作业/片段权限与202610131300迁移，详见secure-ingestion-start.md；review_task执行权限待TASK-0009。没有DDL或角色管理权限。迁移由独立身份执行。
 
 业务表 FORCE RLS，作用域由服务端事务内 set_config('app.tenant_id', tenant, true) 设置；事务结束自动清除，不允许客户端选择。复合外键阻止文档或任务关联其他租户项目。项目快照与审计触发器拒绝UPDATE/DELETE；API账户另只授予追加权限。完整运维防篡改存储、保留期、TLS和认证限流尚待TASK-0012/0013，不宣告生产全项验收。
 

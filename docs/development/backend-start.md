@@ -41,8 +41,8 @@ APP_BASE_URL和OBJECT_STORAGE_ENDPOINT为公开基础地址，不允许账号、
 
 ## 接口和错误
 
-- TASK-0002最初仅实现 `/api/v1/health`；TASK-0004新增认证、项目查询/创建/版本更新，见identity-data-start.md。上传/审查仍为未来契约，运行时文档只列已实现路由。
-- 健康返回版本是应用版本；OpenAPI文件的0.3.0是契约文档版本，含义不同。
+- TASK-0002最初仅实现 `/api/v1/health`；TASK-0004新增认证和项目，TASK-0005新增安全文件接入及人工确认，见identity-data-start.md和secure-ingestion-start.md。业务审查仍为未来契约，运行时文档只列已实现路由。
+- 健康返回版本是应用版本；OpenAPI文件的0.4.0是契约文档版本，含义不同。
 - health为存活检查，不连接数据库、Redis、对象存储或模型，不证明这些依赖就绪。后续任务另行实现readiness。
 - 每个HTTP响应返回X-Request-ID。合法UUID请求编号可沿用；任意其他文本会替换为新的UUID。
 - 404、405、HTTP异常、422和未处理异常使用code、message、request_id、details统一格式；错误正文不回显输入和异常明细。

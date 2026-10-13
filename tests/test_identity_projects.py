@@ -60,6 +60,7 @@ def system(tmp_path):
         app_env="test",
         database_url="sqlite:///" + (tmp_path / "identity.db").as_posix(),
         auth_signing_key=key,
+        object_storage_root=tmp_path / "objects",
     )
     engine = make_engine(settings)
     migrate(engine)
@@ -395,7 +396,12 @@ def test_numeric_request_fields_follow_json_contract(system, field, value):
 def test_invalid_database_driver_is_sanitized_at_both_cli_boundaries():
     sensitive = "synthetic" + uuid4().hex
     environment = os.environ.copy()
-    environment.update(APP_ENV="test", DATABASE_URL=sensitive + "://synthetic")
+    environment.update(
+        APP_ENV="test",
+        DATABASE_URL=sensitive + "://synthetic",
+        PYTHONUTF8="1",
+        PYTHONIOENCODING="utf-8",
+    )
     for args in (["-m", "bidding_compliance.api"], ["scripts/manage_identity.py", "migrate"]):
         result = subprocess.run(  # noqa: S603 - fixed local CLIs; no shell or external executable
             [sys.executable, *args],

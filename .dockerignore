@@ -1,0 +1,8 @@
+**
+!src/
+!src/bidding_compliance/
+!src/bidding_compliance/**
+!scripts/
+!scripts/parser_entry.py
+!requirements-parser.lock
+!Dockerfile.parser

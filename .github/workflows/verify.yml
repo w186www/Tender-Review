@@ -9,6 +9,38 @@ permissions:
   contents: read
 
 jobs:
+  ingestion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.lock
+      - name: Install locked environment
+        run: |
+          python -m pip install -r requirements-dev.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+          python -m pip check
+      - name: Build parser and prepare real verification services
+        run: |
+          docker build -f Dockerfile.parser -t bidding-parser:task0005 .
+          docker pull minio/minio:latest
+          docker pull clamav/clamav:stable
+          echo "PARSER_VERIFY_IMAGE=$(docker image inspect bidding-parser:task0005 --format '{{.Id}}')" >> "$GITHUB_ENV"
+      - name: Verify actual parser isolation
+        run: python scripts/check_parser_sandbox.py
+      - name: Verify real S3, ClamAV, OCR, worker and HTTP lifecycle
+        run: python scripts/check_ingestion_containers.py
+      - name: Keep ingestion evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestion-evidence
+          path: .verification/ingestion-*/server.log
+          if-no-files-found: warn
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 10

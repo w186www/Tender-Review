@@ -599,6 +599,112 @@
         "expected_version": 0
       },
       "expected_valid": false
+    },
+    {
+      "id": "parsed-native",
+      "schema": "contracts/schemas/parsed-document.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "source_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "format": "pdf",
+        "page_count": 1,
+        "fragments": [
+          {
+            "locator": "pdf/page/1/line/1",
+            "page": 1,
+            "bbox": [
+              0,
+              0,
+              100,
+              20
+            ],
+            "coordinate_system": "pdf_points",
+            "kind": "paragraph",
+            "section": "",
+            "text": "Synthetic source text for schema tests",
+            "text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "native",
+            "confidence": null,
+            "table": null,
+            "row": null,
+            "column": null
+          }
+        ],
+        "quality": "passed",
+        "issues": []
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "parsed-bad-hash",
+      "schema": "contracts/schemas/parsed-document.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "source_hash": "bad",
+        "format": "pdf",
+        "page_count": 1,
+        "fragments": [
+          {
+            "locator": "pdf/page/1/line/1",
+            "page": 1,
+            "bbox": [
+              0,
+              0,
+              100,
+              20
+            ],
+            "coordinate_system": "pdf_points",
+            "kind": "paragraph",
+            "section": "",
+            "text": "Synthetic source text for schema tests",
+            "text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "native",
+            "confidence": null,
+            "table": null,
+            "row": null,
+            "column": null
+          }
+        ],
+        "quality": "passed",
+        "issues": []
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "parsed-unknown-field",
+      "schema": "contracts/schemas/parsed-document.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "source_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "format": "pdf",
+        "page_count": 1,
+        "fragments": [
+          {
+            "locator": "pdf/page/1/line/1",
+            "page": 1,
+            "bbox": [
+              0,
+              0,
+              100,
+              20
+            ],
+            "coordinate_system": "pdf_points",
+            "kind": "paragraph",
+            "section": "",
+            "text": "Synthetic source text for schema tests",
+            "text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "native",
+            "confidence": null,
+            "table": null,
+            "row": null,
+            "column": null
+          }
+        ],
+        "quality": "passed",
+        "issues": [],
+        "unexpected": true
+      },
+      "expected_valid": false
     }
   ]
 }

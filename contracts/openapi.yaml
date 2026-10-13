@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.3.0
+  version: 0.4.0
   description: v1alpha2 开发契约；所有业务接口要求租户范围和审计关联 ID。
 servers:
 - url: /api/v1
@@ -176,6 +176,48 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{projectId}/reviews:
     post:
       operationId: createReview
@@ -537,6 +579,456 @@ paths:
                 $ref: '#/components/schemas/Error'
       parameters:
       - $ref: '#/components/parameters/ProjectId'
+  /projects/{projectId}/documents/{documentId}:
+    get:
+      operationId: getDocument
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: getDocument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{projectId}/documents/{documentId}/sections:
+    get:
+      operationId: getDocumentSections
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: getDocumentSections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentSections'
+        '400':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{projectId}/documents/{documentId}/context:
+    get:
+      operationId: getDocumentContext
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: getDocumentContext
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentContext'
+        '400':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: confirmDocumentContext
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: confirmDocumentContext
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContextConfirmation'
+  /projects/{projectId}/documents/{documentId}/corrections:
+    post:
+      operationId: correctDocumentText
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: correctDocumentText
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityCorrection'
+  /projects/{projectId}/documents/{documentId}/original:
+    get:
+      operationId: downloadDocument
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 经鉴权的原始文件附件
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     bearerAuth:
@@ -628,30 +1120,85 @@ components:
             type: string
             format: date-time
     Document:
-      type: object
       additionalProperties: false
-      required:
-      - document_id
-      - project_id
-      - status
-      - sha256
       properties:
         document_id:
+          title: Document Id
           type: string
         project_id:
+          title: Project Id
           type: string
         status:
-          type: string
           enum:
           - quarantined
           - accepted
           - rejected
           - parsing
+          - needs_review
+          - needs_confirmation
           - ready
           - failed
-        sha256:
+          title: Status
           type: string
-          pattern: ^[a-fA-F0-9]{64}$
+        sha256:
+          pattern: ^[a-f0-9]{64}$
+          title: Sha256
+          type: string
+        media_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Media Type
+        size_bytes:
+          anyOf:
+          - minimum: 0
+            type: integer
+          - type: 'null'
+          default: null
+          title: Size Bytes
+        context_version:
+          default: 0
+          minimum: 0
+          title: Context Version
+          type: integer
+        parse_version:
+          default: 0
+          minimum: 0
+          title: Parse Version
+          type: integer
+        issues:
+          items:
+            enum:
+            - TYPE_MISMATCH
+            - SIZE_LIMIT
+            - MALICIOUS_CONTENT
+            - ARCHIVE_LIMIT
+            - INVALID_FILE
+            - ENCRYPTED_FILE
+            - PAGE_LIMIT
+            - IMAGE_LIMIT
+            - TEXT_LIMIT
+            - OCR_LIMIT
+            - LOW_QUALITY
+            - SCANNER_UNAVAILABLE
+            - SCANNER_STALE
+            - PARSE_TIMEOUT
+            - PARSE_FAILED
+            - HASH_MISMATCH
+            - ACTOR_FORBIDDEN
+            - OUTPUT_LIMIT
+            type: string
+          maxItems: 20
+          title: Issues
+          type: array
+      required:
+      - document_id
+      - project_id
+      - status
+      - sha256
+      title: DocumentResponse
+      type: object
     ReviewTask:
       type: object
       additionalProperties: false
@@ -824,6 +1371,388 @@ components:
           - revoked
       required:
       - status
+    Fragment:
+      additionalProperties: false
+      allOf:
+      - else:
+          properties:
+            page:
+              minimum: 1
+              type: integer
+            bbox:
+              items:
+                minimum: 0
+                type: number
+              maxItems: 4
+              minItems: 4
+              type: array
+          required:
+          - page
+          - bbox
+        if:
+          properties:
+            coordinate_system:
+              const: ooxml
+          required:
+          - coordinate_system
+        then:
+          properties:
+            page:
+              type: 'null'
+            bbox:
+              type: 'null'
+      - if:
+          properties:
+            kind:
+              const: table_cell
+          required:
+          - kind
+        then:
+          properties:
+            table:
+              minimum: 0
+              type: integer
+            row:
+              minimum: 0
+              type: integer
+            column:
+              minimum: 0
+              type: integer
+          required:
+          - table
+          - row
+          - column
+      properties:
+        locator:
+          maxLength: 500
+          minLength: 1
+          title: Locator
+          type: string
+        page:
+          anyOf:
+          - maximum: 300
+            minimum: 1
+            type: integer
+          - type: 'null'
+          default: null
+          title: Page
+        bbox:
+          anyOf:
+          - items:
+              type: number
+            maxItems: 4
+            minItems: 4
+            type: array
+          - type: 'null'
+          default: null
+          title: Bbox
+        coordinate_system:
+          enum:
+          - pdf_points
+          - image_pixels
+          - ooxml
+          title: Coordinate System
+          type: string
+        kind:
+          enum:
+          - paragraph
+          - table_cell
+          - ocr
+          title: Kind
+          type: string
+        section:
+          default: ''
+          maxLength: 300
+          title: Section
+          type: string
+        text:
+          maxLength: 8000
+          title: Text
+          type: string
+        text_sha256:
+          pattern: ^[a-f0-9]{64}$
+          title: Text Sha256
+          type: string
+        source:
+          enum:
+          - native
+          - ocr
+          - manual
+          title: Source
+          type: string
+        confidence:
+          anyOf:
+          - maximum: 1
+            minimum: 0
+            type: number
+          - type: 'null'
+          default: null
+          title: Confidence
+        table:
+          anyOf:
+          - minimum: 0
+            type: integer
+          - type: 'null'
+          default: null
+          title: Table
+        row:
+          anyOf:
+          - minimum: 0
+            type: integer
+          - type: 'null'
+          default: null
+          title: Row
+        column:
+          anyOf:
+          - minimum: 0
+            type: integer
+          - type: 'null'
+          default: null
+          title: Column
+      required:
+      - locator
+      - coordinate_system
+      - kind
+      - text
+      - text_sha256
+      - source
+      title: Fragment
+      type: object
+    SectionResponse:
+      additionalProperties: false
+      properties:
+        section_id:
+          title: Section Id
+          type: string
+        source_hash:
+          pattern: ^[a-f0-9]{64}$
+          title: Source Hash
+          type: string
+        automatic:
+          $ref: '#/components/schemas/Fragment'
+        effective:
+          $ref: '#/components/schemas/Fragment'
+        revision:
+          minimum: 1
+          title: Revision
+          type: integer
+      required:
+      - section_id
+      - source_hash
+      - automatic
+      - effective
+      - revision
+      title: SectionResponse
+      type: object
+    DocumentSections:
+      additionalProperties: false
+      properties:
+        document_id:
+          title: Document Id
+          type: string
+        parse_version:
+          minimum: 1
+          title: Parse Version
+          type: integer
+        items:
+          items:
+            $ref: '#/components/schemas/SectionResponse'
+          title: Items
+          type: array
+      required:
+      - document_id
+      - parse_version
+      - items
+      title: SectionsResponse
+      type: object
+    ContextCandidate:
+      additionalProperties: false
+      properties:
+        field:
+          enum:
+          - procurement_type
+          - project_type
+          - region
+          - name
+          - industry
+          - budget_amount
+          - applicable_system
+          title: Field
+          type: string
+        value:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Value
+        confidence:
+          maximum: 1
+          minimum: 0
+          title: Confidence
+          type: number
+        section_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Section Id
+      required:
+      - field
+      - value
+      - confidence
+      title: ContextCandidate
+      type: object
+    DocumentContext:
+      additionalProperties: false
+      properties:
+        document_id:
+          title: Document Id
+          type: string
+        version:
+          minimum: 1
+          title: Version
+          type: integer
+        candidates:
+          items:
+            $ref: '#/components/schemas/ContextCandidate'
+          title: Candidates
+          type: array
+        manual:
+          anyOf:
+          - $ref: '#/components/schemas/ContextFields'
+          - type: 'null'
+          default: null
+        confirmed:
+          title: Confirmed
+          type: boolean
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Reason
+      required:
+      - document_id
+      - version
+      - candidates
+      - confirmed
+      title: DocumentContext
+      type: object
+    ContextFields:
+      additionalProperties: false
+      properties:
+        name:
+          maxLength: 300
+          minLength: 1
+          title: Name
+          type: string
+        procurement_type:
+          enum:
+          - government
+          - enterprise
+          - other
+          title: Procurement Type
+          type: string
+        project_type:
+          enum:
+          - works
+          - goods
+          - services
+          title: Project Type
+          type: string
+        region:
+          maxLength: 200
+          minLength: 1
+          title: Region
+          type: string
+        industry:
+          anyOf:
+          - maxLength: 200
+            type: string
+          - type: 'null'
+          default: null
+          title: Industry
+        budget_amount:
+          anyOf:
+          - minimum: 0
+            type: number
+          - type: 'null'
+          default: null
+          title: Budget Amount
+        applicable_system:
+          anyOf:
+          - maxLength: 1000
+            type: string
+          - type: 'null'
+          default: null
+          title: Applicable System
+      required:
+      - name
+      - procurement_type
+      - project_type
+      - region
+      title: ContextFields
+      type: object
+    ContextConfirmation:
+      additionalProperties: false
+      properties:
+        expected_version:
+          minimum: 1
+          title: Expected Version
+          type: integer
+        reason:
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+          type: string
+        context:
+          $ref: '#/components/schemas/ContextFields'
+      required:
+      - expected_version
+      - reason
+      - context
+      title: ContextConfirmation
+      type: object
+    TextCorrection:
+      additionalProperties: false
+      properties:
+        section_id:
+          title: Section Id
+          type: string
+        text:
+          maxLength: 8000
+          minLength: 1
+          title: Text
+          type: string
+      required:
+      - section_id
+      - text
+      title: TextCorrection
+      type: object
+    QualityCorrection:
+      additionalProperties: false
+      properties:
+        expected_parse_version:
+          minimum: 1
+          title: Expected Parse Version
+          type: integer
+        reason:
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+          type: string
+        corrections:
+          items:
+            $ref: '#/components/schemas/TextCorrection'
+          maxItems: 10000
+          minItems: 1
+          title: Corrections
+          type: array
+      required:
+      - expected_parse_version
+      - reason
+      - corrections
+      title: QualityCorrection
+      type: object
   responses:
     BadRequest:
       description: 请求无效
