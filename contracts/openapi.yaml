@@ -1,77 +1,189 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.2.0
+  version: 0.3.0
   description: v1alpha2 开发契约；所有业务接口要求租户范围和审计关联 ID。
 servers:
-  - url: /api/v1
+- url: /api/v1
 paths:
   /health:
     get:
       operationId: getHealth
       security: []
       responses:
-        "200":
+        '200':
           description: 服务可用
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: false
-                required: [status, version]
+                required:
+                - status
+                - version
                 properties:
-                  status: {type: string, enum: [ok]}
-                  version: {type: string}
+                  status:
+                    type: string
+                    enum:
+                    - ok
+                  version:
+                    type: string
   /projects:
     post:
       operationId: createProject
-      security: [{bearerAuth: []}]
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+      security:
+      - bearerAuth: []
+      responses:
+        '201':
+          description: createProject
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: "#/components/schemas/ProjectCreate"}
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+    get:
+      operationId: listProjects
+      security:
+      - bearerAuth: []
       responses:
-        "201":
-          description: 已创建
+        '200':
+          description: listProjects
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/Project"}
-        "400": {$ref: "#/components/responses/BadRequest"}
-        "401": {$ref: "#/components/responses/Unauthorized"}
+              schema:
+                $ref: '#/components/schemas/ProjectList'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
   /projects/{projectId}/documents:
     post:
       operationId: uploadDocument
-      security: [{bearerAuth: []}]
+      security:
+      - bearerAuth: []
       parameters:
-        - $ref: "#/components/parameters/ProjectId"
-        - $ref: "#/components/parameters/IdempotencyKey"
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [file]
+              required:
+              - file
               properties:
-                file: {type: string, format: binary}
+                file:
+                  type: string
+                  format: binary
       responses:
-        "202":
+        '202':
           description: 文件进入安全检查
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/Document"}
-        "400": {$ref: "#/components/responses/BadRequest"}
-        "401": {$ref: "#/components/responses/Unauthorized"}
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /projects/{projectId}/reviews:
     post:
       operationId: createReview
-      security: [{bearerAuth: []}]
+      security:
+      - bearerAuth: []
       parameters:
-        - $ref: "#/components/parameters/ProjectId"
-        - $ref: "#/components/parameters/IdempotencyKey"
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -79,38 +191,352 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [document_ids]
+              required:
+              - document_ids
               properties:
                 document_ids:
                   type: array
                   minItems: 1
                   uniqueItems: true
-                  items: {type: string}
+                  items:
+                    type: string
       responses:
-        "202":
+        '202':
           description: 审查任务已排队
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/ReviewTask"}
-        "400": {$ref: "#/components/responses/BadRequest"}
-        "401": {$ref: "#/components/responses/Unauthorized"}
+              schema:
+                $ref: '#/components/schemas/ReviewTask'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /reviews/{reviewTaskId}:
     get:
       operationId: getReview
-      security: [{bearerAuth: []}]
+      security:
+      - bearerAuth: []
       parameters:
-        - name: reviewTaskId
-          in: path
-          required: true
-          schema: {type: string}
+      - name: reviewTaskId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: 审查状态
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/ReviewTask"}
-        "401": {$ref: "#/components/responses/Unauthorized"}
-        "404": {$ref: "#/components/responses/NotFound"}
+              schema:
+                $ref: '#/components/schemas/ReviewTask'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /auth/token:
+    post:
+      operationId: login
+      security: []
+      responses:
+        '200':
+          description: login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+  /auth/me:
+    get:
+      operationId: getIdentity
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: getIdentity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identity'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/logout:
+    post:
+      operationId: logout
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: logout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Logout'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: getProject
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    put:
+      operationId: updateProject
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: updateProject
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdate'
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+  /projects/{projectId}/versions:
+    get:
+      operationId: getProjectHistory
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: getProjectHistory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectHistory'
+        '401':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 统一安全错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
 components:
   securitySchemes:
     bearerAuth:
@@ -122,89 +548,298 @@ components:
       name: projectId
       in: path
       required: true
-      schema: {type: string}
+      schema:
+        type: string
     IdempotencyKey:
       name: Idempotency-Key
       in: header
       required: true
-      schema: {type: string, minLength: 16, maxLength: 200}
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 200
   schemas:
     ProjectFields:
       type: object
-      required: [name, procurement_type, project_type, region]
+      required:
+      - name
+      - procurement_type
+      - project_type
+      - region
       properties:
-        name: {type: string, minLength: 1, maxLength: 300}
-        procurement_type: {type: string, enum: [government, enterprise, other]}
-        project_type: {type: string, enum: [works, goods, services]}
-        region: {type: string, minLength: 1, maxLength: 200}
-        industry: {type: [string, "null"], maxLength: 200}
-        budget_amount: {type: [number, "null"], minimum: 0}
+        name:
+          type: string
+          minLength: 1
+          maxLength: 300
+        procurement_type:
+          type: string
+          enum:
+          - government
+          - enterprise
+          - other
+        project_type:
+          type: string
+          enum:
+          - works
+          - goods
+          - services
+        region:
+          type: string
+          minLength: 1
+          maxLength: 200
+        industry:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+        budget_amount:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+        applicable_system:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
     ProjectCreate:
       allOf:
-        - $ref: "#/components/schemas/ProjectFields"
+      - $ref: '#/components/schemas/ProjectFields'
       unevaluatedProperties: false
     Project:
       unevaluatedProperties: false
       allOf:
-        - $ref: "#/components/schemas/ProjectFields"
-        - type: object
-          required: [project_id, tenant_id, version, created_at]
-          properties:
-            project_id: {type: string}
-            tenant_id: {type: string}
-            version: {type: integer, minimum: 1}
-            created_at: {type: string, format: date-time}
+      - $ref: '#/components/schemas/ProjectFields'
+      - type: object
+        required:
+        - project_id
+        - tenant_id
+        - version
+        - created_at
+        properties:
+          project_id:
+            type: string
+          tenant_id:
+            type: string
+          version:
+            type: integer
+            minimum: 1
+          created_at:
+            type: string
+            format: date-time
     Document:
       type: object
       additionalProperties: false
-      required: [document_id, project_id, status, sha256]
+      required:
+      - document_id
+      - project_id
+      - status
+      - sha256
       properties:
-        document_id: {type: string}
-        project_id: {type: string}
-        status: {type: string, enum: [quarantined, accepted, rejected, parsing, ready, failed]}
-        sha256: {type: string, pattern: "^[a-fA-F0-9]{64}$"}
+        document_id:
+          type: string
+        project_id:
+          type: string
+        status:
+          type: string
+          enum:
+          - quarantined
+          - accepted
+          - rejected
+          - parsing
+          - ready
+          - failed
+        sha256:
+          type: string
+          pattern: ^[a-fA-F0-9]{64}$
     ReviewTask:
       type: object
       additionalProperties: false
-      required: [review_task_id, project_id, run_id, status]
+      required:
+      - review_task_id
+      - project_id
+      - run_id
+      - status
       properties:
-        review_task_id: {type: string}
-        project_id: {type: string}
-        run_id: {type: string}
-        status: {type: string, enum: [queued, running, waiting_human, succeeded, failed, cancelled]}
-        progress: {type: number, minimum: 0, maximum: 1}
+        review_task_id:
+          type: string
+        project_id:
+          type: string
+        run_id:
+          type: string
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - waiting_human
+          - succeeded
+          - failed
+          - cancelled
+        progress:
+          type: number
+          minimum: 0
+          maximum: 1
     ErrorCode:
       type: string
       enum:
-        - INVALID_REQUEST
-        - UNAUTHENTICATED
-        - FORBIDDEN
-        - NOT_FOUND
-        - METHOD_NOT_ALLOWED
-        - CONFLICT
-        - PAYLOAD_TOO_LARGE
-        - UNSUPPORTED_MEDIA_TYPE
-        - VALIDATION_ERROR
-        - RATE_LIMITED
-        - INTERNAL_ERROR
-        - HTTP_ERROR
+      - INVALID_REQUEST
+      - UNAUTHENTICATED
+      - FORBIDDEN
+      - NOT_FOUND
+      - METHOD_NOT_ALLOWED
+      - CONFLICT
+      - PAYLOAD_TOO_LARGE
+      - UNSUPPORTED_MEDIA_TYPE
+      - VALIDATION_ERROR
+      - RATE_LIMITED
+      - INTERNAL_ERROR
+      - HTTP_ERROR
     Error:
       type: object
       additionalProperties: false
-      required: [code, message, request_id]
+      required:
+      - code
+      - message
+      - request_id
       properties:
-        code: {$ref: "#/components/schemas/ErrorCode"}
-        message: {type: string}
-        request_id: {type: string}
-        details: {type: object}
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+        request_id:
+          type: string
+        details:
+          type: object
+    Role:
+      type: string
+      enum:
+      - admin
+      - reviewer
+      - auditor
+      - operator
+    Login:
+      type: object
+      additionalProperties: false
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          writeOnly: true
+      required:
+      - tenant_id
+      - username
+      - password
+    AccessToken:
+      type: object
+      additionalProperties: false
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum:
+          - bearer
+        expires_in:
+          type: integer
+          minimum: 60
+          maximum: 3600
+      required:
+      - access_token
+      - token_type
+      - expires_in
+    Identity:
+      type: object
+      additionalProperties: false
+      properties:
+        tenant_id:
+          type: string
+        user_id:
+          type: string
+        username:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+      required:
+      - tenant_id
+      - user_id
+      - username
+      - role
+    ProjectUpdate:
+      allOf:
+      - $ref: '#/components/schemas/ProjectFields'
+      - type: object
+        required:
+        - expected_version
+        properties:
+          expected_version:
+            type: integer
+            minimum: 1
+      unevaluatedProperties: false
+    ProjectList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        offset:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+      - items
+      - offset
+      - limit
+    ProjectHistory:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+      required:
+      - items
+    Logout:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - revoked
+      required:
+      - status
   responses:
     BadRequest:
       description: 请求无效
-      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     Unauthorized:
       description: 未认证或无权限
-      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     NotFound:
       description: 资源不存在或不可见
-      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
-
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

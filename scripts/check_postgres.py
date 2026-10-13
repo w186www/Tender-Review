@@ -1,0 +1,211 @@
+"""Mandatory PostgreSQL CI gate: fresh disposable verification database only."""
+
+import os
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from uuid import uuid4
+
+from alembic import command
+from alembic.autogenerate import compare_metadata
+from alembic.config import Config
+from alembic.migration import MigrationContext
+from fastapi.testclient import TestClient
+from sqlalchemy import inspect, select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy.orm import Session
+
+from bidding_compliance.api import create_app
+from bidding_compliance.core.config import Settings
+from bidding_compliance.persistence.database import make_engine, migrate, set_tenant
+from bidding_compliance.persistence.models import Base, Document, Project, Tenant, User
+from bidding_compliance.services.identity import PASSWORDS
+
+
+def main() -> None:
+    url = make_url(os.environ["POSTGRES_VERIFY_URL"])
+    if url.database != "task0004_verification" or url.get_backend_name() != "postgresql":
+        raise RuntimeError("Only the disposable task0004_verification database is accepted")
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        database_url=url.render_as_string(hide_password=False),
+        auth_signing_key=str(uuid4()) + str(uuid4()),
+    )
+    admin = make_engine(settings)
+    if "tenant" in inspect(admin).get_table_names():
+        raise RuntimeError("Verification database must be empty; never clear existing data")
+    migrate(admin)
+    migrate(admin)
+    with admin.connect() as connection:
+        assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
+    password = str(uuid4())
+    with Session(admin) as db:
+        db.add_all(
+            [
+                Tenant(tenant_id="a", name="synthetic-a", active=True),
+                Tenant(tenant_id="b", name="synthetic-b", active=True),
+            ]
+        )
+        db.flush()
+        hashed = PASSWORDS.hash(password)
+        for tenant in ("a", "b"):
+            db.add(
+                User(
+                    tenant_id=tenant,
+                    user_id="reviewer",
+                    username="reviewer",
+                    role="reviewer",
+                    password_hash=hashed,
+                    active=True,
+                )
+            )
+        db.commit()
+    runtime_password = str(uuid4())
+    with admin.begin() as connection:
+        # Password is an internally generated UUID, never external SQL input or a real secret.
+        connection.exec_driver_sql(
+            "CREATE ROLE task4_runtime LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '"
+            + runtime_password
+            + "'"
+        )
+        connection.execute(text("GRANT USAGE ON SCHEMA public TO task4_runtime"))
+        connection.execute(text("GRANT SELECT ON tenant, app_user TO task4_runtime"))
+        connection.execute(text("GRANT UPDATE(password_hash) ON app_user TO task4_runtime"))
+        connection.execute(
+            text("GRANT SELECT, INSERT, UPDATE ON auth_session, project TO task4_runtime")
+        )
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT ON project_version, idempotency_record, "
+                "document, review_task, audit_event TO task4_runtime"
+            )
+        )
+    runtime_settings = settings.model_copy(
+        update={
+            "database_url": settings.database_url.__class__(
+                url.set(username="task4_runtime", password=runtime_password).render_as_string(
+                    hide_password=False
+                )
+            )
+        }
+    )
+    runtime = make_engine(runtime_settings)
+    body = dict(
+        name="synthetic", procurement_type="government", project_type="works", region="synthetic"
+    )
+    with TestClient(create_app(runtime_settings)) as client:
+
+        def login(tenant):
+            response = client.post(
+                "/api/v1/auth/token",
+                json=dict(tenant_id=tenant, username="reviewer", password=password),
+            )
+            assert response.status_code == 200, response.text
+            return {"Authorization": "Bearer " + response.json()["access_token"]}
+
+        a, b = login("a"), login("b")
+        headers = {**a, "Idempotency-Key": str(uuid4())}
+
+        def create(_):
+            return client.post("/api/v1/projects", headers=headers, json=body)
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            responses = list(pool.map(create, range(6)))
+        assert all(r.status_code == 201 for r in responses), [r.status_code for r in responses]
+        assert len({r.json()["project_id"] for r in responses}) == 1
+        project = responses[0].json()
+        path = "/api/v1/projects/" + project["project_id"]
+        assert client.get(path, headers=b).status_code == 404
+        assert client.get("/api/v1/projects", headers=b).json()["items"] == []
+
+        def change(_):
+            return client.put(path, headers=a, json={**body, "expected_version": 1})
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            writes = list(pool.map(change, range(2)))
+        assert sorted(r.status_code for r in writes) == [200, 409]
+        assert len(client.get(path + "/versions", headers=a).json()["items"]) == 2
+        assert client.post("/api/v1/auth/logout", headers=a).status_code == 200
+        assert client.get(path, headers=a).status_code == 401
+
+    # RLS must also prevent mistakes in raw queries, writes and pooled connection reuse.
+    with Session(runtime) as db:
+        assert list(db.scalars(select(Project))) == []
+        set_tenant(db, "a")
+        assert len(list(db.scalars(select(Project)))) == 1
+        db.commit()
+        assert list(db.scalars(select(Project))) == []
+        set_tenant(db, "b")
+        assert list(db.scalars(select(Project))) == []
+        db.add(
+            Project(
+                tenant_id="a",
+                project_id=str(uuid4()),
+                context=body,
+                version=1,
+                created_by="reviewer",
+                created_at=datetime.fromisoformat(project["created_at"]),
+            )
+        )
+        try:
+            db.flush()
+        except DBAPIError:
+            db.rollback()
+        else:
+            raise AssertionError("RLS allowed a cross-tenant insert")
+    with Session(runtime) as db:
+        set_tenant(db, "b")
+        db.add(
+            Document(
+                tenant_id="b",
+                document_id=str(uuid4()),
+                project_id=project["project_id"],
+                status="accepted",
+                sha256="a" * 64,
+                object_ref="fixture://synthetic",
+            )
+        )
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+        else:
+            raise AssertionError("Composite FK allowed a cross-tenant document")
+    with Session(admin) as db:
+        for table in ("project_version", "audit_event"):
+            try:
+                # Fixed table names only; trigger must reject even privileged history changes.
+                db.execute(text("DELETE FROM " + table))  # noqa: S608
+            except DBAPIError:
+                db.rollback()
+            else:
+                raise AssertionError("Append-only trigger failed")
+    with TestClient(create_app(settings)) as client:
+        assert (
+            client.post(
+                "/api/v1/auth/token",
+                json=dict(tenant_id="a", username="reviewer", password=password),
+            ).status_code
+            == 500
+        )
+    # Initial downgrade/upgrade is exercised only in this fresh disposable database.
+    from pathlib import Path
+
+    config = Config()
+    config.set_main_option("path_separator", "os")
+    root = Path(__file__).resolve().parents[1]
+    config.set_main_option("script_location", str(root / "contracts/database"))
+    config.set_main_option("version_locations", str(root / "contracts/database/migrations"))
+    with admin.begin() as connection:
+        config.attributes["connection"] = connection
+        command.downgrade(config, "base")
+    assert "project" not in inspect(admin).get_table_names()
+    migrate(admin)
+    runtime.dispose()
+    admin.dispose()
+    print("PASS: PostgreSQL migration, API, RLS, tenant FKs, concurrency and rollback")
+
+
+if __name__ == "__main__":
+    main()

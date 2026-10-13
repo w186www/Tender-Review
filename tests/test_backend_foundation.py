@@ -48,7 +48,7 @@ def test_health_matches_contract_and_runtime_operation():
         UUID(response.headers["x-request-id"])
         runtime_spec = client.get("/openapi.json").json()
         assert runtime_spec["paths"]["/api/v1/health"]["get"]["operationId"] == "getHealth"
-        assert "/projects" not in runtime_spec["paths"]
+        assert runtime_spec["paths"]["/api/v1/projects"]["post"]["operationId"] == "createProject"
 
 
 def test_valid_request_id_is_preserved_and_logged(caplog):

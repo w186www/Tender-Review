@@ -38,6 +38,21 @@ class Settings(BaseSettings):
         default="bidding-compliance", validation_alias="OBJECT_STORAGE_BUCKET"
     )
     model_profile: str = Field(default="local-development", validation_alias="MODEL_PROFILE")
+    auth_signing_key: SecretStr | None = Field(
+        default=None, repr=False, validation_alias="AUTH_SIGNING_KEY"
+    )
+    auth_issuer: str = Field(default="bidding-compliance", validation_alias="AUTH_ISSUER")
+    auth_audience: str = Field(default="bidding-api", validation_alias="AUTH_AUDIENCE")
+    auth_ttl_seconds: int = Field(
+        default=900, ge=60, le=3600, validation_alias="AUTH_TTL_SECONDS"
+    )
+
+    @field_validator("auth_signing_key")
+    @classmethod
+    def validate_signing_key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and len(value.get_secret_value().encode()) < 32:
+            raise ValueError("signing key must contain at least 32 bytes")
+        return value
 
     @field_validator("log_level", mode="before")
     @classmethod

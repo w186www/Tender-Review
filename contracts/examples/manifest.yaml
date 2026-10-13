@@ -553,6 +553,52 @@
         "temperature": 0,
         "data_policy": "unlimited"
       }
+    },
+    {
+      "id": "identity-true",
+      "schema": "contracts/openapi.yaml#/components/schemas/Identity",
+      "data": {
+        "tenant_id": "t1",
+        "user_id": "u1",
+        "username": "synthetic",
+        "role": "reviewer"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "identity-false",
+      "schema": "contracts/openapi.yaml#/components/schemas/Identity",
+      "data": {
+        "tenant_id": "t1",
+        "user_id": "u1",
+        "username": "synthetic",
+        "role": "owner"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "projectupdate-true",
+      "schema": "contracts/openapi.yaml#/components/schemas/ProjectUpdate",
+      "data": {
+        "name": "synthetic",
+        "procurement_type": "government",
+        "project_type": "works",
+        "region": "test",
+        "expected_version": 1
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "projectupdate-false",
+      "schema": "contracts/openapi.yaml#/components/schemas/ProjectUpdate",
+      "data": {
+        "name": "synthetic",
+        "procurement_type": "government",
+        "project_type": "works",
+        "region": "test",
+        "expected_version": 0
+      },
+      "expected_valid": false
     }
   ]
 }

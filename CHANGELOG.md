@@ -6,6 +6,9 @@
 
 ### Added
 
+- TASK-0004：Argon2账号引导、短期JWT与可撤销会话、数据库即时身份/RBAC校验。
+- 显式Alembic核心迁移、租户复合外键、PostgreSQL FORCE RLS、不可覆盖历史与审计。
+- 项目创建/分页查询/版本更新/历史、事务幂等与乐观锁；真实业务HTTP启动检查和独立PostgreSQL CI门禁。
 - 工程治理基线、需求追踪、架构决策记录和跨模型交接机制。
 - OpenAPI、领域 Schema、事件 Schema 与模型网关协议草案。
 - 统一仓库验证入口与初始黄金评估样本。

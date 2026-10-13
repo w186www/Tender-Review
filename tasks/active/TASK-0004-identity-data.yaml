@@ -2,8 +2,8 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0004",
   "title": "身份、租户与核心数据迁移",
-  "status": "planned",
-  "owner": "unassigned",
+  "status": "in_progress",
+  "owner": "codex",
   "depends_on": [
     "TASK-0002"
   ],
@@ -36,7 +36,8 @@
     "PROJECT_STATE.md",
     "CHANGELOG.md",
     "README.md",
-    ".env.example"
+    ".env.example",
+    ".github/workflows/**"
   ],
   "must_not_change": [
     "knowledge/legal/**",
@@ -61,5 +62,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。 为实际PostgreSQL门禁增加CI工作流范围，未缩减验收。"
 }

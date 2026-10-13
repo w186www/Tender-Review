@@ -4,7 +4,7 @@
 
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
-| OpenAPI | 0.2.0 | 修正Project响应组合，拒绝未声明字段 |
+| OpenAPI | 0.3.0 | 新增认证、项目查询/版本更新，添加可选适用制度；已有创建字段兼容 |
 | ComplianceReviewState | schema_version=v1alpha2 | 补齐引用，Python类型从Schema生成 |
 | ComplianceFinding | 集合v1alpha2 | status拆为evidence_status与review_status，人工决定需审计字段 |
 | DevelopmentTask | schema_version=v1alpha2 | 相关需求与局部验收分离，completed逐项需要证据 |

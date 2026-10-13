@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前处于 **M1：后端与安全文件接入**。TASK-0002已建立可启动后端，当前实现健康检查、配置、请求追踪和统一错误；数据库与业务审查仍待后续任务。准确状态见 [PROJECT_STATE.md](PROJECT_STATE.md)。
+当前处于 **M1：后端与安全文件接入**。可启动后端已接入身份、租户隔离、角色权限、项目读写与版本历史；文件解析和业务审查仍待后续任务。准确状态与验收证据见 [PROJECT_STATE.md](PROJECT_STATE.md)。
 
 ## 新开发者或 AI 的入口
 
@@ -34,7 +34,7 @@ python -m venv .venv
 ./scripts/start.ps1
 ```
 
-访问 `http://127.0.0.1:8000/api/v1/health`；开发接口文档在 `/docs`，Ctrl+C停止。详细配置、错误和日志约定见 [后端启动说明](docs/development/backend-start.md)。目前仅实现后端底座，不依赖外部数据库或模型。
+访问 `http://127.0.0.1:8000/api/v1/health`；开发接口文档在 `/docs`，Ctrl+C停止。日志约定见 [后端启动说明](docs/development/backend-start.md)。登录和项目接口的迁移、账号引导及权限步骤见 [身份与数据启动说明](docs/development/identity-data-start.md)；健康接口不依赖模型或数据库连接。
 
 统一验证现已包含真实后端启动与本机HTTP烟雾检查，检查后自动清理自己的测试服务。
 

@@ -9,6 +9,36 @@ permissions:
   contents: read
 
 jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: task0004_verification
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ github.run_id }}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.lock
+      - name: Install locked environment
+        run: |
+          python -m pip install -r requirements-dev.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+          python -m pip check
+      - name: Verify actual PostgreSQL security and migration
+        env:
+          POSTGRES_VERIFY_URL: postgresql+psycopg://postgres:${{ github.run_id }}@localhost:5432/task0004_verification
+        run: python scripts/check_postgres.py
   baseline:
     runs-on: windows-latest
     timeout-minutes: 10
