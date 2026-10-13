@@ -14,6 +14,7 @@ import httpx
 from docx import Document as WordDocument
 from PIL import Image, ImageDraw, ImageFont
 from pypdf import PdfWriter
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
 
@@ -86,6 +87,15 @@ def image() -> bytes:
     return buffer.getvalue()
 
 
+def scanned_pdf() -> bytes:
+    buffer = io.BytesIO()
+    document = canvas.Canvas(buffer)
+    document.drawImage(ImageReader(io.BytesIO(image())), 40, 700, width=500, height=67)
+    document.showPage()
+    document.save()
+    return buffer.getvalue()
+
+
 def main() -> None:
     parser_image = os.environ.get("PARSER_VERIFY_IMAGE")
     if not parser_image:
@@ -102,7 +112,16 @@ def main() -> None:
     environment.update(MINIO_ROOT_USER="synthetic-" + unique, MINIO_ROOT_PASSWORD=str(uuid4()))
     try:
         minio, clam = "tender-minio-" + unique, "tender-clamav-" + unique
-        minio_image = docker(["image", "inspect", "minio/minio:latest", "--format", "{{.Id}}"])
+        # Always resolve the reviewed local build to an immutable image ID.
+        minio_image = docker(
+            [
+                "image",
+                "inspect",
+                os.environ.get("MINIO_VERIFY_IMAGE", "tender-minio-verification:task5"),
+                "--format",
+                "{{.Id}}",
+            ]
+        )
         clam_image = docker(["image", "inspect", "clamav/clamav:stable", "--format", "{{.Id}}"])
         for name, args in (
             (
@@ -290,6 +309,7 @@ def main() -> None:
                     docx(),
                 ),
                 ("synthetic.png", "image/png", image()),
+                ("synthetic-scan.pdf", "application/pdf", scanned_pdf()),
             ]:
                 upload_path = f"/api/v1/projects/{project}/documents"
                 headers = {**a, "Idempotency-Key": str(uuid4())}
@@ -309,11 +329,18 @@ def main() -> None:
                 path = upload_path + "/" + document
                 fragments = client.get(path + "/sections", headers=a).json()["items"]
                 assert fragments and all(f["source_hash"] == status.sha256 for f in fragments)
-                if name.endswith(".png"):
+                if name.endswith(".png") or name == "synthetic-scan.pdf":
                     assert any(f["automatic"]["source"] == "ocr" for f in fragments)
                     assert (
                         "qualification"
                         in " ".join(f["effective"]["text"] for f in fragments).lower()
+                    )
+                    coordinate = "pdf_points" if name.endswith(".pdf") else "image_pixels"
+                    assert all(
+                        f["automatic"]["coordinate_system"] == coordinate
+                        and f["automatic"]["page"] == 1
+                        and f["automatic"]["bbox"] is not None
+                        for f in fragments
                     )
                 for suffix in ("", "/sections", "/context", "/original"):
                     assert client.get(path + suffix, headers=b).status_code == 404

@@ -40,6 +40,7 @@
     ".env.example",
     ".github/workflows/**",
     "Dockerfile.parser",
+    "Dockerfile.minio-verification",
     ".dockerignore",
     "requirements-parser.lock"
   ],

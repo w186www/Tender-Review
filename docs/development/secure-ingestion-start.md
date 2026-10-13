@@ -71,10 +71,12 @@ PostgreSQL 业务角色新增 document、ingestion_job 的 SELECT/INSERT/UPDATE�
 ```powershell
 ./scripts/verify.ps1
 $env:PARSER_VERIFY_IMAGE = docker image inspect bidding-parser:task0005 --format '{{.Id}}'
+docker build -f Dockerfile.minio-verification -t tender-minio-verification:task5 .
+if ($LASTEXITCODE -ne 0) { throw 'S3 verification build failed' }
 ./.venv/Scripts/python.exe scripts/check_parser_sandbox.py
 ./.venv/Scripts/python.exe scripts/check_ingestion_containers.py
 ```
 
-后两个脚本要求 Docker Linux Engine、已构建解析镜像和本机缓存的 minio/minio:latest、clamav/clamav:stable（首次可用 docker pull 获取）。真实验证创建自己的随机服务、随机秘密和合成样本，检查 S3、杀毒、OCR、HTTP、租户隔离及资源限制，最后清理自己的容器与服务。CI 对这些步骤单独设必过作业，没有不可用时跳过的分支。
+后两个脚本要求 Docker Linux Engine、已构建解析镜像、上面从固定官方源码构建的真实MinIO测试镜像，以及本机缓存的 clamav/clamav:stable（首次用 docker pull 获取）。源码归档SHA256和Go基础镜像摘要固定，保留AGPL许可证；该MinIO仅为验证服务，不确定生产存储供应商。官方源码：https://github.com/minio/minio/tree/RELEASE.2025-09-07T16-13-09Z 。可通过MINIO_VERIFY_IMAGE指定该构建的固定镜像ID。真实验证创建自己的随机服务、随机秘密和合成样本，检查 S3、杀毒、OCR、HTTP、租户隔离及资源限制，最后清理自己的容器与服务。CI 对这些步骤单独设必过作业，没有不可用时跳过的分支。
 
 单元测试使用明确标注的扫描/OCR替身；实际容器验证另提供真实证据，两者不能互相冒充。PostgreSQL 验证继续使用 identity-data-start.md 中的独立空测试库。真实学校招标文件和用户法规未用于本任务的测试；扫描准确率、中文复杂版面和生产安全总体验收另按黄金集及里程碑执行。

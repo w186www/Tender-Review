@@ -1,0 +1,15 @@
+# Verification-only real S3 service; not a production storage deployment.
+FROM golang:1.24.6-bookworm@sha256:ab1d1823abb55a9504d2e3e003b75b36dbeb1cbcc4c92593d85a84ee46becc6c AS build
+ADD --checksum=sha256:c9598dcce3440977e79f787f2ba0e7e4d92c8d556bd51e7cef3785bafd6635f3 https://codeload.github.com/minio/minio/tar.gz/refs/tags/RELEASE.2025-09-07T16-13-09Z /tmp/minio.tar.gz
+RUN mkdir /source && tar -xzf /tmp/minio.tar.gz -C /source --strip-components=1
+WORKDIR /source
+ENV CGO_ENABLED=0 GOTOOLCHAIN=local
+RUN go build -mod=readonly -trimpath -o /out/minio .
+
+FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
+COPY --from=build /out/minio /usr/local/bin/minio
+COPY --from=build /source/LICENSE /usr/share/licenses/minio/LICENSE
+RUN mkdir /data && chown 65532:65532 /data
+USER 65532:65532
+ENV HOME=/data
+ENTRYPOINT ["/usr/local/bin/minio"]

@@ -27,9 +27,10 @@ jobs:
       - name: Build parser and prepare real verification services
         run: |
           docker build -f Dockerfile.parser -t bidding-parser:task0005 .
-          docker pull minio/minio:latest
+          docker build -f Dockerfile.minio-verification -t tender-minio-verification:task5 .
           docker pull clamav/clamav:stable
           echo "PARSER_VERIFY_IMAGE=$(docker image inspect bidding-parser:task0005 --format '{{.Id}}')" >> "$GITHUB_ENV"
+          echo "MINIO_VERIFY_IMAGE=$(docker image inspect tender-minio-verification:task5 --format '{{.Id}}')" >> "$GITHUB_ENV"
       - name: Verify actual parser isolation
         run: python scripts/check_parser_sandbox.py
       - name: Verify real S3, ClamAV, OCR, worker and HTTP lifecycle
@@ -41,6 +42,7 @@ jobs:
           name: ingestion-evidence
           path: .verification/ingestion-*/server.log
           if-no-files-found: warn
+          include-hidden-files: true
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 10
