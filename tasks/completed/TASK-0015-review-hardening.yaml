@@ -1,7 +1,7 @@
 schema_version: v1alpha2
 task_id: TASK-0015
 title: 修正复查缺陷并建立远程CI实证
-status: in_progress
+status: completed
 owner: codex
 depends_on: [TASK-0002]
 related_requirements: [SEC-007, NFR-006, NFR-009, NFR-008]
@@ -18,15 +18,15 @@ steps:
 acceptance_checks:
   - id: REVIEW-001
     description: 任务移动不影响负向测试，完整门禁按真实结果记录
-    evidence: []
+    evidence: [tests/test_repository_checks.py, docs/development/TASK-0015-validation.md]
   - id: REVIEW-002
     description: 诊断通道有异常类型与安全堆栈；响应与普通日志无敏感数据
-    evidence: []
+    evidence: [tests/test_exception_diagnostics.py, src/bidding_compliance/core/diagnostics.py]
   - id: REVIEW-003
     description: 错误码、数据策略、文档差异及治理检查有契约和测试
-    evidence: []
+    evidence: [tests/test_error_code_contract.py, tests/test_review_cleanup.py, docs/reference/README.md]
   - id: REVIEW-004
     description: Git提交已推送，远程CI有明确head SHA、状态与运行链接
-    evidence: []
+    evidence: [docs/development/TASK-0015-validation.md, PROJECT_STATE.md]
 verify: ["./scripts/verify.ps1"]
-handoff_notes: 不放宽、删除或跳过检查；本地和远程验证必须分别记录。
+handoff_notes: 121项本地测试通过；源代码提交1e744ed的远程CI已success。证据提交自身另触发CI，应核对当前HEAD；下一任务TASK-0004。

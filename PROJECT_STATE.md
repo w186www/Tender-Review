@@ -15,10 +15,11 @@
 - TASK-0003修正：正式契约校验、State生成、流程依赖、分离风险状态、局部验收证据、锁定环境和CI配置。
 - 已建立M0至M6七个里程碑与15个任务；53个需求/验收ID均已分配阶段，尚未全部实现。
 - TASK-0002：可启动FastAPI/Uvicorn后端、健康检查、环境配置、请求追踪、统一错误和结构化安全日志。
+- TASK-0015：夹具位置、独立诊断、错误码契约、模型数据策略、秘密扫描与文档冲突修复；首次Git提交已推送、CI已成功。
 
 ## 正在进行
 
-- TASK-0015：复查修正、分项完整验证与首次远程CI。
+- 无。TASK-0015已完成本地分项复验和首次远程CI，下一项为TASK-0004。
 
 ## 下一步
 
@@ -32,7 +33,7 @@
 - 本地最新：TASK-0015按项修复后完整verify.ps1通过，121项测试、0失败；Mypy检查18个应用源文件，真实HTTP检查通过。分项记录见docs/development/TASK-0015-validation.md。
 - 健康200、未知路径404、请求编号一致；临时服务已停止。默认启动方式：./scripts/start.ps1。
 - 独立环境安装与pip check通过，实际版本已锁定；TASK-0002证据见docs/development/TASK-0002-validation.md，M0历史证据见baseline-validation.md。
-- 远程CI：尚待首次推送；已核实GitHub账户与仓库写权限，远程为https://github.com/w186www/Tender-Review.git。本地通过不代表远程通过。
+- 远程CI已实际成功：提交1e744ed15e7d35934cbe536695ab2b8276b02980，运行https://github.com/w186www/Tender-Review/actions/runs/38388275001，状态completed/success。该链接核验对应源代码提交；证据提交会另行触发CI，不能将历史SHA冒充当前HEAD。
 - 没有宣告业务审查、数据库就绪或完整生产安全验收。
 
 ## 已知问题

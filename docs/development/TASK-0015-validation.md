@@ -12,6 +12,7 @@
 | 3：错误码契约 | 通过：102项 | 11个码+HTTP_ERROR兜底；契约、Enum和实际错误逐项一致 |
 | 5：Word差异登记 | 通过：102项 | §32.2采用YAML的5%；§34采用roadmap依赖；§21.1以src布局为准 |
 | 清理项 | 通过：121项 | ADR备选项、索引、扫描回归、referencing显式依赖、data_policy枚举 |
+| 4：首次提交与CI | 本地121项通过；远程success | 首次main推送后CI安装、完整验证和制品上传均成功 |
 
 每次通过均包括契约、Ruff、Mypy、Pytest和真实服务启动检查，没有跳过任何阶段。当前应用源文件18个，契约示例34个，JSON Schema共7个。pip check通过。临时HTTP服务均已清理。
 
@@ -25,4 +26,8 @@ Word原文件未修改，差异记录在docs/reference/README.md；正式交付�
 
 ## 远程CI
 
-尚待首次提交推送与GitHub Actions实际完成。不能将本地通过等同远程通过。完成后记录运行URL、head SHA与结论，并保留CI制品。
+- 已验证源代码提交：`1e744ed15e7d35934cbe536695ab2b8276b02980`。
+- 实际GitHub运行：[verify / 38388275001](https://github.com/w186www/Tender-Review/actions/runs/38388275001)。
+- API确认：status=completed，conclusion=success；依赖安装、完整验证和证据上传均success。
+- 本地121项结果与远程运行结果分别记录，远程不是由本地结果推断。
+- 本证据提交自身会再触发CI；上面的固定SHA为已核验源代码运行，不冒充后续提交的CI。最新main状态在Actions页查询。
