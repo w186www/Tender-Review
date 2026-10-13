@@ -8,6 +8,8 @@
 
 ## 新开发者或 AI 的入口
 
+两个软件协作开发时，先读[模型分工与仓库派工](docs/development/multi-model-workflow.md)。当前可交给DeepSeek的是[TASK-0006第一阶段](tasks/dispatch/TASK-0006.md)，可复制[启动提示词](docs/development/prompts/deepseek-task-0006.md)；设计审定后再进入业务代码实现。
+
 1. 阅读 [AGENTS.md](AGENTS.md)。
 2. 阅读 [PROJECT_STATE.md](PROJECT_STATE.md)。
 3. 从 [docs/index.md](docs/index.md) 找到需求和架构。

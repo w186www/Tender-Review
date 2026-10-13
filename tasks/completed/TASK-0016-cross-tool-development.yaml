@@ -1,0 +1,72 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0016",
+  "title": "跨软件模型分工、仓库派工与审查交接",
+  "status": "completed",
+  "owner": "codex",
+  "depends_on": [
+    "TASK-0005"
+  ],
+  "related_requirements": [
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-012"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/model-handoff.md"
+  ],
+  "allowed_paths": [
+    "AGENTS.md",
+    "docs/**",
+    "tasks/**",
+    "README.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md"
+  ],
+  "must_not_change": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "确定跨软件角色、单写入者与Git提交交接规则",
+    "提供可领取的TASK-0006资料盘点派工单与两端启动提示词",
+    "提供绑定提交的交接/审查模板，更新入口和任务进度",
+    "运行完整验证并按真实结果归档工程文档任务"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0016-001",
+      "description": "另一软件可仅凭仓库确定阶段、负责人、范围、交接和审查方式",
+      "evidence": [
+        "docs/development/TASK-0016-validation.md",
+        "docs/development/multi-model-workflow.md",
+        "docs/decisions/ADR-0009-cross-tool-development.md",
+        "AGENTS.md"
+      ]
+    },
+    {
+      "id": "TASK0016-002",
+      "description": "TASK-0006派工与提示词可执行，未把待审设计或模板冒充已实现或独立审查通过",
+      "evidence": [
+        "docs/development/TASK-0016-validation.md",
+        "tasks/dispatch/TASK-0006.md",
+        "docs/development/prompts/deepseek-task-0006.md",
+        "docs/development/prompts/gpt-review.md",
+        "docs/development/prompts/deepseek-review-core.md",
+        "tasks/handoffs/template.md",
+        "tasks/reviews/template.md"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "仅交付工程协作机制和TASK-0006第一阶段派工；不执行TASK-0006业务实现，不宣称模型已自动收到任务或自动锁/审批已部署。"
+}

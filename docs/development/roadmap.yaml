@@ -65,11 +65,12 @@
     {
       "id": "M2",
       "name": "法规、规则与模型网关",
-      "status": "planned",
+      "status": "in_progress",
       "depends_on": [
         "M1"
       ],
       "tasks": [
+        "TASK-0016",
         "TASK-0006",
         "TASK-0007",
         "TASK-0008"
@@ -86,7 +87,8 @@
         "SEC-013",
         "NFR-007",
         "NFR-008",
-        "NFR-011"
+        "NFR-011",
+        "NFR-009"
       ],
       "related_acceptance": [
         "AC-003",

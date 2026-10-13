@@ -1,8 +1,8 @@
 # PROJECT_STATE
 
-更新时间：2026-10-13  
-架构基线：Word V2.0 + ADR-0001 至 ADR-0008 / 开发契约v1alpha2
-当前里程碑：M1基础退出检查已通过；M2法规、规则与模型网关准备开始
+更新时间：2026-10-14
+架构基线：Word V2.0 + ADR-0001 至 ADR-0009 / 开发契约v1alpha2
+当前里程碑：M1基础退出检查已通过；M2进行协作准备，法规模块尚未实现
 
 ## 已完成
 
@@ -13,28 +13,32 @@
 - 纳入 42 份法规全文及来源索引，等待摄取管道处理。
 - 建立统一仓库验证脚本。
 - TASK-0003修正：正式契约校验、State生成、流程依赖、分离风险状态、局部验收证据、锁定环境和CI配置。
-- 已建立M0至M6七个里程碑与15个任务；53个需求/验收ID均已分配阶段，尚未全部实现。
+- 已建立M0至M6七个里程碑与16个任务；53个需求/验收ID均已分配阶段，尚未全部实现。
 - TASK-0002：可启动FastAPI/Uvicorn后端、健康检查、环境配置、请求追踪、统一错误和结构化安全日志。
 - TASK-0015：夹具位置、独立诊断、错误码契约、模型数据策略、秘密扫描与文档冲突修复；首次Git提交已推送、CI已成功。
 
 - TASK-0004：显式数据库迁移、可撤销JWT身份、租户/RBAC、版本化项目与事务幂等；PostgreSQL真实CI通过。
 - TASK-0005：安全文件上传、持久作业、ClamAV强制扫描、受限Docker解析、PDF/DOCX/扫描件定位、人工质量/上下文版本、鉴权下载；真实容器与远程三作业CI通过。
+- TASK-0016：跨软件模型分工与仓库派工文档、TASK-0006第一阶段派工单、两端启动提示词、交接/独立审查模板。工程文档已完成，不代表自动多Agent或法规业务已实现。
 
 ## 正在进行
 
-- 无代码任务进行中；TASK-0005已归档到tasks/completed。M1基础验收通过不代表完整业务审查或生产安全总体验收。
+- 无业务代码任务已领取；TASK-0016文档已归档。TASK-0006仍planned/unassigned，discovery派工单可由另一软件DeepSeek领取；设计待审，尚不能进入代码实施。仓库不会自动通知另一软件。
 
 ## 下一步
 
-1. 执行TASK-0006：核验法规元数据，定义有效时间/地区/采购范围/来源快照，完成条款摄取与混合检索。
+1. 按docs/development/multi-model-workflow.md接力：把prompts/deepseek-task-0006.md的提示词交给另一软件，领取TASK-0006的discovery阶段；资料盘点/设计草案交接给6.1审定后才实施。
 2. 无法核实效力版本的资料只能作为待核实参考，不作为确定结论依据；不修改knowledge/legal原始资料。
 3. 按依赖继续TASK-0007规则Skill与TASK-0008两个模型适配器。
 4. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
 
+- TASK-0016本地完整门禁通过，186项、0失败/0跳过、Mypy41源文件，实际两个HTTP检查通过；远程本次文档提交需推送后实际核验，不能冒用TASK-0005的SHA。证据见docs/development/TASK-0016-validation.md。
+
 - TASK-0005本地：完整verify.ps1通过，186项、0失败/0跳过，Mypy41源文件；真实解析隔离、官方源码MinIO/ClamAV/OCR/扫描PDF/HTTP及PostgreSQL增量迁移/RLS均通过。
 - TASK-0005最终源码远程实证：4d6fca6b16fbae66aed82041e08097162a444468，https://github.com/w186www/Tender-Review/actions/runs/38424742422 的baseline/postgres/ingestion均completed/success；已下载JUnit核验186项、0失败/0错误/0跳过。详细范围见docs/development/TASK-0005-validation.md。本次归档证据提交另触发相同CI，链接绑定明确源码版本，不将该SHA冒充后续HEAD。
+- TASK-0005归档提交远程实证：0c57333434c6e0ed6c964c2e983da9e47df12426，https://github.com/w186www/Tender-Review/actions/runs/38425907130 三个作业均success，远程JUnit186项、0失败/0错误/0跳过。后续协作文档改动不冒用这一SHA作为当前HEAD。
 
 - TASK-0004本地最新：完整verify.ps1通过，152项测试、0失败/0跳过，Mypy检查27个源文件；真实HTTP身份与项目流程通过。
 - TASK-0004最终代码远程实证：提交5dca2e341b97ce08d830a91936ca4d3d0f511aaa，https://github.com/w186www/Tender-Review/actions/runs/38393126223 的baseline与postgres均completed/success。已下载远程JUnit核验152 tests、0 failures、0 errors、0 skipped。链接对应明确的代码SHA；本证据文档提交自身另触发CI，不将代码SHA冒充后续HEAD。

@@ -20,6 +20,8 @@
 | 接口与数据 | `../contracts/` | 编码前，且与实现同步 |
 | 身份与数据库启动 | `development/identity-data-start.md` | 认证、权限、迁移、引导与数据库部署变化时 |
 | 安全文件接入启动 | `development/secure-ingestion-start.md` | 上传、扫描、解析、OCR、存储和人工确认变化时 |
+| 跨软件模型分工 | `development/multi-model-workflow.md`、`development/model-handoff.md` | 写入者、派工、Git交接与独立审查变化时 |
+| 当前模型派工 | `../tasks/dispatch/` | 领取、设计审定、候选交接、修复和完成时 |
 
 ## 需求追踪规则
 
