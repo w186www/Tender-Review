@@ -27,3 +27,8 @@
 ## 验证计划
 
 完整verify.ps1；新增服务/DTO正反例、真实SQLite迁移/禁止更新删除、跨租户与撤权读取、两个日期运行持久化/重开Session重现、运行结果篡改拒绝、地区失败不调用适配器与excluded原因。涉及PostgreSQL RLS/触发器需运行真实check_postgres并补其表检查；没有真实结果则如实记录，不能宣告生产数据库验收。
+
+## R01/R02设计复审回应
+
+- R01已在ADR-0010同步Manifest/Index v1alpha1、Query/Result/运行v1alpha2及增量迁移、RLS、权限和有损降级。尚无运行历史，不需要旧数据回填；新result不静默兼容旧v1alpha1。
+- R02：request_snapshot必须包含完整项目context而不是仅哈希，含context_version及其规范JSON SHA-256、原始请求与规范查询、actor/tenant/project/run、日期与explicit_actor_input来源、算法/地区映射版本及索引哈希。规范JSON固定sort_keys=True、ensure_ascii=False、separators=(",",":")、allow_nan=False，日期先转ISO；UTF-8字节SHA-256。RunSnapshot只含request_hash，不包含result_hash；表result_hash计算完整result序列化。读回复核request_hash、context_hash、result_hash及请求-结果关联字段一致性，禁止重新按当前项目上下文计算。补旧上下文变更后读取、重开Session、输入/输出篡改反例。
