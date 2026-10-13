@@ -20,8 +20,8 @@
 | 接口与数据 | `../contracts/` | 编码前，且与实现同步 |
 | 身份与数据库启动 | `development/identity-data-start.md` | 认证、权限、迁移、引导与数据库部署变化时 |
 | 安全文件接入启动 | `development/secure-ingestion-start.md` | 上传、扫描、解析、OCR、存储和人工确认变化时 |
-| 跨软件模型分工 | `development/multi-model-workflow.md`、`development/model-handoff.md` | 写入者、派工、Git交接与独立审查变化时 |
-| 当前模型派工 | `../tasks/dispatch/` | 领取、设计审定、候选交接、修复和完成时 |
+| 模型派工与独立审查 | `development/multi-model-workflow.md`、`../tasks/dispatch/`、`../tasks/handoffs/`、`../tasks/reviews/` | 候选版本、写入权、审查结论变化时 |
+| 法规摄取与检索 | `development/legal-retrieval-start.md` | 来源核验、有效区间、范围、快照和检索算法变化时 |
 
 ## 需求追踪规则
 

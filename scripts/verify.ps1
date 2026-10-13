@@ -21,6 +21,7 @@ function Invoke-Check([string]$Title, [string[]]$Arguments) {
 Push-Location $ProjectRoot
 try {
     Invoke-Check "[1/6] Contracts, examples, State generation and task evidence" @("scripts/verify_repo.py")
+    Invoke-Check "Legal contract generation consistency" @("scripts/generate_legal_contracts.py", "--check")
     Invoke-Check "[2/6] Code and static security rules" @("-m", "ruff", "check", "src", "scripts", "tests")
     Invoke-Check "[3/6] Strict application type checking" @("-m", "mypy", "src")
     New-Item -ItemType Directory -Path (Join-Path $ProjectRoot ".verification") -Force | Out-Null

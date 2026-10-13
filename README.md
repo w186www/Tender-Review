@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**M1 后端与安全文件接入已通过基础退出检查，下一阶段为 M2 法规、规则与模型网关。** 后端已实现身份、租户隔离、项目版本、安全上传、独立隔离解析、OCR、原文定位与人工质量/上下文确认。法规检索、规则、模型和完整审查仍待后续任务。准确状态与验收证据见 [PROJECT_STATE.md](PROJECT_STATE.md)。
+**M1 后端与安全文件接入已通过基础退出检查，下一阶段为 M2 法规、规则与模型网关。** 后端已实现身份、租户隔离、项目版本、安全上传、独立隔离解析、OCR、原文定位与人工质量/上下文确认。TASK-0006已实现离线法规摄取、快照及混合检索；规则、模型和完整审查仍待后续任务。准确状态与验收证据见 [PROJECT_STATE.md](PROJECT_STATE.md)。
 
 ## 新开发者或 AI 的入口
 
@@ -71,4 +71,8 @@ tests/                  单元、契约、集成和安全测试
 - 可替换的 LLM、Embedding、Reranker 和 OCR 适配层
 
 正式开发与交付方案位于 [docs/reference](docs/reference/README.md)。Word 文档用于评审和交付，仓库内的 Markdown、YAML、OpenAPI 与 JSON Schema 用于实际开发。
+
+## TASK-0006 法规能力
+
+法规摄取、不可变索引和混合检索启动见[法规检索说明](docs/development/legal-retrieval-start.md)。新版司法部法规快照与原始资料分别保留，待核实版本默认不能作为确定依据。
 

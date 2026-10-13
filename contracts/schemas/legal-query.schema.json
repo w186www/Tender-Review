@@ -1,0 +1,63 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "text": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    },
+    "review_date": {
+      "format": "date",
+      "title": "Review Date",
+      "type": "string"
+    },
+    "region": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Region",
+      "type": "string"
+    },
+    "procurement_type": {
+      "enum": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "title": "Procurement Type",
+      "type": "string"
+    },
+    "project_type": {
+      "enum": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "title": "Project Type",
+      "type": "string"
+    },
+    "limit": {
+      "default": 10,
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+    },
+    "include_references": {
+      "default": false,
+      "title": "Include References",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "text",
+    "review_date",
+    "region",
+    "procurement_type",
+    "project_type"
+  ],
+  "title": "RetrievalQuery",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-query.schema.json"
+}

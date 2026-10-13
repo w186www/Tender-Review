@@ -1,0 +1,233 @@
+{
+  "$defs": {
+    "LegalHit": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "law_id": {
+          "title": "Law Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "article": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Article"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        },
+        "quote_hash": {
+          "title": "Quote Hash",
+          "type": "string"
+        },
+        "source_uri": {
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "source_hash": {
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "text_hash": {
+          "title": "Text Hash",
+          "type": "string"
+        },
+        "locator": {
+          "title": "Locator",
+          "type": "string"
+        },
+        "effective_from": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Effective From"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Effective To"
+        },
+        "version_status": {
+          "enum": [
+            "verified_current",
+            "verified_historical",
+            "unverified"
+          ],
+          "title": "Version Status",
+          "type": "string"
+        },
+        "eligible_for_confirmation": {
+          "title": "Eligible For Confirmation",
+          "type": "boolean"
+        },
+        "reason": {
+          "enum": [
+            "valid",
+            "unverified",
+            "outside_verification_horizon",
+            "unlocated"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "score": {
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "law_id",
+        "title",
+        "article",
+        "version",
+        "quote",
+        "quote_hash",
+        "source_uri",
+        "source_hash",
+        "text_hash",
+        "locator",
+        "effective_from",
+        "effective_to",
+        "version_status",
+        "eligible_for_confirmation",
+        "reason",
+        "score"
+      ],
+      "title": "LegalHit",
+      "type": "object"
+    },
+    "RetrievalQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "review_date": {
+          "format": "date",
+          "title": "Review Date",
+          "type": "string"
+        },
+        "region": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Region",
+          "type": "string"
+        },
+        "procurement_type": {
+          "enum": [
+            "government",
+            "enterprise",
+            "other"
+          ],
+          "title": "Procurement Type",
+          "type": "string"
+        },
+        "project_type": {
+          "enum": [
+            "works",
+            "goods",
+            "services"
+          ],
+          "title": "Project Type",
+          "type": "string"
+        },
+        "limit": {
+          "default": 10,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "include_references": {
+          "default": false,
+          "title": "Include References",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text",
+        "review_date",
+        "region",
+        "procurement_type",
+        "project_type"
+      ],
+      "title": "RetrievalQuery",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "v1alpha1",
+      "default": "v1alpha1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "snapshot_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Snapshot Hash",
+      "type": "string"
+    },
+    "retrieval_version": {
+      "const": "bm25-char-cosine-rrf-1",
+      "default": "bm25-char-cosine-rrf-1",
+      "title": "Retrieval Version",
+      "type": "string"
+    },
+    "query": {
+      "$ref": "#/$defs/RetrievalQuery"
+    },
+    "hits": {
+      "items": {
+        "$ref": "#/$defs/LegalHit"
+      },
+      "title": "Hits",
+      "type": "array"
+    }
+  },
+  "required": [
+    "snapshot_hash",
+    "query",
+    "hits"
+  ],
+  "title": "RetrievalResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-result.schema.json"
+}

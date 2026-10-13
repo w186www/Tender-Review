@@ -705,6 +705,63 @@
         "unexpected": true
       },
       "expected_valid": false
+    },
+    {
+      "id": "legal-query-valid",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "text": "合成保证金",
+        "review_date": "2026-10-14",
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 5,
+        "include_references": false
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-query-invalid-date",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "text": "合成保证金",
+        "review_date": "2026-13-01",
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 5,
+        "include_references": false
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-query-extra-authority",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "text": "合成保证金",
+        "review_date": "2026-10-14",
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 5,
+        "include_references": false,
+        "tenant_id": "synthetic"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-query-invalid-limit",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "text": "合成保证金",
+        "review_date": "2026-10-14",
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 0,
+        "include_references": false
+      },
+      "expected_valid": false
     }
   ]
 }

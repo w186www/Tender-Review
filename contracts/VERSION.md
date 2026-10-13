@@ -5,6 +5,7 @@
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
 | OpenAPI | 0.4.0 | 新增文档查询、片段、附件下载、质量修正和上下文确认；Document 增加状态与解析版本，消费者须更新状态枚举 |
+| LegalManifest、LegalIndex、RetrievalQuery、RetrievalResult | schema_version=v1alpha1 / 集合v1alpha2 | TASK-0006新增独立闭合契约，原有State/EvidenceRef/OpenAPI不变；有效区间、核验截止日、来源快照及可确认资格，见ADR-0010 |
 | ParsedDocument、ParserRequest、ParserResponse | schema_version=v1alpha1 / 集合v1alpha2 | 闭合字段、定位、哈希、OCR置信度、封闭问题码、资源策略、结果/错误互斥；由类型源生成并验证漂移 |
 | ComplianceReviewState | schema_version=v1alpha2 | 补齐引用，Python类型从Schema生成 |
 | ComplianceFinding | 集合v1alpha2 | status拆为evidence_status与review_status，人工决定需审计字段 |
