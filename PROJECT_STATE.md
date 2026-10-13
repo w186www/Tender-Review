@@ -23,16 +23,20 @@
 
 ## 正在进行
 
-- 无业务代码任务已领取；TASK-0016文档已归档。TASK-0006仍planned/unassigned，discovery派工单可由另一软件DeepSeek领取；设计待审，尚不能进入代码实施。仓库不会自动通知另一软件。
+- TASK-0006（法规版本摄取与适用范围检索）：discovery阶段由另一软件DeepSeek V4.1 Flash领取并完成资料盘点与设计草案，分支work/TASK-0006，方案提交4e908713323805bf0a73345f2bfd352d51039ea3（docs/development/TASK-0006-design.md）；正式TASK已置in_progress、owner=deepseek。派工单阶段为design_review：等待指定设计审查者GPT-6.1 Sol在tasks/reviews/TASK-0006.md记录绑定该SHA的design结论。实施前必须存在设计审查通过记录；本阶段写入已停止，无人在写该任务。
+- 当前42份法规资料均未做官方核验，设计草案按此把全部版本标为unverified：在完成核验前，检索证据只能支撑“疑似/证据不足”，不能支撑确定性结论（与TASK0006-001一致）。
 
 ## 下一步
 
-1. 按docs/development/multi-model-workflow.md接力：把prompts/deepseek-task-0006.md的提示词交给另一软件，领取TASK-0006的discovery阶段；资料盘点/设计草案交接给6.1审定后才实施。
-2. 无法核实效力版本的资料只能作为待核实参考，不作为确定结论依据；不修改knowledge/legal原始资料。
-3. 按依赖继续TASK-0007规则Skill与TASK-0008两个模型适配器。
-4. 实现LangGraph完整流程、人工复核、报告、界面与部署。
+1. GPT-6.1 Sol按tasks/dispatch/TASK-0006.md与tasks/handoffs/TASK-0006.md审查设计草案4e90871，记录approved/changes_requested；重点为契约草案、R1–R8适用性规则、DEC-0006-01至12与是否新增ADR-0010。
+2. 设计通过后更新派工单为implementation，再实现摄取、切分、版本索引与适用范围检索；未通过则按审查意见修订并重新提交方案SHA。
+3. 加快官方效力核验（首批范围见DEC-0006-01建议）：无法核实版本的资料只能作为待核实参考，不作为确定结论依据；不修改knowledge/legal原始资料。
+4. 按依赖继续TASK-0007规则Skill与TASK-0008两个模型适配器。
+5. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
+
+- TASK-0006 discovery阶段（2026-10-14，本机PowerShell 7.6.6 + .venv Python 3.12.14，允许回环网络）：完整verify.ps1通过，186项测试、0失败/0跳过（JUnit tests=186 failures=0 errors=0 skipped=0），Mypy 41个源文件，真实HTTP健康/登录与项目生命周期检查通过。此为文档草案提交的门禁结果，不代表法规效力已核验或检索能力已实现；详情与未执行项见tasks/handoffs/TASK-0006.md。
 
 - TASK-0016本地完整门禁通过，186项、0失败/0跳过、Mypy41源文件，实际两个HTTP检查通过；远程本次文档提交需推送后实际核验，不能冒用TASK-0005的SHA。证据见docs/development/TASK-0016-validation.md。
 
