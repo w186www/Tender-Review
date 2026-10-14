@@ -2,7 +2,7 @@
 
 更新时间：2026-10-14
 架构基线：ADR-0012本期法规生命周期/来源映射接受；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
-当前里程碑：M1基础退出检查已通过；M2退出条件已满足并完成；M3进行中。TASK-0010已归档；TASK-0011前端工作台在work/TASK-0011开发，完整浏览器验收与管理版本API仍待补齐。
+当前里程碑：M1基础退出检查已通过；M2退出条件已满足并完成；M3进行中。TASK-0010已归档；TASK-0011已形成正式归档候选，等待归档 CI 核验。
 
 ## 已完成
 
@@ -32,14 +32,14 @@
 - TASK-0009：源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的TASK0009-001/002本地证据、Focused13、Full500及真实PostgreSQL恢复/并发/事务故障专项通过；用户确认源码提交与验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI通过。任务文件已准备本地归档候选并移入completed；本次归档提交的远程CI尚待执行/核验，故项目总体仍待最终确认。详见`docs/development/TASK-0009-validation.md`。
 - M2正式退出条件按证据核实：TASK-0007候选追溯、TASK-0006检索过滤、TASK-0008适配器合规均满足；roadmap.yaml标记M2 completed、M3 in_progress。局部任务完成不代表AC-003或M3完整闭环通过。
 - TASK-0009生产模型仍受DEC-002禁用；TASK-0008预算账本仍仅具单进程一致性；TASK-0010默认不启用生产模型执行。
-- TASK-0011验收证据已通过：最终源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`，源码 CI 38600922153 的 Windows baseline、PostgreSQL、ingestion、verify-required 均成功；真实浏览器 E2E 5/5，FR-013、PostgreSQL 专项和本地 Full 证据已记录。任务暂保持`in_progress`，等待验收记录 CI 与正式归档 CI。详见`docs/development/TASK-0011-validation.md`。
+- TASK-0011归档候选：源码CI 38600922153 与验收记录 Quick CI 38603582949 均成功；正式归档提交及归档CI待核验。E2E 5/5、FR-013、PostgreSQL与Full证据见`docs/development/TASK-0011-validation.md`。
 
 ## 下一步
 
 1. 核验TASK-0009归档候选远程CI；TASK-0010已完成远程源码、记录和归档CI验收。
 2. 法规库42份旧文本继续unverified，另3份未收录；逐项官方核验后才能支持确定依据，不从模型/索引标注推断效力。
 3. 2019《实施条例》工程招标范围核验截止2026-10-14，未来基准日需新核验或显式参考。未知地区/采购上下文及大面积扫描正文映射失败关闭。
-4. 完成TASK-0011验收记录与正式归档CI；不启动TASK-0012。TASK-0011完成不代表M3或相关全局AC完成。
+4. 核验TASK-0011正式归档CI；在其成功前不将归档候选视为最终完成，不启动TASK-0012。TASK-0011完成也不代表M3或相关全局AC完成。
 
 ## 最近验证
 
@@ -73,7 +73,7 @@
 
 ## 已知问题
 
-- TASK-0011的真实浏览器链路与FR-013配置版本管理已通过本任务局部验收；验收记录与归档CI完成前任务仍保持`in_progress`。这不代表相关全局AC或M3已完成。
+- TASK-0011的真实浏览器链路与FR-013配置版本管理已通过本任务局部验收；源码CI和验收记录CI已成功，正式归档CI待核验。这不代表相关全局AC或M3已完成。
 - Word内嵌图片需人工转录；DOCX外部关系含超链接严格拒绝；中文复杂版面质量仍需黄金集验收。详见secure-ingestion-start.md。
 - 本机Docker Linux Engine已可用（29.2.1）；临时PostgreSQL16本机迁移/权限/RLS/并发/回滚与真实S3/扫描/OCR检查通过，仅测试服务已清理。TASK-0005历史PowerShell完整门禁186项全通过；当前任务结果见最近验证。
 - Windows受限沙箱会阻断asyncio内部回环连接；完整验收须允许本机回环网络，不能跳过测试。

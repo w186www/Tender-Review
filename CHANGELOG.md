@@ -6,7 +6,7 @@
 
 ### Added
 
-- TASK-0011验收证据已通过，正式归档CI待执行：源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`；FR-013法规/规则/Skill/模型策略统一配置修订、授权发布/停用/回滚、审计与ReviewEngine冻结快照已实现；真实 Microsoft Edge E2E 5/5，PostgreSQL16专项、FR-013 Focused 69和本地Full 510通过；源码CI 38600922153对应最终SHA的Windows baseline/PostgreSQL/ingestion/verify-required成功。Windows CRLF导致OpenAPI检查与Biome格式失败，已固定前端文本LF并保留全部检查。DEC-002未批准，未调用在线模型；任务完成状态等待验收记录和归档CI。详见`docs/development/TASK-0011-validation.md`。
+- TASK-0011正式归档候选，归档CI待核验：源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`；FR-013法规/规则/Skill/模型策略统一配置修订、授权发布/停用/回滚、审计与ReviewEngine冻结快照已实现；真实 Microsoft Edge E2E 5/5，PostgreSQL16专项、FR-013 Focused 69和本地Full 510通过。源码CI 38600922153和验收记录 Quick CI 38603582949成功。Windows CRLF导致OpenAPI检查与Biome格式失败，已固定前端文本LF并保留全部检查。DEC-002未批准，未调用在线模型；只有归档CI通过后才最终确认完成。详见`docs/development/TASK-0011-validation.md`。
 
 - TASK-0010已完成归档：人工复核决定/审计历史、幂等发布、不可变结构化报告版本、Word/PDF渲染、原文历史片段回查及授权导出审计。源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`本地Full504项与PostgreSQL16专项通过；源码CI38556383801、验收记录CI38557180768及归档CI38557509858全部适用作业成功。DEC-002未批准，默认模型执行关闭。详见`docs/development/TASK-0010-validation.md`。
 

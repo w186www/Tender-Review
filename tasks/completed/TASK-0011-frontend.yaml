@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0011",
   "title": "前端完整业务操作与管理界面",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0010"
@@ -79,5 +79,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "最终源码候选57d2515c6e4f2d6816bf94c2ed04e82759acd6c4；源码CI 38600922153 的 Windows baseline、PostgreSQL、ingestion 与 verify-required 均成功。TASK0011-001/002 的真实 Edge/FastAPI/PostgreSQL/MinIO/ClamAV/离线ReviewEngine E2E为5/5，FR-013配置版本服务/API/页面、PostgreSQL专项及历史快照绑定通过；完整证据见 docs/development/TASK-0011-validation.md。当前仍为 in_progress，等待验收记录CI与正式归档CI后再更新为completed。DEC-002未批准在线模型，默认无ReviewEngine时返回503；只完成本任务，不代表相关全局AC或M3完成。"
+  "handoff_notes": "TASK0011-001/002本地证据通过；源码候选57d2515c6e4f2d6816bf94c2ed04e82759acd6c4的源码CI 38600922153、验收记录提交750833cf1ffdd99f889676ec93575498479d1851的Quick CI 38603582949均成功。正式归档提交的CI仍待核验。真实Edge/FastAPI/PostgreSQL/MinIO/ClamAV/离线ReviewEngine E2E为5/5，FR-013配置版本服务/API/页面、PostgreSQL专项及ReviewEngine冻结快照绑定通过；详见 docs/development/TASK-0011-validation.md。DEC-002未批准在线模型，默认无ReviewEngine时返回503；本任务完成不代表相关全局AC或M3完成。"
 }

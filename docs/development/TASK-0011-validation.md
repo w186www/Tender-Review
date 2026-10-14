@@ -1,7 +1,7 @@
 # TASK-0011 本地验证与验收记录
 
 - 更新时间：2026-10-15
-- 当前状态：两个局部验收项已有通过证据；源码 CI 已通过。验收记录提交和正式归档 CI 尚待完成，因此任务暂保持 `in_progress`。
+- 当前状态：两个局部验收项及源码 CI 已通过；验收记录提交 `750833cf1ffdd99f889676ec93575498479d1851` 的 Quick CI <https://github.com/w186www/Tender-Review/actions/runs/38603582949> 已通过。正式归档 CI 尚待完成，因此当前进入归档候选阶段。
 - 分支：`work/TASK-0011`
 - 最终源码候选：`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`（`fix: pin frontend files to LF for Biome`）
 - 前端与 FR-013 实现：`a8c43454138c2867d735402d1f330869fa18ba16`
