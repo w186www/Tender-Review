@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0009",
   "title": "LangGraph 审查引擎、证据门禁和恢复",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0005",
@@ -68,5 +68,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+  "handoff_notes": "TASK0009-001/002本地验收及源码/验证记录提交远程CI成功；TASK-0009归档提交仍须通过远程verify-required及所有适用作业，方可正式宣布完成。相关全局AC仍按里程碑验收。"
 }

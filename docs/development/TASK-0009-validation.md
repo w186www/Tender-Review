@@ -1,10 +1,10 @@
-# TASK-0009 本地验收记录
+# TASK-0009 验收与归档记录
 
 - 日期：2026-10-14
 - 分支：`work/TASK-0009`
 - 基线：TASK-0008 归档提交 `c51eec293de47226ea271e599ddc2d773f43ea1c`
 - 源码提交：`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`
-- 任务状态：`in_progress`。本地正式验收和必需集成检查通过；远端分支核对、GitHub Actions 与归档提交 CI 尚未执行。
+- 任务状态：本地归档候选。TASK0009-001/002本地验收通过；用户确认源码提交及本地验证记录提交的必要远程CI通过。只有本归档提交的远程所有适用作业及`verify-required`成功后，才正式宣布`completed`。
 
 ## 正式验收
 
@@ -34,7 +34,7 @@
 | Full 静态与启动检查 | 契约/生成、Ruff、Mypy 80 文件、真实 HTTP 健康/404/请求 ID、登录/项目/版本/注销撤权通过 |
 | PostgreSQL 16：`scripts/check_postgres.py` | 迁移、API、RLS、租户 FK、并发及回滚通过 |
 | PostgreSQL 16：`scripts/check_legal_publications.py` | 法规生命周期及 TASK-0009 图、恢复、身份、快照、并发、发布故障注入通过 |
-| 工程记录 Quick | 记录更新后执行；不重复 Full |
+| 工程记录归档 Quick | 本次归档记录变更后通过；仓库、契约、生成状态与秘密扫描通过；不运行时测试、不重复 Full |
 
 Full 有两条既有 `pypdf.add_js` 弃用警告，不影响结果。测试使用合成数据、离线网关和本机一次性 PostgreSQL 容器；容器已清理。没有访问 OpenAI/Anthropic，也没有使用真实招标文件或真实凭据。
 
@@ -42,15 +42,17 @@ Full 有两条既有 `pypdf.add_js` 弃用警告，不影响结果。测试使�
 
 M2 的正式退出检查可由先前已完成任务的验收证据核验：TASK-0007 候选 provenance 与稳定定位、TASK-0006 法规范围过滤和快照证据、TASK-0008 两家适配器合规测试均有本地及对应远程 CI 证据。因此 M2 退出检查已满足，roadmap 标记 M2 `completed`、M3 `in_progress`。TASK-0009 本身依赖的 TASK-0005 至 TASK-0008 均已完成；M3 整体仍未完成。
 
-远端 URL 核对为 `https://github.com/w186www/Tender-Review.git`。执行只读命令 `git ls-remote --heads origin work/TASK-0009` 时，受限环境返回 `getaddrinfo() thread failed to start`。依照用户关于不得绕过远端安全限制的要求，本轮没有重试提升网络权限，没有推送代码，也没有声称 GitHub Actions 成功。故 TASK-0009 保持 `in_progress`，等待远端核对、推送及 `verify-required` 结果后再归档。
+远端为 `https://github.com/w186www/Tender-Review.git`。本地 `origin/work/TASK-0009` 跟踪引用指向`99ce00f7b7bef09285e280b9b909143022c847b4`，且源码提交`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`是其祖先；用户确认源码提交和验证记录提交已推送，必要远程CI通过。当前环境调用GitHub API返回“未知主机”，`gh` CLI不可用，因此无法取得上述运行的独立运行ID与逐作业页面；可在[该分支的 GitHub Actions 运行列表](https://github.com/w186www/Tender-Review/actions?query=branch%3Awork%2FTASK-0009)查看。
 
-网络可用且确认远端目标分支后，待执行的普通非强制推送为：
+本地归档候选已将`tasks/active/TASK-0009-langgraph-engine.yaml`移入`tasks/completed/`并更新状态。归档提交仍须普通推送，且其对应远程所有适用作业和`verify-required`成功后，任务才满足仓库完成定义。本次不得强推或覆盖远端改动；若本机网络仍不可用，保留该本地提交供用户手动推送，并保持项目总体状态为待远程归档CI确认。
+
+本地归档候选提交在远端分支为其祖先时，使用普通非强制推送：
 
 ```powershell
 git push -u origin work/TASK-0009
 ```
 
-不得使用 force push。若普通推送因远端已有提交而拒绝，应先核对远端历史，不覆盖它。
+不得使用 force push。若推送因远端已有提交而拒绝，应先核对远端历史，不覆盖它。归档提交的CI状态目前待运行/核验。
 
 ## 剩余生产限制
 

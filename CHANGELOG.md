@@ -6,7 +6,7 @@
 
 ### Added
 
-- TASK-0009 本地候选：实现 LangGraph 审查主链、五类 Skill 调度汇合、冻结运行快照、法规检索与模型真实输入依赖、独立证据门禁、PostgreSQL Checkpoint、新进程中断恢复、人工决定边界、有限重试/取消及数据库发布幂等。最终 Full 500项、本地 Focused 13项和真实 PostgreSQL 并发/故障专项通过。源码 `c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`；远端访问受限尚未推送/CI，任务保持 `in_progress`，详见 `docs/development/TASK-0009-validation.md`。DEC-002仍待批准、生产模型路由禁用、预算账本仅单进程一致性；未进行真实供应商调用，未启动TASK-0010。
+- TASK-0009 本地归档候选：TASK0009-001/002正式验收、本地 Full 500、Focused 13、真实 PostgreSQL 恢复/并发/事务故障专项通过。源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`和验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI由用户确认成功；本次归档提交的远程CI待核验，全部适用作业及`verify-required`成功后方正式完成。DEC-002仍待批准、生产模型路由禁用、预算账本仅单进程一致性、法律证据最高为suspected；未进行真实供应商调用，未启动TASK-0010。详见 `docs/development/TASK-0009-validation.md`。
 
 - TASK-0008 archived after formal TASK0008-001/002 checks, local Focused 54 and Full 487, real local HTTP/identity checks, and GitHub Actions run 38521959503 succeeded for impact/baseline/postgres/ingestion/verify-required. Added a provider-neutral gateway, OpenAI Responses and Anthropic Messages adapters, strict structured output validation, server-side routing/authorization, budget reservation, bounded retry/circuit breaker, and audit metadata. No live OpenAI/Anthropic calls were made. DEC-002 remains pending, production routes remain disabled, and the in-memory budget ledger provides single-process consistency only; shared persistence and multi-process production safety remain prerequisites.
 

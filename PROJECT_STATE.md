@@ -2,7 +2,7 @@
 
 更新时间：2026-10-14
 架构基线：ADR-0012本期法规生命周期/来源映射接受；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
-当前里程碑：M1基础退出检查已通过；M2退出条件已满足并完成；M3进行中，TASK-0009本地验收已通过，远端CI待执行
+当前里程碑：M1基础退出检查已通过；M2退出条件已满足并完成；M3进行中，TASK-0009本地归档候选已准备，待该归档提交远程CI通过后正式完成
 
 ## 已完成
 
@@ -28,20 +28,20 @@
 
 ## 正在进行
 
-- TASK-0009源码提交`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`：TASK0009-001/002本地证据、Focused13、Full500和真实PostgreSQL恢复/并发/事务故障专项均通过。任务保持in_progress，因受限环境的`git ls-remote`返回`getaddrinfo() thread failed to start`，尚未推送、运行远程CI或归档。详见`docs/development/TASK-0009-validation.md`。
+- TASK-0009：源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的TASK0009-001/002本地证据、Focused13、Full500及真实PostgreSQL恢复/并发/事务故障专项通过；用户确认源码提交与验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI通过。任务文件已准备本地归档候选并移入completed；本次归档提交的远程CI尚待执行/核验，故项目总体仍待最终确认。详见`docs/development/TASK-0009-validation.md`。
 - M2正式退出条件按证据核实：TASK-0007候选追溯、TASK-0006检索过滤、TASK-0008适配器合规均满足；roadmap.yaml标记M2 completed、M3 in_progress。局部任务完成不代表AC-003或M3完整闭环通过。
 - TASK-0009生产模型仍受DEC-002禁用；TASK-0008预算账本仍仅具单进程一致性；TASK-0010未启动。
 
 ## 下一步
 
-1. 远端访问恢复后核对`origin/work/TASK-0009`，普通推送`git push -u origin work/TASK-0009`并核验源码/归档提交的`verify-required`及所有适用GitHub Actions作业；不得强推或覆盖已有远端提交。
+1. 普通推送本地TASK-0009归档候选，核验归档提交的所有适用GitHub Actions作业及`verify-required`；全部成功后才将TASK-0009报告为正式完成。不得强推或覆盖已有远端提交。
 2. 法规库42份旧文本继续unverified，另3份未收录；逐项官方核验后才能支持确定依据，不从模型/索引标注推断效力。
 3. 2019《实施条例》工程招标范围核验截止2026-10-14，未来基准日需新核验或显式参考。未知地区/采购上下文及大面积扫描正文映射失败关闭。
-4. 等待TASK-0009远程CI后再完成其归档；不自动启动TASK-0010。人工审核管理、报告、界面、部署和M3端到端退出按后续正式任务执行。
+4. 不自动启动TASK-0010。人工审核管理、报告、界面、部署和M3端到端退出按后续正式任务执行。
 
 ## 最近验证
 
-- TASK-0009本地源码候选`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`：Focused13、最终Full500（0失败/错误/跳过）、Ruff、Mypy80文件、契约/生成/秘密检查及真实HTTP/认证/项目撤权检查通过；真实PostgreSQL专项覆盖Checkpoint新进程恢复、双Worker并发恢复与状态/副作用、人工授权、RLS/快照拒绝、提交前数据库失败回滚、真实提交后确认丢失和新会话幂等重试。Full仅有两个既有pypdf `add_js`弃用警告。远端只读分支核对因`getaddrinfo() thread failed to start`未成功；按安全限制未升级网络、未推送或声称CI成功。任务保持in_progress，详见`docs/development/TASK-0009-validation.md`。
+- TASK-0009归档候选：源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的Focused13、最终Full500（0失败/错误/跳过）、Ruff、Mypy80文件、契约/生成/秘密检查、真实HTTP/身份/撤权和PostgreSQL恢复/并发/事务故障专项通过。用户确认源码及验证记录提交的必要远程CI通过；本次归档记录Quick通过，归档提交远程CI待核验。DEC-002未批准、在线模型调用未验证、预算账本仅单进程一致性、法律证据最高为suspected；TASK-0010未启动。详见`docs/development/TASK-0009-validation.md`。
 
 - TASK-0007最终代码源码236d2a6e231be030f719b0bbabc3f2b0a50039b3：Focused 30项通过；Full 448项、0失败/0错误/0跳过，Ruff、Mypy64源文件、契约生成检查及真实HTTP/身份/项目/撤权/租户隔离验证通过。Full在本机回环网络授权下执行，JUnit `.verification/pytest-result.xml`；两个既有pypdf `add_js`弃用警告。远程https://github.com/w186www/Tender-Review/actions/runs/38516913371 对应该源码，impact/baseline/postgres/ingestion/verify-required全部success；远端JUnit artifact已生成，但下载接口需认证，未声称远端测试数量。代码提交与证据绑定；后续文档/任务归档改动仅Quick，不重复Full，不合入main、不启动TASK-0008。详见docs/development/TASK-0007-validation.md。
 
@@ -98,4 +98,4 @@
 - 用户本次指令由ADR-0011记录，撤销ADR-0009默认跨软件/独立代理关卡；现有实现/问题与法规ADR-0010 proposed保留。Codex按实际验收自行收尾，不能假称独立审查或自动关闭问题。
 - 不恢复DeepSeek派工或自动代理审批。当前无额外代理运行；保留历史审查的真实发现作为问题清单。
 
-当前TASK-0007验收源码236d2a6e231be030f719b0bbabc3f2b0a50039b3；本地Focused30、Full448/真实集成和远程38516913371适用作业全部成功，任务已完成并归档。TASK-0008验收源码`4d1f59f69143c63c7d4273958a12da19ecf5acdf`（归档前工程记录提交`5b9b9f1bf68b245abb05b75cd855d07d30497d2a`）从归档提交`6edea37c071cfcec6cf8354b9d74f92fbcaba0a5`创建并包含TASK-0007验收源码；原stash@{0}仍保留。Focused54项、Full487项、真实本机后端/身份检查及源码提交远程CI运行`38521959503`（impact/baseline/postgres/ingestion/verify-required全部success）均通过。TASK0008-001/002按正式验收条件完成并归档；详见`docs/development/TASK-0008-validation.md`。生产预算仅实现单进程原子参考ledger，不能支持多进程生产一致性；DEC-002待批准、生产路由保持禁用，真实在线供应商调用未执行。TASK-0009源码SHA`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的本地验收通过但远端CI待执行，保持in_progress；不启动TASK-0010。
+当前TASK-0007验收源码236d2a6e231be030f719b0bbabc3f2b0a50039b3；本地Focused30、Full448/真实集成和远程38516913371适用作业全部成功，任务已完成并归档。TASK-0008验收源码`4d1f59f69143c63c7d4273958a12da19ecf5acdf`（归档前工程记录提交`5b9b9f1bf68b245abb05b75cd855d07d30497d2a`）从归档提交`6edea37c071cfcec6cf8354b9d74f92fbcaba0a5`创建并包含TASK-0007验收源码；原stash@{0}仍保留。Focused54项、Full487项、真实本机后端/身份检查及源码提交远程CI运行`38521959503`（impact/baseline/postgres/ingestion/verify-required全部success）均通过。TASK0008-001/002按正式验收条件完成并归档；详见`docs/development/TASK-0008-validation.md`。生产预算仅实现单进程原子参考ledger，不能支持多进程生产一致性；DEC-002待批准、生产路由保持禁用，真实在线供应商调用未执行。TASK-0009源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`验收通过；源码与验证记录提交远程CI由用户确认成功，归档提交远程CI待核验。TASK-0010未启动。
