@@ -43,6 +43,7 @@ try {
     Invoke-Check "[1/6] Contracts, examples, State generation and task evidence" @("scripts/verify_repo.py")
     Invoke-Check "Legal contract generation consistency" @("scripts/generate_legal_contracts.py", "--check")
     Invoke-Check "Ingestion contract generation consistency" @("scripts/generate_ingestion_contracts.py", "--check")
+    Invoke-Check "Rule/Skill contract generation consistency" @("scripts/generate_rule_contracts.py", "--check")
     if ($Mode -eq "Quick") {
         Write-Host "PASS: Quick repository/contract/secret checks only; no runtime tests or startup checks executed."
         return

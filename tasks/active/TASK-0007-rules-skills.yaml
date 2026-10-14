@@ -2,10 +2,11 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0007",
   "title": "规则引擎与五类 Skill 规范",
-  "status": "planned",
-  "owner": "unassigned",
+  "status": "in_progress",
+  "owner": "Codex",
   "depends_on": [
-    "TASK-0005"
+    "TASK-0005",
+    "TASK-0006"
   ],
   "related_requirements": [
     "FR-004",
@@ -20,7 +21,30 @@
     "PROJECT_STATE.md",
     "docs/index.md",
     "docs/development/roadmap.md",
-    "docs/architecture/system.md"
+    "docs/architecture/system.md",
+    "docs/development/roadmap.yaml",
+    "docs/requirements/functional.md",
+    "docs/requirements/acceptance.md",
+    "docs/architecture/langgraph.md",
+    "docs/architecture/data-flow.md",
+    "docs/development/testing-standard.md",
+    "docs/decisions/ADR-0005-contracts-and-evidence-dependencies.md",
+    "docs/decisions/ADR-0008-secure-ingestion.md",
+    "docs/decisions/ADR-0011-development-and-validation.md",
+    "docs/decisions/ADR-0012-legal-lifecycle-and-provenance.md",
+    "contracts/schemas/risk.schema.json",
+    "contracts/schemas/evidence.schema.json",
+    "contracts/schemas/parsed-document.schema.json",
+    "contracts/schemas/compliance-state.schema.json",
+    "contracts/schemas/rule-definition.schema.json",
+    "contracts/schemas/skill-definition.schema.json",
+    "contracts/schemas/candidate-discovery-result.schema.json",
+    "contracts/VERSION.md",
+    "evals/golden_cases/GC-0001-region-restriction.json",
+    "evals/golden_cases/GC-0002-exclusive-brand.json",
+    "evals/golden_cases/GC-0003-score-total-mismatch.json",
+    "evals/golden_cases/GC-0004-key-contract-placeholder.json",
+    "evals/golden_cases/GC-0005-tender-time-order.json"
   ],
   "allowed_paths": [
     "src/**",
@@ -35,7 +59,9 @@
     "PROJECT_STATE.md",
     "CHANGELOG.md",
     "README.md",
-    ".env.example"
+    ".env.example",
+    "evals/**",
+    ".github/workflows/verify.yml"
   ],
   "must_not_change": [
     "knowledge/legal/**",
@@ -60,5 +86,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+  "handoff_notes": "单Codex依ADR-0011实施；TASK-0006源码5347b110已核验并为当前分支祖先。实现五类独立确定性Skill、规则/Skill/文档快照版本、结构化表完整性/日期歧义的失败关闭覆盖、原文定位、稳定去重、发现结果/Skill覆盖/法规检索主题。不得实现完整LangGraph/模型/最终结论。代码候选完成后按本任务Prompt运行各Skill专项、Focused、Full与CI。"
 }

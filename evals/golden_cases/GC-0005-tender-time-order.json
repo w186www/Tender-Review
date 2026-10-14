@@ -1,0 +1,10 @@
+{
+  "case_id": "GC-0005",
+  "title": "投标截止与开标顺序矛盾候选",
+  "skill_id": "procedure_review",
+  "input_fragments": [
+    {"section": "投标须知", "locator": "paragraph:2", "text": "投标截止时间：2026年10月20日 09:00 北京时间；开标时间：2026年10月20日 08:30 北京时间"}
+  ],
+  "expected": {"candidate_count": 1, "coverage_status": "completed_with_candidates"},
+  "synthetic": true
+}

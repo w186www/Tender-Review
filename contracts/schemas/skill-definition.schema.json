@@ -1,0 +1,190 @@
+{
+  "$defs": {
+    "RuleReference": {
+      "additionalProperties": false,
+      "properties": {
+        "rule_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "rule_version": {
+          "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
+          "title": "Rule Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "rule_version"
+      ],
+      "title": "RuleReference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "skill_id": {
+            "const": "qualification_review"
+          }
+        },
+        "required": [
+          "skill_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "qualification"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "skill_id": {
+            "const": "technical_review"
+          }
+        },
+        "required": [
+          "skill_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "technical"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "skill_id": {
+            "const": "evaluation_review"
+          }
+        },
+        "required": [
+          "skill_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "evaluation"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "skill_id": {
+            "const": "contract_review"
+          }
+        },
+        "required": [
+          "skill_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "contract"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "skill_id": {
+            "const": "procedure_review"
+          }
+        },
+        "required": [
+          "skill_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "procedure"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "v1alpha1",
+      "default": "v1alpha1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skill_id": {
+      "enum": [
+        "qualification_review",
+        "technical_review",
+        "evaluation_review",
+        "contract_review",
+        "procedure_review"
+      ],
+      "title": "Skill Id",
+      "type": "string"
+    },
+    "skill_version": {
+      "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
+      "title": "Skill Version",
+      "type": "string"
+    },
+    "category": {
+      "enum": [
+        "qualification",
+        "technical",
+        "evaluation",
+        "contract",
+        "procedure"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/RuleReference"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Rules",
+      "type": "array"
+    },
+    "input_schema_version": {
+      "const": "parsed-document.v1alpha1",
+      "default": "parsed-document.v1alpha1",
+      "title": "Input Schema Version",
+      "type": "string"
+    },
+    "output_schema_version": {
+      "const": "candidate-discovery.v1alpha1",
+      "default": "candidate-discovery.v1alpha1",
+      "title": "Output Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "skill_id",
+    "skill_version",
+    "category",
+    "rules"
+  ],
+  "title": "SkillDefinition",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/skill-definition.schema.json"
+}

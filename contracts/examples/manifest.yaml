@@ -1326,6 +1326,73 @@
         "actor_id": "tenant-admin"
       },
       "expected_valid": false
+    },
+    {
+      "id": "rule-definition-valid",
+      "schema": "contracts/schemas/rule-definition.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "rule_id": "TASK0007.QUAL.LOCAL-REGISTRATION",
+        "rule_version": "1.0.0",
+        "category": "qualification",
+        "check_id": "local_registration_restriction",
+        "applicability": "fragment",
+        "explanation_template": "synthetic candidate",
+        "equivalence_group": "qualification:local-registration",
+        "enabled": true
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "rule-definition-check-category-mismatch",
+      "schema": "contracts/schemas/rule-definition.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "rule_id": "TASK0007.BAD.CATEGORY",
+        "rule_version": "1.0.0",
+        "category": "technical",
+        "check_id": "local_registration_restriction",
+        "applicability": "fragment",
+        "explanation_template": "synthetic candidate",
+        "enabled": true
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "skill-definition-valid",
+      "schema": "contracts/schemas/skill-definition.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "skill_id": "qualification_review",
+        "skill_version": "1.0.0",
+        "category": "qualification",
+        "rules": [{"rule_id": "TASK0007.QUAL.LOCAL-REGISTRATION", "rule_version": "1.0.0"}],
+        "input_schema_version": "parsed-document.v1alpha1",
+        "output_schema_version": "candidate-discovery.v1alpha1"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "candidate-discovery-document-valid",
+      "schema": "contracts/schemas/candidate-discovery-document-request.schema.json",
+      "data": {
+        "document_id": "document-1",
+        "raw_source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parse_version": 1,
+        "context_version": 1
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "candidate-discovery-document-hash-invalid",
+      "schema": "contracts/schemas/candidate-discovery-document-request.schema.json",
+      "data": {
+        "document_id": "document-1",
+        "raw_source_sha256": "not-a-hash",
+        "parse_version": 1,
+        "context_version": 1
+      },
+      "expected_valid": false
     }
   ]
 }

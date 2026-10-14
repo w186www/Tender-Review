@@ -1,0 +1,17 @@
+{
+  "case_id": "GC-0003",
+  "title": "完整评分表总分不一致候选",
+  "skill_id": "evaluation_review",
+  "input_fragments": [
+    {"table": 0, "row": 0, "column": 0, "text": "评分项目"},
+    {"table": 0, "row": 0, "column": 1, "text": "分值"},
+    {"table": 0, "row": 1, "column": 0, "text": "技术"},
+    {"table": 0, "row": 1, "column": 1, "text": "30分"},
+    {"table": 0, "row": 2, "column": 0, "text": "商务"},
+    {"table": 0, "row": 2, "column": 1, "text": "20分"},
+    {"table": 0, "row": 3, "column": 0, "text": "总分"},
+    {"table": 0, "row": 3, "column": 1, "text": "60分"}
+  ],
+  "expected": {"candidate_count": 1, "coverage_status": "completed_with_candidates"},
+  "synthetic": true
+}

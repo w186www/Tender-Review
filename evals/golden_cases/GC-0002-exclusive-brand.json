@@ -1,0 +1,10 @@
+{
+  "case_id": "GC-0002",
+  "title": "明确排他品牌型号候选",
+  "skill_id": "technical_review",
+  "input_fragments": [
+    {"section": "技术参数", "locator": "paragraph:4", "text": "设备只接受甲牌品牌型号。"}
+  ],
+  "expected": {"candidate_count": 1, "coverage_status": "completed_with_candidates"},
+  "synthetic": true
+}

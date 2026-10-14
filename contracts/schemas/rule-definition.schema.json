@@ -1,0 +1,187 @@
+{
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "check_id": {
+            "const": "local_registration_restriction"
+          }
+        },
+        "required": [
+          "check_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "qualification"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "check_id": {
+            "const": "exclusive_brand_requirement"
+          }
+        },
+        "required": [
+          "check_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "technical"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "check_id": {
+            "const": "structured_score_total"
+          }
+        },
+        "required": [
+          "check_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "evaluation"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "check_id": {
+            "const": "contract_key_placeholder"
+          }
+        },
+        "required": [
+          "check_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "contract"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "check_id": {
+            "const": "tender_time_order"
+          }
+        },
+        "required": [
+          "check_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "category": {
+            "const": "procedure"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "v1alpha1",
+      "default": "v1alpha1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "rule_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Rule Id",
+      "type": "string"
+    },
+    "rule_version": {
+      "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
+      "title": "Rule Version",
+      "type": "string"
+    },
+    "category": {
+      "enum": [
+        "qualification",
+        "technical",
+        "evaluation",
+        "contract",
+        "procedure"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "check_id": {
+      "enum": [
+        "local_registration_restriction",
+        "exclusive_brand_requirement",
+        "structured_score_total",
+        "contract_key_placeholder",
+        "tender_time_order"
+      ],
+      "title": "Check Id",
+      "type": "string"
+    },
+    "applicability": {
+      "enum": [
+        "fragment",
+        "structured_table",
+        "document_timeline"
+      ],
+      "title": "Applicability",
+      "type": "string"
+    },
+    "explanation_template": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Explanation Template",
+      "type": "string"
+    },
+    "equivalence_group": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Equivalence Group"
+    },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "rule_id",
+    "rule_version",
+    "category",
+    "check_id",
+    "applicability",
+    "explanation_template"
+  ],
+  "title": "RuleDefinition",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/rule-definition.schema.json"
+}
