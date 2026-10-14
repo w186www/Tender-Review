@@ -36,3 +36,7 @@ project、project_version、document、review_task、idempotency_record和audit_
 迁移202610141200_legal_retrieval_run.py在202610131300之上只新增legal_retrieval_run，不改旧表。tenant+run复合主键，tenant/project和tenant/actor复合外键，完整请求/上下文快照和输出分别存JSON及规范SHA-256。PostgreSQL FORCE RLS/WITH CHECK，运行角色仅GRANT SELECT, INSERT；追加写触发器拒绝UPDATE/DELETE，SQLite也有同等触发器。运行与审计同事务提交，按租户重新鉴权读取并验证两端哈希及关联字段。
 
 部署需显式迁移，再由运维给已受限运行账号授予SELECT/INSERT ON legal_retrieval_run；不要用superuser/BYPASSRLS运行服务。旧数据不回填；降级会删除检索运行历史，必须备份并停止写入。没有global publication/current管理表，不把本地索引保存当作法规发布审批。
+
+## TASK-0006 全局法规授权（D05）
+
+202610141600新增legal_operator_grant（tenant/user复合FK、active、capabilities），与租户admin角色独立；运行角色只GRANT SELECT，FORCE RLS只读取当前tenant/user grant，没有运行写策略。数据库运维按真实身份配置全局权限，租户HTTP/模型均不能授予这些权限。每次操作复核会话与当前grant；不缓存授权。降级删除grant，须先备份，现有身份/项目/运行行不更改。

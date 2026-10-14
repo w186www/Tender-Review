@@ -28,6 +28,7 @@ from bidding_compliance.persistence.models import (
     Base,
     Document,
     IngestionJob,
+    LegalOperatorGrant,
     LegalRetrievalRun,
     Project,
     Tenant,
@@ -35,6 +36,7 @@ from bidding_compliance.persistence.models import (
 )
 from bidding_compliance.services.identity import PASSWORDS, authenticate
 from bidding_compliance.services.legal import read_run, retrieve_for_project
+from bidding_compliance.services.legal_authorization import require_legal_operation
 
 
 def main() -> None:
@@ -76,6 +78,13 @@ def main() -> None:
         db.commit()
     migrate(admin)
     migrate(admin)
+    with Session(admin) as db:
+        db.add(
+            LegalOperatorGrant(
+                tenant_id="a", user_id="reviewer", active=True, capabilities=["ingest"]
+            )
+        )
+        db.commit()
     with admin.connect() as connection:
         assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
     runtime_password = str(uuid4())
@@ -94,6 +103,7 @@ def main() -> None:
         )
         connection.execute(text("GRANT SELECT, INSERT, UPDATE ON ingestion_job TO task4_runtime"))
         connection.execute(text("GRANT SELECT, INSERT ON legal_retrieval_run TO task4_runtime"))
+        connection.execute(text("GRANT SELECT ON legal_operator_grant TO task4_runtime"))
         connection.execute(
             text(
                 "GRANT SELECT, INSERT ON document_section, section_revision, "
@@ -208,6 +218,28 @@ def main() -> None:
         with Session(runtime) as db:
             who = authenticate(db, runtime_settings, a["Authorization"].split(" ", 1)[1])
             assert read_run(db, who, run_id) == result
+            require_legal_operation(db, who, "ingest")
+            try:
+                require_legal_operation(db, who, "publish")
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Ingest capability escalated to global publication")
+            require_legal_operation(db, who, "ingest")
+            assert db.execute(
+                text(
+                    "SELECT has_table_privilege(current_user,'legal_operator_grant','INSERT'), "
+                    "has_table_privilege(current_user,'legal_operator_grant','UPDATE'), "
+                    "has_table_privilege(current_user,'legal_operator_grant','DELETE')"
+                )
+            ).one() == (False, False, False)
+            try:
+                db.execute(text("UPDATE legal_operator_grant SET active = true"))
+            except DBAPIError:
+                db.rollback()
+            else:
+                raise AssertionError("Runtime role changed its global legal grant")
+            require_legal_operation(db, who, "ingest")
             assert db.execute(
                 text(
                     "SELECT has_table_privilege(current_user,'legal_retrieval_run','UPDATE'), "

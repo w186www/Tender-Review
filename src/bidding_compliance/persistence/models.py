@@ -267,3 +267,14 @@ class LegalRetrievalRun(Base):
     result: Mapped[dict[str, Any]] = mapped_column(JSON)
     result_hash: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LegalOperatorGrant(Base):
+    __tablename__ = "legal_operator_grant"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "user_id"], ["app_user.tenant_id", "app_user.user_id"]),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    active: Mapped[bool] = mapped_column(Boolean)
+    capabilities: Mapped[list[str]] = mapped_column(JSON)

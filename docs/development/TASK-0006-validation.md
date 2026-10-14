@@ -91,3 +91,7 @@
 采购方式/主体/对象进入版本化项目API与确认上下文，旧输入缺省unknown仍可读写，法规服务显式context_incomplete且不调用Embedding。已确认政府工程招标保留tendering与government_procurement两个框架；非招标政府工程只使用政府采购框架，企业货物招标不冒称政府采购；other必须显式确认框架，未知/矛盾失败关闭。法规及条款方法/对象/主体/地区/采购类型/项目类型/框架范围取交集，结果保留具体适用框架，原日期/效力门禁不变；历史读取重建完整冻结上下文。
 
 237项涵盖API/身份/文件接入/契约/来源/法规的Focused通过，Mypy50/Ruff/生成检查通过；新增22项D04边界及交叉框架反例后法规Focused134项通过，最终Full/真实PostgreSQL/CI待全部模块修复后执行。没有提高旧42文本核验状态，没有删原测试或断言。
+
+## 本轮D05过程实现
+
+新增独立legal_operator_grant与显式迁移202610141600；tenant admin不隐含全局权限，ingest/verify/publish/disable/rollback逐项授权。每次先复核服务身份/会话/角色，再读取当前grant，无权限记录拒绝审计。PostgreSQL FORCE RLS只允许读取当前tenant/user grant，运行账号无写策略与grant写权限；全局权限仅数据库运维配置，非租户管理员HTTP自授权。既有租户RLS与复合外键不变。新增13项权限、撤权、跨租户/复合FK反例；Focused72项通过，Mypy52/Ruff/契约通过；真实PostgreSQL16 check_postgres.py退出0，包含独立grant读取、仅ingest禁止publish及运行账号INSERT/UPDATE/DELETE授权检查和实际UPDATE拒绝，原全部迁移/RLS/并发/撤权门禁保留。全局操作入口的完整事务测试将在D02完成后继续验证。

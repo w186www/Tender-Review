@@ -13,6 +13,7 @@ from bidding_compliance.legal.contracts import (
     SourceExtractionResult,
     SourceMap,
 )
+from bidding_compliance.legal.management_contracts import OperatorCapabilities
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,8 +24,11 @@ def main() -> int:
     args = parser.parse_args()
     failed = False
     for model, name in (
-        (LegalManifest, "legal-manifest"), (LegalIndex, "legal-index"),
-        (RetrievalQuery, "legal-query"), (RetrievalResult, "legal-result"),
+        (LegalManifest, "legal-manifest"),
+        (LegalIndex, "legal-index"),
+        (RetrievalQuery, "legal-query"),
+        (RetrievalResult, "legal-result"),
+        (OperatorCapabilities, "legal-operator-capabilities"),
         (SourceMap, "legal-source-map"),
         (SourceExtractionRequest, "legal-source-request"),
         (SourceExtractionResult, "legal-source-result"),
