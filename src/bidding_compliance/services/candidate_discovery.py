@@ -37,6 +37,19 @@ def discover_for_project(
     skill_ids: tuple[SkillId, ...] = tuple(SKILLS),
 ) -> DiscoveryResult:
     """Run fixed skills against explicitly pinned, ready, confirmed document versions."""
+    snapshot, located_by_document = snapshot_for_project(
+        session, principal, project_id, requested_documents
+    )
+    return discover(snapshot, located_by_document, skill_ids)
+
+
+def snapshot_for_project(
+    session: Session,
+    principal: Principal,
+    project_id: str,
+    requested_documents: tuple[DiscoveryDocumentRequest, ...],
+) -> tuple[DiscoveryInputSnapshot, dict[str, tuple[LocatedFragment, ...]]]:
+    """Load and hash confirmed inputs without running a Skill; used to freeze a run first."""
     require_identity(session, principal)
     set_tenant(session, principal.tenant_id)
     project = find_project(session, principal, project_id)
@@ -136,4 +149,4 @@ def discover_for_project(
         project_context_ref="project-version:sha256:" + project_ref_hash,
         documents=tuple(document_refs),
     )
-    return discover(snapshot, located_by_document, skill_ids)
+    return snapshot, located_by_document

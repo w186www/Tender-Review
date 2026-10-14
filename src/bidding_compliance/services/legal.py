@@ -6,6 +6,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import ValidationError
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from bidding_compliance.domain.identity import Principal
@@ -51,6 +52,11 @@ def require_identity(session: Session, principal: Principal) -> None:
         or auth.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC)
     ):
         raise PermissionError("legal retrieval identity unavailable")
+    if session.get_bind().dialect.name == "postgresql":
+        session.execute(
+            text("SELECT set_config('app.user_id', :actor, true)"),
+            {"actor": principal.user_id},
+        )
 
 
 def query_from_context(request: RetrievalInput, context: dict[str, Any]) -> RetrievalQuery:

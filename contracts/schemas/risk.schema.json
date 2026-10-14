@@ -31,6 +31,20 @@
       "uniqueItems": true,
       "items": {"type": "string", "enum": ["rule", "retrieval", "model", "human"]}
     },
+    "conflicts": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "assessment", "summary"],
+        "properties": {
+          "source": {"type": "string", "enum": ["rule", "model", "retrieval"]},
+          "assessment": {"type": "string", "minLength": 1, "maxLength": 100},
+          "summary": {"type": "string", "minLength": 1, "maxLength": 1000}
+        }
+      }
+    },
     "evidence": {"type": "array", "items": {"$ref": "evidence.schema.json"}},
     "rule_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "maxLength": 128}},
     "reasoning_summary": {"type": ["string", "null"], "maxLength": 4000},

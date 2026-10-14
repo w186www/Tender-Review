@@ -11,10 +11,10 @@
     "project_id": {"type": "string", "minLength": 1, "maxLength": 128},
     "review_task_id": {"type": "string", "minLength": 1, "maxLength": 128},
     "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
-    "status": {"type": "string", "enum": ["queued", "running", "waiting_human", "succeeded", "failed", "cancelled"]},
+    "status": {"type": "string", "enum": ["queued", "running", "waiting_human", "result_published", "succeeded", "failed", "cancelled"]},
     "project_context_ref": {"type": ["string", "null"], "maxLength": 2048},
     "review_snapshot_ref": {"type": ["string", "null"], "maxLength": 2048},
-    "document_refs": {"type": "array", "items": {"type": "string", "maxLength": 2048}},
+    "document_refs": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 2048}},
     "section_index_ref": {"type": ["string", "null"], "maxLength": 2048},
     "parse_quality_ref": {"type": ["string", "null"], "maxLength": 2048},
     "review_plan_ref": {"type": ["string", "null"], "maxLength": 2048},
@@ -22,8 +22,32 @@
     "rule_findings_ref": {"type": ["string", "null"], "maxLength": 2048},
     "retrieval_results_ref": {"type": ["string", "null"], "maxLength": 2048},
     "model_findings_ref": {"type": ["string", "null"], "maxLength": 2048},
-    "findings": {"type": "array", "items": {"$ref": "risk.schema.json"}},
-    "pending_review_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "maxLength": 128}},
+    "findings": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_id", "category", "title", "severity", "evidence_status", "review_status"],
+        "properties": {
+          "finding_id": {"type": "string", "maxLength": 128},
+          "category": {"type": "string", "enum": ["qualification", "technical", "evaluation", "contract", "procedure"]},
+          "title": {"type": "string", "maxLength": 300},
+          "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+          "evidence_status": {"type": "string", "enum": ["candidate", "confirmed", "suspected", "insufficient_evidence"]},
+          "review_status": {"type": "string", "enum": ["pending", "accepted", "modified", "rejected"]}
+        }
+      }
+    },
+    "pending_review_ids": {"type": "array", "maxItems": 500, "uniqueItems": true, "items": {"type": "string", "maxLength": 128}},
+    "skill_expected": {"type": "array", "maxItems": 5, "uniqueItems": true, "items": {"type": "string", "maxLength": 64}, "x-reducer": "merge_sorted_unique"},
+    "skill_finished": {"type": "array", "maxItems": 5, "uniqueItems": true, "items": {"type": "string", "maxLength": 64}, "x-reducer": "merge_sorted_unique"},
+    "skill_result_refs": {"type": "array", "maxItems": 5, "uniqueItems": true, "items": {"type": "string", "maxLength": 2048}, "x-reducer": "merge_sorted_unique"},
+    "result_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "review_date": {"type": ["string", "null"], "format": "date"},
+    "legal_publication_id": {"type": ["string", "null"], "maxLength": 64},
+    "legal_revision_id": {"type": ["string", "null"], "maxLength": 64},
+    "retry_count": {"type": "integer", "minimum": 0, "maximum": 2},
     "report_ref": {"type": ["string", "null"], "maxLength": 2048},
     "errors": {
       "type": "array",

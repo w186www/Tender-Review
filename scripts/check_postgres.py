@@ -124,6 +124,22 @@ def main() -> None:
                 "document, review_task, audit_event TO task4_runtime"
             )
         )
+        connection.execute(
+            text("GRANT SELECT, INSERT, UPDATE ON review_engine_run TO task4_runtime")
+        )
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT ON review_artifact, review_decision, review_result "
+                "TO task4_runtime"
+            )
+        )
+        connection.execute(text("GRANT SELECT ON checkpoint_migrations TO task4_runtime"))
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON checkpoints, checkpoint_blobs, "
+                "checkpoint_writes TO task4_runtime"
+            )
+        )
     runtime_settings = settings.model_copy(
         update={
             "database_url": settings.database_url.__class__(

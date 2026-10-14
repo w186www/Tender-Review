@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Literal, cast
 
 from bidding_compliance.domain.rules.models import (
@@ -316,6 +316,97 @@ def discover(
         status=result_status,
         candidates=tuple(candidates),
         skill_coverages=tuple(coverage),
+        retrieval_topics=tuple(topics),
+        result_sha256=_result_hash(payload),
+    )
+
+
+def combine_discoveries(results: Sequence[DiscoveryResult]) -> DiscoveryResult:
+    """Join dynamic per-Skill results with the same stable de-duplication identity."""
+    if not results:
+        raise ValueError("at least one Skill result is required")
+    snapshot = results[0].input_snapshot
+    if any(item.input_snapshot != snapshot for item in results):
+        raise ValueError("Skill workers used different frozen input snapshots")
+    coverages = [coverage for result in results for coverage in result.skill_coverages]
+    topics = [topic for result in results for topic in result.retrieval_topics]
+    skill_ids = tuple(sorted(item.skill_id for item in coverages))
+    if len(set(skill_ids)) != len(skill_ids) or set(skill_ids) != set(SKILLS):
+        raise ValueError("dynamic Skill fanout is incomplete or duplicated")
+    groups: dict[str, list[CandidateFinding]] = defaultdict(list)
+    for result in results:
+        for candidate in result.candidates:
+            groups[candidate.deduplication_key].append(candidate)
+    candidates: list[CandidateFinding] = []
+    for key, members in sorted(groups.items()):
+        provenance = tuple(
+            sorted(
+                {source for candidate in members for source in candidate.provenance},
+                key=lambda item: (item.skill_id, item.rule_id, item.rule_version),
+            )
+        )
+        exemplar = min(members, key=lambda item: item.candidate_id)
+        primary = provenance[0]
+        candidate_id = _sha(
+            {
+                "deduplication_key": key,
+                "provenance": sorted(
+                    {
+                        (item.skill_id, item.skill_version, item.rule_id, item.rule_version)
+                        for item in provenance
+                    }
+                ),
+            }
+        )
+        candidates.append(
+            CandidateFinding(
+                candidate_id=candidate_id,
+                category=SKILLS[primary.skill_id].DEFINITION.category,
+                skill_id=primary.skill_id,
+                skill_version=primary.skill_version,
+                rule_id=primary.rule_id,
+                rule_version=primary.rule_version,
+                document_version_ref=exemplar.document_version_ref,
+                problem_key=exemplar.problem_key,
+                deduplication_key=key,
+                source_excerpts=exemplar.source_excerpts,
+                matched_reason=primary.matched_reason,
+                provenance=provenance,
+            )
+        )
+    candidate_counts = {skill_id: 0 for skill_id in skill_ids}
+    for candidate in candidates:
+        for skill_id in {source.skill_id for source in candidate.provenance}:
+            candidate_counts[skill_id] += 1
+    coverages = [
+        coverage.model_copy(update={"candidates_found": candidate_counts[coverage.skill_id]})
+        for coverage in coverages
+    ]
+    status: Literal[
+        "completed", "completed_with_incomplete_skill", "completed_with_failed_skill"
+    ] = "completed"
+    if any(item.status == "failed" for item in coverages):
+        status = "completed_with_failed_skill"
+    elif any(item.status == "incomplete" for item in coverages):
+        status = "completed_with_incomplete_skill"
+    payload: dict[str, object] = {
+        "schema_version": "v1alpha1",
+        "engine_version": ENGINE_VERSION,
+        "input_snapshot": snapshot.model_dump(mode="json"),
+        "ruleset_sha256": ruleset_sha256(skill_ids),
+        "status": status,
+        "candidates": [item.model_dump(mode="json") for item in candidates],
+        "skill_coverages": [item.model_dump(mode="json") for item in coverages],
+        "retrieval_topics": [item.model_dump(mode="json") for item in topics],
+    }
+    return DiscoveryResult(
+        schema_version="v1alpha1",
+        engine_version=ENGINE_VERSION,
+        input_snapshot=snapshot,
+        ruleset_sha256=str(payload["ruleset_sha256"]),
+        status=status,
+        candidates=tuple(candidates),
+        skill_coverages=tuple(coverages),
         retrieval_topics=tuple(topics),
         result_sha256=_result_hash(payload),
     )

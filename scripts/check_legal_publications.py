@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from check_review_engine import verify_review_engine
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
@@ -123,6 +124,27 @@ def main() -> None:
             )
         )
         conn.execute(text("GRANT UPDATE ON legal_corpus_state TO task6_runtime"))
+        conn.execute(
+            text(
+                "GRANT SELECT ON document, document_section, section_revision, "
+                "document_context_version TO task6_runtime"
+            )
+        )
+        conn.execute(text("GRANT SELECT, INSERT, UPDATE ON review_task TO task6_runtime"))
+        conn.execute(text("GRANT SELECT, INSERT, UPDATE ON review_engine_run TO task6_runtime"))
+        conn.execute(
+            text(
+                "GRANT SELECT, INSERT ON review_artifact, review_decision, review_result "
+                "TO task6_runtime"
+            )
+        )
+        conn.execute(text("GRANT SELECT ON checkpoint_migrations TO task6_runtime"))
+        conn.execute(
+            text(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON checkpoints, checkpoint_blobs, "
+                "checkpoint_writes TO task6_runtime"
+            )
+        )
         flags = conn.execute(
             text(
                 "SELECT relrowsecurity,relforcerowsecurity FROM pg_class "
@@ -324,6 +346,7 @@ def main() -> None:
         )
         assert restored.sequence == 4 and restored.publication_id != first_id
         assert read_run(db, who, result.run_snapshot.run_id) == result
+    verify_review_engine(admin, runtime, runtime_settings, who, ROOT)
     with Session(admin) as db:
         for table in ("legal_corpus_revision", "legal_publication", "legal_law_identity"):
             try:
