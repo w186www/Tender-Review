@@ -1,37 +1,60 @@
-# TASK-0011 本地验证与验收状态
+# TASK-0011 本地验证与验收记录
 
-更新时间：2026-10-14
-状态：`in_progress`；未填 acceptance evidence，未归档。
-分支：`work/TASK-0011`，基于 TASK-0010 归档提交 `7759e5f76d7b21d1bd99cc57ade2cb39a14ba00b`；源码候选提交：`b1d7ca9`（`feat: add TASK-0011 review workbench`）。
+- 更新时间：2026-10-15
+- 当前状态：两个局部验收项已有通过证据；源码 CI 已通过。验收记录提交和正式归档 CI 尚待完成，因此任务暂保持 `in_progress`。
+- 分支：`work/TASK-0011`
+- 最终源码候选：`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`（`fix: pin frontend files to LF for Biome`）
+- 前端与 FR-013 实现：`a8c43454138c2867d735402d1f330869fa18ba16`
+- OpenAPI Windows 修复：`57d3a833f59a09e9c938837671a8769d91c7fc5b`
+- 源码 CI：<https://github.com/w186www/Tender-Review/actions/runs/38600922153>，对应最终源码 SHA；`impact`、Windows `baseline`、PostgreSQL、`ingestion` 和 `verify-required` 均成功。`quick` 按 Full 选档规则跳过。
+- 关键门禁：[Windows baseline](https://github.com/w186www/Tender-Review/actions/runs/38600922153/job/115979718302)、[PostgreSQL](https://github.com/w186www/Tender-Review/actions/runs/38600922153/job/115979718348)、[ingestion](https://github.com/w186www/Tender-Review/actions/runs/38600922153/job/115979718096)。
 
-## 实施范围
+## FR-013 配置版本管理
 
-- 新增 React 19 / TypeScript / Vite 8 / React Router 7 工作台，技术决策见 [ADR-0014](../decisions/ADR-0014-frontend-workbench.md)，启动方式见[前端工作台说明](frontend-workbench.md)。依赖使用兼容范围并由 `package-lock.json` 固定复现。
-- `openapi-typescript` 依据 `contracts/openapi.yaml` 生成类型，`openapi-fetch` 发送带身份的请求；读请求支持 `AbortSignal` 与 120 秒超时，写请求不自动重试，业务重放使用后端幂等键。
-- 页面接入本地登录/退出及身份刷新、项目创建和版本、文档上传与处理状态、审查任务、风险/证据回查、人工复核历史及理由、发布、DOCX/PDF 报告、审计筛选分页。
-- 最小后端补充包括项目文档/审查列表、审查状态/创建、报告列表、审计查询、失败重试和精确引文读取。操作继续由服务端逐次授权；默认没有已授权 `ReviewEngine` 时 API 返回 503，前端不合成结果。
+TASK-0006 的法规发布快照、TASK-0007 的规则/Skill 版本身份继续作为来源；TASK-0011 增加持久化的审查配置修订，用一个不可变配置快照引用这些现有能力，不另造法规、规则或 Skill 版本体系。
 
-## 验证记录
+配置修订有稳定 `revision_id`、父修订、规范化快照哈希和草稿/已发布状态。快照绑定法规 publication、启用的 Skill 与版本、规则版本和规则集哈希，以及无凭据的模型执行策略。管理员通过正式 API 创建草稿、发布、停用和回滚；租户/角色在服务端校验，状态变更使用序列/CAS 防并发覆盖，失败返回冲突，成功和拒绝操作写入审计事件。数据库迁移增加不可变修订、活动/草稿指针和事件表；前端提供对应配置管理页面。
 
-- `npm run api:check`：通过，生成结果与正式 OpenAPI 一致。
-- `npm run lint`：通过，Biome 检查 20 个前端源/配置文件，无警告。Playwright 默认使用本机 Microsoft Edge channel。
-- `npm run typecheck`：通过。
-- `npm run test`：通过，2 个测试文件、6 个测试，覆盖 401 会话清理、中文错误映射、读请求取消以及基础 UI 交互。
-- `npm run build`：通过，Vite 8.3.4 生产构建完成；JS 约 332 KB 未压缩、101.5 KB gzip。
-- `.\scripts\verify.ps1` Full：通过，506 passed、0 failed、0 skipped，运行 242.22 秒；Ruff 全通过，Mypy 检查 89 个 Python 源文件，契约/State/任务检查、前端完整门禁、真实 HTTP/身份烟雾均通过。两个既有 pypdf `add_js` 弃用警告保留。
-- `scripts/verify_repo.py`：通过契约、生成状态和任务证据范围检查。
-- 新增 TASK-0011 API 回归：项目文档/审查列表、默认执行器 503、审计租户过滤/审计员权限。回归通过；全量 Full 中 506 项整体通过。受限沙箱不允许 Starlette `TestClient` 创建 Windows asyncio socketpair，因此该 Full 在允许本机回环 socket 的受控执行中完成。
-- PostgreSQL16 专项：使用本次创建的临时 `postgres:16` 容器，`scripts/check_postgres.py` 迁移/RLS/租户/并发/回滚/API 检查通过；`scripts/check_legal_publications.py` 的 CAS/审计/隔离及真实离线 ReviewEngine checkpoint、重试、恢复、撤权、RLS、并发发布检查通过。临时容器已删除；未连接生产库或外部模型。
-- `npm run e2e`：未运行。Playwright 全流程仍要求隔离 FastAPI/PostgreSQL、文档扫描/解析 worker、三种测试身份及注入的离线 `ReviewEngine`。当前十个 `E2E_*` 服务/身份变量均未配置。系统 Edge 已设为默认 Playwright 浏览器；尝试安装 Chromium 时 Playwright CDN 返回 `ECONNRESET`。不得把 API/单测计作浏览器验收。
-- GitHub Actions / 远程推送：未执行。TASK-0011 当前尚无远程写入授权；本地结果不冒称远程 CI。
+新审查在创建运行时解析当前活动配置，并将 `configuration_revision_id` 与配置快照哈希写入 ReviewEngine 冻结快照。之后发布新配置、停用或回滚只影响新运行；执行中或已发布运行仍绑定原快照。回滚引用此前已发布的修订，不改写旧修订。
 
-## 验收映射与剩余工作
+模型配置只含供应商无关的 profile、超时、重试、token 限额、温度和数据策略，不含 API Key、供应商路由或真实凭据；服务端还会限制策略不能超过已注入执行器的运行边界。DEC-002 仍未批准在线模型或数据外发，未连接真实在线模型。没有配置 ReviewEngine 时仍返回 503，不生成模拟审查结果。
 
-| 检查 | 当前证据 | 状态 |
+主要实现与验证：
+
+- API/契约：`src/bidding_compliance/api/configuration_management.py`、`src/bidding_compliance/api/configuration_schemas.py`、`contracts/openapi.yaml`。
+- 版本/快照/授权与审计：`src/bidding_compliance/domain/review_configuration.py`、`src/bidding_compliance/services/review_configurations.py`、`contracts/database/migrations/202610142000_task0011_review_configurations.py`。
+- ReviewEngine 冻结绑定：`src/bidding_compliance/services/review_engine.py`、`src/bidding_compliance/graph/review.py`。
+- 管理页面：`src/frontend/src/pages/configuration.tsx`。
+- 回归：`tests/test_review_configurations.py` 的发布/回滚与历史冻结、管理员/租户/哈希/追加写约束、模型密钥与运行边界测试；FR-013 Focused 共 69 项通过。
+
+## 真实浏览器 E2E
+
+最终通过记录在本机 `.verification/task0011-e2e-827cc1b8a63c41b4a9d13f1334ae7574/`：Playwright 使用 Microsoft Edge，连接真实 FastAPI、PostgreSQL 16、MinIO、ClamAV 和真实文档处理 worker；审查器为显式注入的 `scripts/check_review_engine.py::OfflineReviewGateway`，网络限定 loopback，没有在线模型。JUnit 为 5 tests、0 failures、0 errors、0 skipped，Playwright 进程退出码 0，运行约 46 秒。运行清单记录 `repository_head=5ffe1b6197f12ae92e722eb5dbab9ec7bdf5f8a8`；该次运行发生在实现提交 `a8c4345` 之前，最终实现与 E2E 代码随后提交于 `a8c4345`，本轮之后仅 `.gitattributes` 发生变化。原始清单、JUnit、Playwright 日志均保留在本机 `.verification` 目录（该目录不纳入 Git）。
+
+五个浏览器场景：
+
+1. 错误凭据由真实 API 返回 401，页面显示中文错误。
+2. 管理员创建并发布法规/配置修订；用键盘 Enter 操作表单、制造并识别 409 并发冲突；页面不显示 API Key，随后通过正式 API 读回草稿和发布状态。
+3. 审核员创建项目、上传合成 DOCX、运行真实 worker 和离线 ReviewEngine、查看状态与风险、查询服务端精确引文并回查/下载原文、保存人工决定、发布结果并下载 Word/PDF。独立持久化断言核对文档状态、已发布 ReviewEngine run、报告格式和配置修订 ID；对话框 Escape 键盘关闭也通过。
+4. 审计员执行真实审计查询并验证审计事件持久化；操作员配置管理/报告权限返回 403，跨租户项目访问返回 404；无 ReviewEngine 的独立服务返回 503，且审查 run 数没有增加。
+5. 管理员撤销账号后，已有浏览器会话立即失效。
+
+验收产物：`src/frontend/e2e/workbench.spec.ts`、`scripts/run_task0011_e2e.py`、`scripts/assert_task0011_e2e.py` 和上述本机 `playwright-junit.xml`、`run.json`。此前有 8 次未通过的实现迭代，失败集中在登录/配置断言、文档处理或审查流程未到达完成状态；审计用例依赖前一审查流程创建的共享状态，当前序列化最终运行中全部通过。未将早期失败计入 5/5 结果。
+
+## PostgreSQL、Full 与前端验证
+
+- PostgreSQL 16 本地专项：`scripts/check_postgres.py` 与 `scripts/check_legal_publications.py` 通过，覆盖迁移、RLS/租户隔离、并发/CAS、事务回滚，以及配置发布/回滚、审计与 ReviewEngine 历史快照。最终源码 CI 的 PostgreSQL job 也成功。
+- 本地 Full：源码 SHA `57d3a833f59a09e9c938837671a8769d91c7fc5b` 上 510 passed、0 failed、0 errors、0 skipped，用时 297.44 秒；Ruff 通过，Mypy 94 个源文件通过，前端 API/lint/typecheck/6 个单测/build、真实 HTTP 和身份烟雾通过。保留两个既有 `pypdf.add_js` 弃用警告。
+- 最终 SHA `57d2515c6e4f2d6816bf94c2ed04e82759acd6c4` 与上述 Full 之间没有应用、测试、契约或依赖改动，只有前端 Git 检出换行属性扩展；当前 SHA 的完整 Windows baseline 已在源码 CI 成功。远端 JUnit artifact 下载接口要求认证，故这里只引用 baseline 成功，不虚报远端测试计数。
+- OpenAPI 根因与修复：`npm run api:generate` 与正式 `contracts/openapi.yaml` 生成内容字节一致（`schema.d.ts` SHA-256 `48048466326aa6df0342864a688d0580659ee31f4d60f2b6ce67612a90fbc0a8`），不是类型过期、生成器版本或路径错误。Windows `core.autocrlf=true` 使 CI 工作树中的前端文件为 CRLF，而 Biome 期望 LF。第一次只为生成的 `.d.ts` 加 LF 属性后，CI 的 API 检查通过、lint 随即暴露其余 21 个前端文件的相同换行差异。最终 `.gitattributes` 规定 `src/frontend/** text eol=lf`，没有关闭或弱化检查，也没有改动生成类型内容。
+- 本轮当前 SHA 上 `verify.ps1 -Mode Quick` 和 Git 属性检出检查通过。为本机重跑 frontend 套件执行 `npm ci` 时，Windows 对 `node_modules/@rolldown/binding-win32-x64-msvc/rolldown-binding.win32-x64-msvc.node` 返回 `EPERM`（文件占用）；没有把该尝试记为成功。改动后的真实 Windows CI baseline 成功完成锁定依赖安装、lint、类型、前端测试/构建和完整 Full 门禁。
+
+## 验收映射
+
+| 检查 | 结果 | 主要证据 |
 |---|---|---|
-| TASK0011-001：浏览器完成关键业务且连接真实 API | 源码候选 `b1d7ca9`；前端页面、API 客户端、后端回归和 Playwright 流程脚本已存在；全链路真实浏览器运行缺少隔离执行环境 | 未通过，保持 `in_progress` |
-| TASK0011-002：键盘/中文/错误/服务端权限 | 语义表单、中文错误映射、键盘 Escape 关闭对话框、前端单测、服务端 RBAC/租户回归已实现；浏览器键盘及撤权 E2E 尚未运行 | 未通过，保持 `in_progress` |
+| TASK0011-001：无需开发者终端操作即可完成关键流程 | 通过；真实浏览器 5/5，状态与持久化结果经真实后端核验 | 本记录、`src/frontend/e2e/workbench.spec.ts`、`scripts/assert_task0011_e2e.py` |
+| TASK0011-002：键盘、中文状态/错误和服务端权限 | 通过；键盘/中文/401/403/409/503/撤权/跨租户场景均执行 | 本记录、`src/frontend/e2e/workbench.spec.ts`、`tests/test_identity_projects.py` |
+| FR-013：法规、规则、Skill 和模型策略配置版本化管理 | 通过；持久化 API/页面、授权操作、审计、哈希、发布/停用/回滚、冻结快照均有实现和测试 | 本记录、`tests/test_review_configurations.py`、`scripts/check_legal_publications.py` |
 
-FR-013 要求对法规、规则、Skill 和模型配置执行草稿、发布、停用、回滚及审计。当前代码中没有可复用的完整管理 REST API：法规生命周期主要是服务层/CLI，规则/Skill 配置和模型路由没有面向该 UI 的统一持久化版本 API。现有只读审计页不等于管理页。本次未造假数据或在浏览器拼接配置；这部分需补充正式服务、权限/审计设计、API 契约和持久化后才能验收。
-
-因 E2E 与 FR-013 未闭环，`tasks/active/TASK-0011-frontend.yaml` 状态保持 `in_progress`、两个 acceptance evidence 保持空数组；不创建归档候选或宣称完成。远程推送、源码 CI 和归档 CI 也尚未完成。
+所有审查输出仍受 Evidence Checker 和原有证据门禁约束；没有修改 `knowledge/legal/**`、`docs/reference/*.docx`，没有接入在线模型或加入 TASK-0012。当前等待本验收记录提交 CI 与正式归档/归档 CI 完成后，再把任务状态改为 `completed`。

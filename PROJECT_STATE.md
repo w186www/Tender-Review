@@ -32,19 +32,18 @@
 - TASK-0009：源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的TASK0009-001/002本地证据、Focused13、Full500及真实PostgreSQL恢复/并发/事务故障专项通过；用户确认源码提交与验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI通过。任务文件已准备本地归档候选并移入completed；本次归档提交的远程CI尚待执行/核验，故项目总体仍待最终确认。详见`docs/development/TASK-0009-validation.md`。
 - M2正式退出条件按证据核实：TASK-0007候选追溯、TASK-0006检索过滤、TASK-0008适配器合规均满足；roadmap.yaml标记M2 completed、M3 in_progress。局部任务完成不代表AC-003或M3完整闭环通过。
 - TASK-0009生产模型仍受DEC-002禁用；TASK-0008预算账本仍仅具单进程一致性；TASK-0010默认不启用生产模型执行。
-- TASK-0011端到端审查依赖隔离配置下真实 FastAPI、数据库、解析/扫描服务和授权离线执行器；当前尚未提供该运行环境。FR-013配置版本管理还需正式服务/API、权限和审计设计。
-- TASK-0011进行中：源码候选`b1d7ca9`；React/TypeScript 工作台、OpenAPI 生成类型客户端、项目/文档/复核/报告/审计界面及最小查询 API 已实现；506 项 Full、本机 HTTP、PostgreSQL/RLS 和离线 ReviewEngine 专项通过。Playwright 浏览器链路与 FR-013 配置版本管理仍未验收。详见`docs/development/TASK-0011-validation.md`。
+- TASK-0011验收证据已通过：最终源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`，源码 CI 38600922153 的 Windows baseline、PostgreSQL、ingestion、verify-required 均成功；真实浏览器 E2E 5/5，FR-013、PostgreSQL 专项和本地 Full 证据已记录。任务暂保持`in_progress`，等待验收记录 CI 与正式归档 CI。详见`docs/development/TASK-0011-validation.md`。
 
 ## 下一步
 
 1. 核验TASK-0009归档候选远程CI；TASK-0010已完成远程源码、记录和归档CI验收。
 2. 法规库42份旧文本继续unverified，另3份未收录；逐项官方核验后才能支持确定依据，不从模型/索引标注推断效力。
 3. 2019《实施条例》工程招标范围核验截止2026-10-14，未来基准日需新核验或显式参考。未知地区/采购上下文及大面积扫描正文映射失败关闭。
-4. 完成TASK-0011浏览器端到端与FR-013配置管理范围决策；任务未满足验收前保持in_progress。
+4. 完成TASK-0011验收记录与正式归档CI；不启动TASK-0012。TASK-0011完成不代表M3或相关全局AC完成。
 
 ## 最近验证
 
-- TASK-0011工作区验证：`verify.ps1` Full 506 passed、0 failed/skipped，Ruff、Mypy89源文件、前端契约/lint/类型/6测试/构建及真实HTTP/身份烟雾均通过。独立 PostgreSQL16 `check_postgres.py` 和 `check_legal_publications.py`（包含离线 ReviewEngine、checkpoint、重试、恢复、撤权、RLS、并发发布）均通过。浏览器 E2E 未运行，Playwright CDN 下载被网络重置；本机 Edge 已配置为浏览器通道但隔离 E2E 服务/身份尚未提供。详见`docs/development/TASK-0011-validation.md`。
+- TASK-0011最终源码`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`的 Windows baseline、PostgreSQL、ingestion、verify-required CI 全部成功；本地 Full 510 passed（对应源码`57d3a833f59a09e9c938837671a8769d91c7fc5b`，其后仅扩展前端 LF 检出属性），FR-013 Focused 69 passed，PostgreSQL16两个专项通过；真实 Microsoft Edge Playwright E2E 5/5，使用真实 FastAPI/PostgreSQL/文件服务及授权注入的离线 ReviewEngine，并验证持久化结果。前端 OpenAPI 生成内容与契约一致；两次 CI 失败的共同根因已定位为 Windows CRLF 检出，`.gitattributes` 固定所有前端文本为 LF，当前 SHA 的 baseline 成功。详情见`docs/development/TASK-0011-validation.md`。
 - TASK-0009归档候选：源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的Focused13、最终Full500（0失败/错误/跳过）、Ruff、Mypy80文件、契约/生成/秘密检查、真实HTTP/身份/撤权和PostgreSQL恢复/并发/事务故障专项通过。用户确认源码及验证记录提交的必要远程CI通过；本次归档记录Quick通过，归档提交远程CI待核验。DEC-002未批准、在线模型调用未验证、预算账本仅单进程一致性、法律证据最高为suspected；TASK-0010源码/记录/归档CI均已成功。详见`docs/development/TASK-0009-validation.md`。
 - TASK-0010源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`：最终完整`verify.ps1 -Mode Full`通过504项、0失败/错误/跳过；Ruff、Mypy85源文件、契约/生成一致性与真实HTTP/身份/项目流程通过。PostgreSQL16真实迁移/RLS/复合FK/并发/回滚及TASK-0009审查恢复、TASK-0010决定幂等与并发、共享结构化报告、DOCX/PDF生成、原文回查、授权与拒绝导出审计专项通过。源码CI38556383801、验收记录CI38557180768及归档CI38557509858均全部适用作业成功。DEC-002未批准，生产模型路由仍关闭。详见`docs/development/TASK-0010-validation.md`。
 
@@ -74,7 +73,7 @@
 
 ## 已知问题
 
-- 后端数据库/身份权限、项目读写、安全文件接入和独立单作业Worker已实现；TASK-0011工作台代码已接入主要现有业务 API，但浏览器端到端与FR-013配置版本管理仍未完成。
+- TASK-0011的真实浏览器链路与FR-013配置版本管理已通过本任务局部验收；验收记录与归档CI完成前任务仍保持`in_progress`。这不代表相关全局AC或M3已完成。
 - Word内嵌图片需人工转录；DOCX外部关系含超链接严格拒绝；中文复杂版面质量仍需黄金集验收。详见secure-ingestion-start.md。
 - 本机Docker Linux Engine已可用（29.2.1）；临时PostgreSQL16本机迁移/权限/RLS/并发/回滚与真实S3/扫描/OCR检查通过，仅测试服务已清理。TASK-0005历史PowerShell完整门禁186项全通过；当前任务结果见最近验证。
 - Windows受限沙箱会阻断asyncio内部回环连接；完整验收须允许本机回环网络，不能跳过测试。
