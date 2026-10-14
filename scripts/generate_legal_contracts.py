@@ -4,7 +4,9 @@ import argparse
 import json
 from pathlib import Path
 
+from bidding_compliance.domain.runtime_provenance import ReviewRuntimeProvenance
 from bidding_compliance.legal.contracts import (
+    EmbeddingModelIdentity,
     LegalIndex,
     LegalManifest,
     RetrievalQuery,
@@ -19,6 +21,7 @@ from bidding_compliance.legal.management_contracts import (
     PublicationRequest,
     RevisionRequest,
 )
+from bidding_compliance.legal.vector_index import VectorIndexManifest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -40,6 +43,9 @@ def main() -> int:
         (SourceMap, "legal-source-map"),
         (SourceExtractionRequest, "legal-source-request"),
         (SourceExtractionResult, "legal-source-result"),
+        (ReviewRuntimeProvenance, "review-runtime-provenance"),
+        (EmbeddingModelIdentity, "embedding-model-identity"),
+        (VectorIndexManifest, "embedding-vector-index"),
     ):
         schema = model.model_json_schema()
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"

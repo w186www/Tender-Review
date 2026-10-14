@@ -10,7 +10,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from bidding_compliance.ingestion.schemas import Fragment
+from bidding_compliance.ingestion.schemas import Fragment, OCRRuntimeIdentity
 
 Category = Literal["qualification", "technical", "evaluation", "contract", "procedure"]
 SkillId = Literal[
@@ -144,8 +144,19 @@ class DocumentVersionRef(Closed):
     parse_version: int = Field(ge=1, strict=True)
     context_version: int = Field(ge=1, strict=True)
     fragments_sha256: str = Field(pattern="^[a-f0-9]{64}$")
+    ocr_runtime: OCRRuntimeIdentity | None = None
+    ocr_runtime_sha256: str | None = Field(default=None, pattern="^[a-f0-9]{64}$")
     document_version_ref: str = Field(pattern="^doc-version:sha256:[a-f0-9]{64}$")
     fragment_count: int = Field(ge=1, strict=True)
+
+    @model_validator(mode="after")
+    def parser_hash_matches(self) -> Self:
+        if self.ocr_runtime is None:
+            if self.ocr_runtime_sha256 is not None:
+                raise ValueError("OCR runtime hash has no identity")
+        elif self.ocr_runtime.identity_sha256 != self.ocr_runtime_sha256:
+            raise ValueError("OCR runtime identity hash mismatch")
+        return self
 
 
 class DiscoveryDocumentRequest(Closed):
@@ -187,17 +198,20 @@ class DiscoveryInputSnapshot(Closed):
         if self.project_context_ref != "project-version:sha256:" + project_ref:
             raise ValueError("project context reference is not bound to its snapshot")
         for item in self.documents:
+            version_payload = {
+                "tenant_id": self.tenant_id,
+                "project_id": self.project_id,
+                "document_id": item.document_id,
+                "raw_source_sha256": item.raw_source_sha256,
+                "parse_version": item.parse_version,
+                "context_version": item.context_version,
+                "fragments_sha256": item.fragments_sha256,
+            }
+            if item.ocr_runtime_sha256 is not None:
+                version_payload["ocr_runtime_sha256"] = item.ocr_runtime_sha256
             version_hash = hashlib.sha256(
                 json.dumps(
-                    {
-                        "tenant_id": self.tenant_id,
-                        "project_id": self.project_id,
-                        "document_id": item.document_id,
-                        "raw_source_sha256": item.raw_source_sha256,
-                        "parse_version": item.parse_version,
-                        "context_version": item.context_version,
-                        "fragments_sha256": item.fragments_sha256,
-                    },
+                    version_payload,
                     ensure_ascii=False,
                     sort_keys=True,
                     separators=(",", ":"),

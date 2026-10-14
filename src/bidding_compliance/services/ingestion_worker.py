@@ -163,6 +163,11 @@ def execute(
             document.status = "needs_confirmation" if passed else "needs_review"
             document.issues = [] if passed else ["LOW_QUALITY"]
             document.parse_version, document.context_version = 1, 1
+            document.parse_provenance = (
+                parsed.ocr_runtime.model_dump(mode="json")
+                if parsed.ocr_runtime is not None
+                else None
+            )
             items = []
             for ordinal, fragment in enumerate(parsed.fragments):
                 identifier = str(uuid4())

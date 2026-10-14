@@ -17,7 +17,7 @@ from bidding_compliance.domain.rules.models import (
     LocatedFragment,
     SkillId,
 )
-from bidding_compliance.ingestion.schemas import Fragment
+from bidding_compliance.ingestion.schemas import Fragment, OCRRuntimeIdentity
 from bidding_compliance.persistence.database import set_tenant
 from bidding_compliance.services import documents
 from bidding_compliance.services.legal import require_identity
@@ -112,6 +112,12 @@ def snapshot_for_project(
             for section_id, revision, fragment in effective_fragments
         ]
         fragments_hash = _canonical_hash(fragment_payload)
+        ocr_runtime = (
+            OCRRuntimeIdentity.model_validate(record.parse_provenance)
+            if record.parse_provenance is not None
+            else None
+        )
+        ocr_runtime_sha = ocr_runtime.identity_sha256 if ocr_runtime is not None else None
         version_payload = {
             "tenant_id": principal.tenant_id,
             "project_id": project_id,
@@ -121,6 +127,8 @@ def snapshot_for_project(
             "context_version": record.context_version,
             "fragments_sha256": fragments_hash,
         }
+        if ocr_runtime_sha is not None:
+            version_payload["ocr_runtime_sha256"] = ocr_runtime_sha
         document_version_ref = "doc-version:sha256:" + _canonical_hash(version_payload)
         doc_ref = DocumentVersionRef(
             document_id=record.document_id,
@@ -128,6 +136,8 @@ def snapshot_for_project(
             parse_version=record.parse_version,
             context_version=record.context_version,
             fragments_sha256=fragments_hash,
+            ocr_runtime=ocr_runtime,
+            ocr_runtime_sha256=ocr_runtime_sha,
             document_version_ref=document_version_ref,
             fragment_count=len(effective_fragments),
         )

@@ -1,0 +1,55 @@
+{
+  "schema_version": "task0018.tesseract-ocr-report.v1",
+  "run": {
+    "parser_image_sha256": "60c5fff8cba8310b9efcab885bdd2123764f877beec84f0cfdc25ffd1a67426b",
+    "font_sha256": "1526ac24375f51f6eb73bc2d3f8072dbe4a80a3a65217677c9d9a84f67dab2ab",
+    "network_calls": false,
+    "provider_calls": false,
+    "fixtures_generated": true
+  },
+  "cases": [
+    {
+      "fixture_type": "multi_column_table_numbers_repeated_text",
+      "pdf_sha256": "3fb7604864eee862e62c82d0ccf5ebc2c7fa42222b0c7c68c07a3fc64a925c6c",
+      "error": "INVALID_FILE",
+      "wall_latency_ms": 982.2403999860398,
+      "parser_metrics": {
+        "elapsed_ms": 47,
+        "process_peak_rss_bytes": 65384448,
+        "container_memory_peak_bytes": 45813760
+      },
+      "failed_closed": true
+    },
+    {
+      "fixture_type": "blank_low_quality",
+      "pdf_sha256": "df7896d47d108677c2bbb26d2af3a4058a36edeb35e1d363b5877d3a6de22ee8",
+      "error": "INVALID_FILE",
+      "wall_latency_ms": 1003.8263000024017,
+      "parser_metrics": {
+        "elapsed_ms": 20,
+        "process_peak_rss_bytes": 65265664,
+        "container_memory_peak_bytes": 43823104
+      },
+      "failed_closed": true
+    },
+    {
+      "fixture_type": "malformed_synthetic_pdf",
+      "pdf_sha256": "4e95bac85fdbe646a6f8363ddf222732b0cb32c9fcbd1fb59ba25d30d9fbafb0",
+      "error": "INVALID_FILE",
+      "wall_latency_ms": 934.3568999902345,
+      "parser_metrics": {
+        "elapsed_ms": 20,
+        "process_peak_rss_bytes": 65671168,
+        "container_memory_peak_bytes": 43409408
+      },
+      "failed_closed": true
+    }
+  ],
+  "observed_timeouts": 0,
+  "observed_parser_failures": 3,
+  "observed_low_quality_downgrades": 0,
+  "limitations": [
+    "OCR quality measurements are only from synthetic fixtures and do not estimate real tender-document quality.",
+    "PaddleOCR is not installed, downloaded, benchmarked, or selected."
+  ]
+}

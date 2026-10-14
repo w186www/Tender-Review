@@ -2,12 +2,13 @@
 
 from typing import Protocol
 
-from .schemas import FileFormat, IngestionPolicy, Issue, ParsedDocument
+from .schemas import FileFormat, IngestionPolicy, Issue, ParsedDocument, ParserExecutionMetrics
 
 
 class IngestionError(Exception):
-    def __init__(self, code: Issue) -> None:
+    def __init__(self, code: Issue, metrics: ParserExecutionMetrics | None = None) -> None:
         self.code = code
+        self.metrics = metrics
         super().__init__(code)
 
 

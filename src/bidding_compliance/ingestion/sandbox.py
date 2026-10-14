@@ -9,7 +9,15 @@ from typing import BinaryIO
 from uuid import uuid4
 
 from .ports import IngestionError
-from .schemas import FileFormat, IngestionPolicy, ParsedDocument, ParserRequest, ParserResponse
+from .schemas import (
+    FileFormat,
+    IngestionPolicy,
+    OCRRuntimeIdentity,
+    ParsedDocument,
+    ParserExecutionMetrics,
+    ParserRequest,
+    ParserResponse,
+)
 
 
 class DockerParser:
@@ -57,6 +65,11 @@ class DockerParser:
         ]
 
     def parse(self, payload: bytes, format: FileFormat, policy: IngestionPolicy) -> ParsedDocument:
+        return self.parse_with_metrics(payload, format, policy)[0]
+
+    def parse_with_metrics(
+        self, payload: bytes, format: FileFormat, policy: IngestionPolicy
+    ) -> tuple[ParsedDocument, ParserExecutionMetrics | None]:
         request = (
             ParserRequest(
                 format=format, payload_base64=base64.b64encode(payload).decode(), policy=policy
@@ -127,10 +140,19 @@ class DockerParser:
             except ValueError as exc:
                 raise IngestionError("PARSE_FAILED") from exc
             if response.error is not None:
-                raise IngestionError(response.error)
+                raise IngestionError(response.error, response.metrics)
             if response.result is None:
-                raise IngestionError("PARSE_FAILED")
-            return response.result
+                raise IngestionError("PARSE_FAILED", response.metrics)
+            result = response.result
+            if result.ocr_runtime is not None:
+                identity_payload = result.ocr_runtime.model_dump(
+                    mode="json", exclude={"identity_sha256"}
+                )
+                identity_payload["parser_image_sha256"] = self.image.removeprefix("sha256:")
+                result = result.model_copy(
+                    update={"ocr_runtime": OCRRuntimeIdentity.create(**identity_payload)}
+                )
+            return result, response.metrics
         finally:
             if process.poll() is None:
                 process.kill()

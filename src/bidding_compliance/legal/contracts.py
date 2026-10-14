@@ -1,9 +1,10 @@
 """Closed legal DTOs; JSON contracts generated before consumers are implemented."""
 
 import hashlib
+import json
 import re
 from datetime import date, datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self, cast
 from urllib.parse import urlsplit
 
 from pydantic import (
@@ -490,6 +491,70 @@ class Excluded(Closed):
     reasons: tuple[ExclusionReason, ...] = Field(min_length=1)
 
 
+class EmbeddingModelIdentity(Closed):
+    """Pinned provider/model contract used to keep vector spaces isolated."""
+
+    schema_version: Literal["v1alpha1"] = "v1alpha1"
+    provider: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,49}$")
+    region: str = Field(pattern=r"^[a-z][a-z0-9-]{0,49}$")
+    model_id: str = Field(min_length=1, max_length=200)
+    model_revision: str = Field(min_length=1, max_length=200)
+    dimensions: int | None = Field(default=None, ge=1, le=8192)
+    tokenizer_identity: str = Field(min_length=1, max_length=200)
+    weights_sha256: Digest | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    tokenizer_sha256: Digest | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    api_contract_version: str = Field(min_length=1, max_length=100)
+    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    identity_sha256: Digest = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @staticmethod
+    def canonical_hash(payload: dict[str, JsonValue]) -> str:
+        raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def create(cls, **values: object) -> "EmbeddingModelIdentity":
+        normalized = cls.model_construct(**cast(Any, values), identity_sha256="")
+        payload = normalized.model_dump(mode="json", exclude={"identity_sha256"})
+        return cls.model_validate({**payload, "identity_sha256": cls.canonical_hash(payload)})
+
+    @model_validator(mode="after")
+    def identity_matches_fields(self) -> Self:
+        if (self.provider == "character") != (self.region == "local"):
+            raise ValueError("embedding provider and region mismatch")
+        if self.provider == "character" and self.dimensions is not None:
+            raise ValueError("character vectors do not have a fixed dense dimension")
+        if self.provider != "character" and self.dimensions is None:
+            raise ValueError("dense embedding dimensions are required")
+        payload = self.model_dump(mode="json", exclude={"identity_sha256"})
+        if self.identity_sha256 != self.canonical_hash(payload):
+            raise ValueError("embedding identity hash mismatch")
+        return self
+
+
+class RetrievalRuntimeSnapshot(Closed):
+    """Algorithm settings frozen with a retrieval run; this is not call-level audit."""
+
+    schema_version: Literal["v1alpha1"] = "v1alpha1"
+    algorithm: Literal["bm25-char-cosine-rrf-5"] = "bm25-char-cosine-rrf-5"
+    top_k: int = Field(ge=1, le=100)
+    rrf_k: int = Field(default=60, ge=1, le=1000)
+    bm25_weight: float = Field(default=1.0, gt=0, le=100)
+    embedding_weight: float = Field(default=1.0, gt=0, le=100)
+    reranker_enabled: bool = False
+    reranker_version: str | None = Field(default=None, max_length=200)
+    embedding_identity: EmbeddingModelIdentity
+    vector_index_build_id: Digest | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def supported_runtime(self) -> Self:
+        if self.reranker_enabled != (self.reranker_version is not None):
+            raise ValueError("reranker state and version mismatch")
+        if self.embedding_identity.provider != "character" or self.vector_index_build_id:
+            raise ValueError("this retrieval result contract only accepts the measured baseline")
+        return self
+
+
 class RunSnapshot(Closed):
     run_id: str = Field(min_length=36, max_length=36)
     tenant_id: str = Field(min_length=1, max_length=64)
@@ -500,6 +565,7 @@ class RunSnapshot(Closed):
     request_hash: Digest = Field(pattern=r"^[a-f0-9]{64}$")
     review_date: date
     review_date_source: Literal["explicit_actor_input"] = "explicit_actor_input"
+    runtime: RetrievalRuntimeSnapshot | None = None
     created_at: datetime
 
 
@@ -578,4 +644,10 @@ class RetrievalResult(Closed):
         if self.run_snapshot and self.query:
             if self.run_snapshot.review_date != self.query.review_date:
                 raise ValueError("run date does not match query date")
+            if self.run_snapshot.runtime and self.run_snapshot.runtime.top_k != self.query.limit:
+                raise ValueError("run retrieval top-k does not match query")
+            if self.run_snapshot.runtime and (
+                self.run_snapshot.runtime.algorithm != self.retrieval_version
+            ):
+                raise ValueError("run retrieval algorithm does not match result")
         return self

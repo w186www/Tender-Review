@@ -20,6 +20,7 @@ from zipfile import ZipFile
 import psycopg
 from docx import Document as WordDocument
 from psycopg.rows import dict_row
+from pydantic import ValidationError
 from pypdf import PdfReader
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import Engine
@@ -28,6 +29,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from bidding_compliance.core.config import Settings
 from bidding_compliance.domain.identity import Principal, Role
 from bidding_compliance.domain.rules.models import DiscoveryDocumentRequest
+from bidding_compliance.domain.runtime_provenance import ReviewRuntimeProvenance
 from bidding_compliance.ingestion.schemas import Fragment
 from bidding_compliance.model_gateway.contracts import (
     DataPolicy,
@@ -110,6 +112,9 @@ class OfflineReviewGateway(ModelGateway):
         self.saw_candidates = False
         self.saw_legal_results = False
 
+    def prompt_sha256(self, prompt_version: str) -> str:
+        return hashlib.sha256(("offline-test-prompt:" + prompt_version).encode()).hexdigest()
+
     async def generate_structured(
         self,
         request: ModelRequest,
@@ -169,6 +174,9 @@ class OfflineReviewGateway(ModelGateway):
 
 
 class NoCallGateway(ModelGateway):
+    def prompt_sha256(self, prompt_version: str) -> str:
+        return hashlib.sha256(("offline-test-prompt:" + prompt_version).encode()).hexdigest()
+
     async def generate_structured(
         self,
         request: ModelRequest,
@@ -343,6 +351,27 @@ def verify_review_engine(
                 f"failure_code={failed_run.failure_code!r}, "
                 f"retry_count={failed_run.retry_count!r}"
             )
+        try:
+            provenance = ReviewRuntimeProvenance.model_validate_json(
+                json.dumps(failed_run.snapshot["runtime_provenance"], ensure_ascii=False)
+            )
+        except (KeyError, ValidationError) as exc:
+            raise AssertionError("review run did not persist valid runtime provenance") from exc
+        if (
+            len(provenance.parser_documents) != 1
+            or provenance.parser_documents[0].document_id != document_id
+            or provenance.parser_documents[0].identity is not None
+            or provenance.embedding_identity.provider != "character"
+            or provenance.vector_index_build_id is not None
+            or provenance.prompt_version != request.prompt_version
+            or provenance.model_profile != request.model_profile
+            or provenance.model_config_revision_id
+            != (failed_run.snapshot.get("configuration_revision_id") or "code-default")
+            or provenance.model_config_sha256
+            != failed_run.snapshot["configuration_snapshot_hash"]
+            or failed_run.snapshot_hash != _canonical_hash(failed_run.snapshot)
+        ):
+            raise AssertionError("persisted review runtime provenance is not bound to its run")
     pending = _run_async(worker.retry(principal, request.review_task_id, request.run_id))
     if pending.get("status") != "waiting_human":
         raise AssertionError("bounded retry did not reach the persisted human interrupt")

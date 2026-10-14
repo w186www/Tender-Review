@@ -15,8 +15,19 @@ from test_legal_retrieval import query, version
 
 from bidding_compliance.core.config import Settings
 from bidding_compliance.domain.identity import Principal, Role
-from bidding_compliance.legal.contracts import LegalManifest, RetrievalResult
+from bidding_compliance.domain.runtime_provenance import (
+    FrozenParserIdentity,
+    ReviewRuntimeProvenance,
+)
+from bidding_compliance.ingestion.schemas import OCRRuntimeIdentity
+from bidding_compliance.legal.contracts import (
+    EmbeddingModelIdentity,
+    LegalManifest,
+    RetrievalResult,
+    RetrievalRuntimeSnapshot,
+)
 from bidding_compliance.legal.corpus import ingest
+from bidding_compliance.legal.embedding_provider import character_embedding_identity
 from bidding_compliance.legal.hashing import canonical_hash
 from bidding_compliance.legal.regions import normalize_region
 from bidding_compliance.legal.retrieval import CharacterEmbedding, LegalRetriever
@@ -31,6 +42,29 @@ from bidding_compliance.persistence.models import (
     User,
 )
 from bidding_compliance.services import legal
+
+
+def _runtime_provenance(
+    *,
+    parser_documents: tuple[FrozenParserIdentity, ...] = (),
+    retrieval_identity: EmbeddingModelIdentity | None = None,
+    vector_index_build_id: str | None = None,
+) -> ReviewRuntimeProvenance:
+    identity = character_embedding_identity()
+    return ReviewRuntimeProvenance(
+        parser_documents=parser_documents,
+        embedding_identity=identity,
+        vector_index_build_id=vector_index_build_id,
+        retrieval=RetrievalRuntimeSnapshot(
+            top_k=10,
+            embedding_identity=retrieval_identity or identity,
+        ),
+        prompt_version="task0018-test-v1",
+        prompt_sha256="a" * 64,
+        model_profile="offline-test-profile",
+        model_config_revision_id="code-default",
+        model_config_sha256="b" * 64,
+    )
 
 
 @pytest.fixture
@@ -343,3 +377,61 @@ def test_result_contradictions_and_old_version_rejected(tmp_path, change):
     payload = LegalRetriever(index).search(query()).model_dump(mode="json")
     with pytest.raises(ValidationError):
         RetrievalResult.model_validate({**payload, **change})
+
+
+def test_review_runtime_provenance_round_trips_and_freezes_parser_identity():
+    parser_identity = OCRRuntimeIdentity.create(
+        engine_version="5.3.0",
+        model_ids=("chi_sim", "eng"),
+        model_sha256={"chi_sim": "c" * 64, "eng": "d" * 64},
+        parameters={"language": "chi_sim+eng", "omp_thread_limit": 1},
+        parser_image_sha256="e" * 64,
+    )
+    parser = FrozenParserIdentity(
+        document_id="synthetic-document",
+        identity=parser_identity,
+        identity_sha256=parser_identity.identity_sha256,
+    )
+    provenance = _runtime_provenance(parser_documents=(parser,))
+
+    restored = ReviewRuntimeProvenance.model_validate_json(provenance.model_dump_json())
+
+    assert restored == provenance
+    assert restored.parser_documents[0].identity_sha256 == parser_identity.identity_sha256
+    assert restored.embedding_identity == restored.retrieval.embedding_identity
+    assert restored.vector_index_build_id is None
+    with pytest.raises(ValidationError):
+        provenance.prompt_version = "changed"
+    payload = restored.model_dump(mode="json")
+    payload["unexpected_metadata"] = "test-value"
+    with pytest.raises(ValidationError):
+        ReviewRuntimeProvenance.model_validate(payload)
+
+
+def test_review_runtime_provenance_rejects_broken_bindings():
+    parser_identity = OCRRuntimeIdentity.create(
+        engine_version="5.3.0",
+        model_ids=("chi_sim",),
+        model_sha256={"chi_sim": "c" * 64},
+        parameters={"language": "chi_sim"},
+    )
+    with pytest.raises(ValidationError, match="parser identity hash mismatch"):
+        FrozenParserIdentity(
+            document_id="synthetic-document",
+            identity=parser_identity,
+            identity_sha256="f" * 64,
+        )
+
+    parser = FrozenParserIdentity(document_id="synthetic-document")
+    with pytest.raises(ValidationError, match="duplicate parser provenance document"):
+        _runtime_provenance(parser_documents=(parser, parser))
+
+    identity = character_embedding_identity()
+    other_values = identity.model_dump(mode="python", exclude={"identity_sha256"})
+    other_values["model_revision"] = "different-character-revision"
+    other_identity = EmbeddingModelIdentity.create(**other_values)
+    with pytest.raises(ValidationError, match="retrieval embedding identity differs"):
+        _runtime_provenance(retrieval_identity=other_identity)
+
+    with pytest.raises(ValidationError, match="does not activate a vector index"):
+        _runtime_provenance(vector_index_build_id="a" * 64)

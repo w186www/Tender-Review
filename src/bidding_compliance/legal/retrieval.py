@@ -19,9 +19,11 @@ from .contracts import (
     Reason,
     RetrievalQuery,
     RetrievalResult,
+    RetrievalRuntimeSnapshot,
     VersionStatus,
 )
 from .corpus import index_hash
+from .embedding_provider import character_embedding_identity
 
 
 def terms(text: str) -> list[str]:
@@ -207,6 +209,12 @@ class LegalRetriever:
         if self.embedding.version != "character-bigram-1":
             raise ValueError("embedding version not supported by this retrieval snapshot")
         self.snapshot_hash = index_hash(index)
+
+    def runtime_snapshot(self, top_k: int) -> RetrievalRuntimeSnapshot:
+        return RetrievalRuntimeSnapshot(
+            top_k=top_k,
+            embedding_identity=character_embedding_identity(),
+        )
 
     def search(self, query: RetrievalQuery) -> RetrievalResult:
         query = RetrievalQuery.model_validate(query.model_dump())

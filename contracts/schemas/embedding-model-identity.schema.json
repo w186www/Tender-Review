@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "description": "Pinned provider/model contract used to keep vector spaces isolated.",
+  "properties": {
+    "schema_version": {
+      "const": "v1alpha1",
+      "default": "v1alpha1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "provider": {
+      "pattern": "^[a-z][a-z0-9_-]{0,49}$",
+      "title": "Provider",
+      "type": "string"
+    },
+    "region": {
+      "pattern": "^[a-z][a-z0-9-]{0,49}$",
+      "title": "Region",
+      "type": "string"
+    },
+    "model_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Model Id",
+      "type": "string"
+    },
+    "model_revision": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Model Revision",
+      "type": "string"
+    },
+    "dimensions": {
+      "anyOf": [
+        {
+          "maximum": 8192,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dimensions"
+    },
+    "tokenizer_identity": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Tokenizer Identity",
+      "type": "string"
+    },
+    "weights_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Weights Sha256"
+    },
+    "tokenizer_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tokenizer Sha256"
+    },
+    "api_contract_version": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Api Contract Version",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Parameters",
+      "type": "object"
+    },
+    "identity_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Identity Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider",
+    "region",
+    "model_id",
+    "model_revision",
+    "tokenizer_identity",
+    "api_contract_version",
+    "identity_sha256"
+  ],
+  "title": "EmbeddingModelIdentity",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/embedding-model-identity.schema.json"
+}

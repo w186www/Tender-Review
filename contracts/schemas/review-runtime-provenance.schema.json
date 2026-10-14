@@ -1,0 +1,391 @@
+{
+  "$defs": {
+    "EmbeddingModelIdentity": {
+      "additionalProperties": false,
+      "description": "Pinned provider/model contract used to keep vector spaces isolated.",
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "provider": {
+          "pattern": "^[a-z][a-z0-9_-]{0,49}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "region": {
+          "pattern": "^[a-z][a-z0-9-]{0,49}$",
+          "title": "Region",
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_revision": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Model Revision",
+          "type": "string"
+        },
+        "dimensions": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dimensions"
+        },
+        "tokenizer_identity": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Tokenizer Identity",
+          "type": "string"
+        },
+        "weights_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weights Sha256"
+        },
+        "tokenizer_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tokenizer Sha256"
+        },
+        "api_contract_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Api Contract Version",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "identity_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Identity Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "region",
+        "model_id",
+        "model_revision",
+        "tokenizer_identity",
+        "api_contract_version",
+        "identity_sha256"
+      ],
+      "title": "EmbeddingModelIdentity",
+      "type": "object"
+    },
+    "FrozenParserIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "document_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Document Id",
+          "type": "string"
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OCRRuntimeIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "identity_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identity Sha256"
+        }
+      },
+      "required": [
+        "document_id"
+      ],
+      "title": "FrozenParserIdentity",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "OCRRuntimeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "engine_id": {
+          "const": "tesseract",
+          "default": "tesseract",
+          "title": "Engine Id",
+          "type": "string"
+        },
+        "engine_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "model_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Model Ids",
+          "type": "array"
+        },
+        "model_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Model Sha256",
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "parser_image_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Image Sha256"
+        },
+        "identity_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Identity Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "engine_version",
+        "model_ids",
+        "model_sha256",
+        "parameters",
+        "identity_sha256"
+      ],
+      "title": "OCRRuntimeIdentity",
+      "type": "object"
+    },
+    "RetrievalRuntimeSnapshot": {
+      "additionalProperties": false,
+      "description": "Algorithm settings frozen with a retrieval run; this is not call-level audit.",
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "algorithm": {
+          "const": "bm25-char-cosine-rrf-5",
+          "default": "bm25-char-cosine-rrf-5",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "top_k": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Top K",
+          "type": "integer"
+        },
+        "rrf_k": {
+          "default": 60,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "bm25_weight": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Bm25 Weight",
+          "type": "number"
+        },
+        "embedding_weight": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Embedding Weight",
+          "type": "number"
+        },
+        "reranker_enabled": {
+          "default": false,
+          "title": "Reranker Enabled",
+          "type": "boolean"
+        },
+        "reranker_version": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reranker Version"
+        },
+        "embedding_identity": {
+          "$ref": "#/$defs/EmbeddingModelIdentity"
+        },
+        "vector_index_build_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Index Build Id"
+        }
+      },
+      "required": [
+        "top_k",
+        "embedding_identity"
+      ],
+      "title": "RetrievalRuntimeSnapshot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Frozen at run creation; it contains no call payloads, keys, or call audit events.",
+  "properties": {
+    "schema_version": {
+      "const": "task0018.review-runtime.v1",
+      "default": "task0018.review-runtime.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "parser_documents": {
+      "items": {
+        "$ref": "#/$defs/FrozenParserIdentity"
+      },
+      "maxItems": 100,
+      "title": "Parser Documents",
+      "type": "array"
+    },
+    "embedding_identity": {
+      "$ref": "#/$defs/EmbeddingModelIdentity"
+    },
+    "vector_index_build_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vector Index Build Id"
+    },
+    "retrieval": {
+      "$ref": "#/$defs/RetrievalRuntimeSnapshot"
+    },
+    "prompt_version": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Prompt Version",
+      "type": "string"
+    },
+    "prompt_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Prompt Sha256",
+      "type": "string"
+    },
+    "model_profile": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Model Profile",
+      "type": "string"
+    },
+    "model_config_revision_id": {
+      "maxLength": 36,
+      "minLength": 1,
+      "title": "Model Config Revision Id",
+      "type": "string"
+    },
+    "model_config_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Model Config Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "parser_documents",
+    "embedding_identity",
+    "retrieval",
+    "prompt_version",
+    "prompt_sha256",
+    "model_profile",
+    "model_config_revision_id",
+    "model_config_sha256"
+  ],
+  "title": "ReviewRuntimeProvenance",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/review-runtime-provenance.schema.json"
+}

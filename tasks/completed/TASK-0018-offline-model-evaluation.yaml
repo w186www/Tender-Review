@@ -1,0 +1,157 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0018",
+  "title": "法规检索评测、云端 Embedding Provider 接口验证、Tesseract OCR 基线及运行版本追溯",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0005",
+    "TASK-0006",
+    "TASK-0008",
+    "TASK-0011"
+  ],
+  "related_requirements": [
+    "FR-002",
+    "FR-006",
+    "FR-015",
+    "SEC-003",
+    "SEC-004",
+    "NFR-008",
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-002",
+    "AC-003",
+    "AC-004",
+    "AC-011"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/development/legal-retrieval-start.md",
+    "docs/development/secure-ingestion-start.md",
+    "docs/development/TASK-0010-validation.md",
+    "docs/development/TASK-0011-validation.md",
+    "docs/development/TASK-0018-validation.md",
+    "docs/development/testing-standard.md",
+    "docs/decisions/ADR-0003-model-gateway.md",
+    "docs/decisions/ADR-0008-secure-ingestion.md",
+    "docs/decisions/ADR-0013-model-gateway-adapters-and-authorization.md",
+    "docs/decisions/ADR-0015-offline-retrieval-ocr-provenance.md",
+    "docs/decisions/ADR-0016-task-0018-cloud-embedding-contract.md",
+    "contracts/VERSION.md"
+  ],
+  "allowed_paths": [
+    "src/bidding_compliance/legal/**",
+    "src/bidding_compliance/ingestion/**",
+    "src/bidding_compliance/services/**",
+    "src/bidding_compliance/graph/**",
+    "src/bidding_compliance/model_gateway/**",
+    "src/bidding_compliance/persistence/**",
+    "src/bidding_compliance/domain/runtime_provenance.py",
+    "src/bidding_compliance/domain/rules/models.py",
+    "src/bidding_compliance/persistence/models.py",
+    "contracts/schemas/**",
+    "contracts/examples/**",
+    "contracts/database/**",
+    "contracts/VERSION.md",
+    "evals/**",
+    "scripts/**",
+    "tests/**",
+    "evals/ocr/**",
+    "docs/development/**",
+    "docs/decisions/ADR-0015-offline-retrieval-ocr-provenance.md",
+    "docs/decisions/ADR-0016-task-0018-cloud-embedding-contract.md",
+    "docs/index.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/roadmap.md",
+    "tasks/active/TASK-0018-offline-model-evaluation.yaml",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "requirements-embedding.lock"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx",
+    "tasks/active/TASK-0012-deployment-operations.yaml",
+    "tasks/active/TASK-0013-evaluation-security.yaml",
+    "docs/decisions/ADR-0015-offline-retrieval-ocr-provenance.md",
+    "knowledge/legal/**"
+  ],
+  "steps": [
+    "Freeze and reproduce the existing 43-version/3120-fragment CharacterEmbedding/BM25/RRF baseline; keep law recall, applicability/validity filtering, unverified references and expert-unconfirmed candidates separate.",
+    "Add a provider-neutral dense Embedding interface and Bailian adapter; verify documented model/region/dimension/batch/schema/error contracts with synthetic inputs through MockTransport only. The real provider is disabled and no vendor request is permitted.",
+    "Add local SQLite exact-vector persistence, content-addressed build manifests and batch checkpoints bound to provider/model/region/dimensions/parameters/legal publication/revision; verify idempotence, resume and identity isolation using synthetic vectors excluded from quality metrics.",
+    "Measure synthetic scanned PDFs with the real existing restricted Tesseract parser for CER, critical numbers/amounts, page/locator consistency, table completeness, latency, memory and quality/failure/timeout handling; do not install PaddleOCR or relax security gates.",
+    "Freeze run-level OCR, embedding, index, retrieval, reranker, prompt and model-config identities; distinguish this snapshot from per-call audit, which remains future scope.",
+    "Run Focused, final Full and the required PostgreSQL/RLS/checkpoint/report/security checks; publish actual evidence and clearly separate complete, blocked and unmeasured work."
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0018-001",
+      "description": "The pinned 43-version/3120-fragment legal snapshot and fixed query/filter datasets reproduce CharacterEmbedding/BM25/RRF Recall@5/10, MRR@10, nDCG@10, average/p95 latency, build and retrieval memory, and separately reported scope/applicability and validity/horizon filtering errors. The confirmed denominator uses only queries whose legal label is verified; unverified references and expert-unconfirmed risks remain separate.",
+      "evidence": [
+        "evals/legal_retrieval/results/character-baseline-20261015.json",
+        "evals/legal_retrieval/results/character-repeat-20261015.json",
+        "evals/legal_retrieval/results/character-repeat-final-20261015.json",
+        "evals/legal_retrieval/queries.json",
+        "evals/legal_retrieval/applicability_cases.json",
+        "evals/legal_retrieval/snapshot.lock.json",
+        "docs/development/TASK-0018-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0018-002",
+      "description": "CharacterEmbedding behavior and its only measured quality baseline remain unchanged. A provider-neutral EmbeddingProvider and Bailian adapter validate documented model/region/dimension/batch limits, endpoint construction, full request/response Schema, status/timeout/rate-limit/malformed-response behavior, vector identity, and disabled-by-default policy using MockTransport and synthetic input only. No live call, actual API key, real law text, or tender document is used. Provider-managed weight/tokenizer identity is explicitly unversioned and is not claimed as supplier validation.",
+      "evidence": [
+        "src/bidding_compliance/legal/embedding_provider.py",
+        "tests/test_embedding_provider.py",
+        "docs/decisions/ADR-0016-task-0018-cloud-embedding-contract.md",
+        "docs/development/TASK-0018-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0018-003",
+      "description": "Generated image-only scanned PDFs and malformed/blank controls are processed by the actual isolated Tesseract parser using the checked-in ingestion policy unchanged. Evidence records CER, critical number/amount accuracy, page/locator consistency, repeated-text positions, table-cell completeness, wall/parser latency, process/container memory, timeout/failure counts and low-quality downgrade behavior. Benchmark alerts are reported as failures to meet the evaluation target; no quality gate is relaxed. Tesseract remains default; PaddleOCR is not installed or claimed measured.",
+      "evidence": [
+        "evals/ocr/results/tesseract-baseline-final-reviewed-20261015.json",
+        "evals/ocr/results/tesseract-repeat-20261015.json",
+        "tests/test_tesseract_evaluation_fixtures.py",
+        "scripts/evaluate_tesseract_ocr.py",
+        "docs/development/TASK-0018-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0018-004",
+      "description": "Run-level frozen OCR, CharacterEmbedding/retrieval, Prompt SHA-256 and model-config identities are separated from per-call audit (not implemented here). The persistent SQLite vector index binds provider/model/region/dimensions/parameters, legal snapshot/publication/revision, clause/source hashes and build identity; batches resume idempotently, and incompatible identities cannot mix. Synthetic vectors are excluded from the quality benchmark. Rebuilds do not rewrite legal publication snapshots or historical review results. Dense candidate retrieval filters law scope, validity and verified status first, and remains separate from Evidence Checker.",
+      "evidence": [
+        "src/bidding_compliance/legal/vector_index.py",
+        "tests/test_legal_vector_index.py",
+        "src/bidding_compliance/domain/runtime_provenance.py",
+        "contracts/schemas/review-runtime-provenance.schema.json",
+        "docs/development/TASK-0018-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0018-005",
+      "description": "Focused and final Full checks plus PostgreSQL/RLS, Checkpoint, human review/report, parser sandbox and secure-ingestion regressions pass without disabling or weakening checks. All provider protocol/index data is synthetic; no API credentials, live model calls, or external document transfer are present. Any unavailable required gate is reported as blocked and cannot be marked passed.",
+      "evidence": [
+        "docs/development/TASK-0018-validation.md"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Focused -TestPaths @('tests/test_embedding_provider.py','tests/test_legal_vector_index.py','tests/test_tesseract_evaluation_fixtures.py','tests/test_legal_retrieval.py','tests/test_legal_runs.py','tests/test_ingestion.py','tests/test_candidate_discovery.py','tests/test_model_gateway_contracts.py','tests/test_review_reports.py','tests/test_legal_publications.py')",
+    "./scripts/verify.ps1 -Mode Full",
+    "./scripts/check_postgres.py",
+    "./scripts/check_legal_publications.py",
+    "./scripts/check_ingestion_containers.py",
+    "./scripts/check_parser_sandbox.py",
+    "./scripts/evaluate_tesseract_ocr.py --image sha256:2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c228b1ac00a41bb597 --output .verification/task0018-ocr/tesseract-reproduction.json",
+    "python scripts/evaluate_legal_retrieval.py --output .verification/task0018-legal-baseline/character-repeat.json"
+  ],
+  "handoff_notes": "Supplemental M2A workstream completed locally on 2026-10-15. The scope revision is recorded in ADR-0016 and preserves ADR-0015 history; TASK-0012/TASK-0013, official legal source bytes, published legal snapshots, and historical review results were not changed. Formal Focused passed 144 tests and Full passed 537 tests; frontend checks, real HTTP/identity smoke, PostgreSQL 16/RLS/checkpoint/publication checks, parser sandbox, and synthetic secure-ingestion gates passed. Added fail-closed integrity validation for missing/corrupt vector cache rows and coverage for resume/cache tampering and ReviewRuntimeProvenance JSON persistence. npm dependencies were installed only from https://registry.npmjs.org/ in an isolated workspace; package-lock SHA-256 remained unchanged and the original worktree's 46 changes were preserved. No actual provider call, API credential, tender document, or legal text was sent externally. DEC-002 remains pending; provider-managed weights/tokenizer identity is unversioned; cross-process budget ledger, per-call audit, and live-provider evaluation remain future scope."
+}

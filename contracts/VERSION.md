@@ -19,6 +19,8 @@
 | 模型profile配置 | schema_version=v1alpha1 | 当前用途示例未变，运行时校验待TASK-0008 |
 | RuleDefinition / SkillDefinition / CandidateDiscovery | 新增闭合 v1alpha1 Schema；CandidateDiscovery绑定输入文档/项目版本、规则集摘要、引擎版本、逐Skill覆盖、检索主题、定位原文摘录及稳定候选身份，不改变Risk或Graph State |
 | ReviewDecision / ReviewReport | 新增复核请求与结构化报告 Schema；决定保存独立证据状态及前后值，报告定位绑定源文档哈希、片段修订和原文摘录哈希 |
+| EmbeddingModelIdentity / VectorIndexManifest | 新增模型/供应商/地域/维度/参数与规范化身份哈希；SQLite向量清单绑定法规索引、发布与修订、片段集合、构建器及数据校验和。TASK-0018仅以合成数据验证，不启用实际线上向量化或质量对比 |
+| OCRRuntimeIdentity / ParserExecutionMetrics / ReviewRuntimeProvenance | ParsedDocument/ParserResponse记录OCR引擎、模型文件哈希、参数、隔离镜像哈希与解析资源指标；不可变运行身份记录OCR文档来源、CharacterEmbedding、检索配置、Prompt内容哈希和模型配置版本。调用级审计独立，仍属后续范围 |
 
 风险的旧status不能自动等价迁移：accepted等人工状态无法证明原证据状态，导入时须补证或人工决定。旧State/Checkpoint不得静默按新定义恢复。当前没有生产数据，因此本次没有实际数据迁移。
 

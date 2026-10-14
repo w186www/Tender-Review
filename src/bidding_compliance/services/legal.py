@@ -15,6 +15,7 @@ from bidding_compliance.legal.contracts import (
     RetrievalInput,
     RetrievalQuery,
     RetrievalResult,
+    RetrievalRuntimeSnapshot,
     RunSnapshot,
 )
 from bidding_compliance.legal.hashing import canonical_hash
@@ -111,6 +112,7 @@ def retrieve_for_project(
         include_references=include_references,
         limit=limit,
     )
+    runtime = retriever.runtime_snapshot(request.limit)
     try:
         query = query_from_context(request, context)
     except ValidationError as exc:
@@ -150,6 +152,7 @@ def retrieve_for_project(
         "snapshot_hash": result.snapshot_hash,
         "retrieval_version": result.retrieval_version,
         "normalization_version": result.normalization_version,
+        "runtime": runtime.model_dump(mode="json"),
     }
     if publication_id:
         frozen.update(publication_id=publication_id, revision_id=revision_id)
@@ -162,6 +165,7 @@ def retrieve_for_project(
         context_hash=frozen["context_hash"],
         request_hash=canonical_hash(frozen),
         review_date=request.review_date,
+        runtime=runtime,
         created_at=now,
     )
     result = RetrievalResult(**{**result.model_dump(), "run_snapshot": snapshot})
@@ -211,6 +215,11 @@ def validate_run(record: LegalRetrievalRun) -> RetrievalResult:
         "review_date": frozen["request"]["review_date"],
         "review_date_source": frozen["review_date_source"],
         "created_at": frozen["created_at"],
+        "runtime": (
+            RetrievalRuntimeSnapshot.model_validate(frozen["runtime"])
+            if "runtime" in frozen
+            else None
+        ),
     }
     if snapshot != RunSnapshot.model_validate(expected):
         raise ValueError("retrieval run provenance mismatch")

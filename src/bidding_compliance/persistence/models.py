@@ -135,6 +135,7 @@ class Document(Base):
     parse_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     context_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     issues: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    parse_provenance: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class IngestionJob(Base):

@@ -1,8 +1,11 @@
 """Versioned cross-module data; generated JSON Schemas are checked against these models."""
 
-from typing import Literal
+import hashlib
+import json
+import re
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 
 class Closed(BaseModel):
@@ -30,6 +33,54 @@ Issue = Literal[
     "ACTOR_FORBIDDEN",
     "OUTPUT_LIMIT",
 ]
+
+
+class OCRRuntimeIdentity(Closed):
+    schema_version: Literal["v1alpha1"] = "v1alpha1"
+    engine_id: Literal["tesseract"] = "tesseract"
+    engine_version: str = Field(min_length=1, max_length=100)
+    model_ids: tuple[str, ...] = Field(min_length=1, max_length=4)
+    model_sha256: dict[str, str]
+    parameters: dict[str, JsonValue]
+    parser_image_sha256: str | None = Field(default=None, pattern="^[a-f0-9]{64}$")
+    identity_sha256: str = Field(pattern="^[a-f0-9]{64}$")
+
+    @staticmethod
+    def canonical_hash(payload: dict[str, JsonValue]) -> str:
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def create(cls, **values: object) -> "OCRRuntimeIdentity":
+        normalized_values = dict(values)
+        normalized_values.pop("identity_sha256", None)
+        model_ids = normalized_values.get("model_ids")
+        if isinstance(model_ids, list):
+            normalized_values["model_ids"] = tuple(model_ids)
+        normalized = cls.model_construct(
+            **cast(Any, normalized_values), identity_sha256=""
+        )
+        payload = normalized.model_dump(mode="python", exclude={"identity_sha256"})
+        return cls.model_validate({**payload, "identity_sha256": cls.canonical_hash(payload)})
+
+    @model_validator(mode="after")
+    def models_have_hashes(self) -> "OCRRuntimeIdentity":
+        if set(self.model_ids) != set(self.model_sha256) or any(
+            not re.fullmatch(r"[a-f0-9]{64}", value) for value in self.model_sha256.values()
+        ):
+            raise ValueError("OCR model identity and hashes must match")
+        if len(set(self.model_ids)) != len(self.model_ids):
+            raise ValueError("duplicate OCR model identity")
+        payload = self.model_dump(mode="json", exclude={"identity_sha256"})
+        if self.identity_sha256 != self.canonical_hash(payload):
+            raise ValueError("OCR runtime identity hash mismatch")
+        return self
+
+
+class ParserExecutionMetrics(Closed):
+    elapsed_ms: int = Field(ge=0)
+    process_peak_rss_bytes: int | None = Field(default=None, ge=0)
+    container_memory_peak_bytes: int | None = Field(default=None, ge=0)
 
 
 class IngestionPolicy(Closed):
@@ -129,6 +180,7 @@ class ParsedDocument(Closed):
     fragments: list[Fragment] = Field(max_length=10000)
     quality: Literal["passed", "requires_review"]
     issues: list[Issue] = Field(max_length=20)
+    ocr_runtime: OCRRuntimeIdentity | None = None
 
 
 class ParserRequest(Closed):
@@ -157,6 +209,7 @@ class ParserResponse(Closed):
     )
     result: ParsedDocument | None = None
     error: Issue | None = None
+    metrics: ParserExecutionMetrics | None = None
 
     @model_validator(mode="after")
     def exclusive(self) -> "ParserResponse":
@@ -254,10 +307,16 @@ class ContextFields(Closed):
     procurement_method: Literal["tender", "non_tender", "unknown"] = "unknown"
     buyer_type: Literal["government_entity", "enterprise", "other", "unknown"] = "unknown"
     subject_type: Literal[
-        "works", "works_related_goods", "works_related_services", "goods", "services", "unknown",
+        "works",
+        "works_related_goods",
+        "works_related_services",
+        "goods",
+        "services",
+        "unknown",
     ] = "unknown"
     legal_frameworks: list[Literal["tendering", "government_procurement"]] = Field(
-        default_factory=list, max_length=2,
+        default_factory=list,
+        max_length=2,
     )
 
 

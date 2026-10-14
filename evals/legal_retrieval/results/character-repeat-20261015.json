@@ -1,0 +1,866 @@
+{
+  "schema_version": "task0018.legal-retrieval-report.v1",
+  "run": {
+    "embedding": "character-bigram-1",
+    "retrieval_algorithm": "bm25-char-cosine-rrf-5",
+    "top_k": 10,
+    "rrf_k": 60,
+    "bm25_weight": 1.0,
+    "vector_weight": 1.0,
+    "reranker_enabled": false,
+    "reranker_version": null,
+    "external_calls": false
+  },
+  "snapshot": {
+    "index_sha256": "69d340d65f5e9114c8a2e76f8b3b524b67f47d0cbc0088c4e01d80b7db8729fd",
+    "index_json_bytes": 2692859,
+    "manifest_sha256": "7e96248b7851a6b0ffd2d70074a20203dbb76f43c0969be1363e001b723f2813",
+    "query_set_sha256": "5cee47a53e7d3c2bd360ce8216be64d824288085ad1021ef32f7f024e93d7266",
+    "applicability_cases_sha256": "95c84576832023fc2254ad24d5dd8878f087297c675b7bea4c744403d72c673b",
+    "versions": 43,
+    "fragments": 3120,
+    "verified_versions": 1,
+    "unverified_versions": 42,
+    "confirmed_label_law_id": "a273f6b956365e42b7b72f9b",
+    "confirmed_label_version": "2019年第三次修订",
+    "confirmed_label_source_sha256": "82ba92f0efe59d5d421ec1fa33a3bd6ab77e6dab0e8f4526af7cb3cb872d0e1f",
+    "confirmed_label_text_sha256": "b7f34a4f5d9a405dd7e2066de4917a62632b5993c90cce7e4a008f5911459914"
+  },
+  "performance": {
+    "index_build_ms": 373.98179998854175,
+    "working_set_before_retrieval_bytes": 82755584,
+    "peak_working_set_bytes": 132407296,
+    "host_memory_at_start": {
+      "total_bytes": 16961822720,
+      "available_bytes": 1439621120
+    }
+  },
+  "metrics": {
+    "labeled_query_count": 10,
+    "eligible_label_denominator": 10,
+    "Recall@5": 1.0,
+    "Recall@10": 1.0,
+    "MRR@10": 0.4866666666666667,
+    "nDCG@10": 0.61409951840957,
+    "average_query_latency_ms": 1020.2958866691915,
+    "p95_query_latency_ms": 1212.4254000082146,
+    "average_hit_count": 10.0,
+    "unverified_reference_hit_count": 77,
+    "expert_unconfirmed_risk_candidate_count": 0,
+    "confirmed_accuracy_includes_unconfirmed_risks": false
+  },
+  "filtering": {
+    "scope_and_applicability": {
+      "tp": 1,
+      "tn": 3,
+      "fp": 0,
+      "fn": 0,
+      "false_inclusions": 0,
+      "false_exclusions": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "id": "F001",
+          "expected_eligible": true,
+          "actual_eligible": true,
+          "actual_reasons": []
+        },
+        {
+          "id": "F002",
+          "expected_eligible": false,
+          "actual_eligible": false,
+          "actual_reasons": [
+            "project_type_mismatch",
+            "subject_mismatch"
+          ],
+          "expected_reason": "subject_mismatch",
+          "expected_reason_present": true
+        },
+        {
+          "id": "F003",
+          "expected_eligible": false,
+          "actual_eligible": false,
+          "actual_reasons": [
+            "method_mismatch"
+          ],
+          "expected_reason": "method_mismatch",
+          "expected_reason_present": true
+        },
+        {
+          "id": "F004",
+          "expected_eligible": false,
+          "actual_eligible": false,
+          "actual_reasons": [
+            "framework_mismatch"
+          ],
+          "expected_reason": "framework_mismatch",
+          "expected_reason_present": true
+        }
+      ]
+    },
+    "legal_validity_and_horizon": {
+      "tp": 0,
+      "tn": 1,
+      "fp": 0,
+      "fn": 0,
+      "false_inclusions": 0,
+      "false_exclusions": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "id": "F005",
+          "expected_eligible": false,
+          "actual_eligible": false,
+          "actual_reasons": [
+            "outside_verification_horizon"
+          ],
+          "expected_reason": "outside_verification_horizon",
+          "expected_reason_present": true
+        }
+      ]
+    },
+    "labeled_target_filter_errors": []
+  },
+  "queries": [
+    {
+      "query_id": "R001",
+      "target_article": "第二十一条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 5,
+      "top_articles": [
+        {
+          "article": "第二十三条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "99d019521b49d2cf9a70bbab47ae6234b4e8d1fd219fc27b907a563124254aea"
+        },
+        {
+          "article": "第二十九条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "e833d80869215203a6f883cb186df2c73110dedceac21d3cc54e891fe163b8eb"
+        },
+        {
+          "article": "第三十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "cda5f3eedd6b42a98f3db65876c5e9f2bea52f5a859194a2925d7d5b873482b1"
+        },
+        {
+          "article": "第二十条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "4a1d8448d281eee004e7bd742033bf669ba69eddf36c124ddf2f5930d97fe6f3"
+        },
+        {
+          "article": "第二十一条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "d28fd7dca1551940e6b91f148fc14a89e30e2e3c493cf9084bbab644e5345b68"
+        },
+        {
+          "article": "第二十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "db3e4ec42e55fe3186590719f71178347f5973c5084a6a94da2fdc1477d717d8"
+        },
+        {
+          "article": "第二十三条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "0db2982be32c7738375f9f4ac51bf31d083a8d09b0f64993ce26a98df5f40906"
+        },
+        {
+          "article": null,
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "4342ca3bbe95c4d1c04a30c5bb646b05ecf265aa3e0ceff97e5065c37951d0ea"
+        },
+        {
+          "article": "第三十四条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "5a789532b3457c38651a17fad4c81286cf2ef8917655d765103f8008f911dd5d"
+        },
+        {
+          "article": "第二十三条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "87c0ba780ee246e4e44a12fbcbd1a023b15e419eac4a792135fdaa29a9568d77"
+        }
+      ],
+      "latency_ms": [
+        551.7192000115756,
+        873.5985999810509,
+        1190.4185999883339
+      ]
+    },
+    {
+      "query_id": "R002",
+      "target_article": "第二十六条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 2,
+      "top_articles": [
+        {
+          "article": "第二十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "283a70cc59ddbe43aad45f48b5ff888878b004ddaf4c92b0d0f959f6973f7f3d"
+        },
+        {
+          "article": "第二十六条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "e62f4a7e67dc6fc6771778aeff649994daedb62832c2cfb97df6b0e17fec426b"
+        },
+        {
+          "article": "第三十三条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "4f380fdcdc5e56840228de4292aa872b8f1e0839f8a92810cb4df8ef1825075d"
+        },
+        {
+          "article": "第二十七条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "5d9a23d4576e7d2fb91bfdbe6ce8a2156305851b1cf3d574c51535b1010cd5d6"
+        },
+        {
+          "article": "第二十三条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "b597bb7fd8be116316b93f6250bb98462ceb556bc92c308ed6c8c0309f07b3db"
+        },
+        {
+          "article": "第六十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "6fee43bc1371aac27b3bd8ac2391c2b2446d03bce98139abe94d1ccbc0c4ce3e"
+        },
+        {
+          "article": "第六十六条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "bc0fcff79093bb13da1870f109439128b012320012773fc48d2907278fcd733f"
+        },
+        {
+          "article": "第四十条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "cb7dce93c935f63cc022d431e5c6a826cc7d49c3b156ecb374133ff5ae0e00ce"
+        },
+        {
+          "article": "第十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "0049d0ec7831e147a29f54dde33a71ce33ff7e7f2d3816d79ab9238d8e45b9b5"
+        },
+        {
+          "article": "第四十四条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "8d9234c9c893a4825ab83ea133bcf43c6e9c7c319e72b2213b675fcf4aeffd78"
+        }
+      ],
+      "latency_ms": [
+        1057.6370999915525,
+        1214.5384000032209,
+        1065.7419000053778
+      ]
+    },
+    {
+      "query_id": "R003",
+      "target_article": "第二十二条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 3,
+      "top_articles": [
+        {
+          "article": "第二十二条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "9321a60a4c3cff9f994ad0edf4e521f62dcbce5c23d65a05ffdfdf97387d1fe9"
+        },
+        {
+          "article": "第二十四条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "a7e8956e6381d8b83a05f9f8fe320a6a73703463c5136dbac1f1339f2ad33d5b"
+        },
+        {
+          "article": "第二十二条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "a2e4bb91f5fb66a5b392e43c5eb13b300c51dd6690eac948a46e75e75209142a"
+        },
+        {
+          "article": "第四十四条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "0d2b1d5d0d33f1111e9b6b0ace6b35ce0cc01df5b5c218137eebbe0aae87b6d9"
+        },
+        {
+          "article": "第十八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "1e56fc7ebebaa1cd68d279156c3dd9292907a9a652c813bc9539d86e88f7abb4"
+        },
+        {
+          "article": "第四十四条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "852e88c2cffddb5d8f44be636583a4cf965b04e94ae521eeb91846ff5a45d2d8"
+        },
+        {
+          "article": null,
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "4342ca3bbe95c4d1c04a30c5bb646b05ecf265aa3e0ceff97e5065c37951d0ea"
+        },
+        {
+          "article": "第二十五条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "081bfdf3e1637263d31d9783bc38d16d4ea0138ad415c4e8093fe08df3a37373"
+        },
+        {
+          "article": null,
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "2b2b09333683e295524c784202409a0906b738be071a81b6e245e842204a7d30"
+        },
+        {
+          "article": "第三十二条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "7bb520b145fb13bf67426fd04e3bb8af8f0d124b91855b4dad0f41f33d9a8a9e"
+        }
+      ],
+      "latency_ms": [
+        871.9351000036113,
+        1100.2731999906246,
+        1073.6635000212118
+      ]
+    },
+    {
+      "query_id": "R004",
+      "target_article": "第三十二条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 2,
+      "top_articles": [
+        {
+          "article": "第三十二条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "039d5db3d3e2b1b1882295bbf6a65df6eace8a5bb151ebe8ae3df2d99065423e"
+        },
+        {
+          "article": "第三十二条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "f005a62c4f2cbee70fefad1821a8f821c2511762cfd6c9e84b7102b9eb1b9e11"
+        },
+        {
+          "article": "第二十条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "6868b4cf315bda6725577c1c0108b450b32bddc4c5c0f50ff3a08f951b9daab8"
+        },
+        {
+          "article": "第十八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "bd6bb97fbff77ee2a084c1616a082515358e1437ea04726c47e00f57402d69e7"
+        },
+        {
+          "article": "第十八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "1e56fc7ebebaa1cd68d279156c3dd9292907a9a652c813bc9539d86e88f7abb4"
+        },
+        {
+          "article": "第五条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "e74d33f7ca5c282482b759ccdbee6f3d5829eaaf75d9aa907cef8787d47eb164"
+        },
+        {
+          "article": "第七条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "65c5dfcf12c7c5dc287d0479d08a541a543a1369f6725408b5bb69d1daa7c2a4"
+        },
+        {
+          "article": "第十八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "9402bee647b5a8ee203040e62483780946144bd272e3044e0cccd97d7ccb9d3b"
+        },
+        {
+          "article": "第二十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "55307487d5800f2b38873f61b93b2060df54fba68c6d3c54555f546204bff342"
+        },
+        {
+          "article": null,
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "4342ca3bbe95c4d1c04a30c5bb646b05ecf265aa3e0ceff97e5065c37951d0ea"
+        }
+      ],
+      "latency_ms": [
+        1014.6557000116445,
+        1078.3038999943528,
+        1113.5993000061717
+      ]
+    },
+    {
+      "query_id": "R005",
+      "target_article": "第十三条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 3,
+      "top_articles": [
+        {
+          "article": "第六十五条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "1000dfdbe45363c1cc3a7828ede0f2ed6adb02b3ffa0cf881f48307b3b33868f"
+        },
+        {
+          "article": "第六十五条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "dab66cbdc6833c31dd6403a189b90cf83cc8b213fccfabddc5725d9dcb8c8f65"
+        },
+        {
+          "article": "第十三条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "c0c83596e222653d7119f44952b95658c2d1ac4f4fceeb3362365b3f9c2cb360"
+        },
+        {
+          "article": "第八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "bb0807a22cf29c23ab43d117a7e32f8182d1788ac0e91ed8ff9db24dcd603991"
+        },
+        {
+          "article": "第二十七条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "1cd6e128b37734616dddf10936f7af168d15f3a49d17231ce56902b6ead908a8"
+        },
+        {
+          "article": "第十三条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "65610a6526d2facea341b82654c2f9f433ebc026bcc735f0160166e2a44dfcc0"
+        },
+        {
+          "article": "第二十七条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "39805c2222a50235c6da678865b022da8675b3ddafd5bac2d4691fac066531af"
+        },
+        {
+          "article": null,
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "4342ca3bbe95c4d1c04a30c5bb646b05ecf265aa3e0ceff97e5065c37951d0ea"
+        },
+        {
+          "article": "第三十三条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "50ce7ed7b66b2981b07536216b3b65a7eb7279b4f91a8f6f1991db0e606ad74f"
+        },
+        {
+          "article": "第三十三条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "cbeb2222580087829950dd391f591fc48c8c6e22ffdbba6c4723bba97017707c"
+        }
+      ],
+      "latency_ms": [
+        1065.3655000205617,
+        1027.485099999467,
+        1073.309800005518
+      ]
+    },
+    {
+      "query_id": "R006",
+      "target_article": "第五十七条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 4,
+      "top_articles": [
+        {
+          "article": "第七十五条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "15d4d4de983dcf2490d6bb1a9250e13368af3453d32f0cba20ae8cb3488d9c61"
+        },
+        {
+          "article": "第七十五条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "20458ff4e20828ea9e5ca4761be2e9477dffdb480a2b794b800caedf57ea47d8"
+        },
+        {
+          "article": "第五十七条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "804f641235663b02204f2a1c7ef97cfffbc2fcc0a4b4cfaa7881ca75006cdd61"
+        },
+        {
+          "article": "第五十七条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "c864f3bda0f78c9c1a647586b691a9f9cc34fe8846fc12a77fac67db31a8bb86"
+        },
+        {
+          "article": "第五十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "0bb04d2cc92a8c11014021f994b9c4009b60cf18035f14a3839c732e45262e31"
+        },
+        {
+          "article": "第五十九条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "52962263081cae106ab5ca470784c530401df78ae644fd234777da10c0946100"
+        },
+        {
+          "article": "第五十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "6e80e3b282241bf0da675bb4622e8010a492bf9174e197bc0320a30747854220"
+        },
+        {
+          "article": "第四十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "9562845f2dd95145fe45fee534260d9c03aed402b956b4b6d5b838c6055cc9ce"
+        },
+        {
+          "article": "第二十二条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "03d8ed7793f8a3f83615fc2530e1a28b60b21eb0b59dee654beaf4eff17aa2af"
+        },
+        {
+          "article": "第四十七条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "1908f02294a2257f77110e8b31ef805eb9a04183f5710212cd0b34d6272816d5"
+        }
+      ],
+      "latency_ms": [
+        969.7852999961469,
+        1186.7229999916162,
+        1082.2353000112344
+      ]
+    },
+    {
+      "query_id": "R007",
+      "target_article": "第三十五条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 2,
+      "top_articles": [
+        {
+          "article": "第三十五条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "2d4bbfc4879d2c634954299a998139dd47452e13a54c4702b53a02176cb564c4"
+        },
+        {
+          "article": "第三十五条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "3b0418b48136adb52672afdfec9c6a50c745415df0b39b049e44d17befbd0e08"
+        },
+        {
+          "article": "第二十九条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "e833d80869215203a6f883cb186df2c73110dedceac21d3cc54e891fe163b8eb"
+        },
+        {
+          "article": "第三十八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "597713e1983ae04a49161efe224d4f3e0e48e8a4ac503f386472d7cce099bb2e"
+        },
+        {
+          "article": "第二十八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "05617ddce3b17f0a436c44caf869715c4b781481a248cf4623c6dd5a47dcb316"
+        },
+        {
+          "article": "第二十八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "bfffa63ef81e372b196c8ec3d7672055e94549e94fcfe03b838a1401dc0f37e4"
+        },
+        {
+          "article": "第二十九条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "a71482d110e0702ea51dd605fe2c492ef09a6e9f1ec542741a063eee00b6e925"
+        },
+        {
+          "article": "第二十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "283a70cc59ddbe43aad45f48b5ff888878b004ddaf4c92b0d0f959f6973f7f3d"
+        },
+        {
+          "article": "第二十六条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "e62f4a7e67dc6fc6771778aeff649994daedb62832c2cfb97df6b0e17fec426b"
+        },
+        {
+          "article": "第三十四条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "5a789532b3457c38651a17fad4c81286cf2ef8917655d765103f8008f911dd5d"
+        }
+      ],
+      "latency_ms": [
+        966.642800020054,
+        1019.557799998438,
+        1212.4254000082146
+      ]
+    },
+    {
+      "query_id": "R008",
+      "target_article": "第三十四条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 1,
+      "top_articles": [
+        {
+          "article": "第三十四条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "7cbdb0b094614c5e90c2637b121893f1a1ee62b0060bd80cb34a981f9673082a"
+        },
+        {
+          "article": "第三十四条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "f714d39b97325742bd5967983c2d88a97b7d71bf620a7a2e0e608359a1884118"
+        },
+        {
+          "article": "第十八条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "1582977594c4bec862e169c75120f7c584fd04c5581464d6eb6448f4b86589ff"
+        },
+        {
+          "article": "第四十条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "165167b219dc03c68744a60cbd7112bc6af267cd24af0eb818b771d116b6c813"
+        },
+        {
+          "article": "第五十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "668fd9862d58910f83a5994fa13f1174e3451e25415a56d0a6dd2463799ab92b"
+        },
+        {
+          "article": "第四十条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "f34eff83aec2463dfe874fffcd3936a815a23c36a2bfe3bbbd82c896abb3f31e"
+        },
+        {
+          "article": "第五十一条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "7d355a0d51afae10384541517b346c7e1dbeb0caa549df927f62681e312c2d2b"
+        },
+        {
+          "article": "第三十七条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "fe719779e8d3f884d330dee31b94793bb48cd32704ffa0621a2be4f48bb9eed7"
+        },
+        {
+          "article": "第六十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "4618d7d313b93a8240efc8cc0f5951aa0b547c7b74d27ee84f6aded68943bf77"
+        },
+        {
+          "article": "第三十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "8eb650ba707a02c6908c0432394b4fb02e12fffc922708112640180749011ff5"
+        }
+      ],
+      "latency_ms": [
+        1028.2003000029363,
+        968.8846000062767,
+        929.3337999843061
+      ]
+    },
+    {
+      "query_id": "R009",
+      "target_article": "第三十九条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 1,
+      "top_articles": [
+        {
+          "article": "第三十九条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "8aecc659090e7867bb7a4583d431696477d10f834f66e07be0d7074b0654975a"
+        },
+        {
+          "article": "第三十九条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "81acf39f8f5d665442fca1e39c1d02e6c36cd8cbc346312d142154afc96022f4"
+        },
+        {
+          "article": "第三十二条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "8c9a49825cef2a13846db1df781efe935c4e9df0578944e59c8804451e199d94"
+        },
+        {
+          "article": "第四十一条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "05e2b4676f0b9b095fe1494e98e264fe19934fca593d3fc476a67bddc81c2bc0"
+        },
+        {
+          "article": "第四十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "d21281a19ca9de26ccb2a397eec20b124e014d151bbcbbdd27493f18661b6a13"
+        },
+        {
+          "article": "第五十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "6d1806f3f092b3b09fa9d6a43f09bff45ea3b254b23dea67d200c1d0ee2f3720"
+        },
+        {
+          "article": "第四十三条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "2b8b32acd20debf8160f228d971c06e42eaf3e7da53c1f593b124251669428c6"
+        },
+        {
+          "article": "第四十三条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "2ba3594ecb6abcd1930cc7a4ff81fc1a40a2a91a180932d54cc3df6e204941d5"
+        },
+        {
+          "article": "第六十七条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "59b774eb8a7542645f7f2f7d8896043f26a59dbded7b6de36de60247064189f6"
+        },
+        {
+          "article": "第二十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "d490ac84a4004ffc2392e09e83b791bc32e30bfd9abc80016104afa98a380e95"
+        }
+      ],
+      "latency_ms": [
+        956.7196999851149,
+        1072.2034000209533,
+        995.2374999993481
+      ]
+    },
+    {
+      "query_id": "R010",
+      "target_article": "第六十条",
+      "target_eligible": true,
+      "target_filter_reasons": [],
+      "target_rank": 4,
+      "top_articles": [
+        {
+          "article": "第六十条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "b96fc8b7e585ae40ed15ec645689ad86b63a20d12a12e93f46dabe5e2c9ae08c"
+        },
+        {
+          "article": "第六十五条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "5c491900758cbceee217b4dba8e9d2260f77c9e1d45a364760f413e91c72e267"
+        },
+        {
+          "article": "第七条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "f7b464bf6a521dc0bb36ff9e7f15d2069b15b99cde0fca0a571602eebd7bda4c"
+        },
+        {
+          "article": "第六十条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "dac10ac289eaf3750c008832117d2cf32f5bcd0fd30cf762139f413923913d76"
+        },
+        {
+          "article": "第六十一条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "5d21223a0099845805cb3ead01dcb7a1735b12c500d65155fe1eb4121e6a04f4"
+        },
+        {
+          "article": "第六十一条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "d5828a404df292bf3c1a8f2cd97bde15d6ce3d818085dd015d1194fce71c3935"
+        },
+        {
+          "article": "第六十二条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "dce6d5373ea835675db78ac51b956879ca41f8fbbf69b101f96bca42b2dcbf32"
+        },
+        {
+          "article": "第六十二条",
+          "version_status": "verified_current",
+          "reason": "valid",
+          "evidence_id": "f44fa5ee45b256a48e5680be3e3f1223b6d87cfaf5581cafaffacf75d6264e0e"
+        },
+        {
+          "article": "第六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "db90923ac3b831afeb29e11158e7c538fa88d6b08c0cfe1db208d94faec76a74"
+        },
+        {
+          "article": "第四十六条",
+          "version_status": "unverified",
+          "reason": "unverified",
+          "evidence_id": "9a95aceafeb1116b3132aac4e01414fb88c329bf9ea3a55ec52072aed26ed748"
+        }
+      ],
+      "latency_ms": [
+        880.4901000112295,
+        937.8150999837089,
+        1030.3776000218932
+      ]
+    }
+  ]
+}

@@ -10,6 +10,10 @@ from .contracts import JsonObject, ModelPolicy, ModelRequest, ModelResponse
 class ModelGateway(Protocol):
     """Provider adapters implement this protocol and the conformance suite."""
 
+    def prompt_sha256(self, prompt_version: str) -> str:
+        """Return the content digest for an already approved, immutable prompt version."""
+        ...
+
     async def generate_structured(
         self,
         request: ModelRequest,

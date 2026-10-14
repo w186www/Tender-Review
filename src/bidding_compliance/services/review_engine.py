@@ -24,8 +24,14 @@ from bidding_compliance.domain.identity import Principal, Role
 from bidding_compliance.domain.review_configuration import ModelPolicySnapshot
 from bidding_compliance.domain.rules.engine import SKILLS, ruleset_sha256
 from bidding_compliance.domain.rules.models import DiscoveryDocumentRequest
+from bidding_compliance.domain.runtime_provenance import (
+    FrozenParserIdentity,
+    ReviewRuntimeProvenance,
+)
 from bidding_compliance.graph.review import build_review_graph, initial_state
+from bidding_compliance.legal.contracts import RetrievalRuntimeSnapshot
 from bidding_compliance.legal.corpus import index_hash
+from bidding_compliance.legal.embedding_provider import character_embedding_identity
 from bidding_compliance.model_gateway.contracts import ModelPolicy
 from bidding_compliance.model_gateway.errors import GatewayErrorCode, ModelGatewayError
 from bidding_compliance.model_gateway.protocol import ModelGateway
@@ -123,7 +129,7 @@ class ReviewEngine:
         self.model_policy = model_policy
         self.legal_root = legal_root or Path(".")
 
-    def _request_hash(self, request: ReviewRequest) -> str:
+    def _request_hash(self, request: ReviewRequest, prompt_sha256: str) -> str:
         return content_hash(
             {
                 "project_id": request.project_id,
@@ -133,6 +139,7 @@ class ReviewEngine:
                 ],
                 "review_date": request.review_date.isoformat(),
                 "prompt_version": request.prompt_version,
+                "prompt_sha256": prompt_sha256,
                 "model_profile": request.model_profile,
                 "model_policy": self._policy_snapshot(),
             }
@@ -170,7 +177,10 @@ class ReviewEngine:
             raise PermissionError("review creation requires reviewer role")
         if request.model_profile != self.model_policy.profile:
             raise ValueError("request profile differs from the configured gateway policy")
-        request_hash = self._request_hash(request)
+        prompt_sha256 = self.gateway.prompt_sha256(request.prompt_version)
+        if not re.fullmatch(r"[a-f0-9]{64}", prompt_sha256):
+            raise ValueError("approved prompt digest is invalid")
+        request_hash = self._request_hash(request, prompt_sha256)
         with self.session_factory() as session:
             require_identity(session, principal)
             existing = session.get(
@@ -206,6 +216,27 @@ class ReviewEngine:
             )
             skill_ids = list(config_snapshot["skill_ids"])
             context_hash = content_hash(project.context)
+            embedding_identity = character_embedding_identity()
+            runtime_provenance = ReviewRuntimeProvenance(
+                parser_documents=tuple(
+                    FrozenParserIdentity(
+                        document_id=document.document_id,
+                        identity=document.ocr_runtime,
+                        identity_sha256=document.ocr_runtime_sha256,
+                    )
+                    for document in input_snapshot.documents
+                ),
+                embedding_identity=embedding_identity,
+                retrieval=RetrievalRuntimeSnapshot(
+                    top_k=10,
+                    embedding_identity=embedding_identity,
+                ),
+                prompt_version=request.prompt_version,
+                prompt_sha256=prompt_sha256,
+                model_profile=request.model_profile,
+                model_config_revision_id=config_revision_id or "code-default",
+                model_config_sha256=config_hash,
+            )
             frozen = {
                 "schema_version": "task0009-review-snapshot.v1",
                 "tenant_id": principal.tenant_id,
@@ -234,6 +265,7 @@ class ReviewEngine:
                 "configuration_revision_id": config_revision_id,
                 "configuration_snapshot_hash": config_hash,
                 "configuration_snapshot": config_snapshot,
+                "runtime_provenance": runtime_provenance.model_dump(mode="json"),
             }
             snapshot_hash = content_hash(frozen)
             task = session.get(

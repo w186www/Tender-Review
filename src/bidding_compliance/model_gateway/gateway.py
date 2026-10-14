@@ -104,6 +104,12 @@ class ModelGatewayService:
         self._max_concurrent = max_concurrent_per_provider
         self._breaker = _CircuitBreaker()
 
+    def prompt_sha256(self, prompt_version: str) -> str:
+        prompt = self._approved_prompts.get(prompt_version)
+        if prompt is None:
+            raise ValueError("Prompt version is not approved.")
+        return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
     async def generate_structured(
         self, request: ModelRequest, output_schema: Any, policy: ModelPolicy
     ) -> ModelResponse:

@@ -1,0 +1,20 @@
+{
+  "schema_version": "task0018.legal-retrieval-snapshot.v1",
+  "manifest_path": "config/legal/manifest.json",
+  "manifest_sha256": "7e96248b7851a6b0ffd2d70074a20203dbb76f43c0969be1363e001b723f2813",
+  "index_sha256": "69d340d65f5e9114c8a2e76f8b3b524b67f47d0cbc0088c4e01d80b7db8729fd",
+  "legal_version_count": 43,
+  "fragment_count": 3120,
+  "confirmed_label_source": {
+    "law_id": "a273f6b956365e42b7b72f9b",
+    "version": "2019年第三次修订",
+    "source_uri": "https://xzfg.moj.gov.cn/front/law/detail?LawID=339&Query=",
+    "source_sha256": "82ba92f0efe59d5d421ec1fa33a3bd6ab77e6dab0e8f4526af7cb3cb872d0e1f",
+    "text_sha256": "b7f34a4f5d9a405dd7e2066de4917a62632b5993c90cce7e4a008f5911459914",
+    "verified_through": "2026-10-14",
+    "label_scope": "Exact article citation retrieval from a verified official text; not a legal-violation or risk judgment."
+  },
+  "query_set_path": "evals/legal_retrieval/queries.json",
+  "applicability_cases_path": "evals/legal_retrieval/applicability_cases.json",
+  "unconfirmed_candidate_set_path": "evals/legal_retrieval/unconfirmed_candidates.json"
+}

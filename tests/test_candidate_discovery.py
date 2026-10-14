@@ -60,6 +60,7 @@ def test_service_requires_identity_and_reads_only_pinned_confirmed_content(monke
             parse_version=2,
             context_version=4,
             document_id="document-a",
+            parse_provenance=None,
         ),
     )
     monkeypatch.setattr(

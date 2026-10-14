@@ -1,8 +1,8 @@
 # PROJECT_STATE
 
 更新时间：2026-10-15
-架构基线：ADR-0012本期法规生命周期/来源映射接受；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
-当前里程碑：M1基础退出检查已通过；M2退出条件已满足并完成；M3进行中。TASK-0010与TASK-0011已归档。
+架构基线：ADR-0012本期法规生命周期/来源映射接受；ADR-0015历史决策保留、其TASK-0018 BGE/Paddle部署计划由已批准ADR-0016局部修订；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
+当前里程碑：M1基础退出检查已通过；M2退出条件已满足并完成；M2A/TASK-0018已完成；M3进行中；不改变M4/M5及TASK-0012/TASK-0013正式范围。TASK-0010与TASK-0011已归档。
 
 ## 已完成
 
@@ -27,6 +27,7 @@
 - TASK-0007已完成并归档：五类无模型确定性Skill、版本化规则与候选发现契约、原文定位/稳定去重及法规检索主题。源码236d2a6e231be030f719b0bbabc3f2b0a50039b3 Focused 30项、最终Full448项本地通过（0失败/错误/跳过），真实HTTP/身份/租户集成检查通过；远程38516913371适用作业及汇总门禁成功。详见TASK-0007-validation.md。
 - TASK-0010已完成并归档：源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`本地Full504及PostgreSQL16专项通过；源码CI38556383801、验收记录CI38557180768、归档CI38557509858所有适用作业均成功。复核/审计、不可变Word/PDF报告、引用回查和越权导出审计已实现。生产模型路由仍受DEC-002限制；详见`docs/development/TASK-0010-validation.md`。
 - TASK-0011已完成并归档：源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`，归档提交`05c2b91655a7152b28692c7f5216de3ace3d7ff8`；源码CI 38600922153、验收记录CI 38603582949、归档CI 38604186570 的适用作业均成功。FR-013配置版本管理已实现；真实浏览器E2E 5/5、PostgreSQL16专项、Focused 69和本地Full 510通过。DEC-002仍未批准在线模型；详见`docs/development/TASK-0011-validation.md`。
+- TASK-0018已完成本地验收：隔离副本正式Focused 144、Full 537项通过；前端检查、真实HTTP/身份 smoke、PostgreSQL16/RLS/Checkpoint/ReviewEngine provenance 持久化专项通过。修复 SQLite 完整向量缓存一致性校验并补齐损坏/缺失/续建测试和运行来源身份测试。仅官方 npm registry 安装，lockfile 未变；原有46项工作内容完整保留，更新任务记录并新增测试后当前 Git 状态为47项。无供应商调用、真实API密钥、真实文件或法规文本外发；DEC-002仍待批准。详见`docs/development/TASK-0018-validation.md`。
 
 ## 正在进行
 
@@ -36,12 +37,15 @@
 
 ## 下一步
 
-1. 核验TASK-0009归档候选远程CI；TASK-0010已完成远程源码、记录和归档CI验收。
-2. 法规库42份旧文本继续unverified，另3份未收录；逐项官方核验后才能支持确定依据，不从模型/索引标注推断效力。
-3. 2019《实施条例》工程招标范围核验截止2026-10-14，未来基准日需新核验或显式参考。未知地区/采购上下文及大面积扫描正文映射失败关闭。
+0. 核验TASK-0009归档候选远程CI；TASK-0010已完成远程源码、记录和归档CI验收。
+1. 法规库42份旧文本继续unverified，另3份未收录；逐项官方核验后才能支持确定依据，不从模型/索引标注推断效力。
+2. 2019《实施条例》工程招标范围核验截止2026-10-14，未来基准日需新核验或显式参考。未知地区/采购上下文及大面积扫描正文映射失败关闭。
 
 ## 最近验证
 
+- 2026-10-15 TASK-0018检索基线：43版本/3120片段，法规索引SHA-256 `69d340d65f5e9114c8a2e76f8b3b524b67f47d0cbc0088c4e01d80b7db8729fd`；其中42版本未核验、仅1个已核验版本用于10条正式标签。CharacterEmbedding/BM25/RRF实际指标Recall@5/10=1.0/1.0、MRR@10=0.4867、nDCG@10=0.6141；平均查询延迟1,202ms，峰值进程工作集125,927,424字节。相同快照/标签的重复运行指标相同，平均查询延迟1,020ms。适用性过滤4例0错，效力/核验期限过滤1例0错；77个未核验候选单列，专家未确认风险样本数为0（不代表已证实无此风险）。
+- 2026-10-15 TASK-0018 Tesseract：实际固定摘要隔离解析镜像 `2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c228b1ac00a41bb597`、Tesseract 5.3.0、chi_sim/eng模型SHA记录。合成3页双栏扫描 CER 20.79%，关键标记5/6，表格单元7/14，页码标记3/6、OCR定位100%，重复短语定位0/2。页面被现有入库质量门判为passed，尽管这些指标触发合成评测警报；该不一致在本任务报告中保留，不改变门禁。单文档进程RSS峰值90,099,712字节、容器峰值146,718,720字节、解析耗时1,515ms、主机端到端2,591ms；超时0，空白件降为requires_review，畸形PDF失败关闭为INVALID_FILE。仅为合成样本结果，不代表真实招标件质量。详见`evals/ocr/results/tesseract-baseline-final-reviewed-20261015.json`。
+- 2026-10-15 TASK-0018最终本地验收：官方`registry.npmjs.org` DNS/HTTPS成功；隔离副本安装184个npm包，package-lock SHA-256保持`CE42801FF4EF6A086191D78203C91185F582131F8E246AFDB0FEC295E1724A29`。正式Focused 144项、Full 537项通过；Mypy97源文件，前端6项、OpenAPI、Biome、TypeScript、build及真实HTTP/身份 smoke通过。SQLite向量缓存完整性损坏/缺失/断点续建测试和ReviewRuntimeProvenance JSON持久化专项通过；PostgreSQL16迁移/RLS/Checkpoint/发布/撤权专项通过。原有46项工作内容完整保留；更新任务记录并新增 provenance 测试后当前Git状态47项。原工作区与隔离副本两处lockfile均未变。无实际模型/API Key/真实文件外发，无推送；TASK-0018已完成本地验收，DEC-002仍待批准。详见`docs/development/TASK-0018-validation.md`。
 - TASK-0011已归档：源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`的 Windows baseline、PostgreSQL、ingestion、verify-required CI 全部成功；验收记录CI和归档CI的impact/quick/verify-required适用作业成功。归档提交`05c2b91655a7152b28692c7f5216de3ace3d7ff8`对应归档CI 38604186570。源码本地 Full 510 passed（对应源码`57d3a833f59a09e9c938837671a8769d91c7fc5b`，其后仅扩展前端LF检出属性），FR-013 Focused 69 passed，PostgreSQL16两个专项通过；真实 Microsoft Edge Playwright E2E 5/5，使用真实 FastAPI/PostgreSQL/文件服务及授权注入的离线ReviewEngine，并验证持久化结果。前端 OpenAPI生成内容与契约一致；Windows CRLF检出问题已通过`.gitattributes`固定所有前端文本为LF解决。详情见`docs/development/TASK-0011-validation.md`。
 - TASK-0009归档候选：源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的Focused13、最终Full500（0失败/错误/跳过）、Ruff、Mypy80文件、契约/生成/秘密检查、真实HTTP/身份/撤权和PostgreSQL恢复/并发/事务故障专项通过。用户确认源码及验证记录提交的必要远程CI通过；本次归档记录Quick通过，归档提交远程CI待核验。DEC-002未批准、在线模型调用未验证、预算账本仅单进程一致性、法律证据最高为suspected；TASK-0010源码/记录/归档CI均已成功。详见`docs/development/TASK-0009-validation.md`。
 - TASK-0010源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`：最终完整`verify.ps1 -Mode Full`通过504项、0失败/错误/跳过；Ruff、Mypy85源文件、契约/生成一致性与真实HTTP/身份/项目流程通过。PostgreSQL16真实迁移/RLS/复合FK/并发/回滚及TASK-0009审查恢复、TASK-0010决定幂等与并发、共享结构化报告、DOCX/PDF生成、原文回查、授权与拒绝导出审计专项通过。源码CI38556383801、验收记录CI38557180768及归档CI38557509858均全部适用作业成功。DEC-002未批准，生产模型路由仍关闭。详见`docs/development/TASK-0010-validation.md`。
@@ -80,6 +84,7 @@
 - 法规元数据已固定43个版本：42份旧文本仍未逐项核实，1份司法部2019修订《实施条例》核验到2026-10-14且仅启用工程范围。本期全局管理服务/鉴权CLI已实现；完整生产法规效力验收、pgvector、神经语义召回及管理前端仍待实施。
 - 《建设工程施工合同（示范文本）》等 3 项资料未收录，详见 `knowledge/legal/索引.md`。
 - 默认OCR已按ADR-0008采用中英文Tesseract端口、存储提供S3和本地开发适配；首选模型、生产服务和部署环境仍待确定。
+- 当前方案不安装或下载BGE/PaddleOCR。百炼模型为供应商托管且权重/Tokenizer修订无可固定身份；在线真实调用、数据处理授权、DEC-002仍未获批。跨进程预算账本、逐调用模型审计、云端质量评测及真实样本验证需后续独立TASK和授权。
 
 ## 待决策
 
@@ -90,7 +95,7 @@
 
 ## 数据与迁移
 
-- 数据库迁移版本：202610141900（TASK-0010追加复核决定前后值/request trace及不可变结构化报告/Word/PDF制品，位于202610141800 TASK-0009运行/发布迁移之后）；显式执行，API不自动建表，回滚按迁移逆序删除新增结构。
+- 数据库迁移版本：202610151000（TASK-0018解析引擎/模型/参数和容器身份来源追溯，位于202610141900 TASK-0010报告制品迁移之后）；显式执行，API不自动建表，回滚按迁移逆序删除新增结构。
 - 契约集合版本：`v1alpha3`；事件信封和模型profile示例维持各自v1alpha1，详见contracts/VERSION.md。
 - 生产数据：无。
 

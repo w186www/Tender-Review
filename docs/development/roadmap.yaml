@@ -104,6 +104,38 @@
       ]
     },
     {
+      "id": "M2A",
+      "name": "离线审查能力与评测基础",
+      "status": "completed",
+      "depends_on": [
+        "M2"
+      ],
+      "tasks": [
+        "TASK-0018"
+      ],
+      "related_requirements": [
+        "FR-002",
+        "FR-006",
+        "FR-015",
+        "SEC-003",
+        "SEC-004",
+        "NFR-008",
+        "NFR-009"
+      ],
+      "related_acceptance": [
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-011"
+      ],
+      "deliverables": [
+        "可重复的Character法规检索基线、Mock-only百炼Embedding Provider协议验证、SQLite断点向量工件、真实隔离Tesseract合成扫描基线和冻结运行来源身份"
+      ],
+      "exit_checks": [
+        "Character质量基线可复现；百炼只完成官方文档核对和MockTransport契约测试；合成向量不计入质量指标；真实隔离OCR实测、PostgreSQL/RLS及现有过滤和证据门禁保持有效，未授权能力如实列为未完成"
+      ]
+    },
+    {
       "id": "M3",
       "name": "审查闭环与界面",
       "status": "in_progress",
