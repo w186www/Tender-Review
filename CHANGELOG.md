@@ -6,7 +6,7 @@
 
 ### Added
 
-- TASK-0008 implementation candidate: provider-neutral gateway, OpenAI Responses and Anthropic Messages adapters, strict structured output validation, server-side routing/authorization, budget reservation, bounded retry/circuit breaker, and audit metadata. Focused 54 tests pass; full verification and remote CI are pending. Production routes remain disabled pending DEC-002 and shared budget persistence.
+- TASK-0008 local implementation: provider-neutral gateway, OpenAI Responses and Anthropic Messages adapters, strict structured output validation, server-side routing/authorization, budget reservation, bounded retry/circuit breaker, and audit metadata. Focused 54 and Full 487 tests pass, including local HTTP/identity smoke checks. Remote CI did not run because automatic approval rejected pushing the source to the unverified GitHub remote. Production routes remain disabled pending DEC-002 and shared budget persistence; task stays in progress.
 
 - TASK-0007：实现五类无模型确定性Skill、版本化规则/Skill/候选发现契约、失败关闭覆盖、可追溯原文定位、稳定去重与法规检索主题。源码236d2a6e本地Focused30及Full448全通过，远程38516913371所有适用作业成功；任务已归档，M2仍待TASK-0008及整体退出验收。
 

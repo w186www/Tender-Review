@@ -56,12 +56,12 @@
     {
       "id": "TASK0008-001",
       "description": "两个适配器通过结构、超时、限流、异常JSON和敏感日志测试",
-      "evidence": []
+      "evidence": ["docs/development/TASK-0008-validation.md"]
     },
     {
       "id": "TASK0008-002",
       "description": "无预算或不允许的供应商不能被调用，注入不能扩大工具权限",
-      "evidence": []
+      "evidence": ["docs/development/TASK-0008-validation.md"]
     }
   ],
   "verify": [
