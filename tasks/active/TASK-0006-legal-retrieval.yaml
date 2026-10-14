@@ -29,7 +29,12 @@
     "contracts/schemas/legal-result.schema.json",
     "tasks/reviews/TASK-0006.md",
     "docs/development/development-workflow.md",
-    "docs/decisions/ADR-0011-development-and-validation.md"
+    "docs/decisions/ADR-0011-development-and-validation.md",
+    "docs/decisions/ADR-0012-legal-lifecycle-and-provenance.md",
+    "docs/development/TASK-0006-validation.md",
+    "docs/development/testing-standard.md",
+    "contracts/schemas/legal-corpus-bundle.schema.json",
+    "contracts/schemas/legal-publication-request.schema.json"
   ],
   "allowed_paths": [
     "src/**",
@@ -46,7 +51,8 @@
     "README.md",
     ".env.example",
     "knowledge/legal/**",
-    ".gitattributes"
+    ".gitattributes",
+    ".github/workflows/verify.yml"
   ],
   "must_not_change": [
     "docs/reference/*.docx"
@@ -65,7 +71,13 @@
         "config/legal/manifest.json",
         "docs/development/legal-retrieval-start.md",
         "tests/test_legal_evidence.py",
-        "contracts/schemas/legal-result.schema.json"
+        "contracts/schemas/legal-result.schema.json",
+        "tests/test_legal_lifecycle.py",
+        "tests/test_legal_applicability.py",
+        "tests/test_legal_sources.py",
+        "tests/test_legal_publications.py",
+        "scripts/check_legal_publications.py",
+        "scripts/check_legal_sources.py"
       ]
     },
     {
@@ -77,12 +89,18 @@
         "config/legal/manifest.json",
         "docs/development/legal-retrieval-start.md",
         "tests/test_legal_evidence.py",
-        "contracts/schemas/legal-result.schema.json"
+        "contracts/schemas/legal-result.schema.json",
+        "tests/test_legal_lifecycle.py",
+        "tests/test_legal_applicability.py",
+        "tests/test_legal_sources.py",
+        "tests/test_legal_publications.py",
+        "scripts/check_legal_publications.py",
+        "scripts/check_legal_sources.py"
       ]
     }
   ],
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "当前单Codex直接实施和自检；TASK-0017已completed。TASK-0006 D03源码f0bd8270d990d5e5dc6897f329a770d7db332099：Result v1alpha3正式EvidenceRef/citable_evidence、资格/原因/哈希/定位/日期/集合关联与冻结制品/适用性解析。95项Focused、真实PostgreSQL16、最终Full323项通过；远程38498549575全部适用作业及verify-required成功，下载JUnit323/0/0/0。之后仅记录Quick。D01未知上界/局部废止、D02核验修订/发布并发回滚、D04采购方式/交叉框架/条款范围、D05全局运维授权与D07原始HTML/PDF映射仍未完成，依次继续；D06无缓存边界保留。任务in_progress，不合入main、不启动后续任务。"
+  "handoff_notes": "D01/D02/D04/D05/D07实现与过程Focused/真实PostgreSQL验证完成，D03/D06保留并加固。最终候选Full/真实隔离与远程CI待验，仍in_progress，不合入main、不启动后续任务。42旧法规不提高核验，有限覆盖和契约升级见ADR-0012。"
 }

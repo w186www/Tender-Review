@@ -116,6 +116,10 @@ jobs:
         env:
           POSTGRES_VERIFY_URL: postgresql+psycopg://postgres:${{ github.run_id }}@localhost:5432/task0004_verification
         run: python scripts/check_postgres.py
+      - name: Verify actual global legal lifecycle and concurrency
+        env:
+          POSTGRES_VERIFY_URL: postgresql+psycopg://postgres:${{ github.run_id }}@localhost:5432/task0004_verification
+        run: python scripts/check_legal_publications.py
   baseline:
     needs: impact
     if: needs.impact.outputs.mode == 'full'

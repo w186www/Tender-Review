@@ -1246,6 +1246,86 @@
         "run_snapshot": null
       },
       "expected_valid": false
+    },
+    {
+      "id": "legal-operator-valid",
+      "schema": "contracts/schemas/legal-operator-capabilities.schema.json",
+      "data": {
+        "active": true,
+        "capabilities": [
+          "verify",
+          "publish"
+        ]
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-operator-unknown",
+      "schema": "contracts/schemas/legal-operator-capabilities.schema.json",
+      "data": {
+        "active": true,
+        "capabilities": [
+          "tenant_admin"
+        ]
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-operator-duplicate",
+      "schema": "contracts/schemas/legal-operator-capabilities.schema.json",
+      "data": {
+        "active": true,
+        "capabilities": [
+          "publish",
+          "publish"
+        ]
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-revision-request-valid",
+      "schema": "contracts/schemas/legal-revision-request.schema.json",
+      "data": {
+        "request_id": "00000000-0000-4000-8000-000000000001",
+        "expected_draft_sequence": 0,
+        "reason": "synthetic"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-revision-sequence-bool",
+      "schema": "contracts/schemas/legal-revision-request.schema.json",
+      "data": {
+        "request_id": "00000000-0000-4000-8000-000000000001",
+        "expected_draft_sequence": true,
+        "reason": "synthetic"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-publication-valid",
+      "schema": "contracts/schemas/legal-publication-request.schema.json",
+      "data": {
+        "request_id": "00000000-0000-4000-8000-000000000001",
+        "expected_sequence": 0,
+        "expected_draft_sequence": 1,
+        "operation": "publish",
+        "reason": "synthetic",
+        "revision_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-publication-forged-actor",
+      "schema": "contracts/schemas/legal-publication-request.schema.json",
+      "data": {
+        "request_id": "00000000-0000-4000-8000-000000000001",
+        "expected_sequence": 0,
+        "operation": "disable",
+        "reason": "synthetic",
+        "actor_id": "tenant-admin"
+      },
+      "expected_valid": false
     }
   ]
 }

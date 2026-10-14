@@ -6,6 +6,8 @@
 
 ### Added
 
+- TASK-0006 D01/D02/D04/D05/D07：明确未知有效期与局部废止；采购方式/主体/对象及双框架、条款范围交集；原始HTML字节和PDF页框与清洗文本映射；独立全局grant及鉴权CLI；不可变来源/核验修订、稳定法规身份、双CAS发布/停用/回滚和原子审计。Manifest3/Index4/Query3/Result5、OpenAPI0.5.0、迁移1600/1700；旧法规核验状态及原文保留。最终候选验收待记录，不提前归档。
+
 - TASK-0006 D03续建：Result v1alpha3正式EvidenceRef与完整citable_evidence关联校验，拒绝未核实却可确认、引用/哈希/定位/日期矛盾；证据URI/hash指同一清洗文本，冻结索引解析复核来源及适用性，新增39项回归。旧结果版本显式拒绝，历史记录保留，无DDL变更；其余D问题和任务in_progress保持。
 
 - TASK-0017：verify.ps1增加Quick/Focused并保留默认Full；显式测试路径防越界、独立局部JUnit、失败关闭的CI选档及verify-required汇总门禁。

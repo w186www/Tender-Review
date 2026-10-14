@@ -40,3 +40,12 @@ project、project_version、document、review_task、idempotency_record和audit_
 ## TASK-0006 全局法规授权（D05）
 
 202610141600新增legal_operator_grant（tenant/user复合FK、active、capabilities），与租户admin角色独立；运行角色只GRANT SELECT，FORCE RLS只读取当前tenant/user grant，没有运行写策略。数据库运维按真实身份配置全局权限，租户HTTP/模型均不能授予这些权限。每次操作复核会话与当前grant；不缓存授权。降级删除grant，须先备份，现有身份/项目/运行行不更改。
+
+
+## TASK-0006 不可变核验与发布（D02）
+
+202610141700新增legal_law_identity（标题规范键/稳定law_id，换来源及移出语料不丢身份）、legal_corpus_revision（完整manifest/index/原始与清洗字节/核验来源、SHA、父修订、可信actor、幂等请求）、legal_publication（追加发布/停用/回滚历史）、legal_corpus_state（唯一当前发布与独立核验头）。不限制相同正文hash产生新的核验修订，旧元数据/来源/条款/算法不漂移。发布要求expected_sequence与expected_draft_sequence；全局状态触发器检查对应新增历史/actor权限，不接受无日志移动指针。ingest不能插入verified修订，需verify能力。
+
+显式迁移后运行角色仅SELECT legal_operator_grant；SELECT/INSERT legal_law_identity、legal_corpus_revision、legal_publication；SELECT/UPDATE legal_corpus_state。无grant或历史表UPDATE/DELETE权限；全部新表PostgreSQL FORCE RLS，全局写入依实际tenant/user grant；追加写触发器也拒绝特权历史修改（不声称防御数据库管理员拆除触发器）。原租户项目/运行/audit复合FK和RLS不改。
+
+降级先停止写入、备份全局修订/来源/发布/授权及租户运行。1700删除全局管理记录，1600删除grant；既有tenant/project/legal_retrieval_run不改写。新旧结果不静默升级，旧历史需原消费者版本，回滚当前发布是新publication而非删表。无生产数据，无自动迁移。

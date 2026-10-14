@@ -19,7 +19,14 @@ from bidding_compliance.legal.contracts import (
 from bidding_compliance.legal.hashing import canonical_hash
 from bidding_compliance.legal.retrieval import LegalRetriever
 from bidding_compliance.persistence.database import require_runtime_role, set_tenant
-from bidding_compliance.persistence.models import AuthSession, LegalRetrievalRun, Tenant, User
+from bidding_compliance.persistence.models import (
+    AuthSession,
+    LegalCorpusRevision,
+    LegalPublication,
+    LegalRetrievalRun,
+    Tenant,
+    User,
+)
 from bidding_compliance.services.identity import audit
 from bidding_compliance.services.projects import find_project
 
@@ -71,9 +78,24 @@ def retrieve_for_project(
     review_date: date,
     include_references: bool = False,
     limit: int = 10,
+    publication_id: str | None = None,
+    revision_id: str | None = None,
 ) -> RetrievalResult:
     require_identity(session, principal)
     project = find_project(session, principal, project_id)
+    if (publication_id is None) != (revision_id is None):
+        raise ValueError("publication and revision binding required together")
+    if publication_id:
+        publication = session.get(LegalPublication, publication_id)
+        revision = session.get(LegalCorpusRevision, revision_id)
+        if (
+            publication is None
+            or revision is None
+            or publication.revision_id != revision_id
+            or revision.index_hash != retriever.snapshot_hash
+            or canonical_hash(revision.bundle) != revision.content_hash
+        ):
+            raise ValueError("retrieval publication binding mismatch")
     session.refresh(project)
     context = json.loads(json.dumps(project.context, allow_nan=False))
     context_version = project.version
@@ -123,6 +145,8 @@ def retrieve_for_project(
         "retrieval_version": result.retrieval_version,
         "normalization_version": result.normalization_version,
     }
+    if publication_id:
+        frozen.update(publication_id=publication_id, revision_id=revision_id)
     snapshot = RunSnapshot(
         run_id=run_id,
         tenant_id=principal.tenant_id,
@@ -228,4 +252,16 @@ def read_run(session: Session, principal: Principal, run_id: str) -> RetrievalRe
     if record is None:
         raise LookupError("resource unavailable")
     find_project(session, principal, record.project_id)
-    return validate_run(record)
+    result = validate_run(record)
+    if record.request_snapshot.get("publication_id"):
+        publication = session.get(LegalPublication, record.request_snapshot["publication_id"])
+        revision = session.get(LegalCorpusRevision, record.request_snapshot["revision_id"])
+        if (
+            publication is None
+            or revision is None
+            or publication.revision_id != revision.revision_id
+            or revision.index_hash != result.snapshot_hash
+            or canonical_hash(revision.bundle) != revision.content_hash
+        ):
+            raise ValueError("retrieval publication history mismatch")
+    return result

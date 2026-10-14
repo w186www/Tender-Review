@@ -13,7 +13,12 @@ from bidding_compliance.legal.contracts import (
     SourceExtractionResult,
     SourceMap,
 )
-from bidding_compliance.legal.management_contracts import OperatorCapabilities
+from bidding_compliance.legal.management_contracts import (
+    CorpusBundle,
+    OperatorCapabilities,
+    PublicationRequest,
+    RevisionRequest,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,6 +34,9 @@ def main() -> int:
         (RetrievalQuery, "legal-query"),
         (RetrievalResult, "legal-result"),
         (OperatorCapabilities, "legal-operator-capabilities"),
+        (CorpusBundle, "legal-corpus-bundle"),
+        (RevisionRequest, "legal-revision-request"),
+        (PublicationRequest, "legal-publication-request"),
         (SourceMap, "legal-source-map"),
         (SourceExtractionRequest, "legal-source-request"),
         (SourceExtractionResult, "legal-source-result"),

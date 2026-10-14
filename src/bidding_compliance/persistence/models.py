@@ -249,10 +249,12 @@ class LegalRetrievalRun(Base):
     __tablename__ = "legal_retrieval_run"
     __table_args__ = (
         ForeignKeyConstraint(
-            ["tenant_id", "project_id"], ["project.tenant_id", "project.project_id"],
+            ["tenant_id", "project_id"],
+            ["project.tenant_id", "project.project_id"],
         ),
         ForeignKeyConstraint(
-            ["tenant_id", "actor_id"], ["app_user.tenant_id", "app_user.user_id"],
+            ["tenant_id", "actor_id"],
+            ["app_user.tenant_id", "app_user.user_id"],
         ),
         CheckConstraint("context_version >= 1"),
         CheckConstraint("length(request_hash) = 64 AND length(result_hash) = 64"),
@@ -278,3 +280,95 @@ class LegalOperatorGrant(Base):
     user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     active: Mapped[bool] = mapped_column(Boolean)
     capabilities: Mapped[list[str]] = mapped_column(JSON)
+
+
+class LegalCorpusRevision(Base):
+    __tablename__ = "legal_corpus_revision"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["actor_tenant", "actor_id"], ["app_user.tenant_id", "app_user.user_id"]
+        ),
+        UniqueConstraint("draft_sequence"),
+        UniqueConstraint("actor_tenant", "actor_id", "request_id"),
+        CheckConstraint("draft_sequence >= 1"),
+        CheckConstraint("operation IN ('ingest','verify')"),
+        CheckConstraint(
+            "length(content_hash) = 64 AND length(index_hash) = 64 AND length(request_hash) = 64"
+        ),
+    )
+    revision_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    parent_id: Mapped[str | None] = mapped_column(ForeignKey("legal_corpus_revision.revision_id"))
+    draft_sequence: Mapped[int] = mapped_column(Integer)
+    actor_tenant: Mapped[str] = mapped_column(String(64))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    operation: Mapped[str] = mapped_column(String(20))
+    request_id: Mapped[str] = mapped_column(String(64))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    index_hash: Mapped[str] = mapped_column(String(64))
+    bundle: Mapped[dict[str, Any]] = mapped_column(JSON)
+    reason: Mapped[str] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LegalPublication(Base):
+    __tablename__ = "legal_publication"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["actor_tenant", "actor_id"], ["app_user.tenant_id", "app_user.user_id"]
+        ),
+        UniqueConstraint("sequence"),
+        UniqueConstraint("actor_tenant", "actor_id", "request_id"),
+        CheckConstraint("sequence >= 1"),
+        CheckConstraint("operation IN ('publish','disable','rollback')"),
+        CheckConstraint("length(request_hash) = 64"),
+        CheckConstraint(
+            "(operation = 'disable' AND revision_id IS NULL) OR "
+            "(operation != 'disable' AND revision_id IS NOT NULL)"
+        ),
+        CheckConstraint(
+            "(operation = 'rollback' AND target_id IS NOT NULL) OR "
+            "(operation != 'rollback' AND target_id IS NULL)"
+        ),
+    )
+    publication_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    previous_id: Mapped[str | None] = mapped_column(ForeignKey("legal_publication.publication_id"))
+    target_id: Mapped[str | None] = mapped_column(ForeignKey("legal_publication.publication_id"))
+    revision_id: Mapped[str | None] = mapped_column(ForeignKey("legal_corpus_revision.revision_id"))
+    actor_tenant: Mapped[str] = mapped_column(String(64))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    operation: Mapped[str] = mapped_column(String(20))
+    request_id: Mapped[str] = mapped_column(String(64))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    reason: Mapped[str] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LegalCorpusState(Base):
+    __tablename__ = "legal_corpus_state"
+    __table_args__ = (CheckConstraint("singleton = 1 AND sequence >= 0 AND draft_sequence >= 0"),)
+    singleton: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    publication_id: Mapped[str | None] = mapped_column(
+        ForeignKey("legal_publication.publication_id")
+    )
+    draft_sequence: Mapped[int] = mapped_column(Integer)
+    draft_revision_id: Mapped[str | None] = mapped_column(
+        ForeignKey("legal_corpus_revision.revision_id")
+    )
+
+
+class LegalLawIdentity(Base):
+    __tablename__ = "legal_law_identity"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["actor_tenant", "actor_id"], ["app_user.tenant_id", "app_user.user_id"]
+        ),
+        CheckConstraint("operation IN ('ingest','verify')"),
+    )
+    title_key: Mapped[str] = mapped_column(String(500), primary_key=True)
+    law_id: Mapped[str] = mapped_column(String(128))
+    actor_tenant: Mapped[str] = mapped_column(String(64))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    operation: Mapped[str] = mapped_column(String(20))

@@ -23,3 +23,5 @@
 未来发布后的破坏性契约改变，必须新版本、兼容测试、迁移和回滚方案。需要更改Prompt、规则、模型或法规时使用审查快照保留旧运行版本。
 
 D04新增Project/ContextFields采购方式、采购主体、对象与框架字段；旧API输入仍有效，缺省unknown/空框架，法规检索返回context_incomplete且不调用Embedding。旧项目/运行行不改写；新Query v1alpha3、Result v1alpha5、Manifest v1alpha3/Index v1alpha4明确升级，State与正式EvidenceRef不变。
+
+全局管理新增CorpusBundle/RevisionRequest/PublicationRequest/OperatorCapabilities独立Schema；actor不从请求取得。数据库新迁移1600授权及1700不可变修订/发布/状态/身份，不更改已有业务表。Result仍v1alpha5，持久请求额外冻结publication/revision标识，由request_hash绑定并读回对照不可变索引。

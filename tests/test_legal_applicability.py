@@ -7,7 +7,7 @@ from test_legal_retrieval import query, search, version
 from test_legal_runs import principal, retrieve
 from test_legal_runs import system as legal_system
 
-from bidding_compliance.legal.contracts import LegalManifest, LegalVersion
+from bidding_compliance.legal.contracts import LegalManifest, LegalVersion, RetrievalResult
 from bidding_compliance.legal.corpus import ingest, resolve_evidence
 from bidding_compliance.legal.retrieval import LegalRetriever
 from bidding_compliance.persistence.models import Project
@@ -152,3 +152,13 @@ def test_missing_applicability_is_reference_not_confirmable(tmp_path):
     reference = search(tmp_path, metadata, query(include_references=True))
     assert reference.hits and not reference.citable_evidence
     assert {h.reason for h in reference.hits} == {"applicability_unverified"}
+
+
+@pytest.mark.parametrize("frameworks", [["government_procurement"], ["tendering", "tendering"]])
+def test_result_cannot_claim_unrelated_or_duplicate_frameworks(tmp_path, frameworks):
+    metadata = version(tmp_path, procurement_types=["enterprise"])
+    result = search(tmp_path, metadata, query(procurement_type="enterprise"))
+    payload = result.model_dump(mode="json")
+    payload["hits"][0]["applicable_frameworks"] = frameworks
+    with pytest.raises(ValidationError, match="framework/query"):
+        RetrievalResult.model_validate(payload)

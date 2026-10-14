@@ -41,9 +41,14 @@ class MappedHTML(HTMLParser):
         if self.active:
             line, column = self.getpos()
             start = self.line_starts[line - 1] + column
-            self.parts.append((
-                data, self.base_start + start, self.base_start + start + raw_length, kind,
-            ))
+            self.parts.append(
+                (
+                    data,
+                    self.base_start + start,
+                    self.base_start + start + raw_length,
+                    kind,
+                )
+            )
 
     def handle_data(self, data: str) -> None:
         self.add(data, len(data), "html_text")
@@ -92,11 +97,15 @@ def extract_html(payload: bytes, header: str) -> tuple[str, tuple[SourceSpan, ..
             fragment = data[low:high]
             if kind == "html_text":
                 start, stop = start + low, start + high
-            spans.append(SourceSpan(
-                start=len(text), end=len(text) + len(fragment),
-                kind="html_text" if kind == "html_text" else "html_entity",
-                byte_start=offsets[start], byte_end=offsets[stop],
-            ))
+            spans.append(
+                SourceSpan(
+                    start=len(text),
+                    end=len(text) + len(fragment),
+                    kind="html_text" if kind == "html_text" else "html_entity",
+                    byte_start=offsets[start],
+                    byte_end=offsets[stop],
+                )
+            )
             text += fragment
         if left < right:
             spans.append(SourceSpan(start=len(text), end=len(text) + 1, kind="separator"))
@@ -107,7 +116,8 @@ def extract_html(payload: bytes, header: str) -> tuple[str, tuple[SourceSpan, ..
 
 
 def extract_pdf_native(
-    payload: bytes, policy: IngestionPolicy | None = None,
+    payload: bytes,
+    policy: IngestionPolicy | None = None,
 ) -> SourceExtractionResult:
     if len(payload) > 2_000_000 or not payload.startswith(b"%PDF-"):
         raise ValueError("bounded PDF signature required")
@@ -119,13 +129,20 @@ def extract_pdf_native(
         if len(pdf.pages) > 100:
             raise ValueError("PDF page budget exceeded")
         for page_number, page in enumerate(pdf.pages, 1):
+            if any(
+                (i["x1"] - i["x0"]) * (i["bottom"] - i["top"]) > (page.width * page.height * 0.2)
+                for i in page.images
+            ):
+                raise ValueError("PDF image body requires reviewed OCR origin mapping")
             if page.images and not any(c["text"].strip() for c in page.chars):
                 raise ValueError("PDF contains an unmapped scanned page; reviewed OCR required")
             words: list[dict[str, Any]] = page.extract_words(return_chars=True)
             glyphs = [c for word in words for c in word["chars"]]
+
             # Prove coverage instead of accepting a nonzero extraction.
             def key(c: dict[str, Any]) -> tuple[Any, ...]:
                 return c["text"], c["x0"], c["top"], c["x1"], c["bottom"]
+
             if sorted(key(c) for c in glyphs) != sorted(
                 key(c) for c in page.chars if c["text"].strip()
             ):
@@ -133,29 +150,40 @@ def extract_pdf_native(
             previous_top: float | None = None
             for word in words:
                 if word["top"] > page.height - 35 and re.fullmatch(r"[-—]?\d+[-—]?", word["text"]):
-                    excluded.append(SourceExclusion(
-                        page=page_number,
-                        bbox=(word["x0"], word["top"], word["x1"], word["bottom"]),
-                        text=word["text"], reason="page_number",
-                    ))
+                    excluded.append(
+                        SourceExclusion(
+                            page=page_number,
+                            bbox=(word["x0"], word["top"], word["x1"], word["bottom"]),
+                            text=word["text"],
+                            reason="page_number",
+                        )
+                    )
                     continue
                 if text:
-                    separator = "\n" if previous_top is None or abs(
-                        word["top"] - previous_top
-                    ) > 3 else " "
-                    spans.append(SourceSpan(
-                        start=len(text), end=len(text) + 1, kind="separator",
-                    ))
+                    separator = (
+                        "\n" if previous_top is None or abs(word["top"] - previous_top) > 3 else " "
+                    )
+                    spans.append(
+                        SourceSpan(
+                            start=len(text),
+                            end=len(text) + 1,
+                            kind="separator",
+                        )
+                    )
                     text += separator
                 for char in word["chars"]:
                     value = str(char["text"])
                     if "(cid:" in value or "\ufffd" in value or len(text) + len(value) > 100000:
                         raise ValueError("unsupported or oversized PDF text")
-                    spans.append(SourceSpan(
-                        start=len(text), end=len(text) + len(value), kind="pdf_glyph",
-                        page=page_number,
-                        bbox=(char["x0"], char["top"], char["x1"], char["bottom"]),
-                    ))
+                    spans.append(
+                        SourceSpan(
+                            start=len(text),
+                            end=len(text) + len(value),
+                            kind="pdf_glyph",
+                            page=page_number,
+                            bbox=(char["x0"], char["top"], char["x1"], char["bottom"]),
+                        )
+                    )
                     text += value
                 previous_top = word["top"]
     if not text:

@@ -187,6 +187,12 @@ class LegalManifest(Closed):
         keys = [(v.law_id, v.version) for v in self.versions]
         if len(keys) != len(set(keys)):
             raise ValueError("duplicate legal version")
+        titles: dict[str, str] = {}
+        for version in self.versions:
+            title = "".join(version.title.split()).casefold()
+            if title in titles and titles[title] != version.law_id:
+                raise ValueError("source change cannot replace legal title identity")
+            titles[title] = version.law_id
         for i, left in enumerate(self.versions):
             for right in self.versions[i + 1 :]:
                 if left.law_id != right.law_id:
@@ -557,6 +563,10 @@ class RetrievalResult(Closed):
             raise ValueError("complete retrieval requires query and no context error")
         if self.query:
             for hit in self.hits:
+                if len(set(hit.applicable_frameworks)) != len(hit.applicable_frameworks) or (
+                    set(hit.applicable_frameworks) - set(self.query.legal_frameworks)
+                ):
+                    raise ValueError("evidence framework/query mismatch")
                 if hit.reason != "valid" and not self.query.include_references:
                     raise ValueError("reference evidence requires explicit reference mode")
                 if hit.evidence.jurisdiction != self.query.region:

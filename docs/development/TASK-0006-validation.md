@@ -95,3 +95,12 @@
 ## 本轮D05过程实现
 
 新增独立legal_operator_grant与显式迁移202610141600；tenant admin不隐含全局权限，ingest/verify/publish/disable/rollback逐项授权。每次先复核服务身份/会话/角色，再读取当前grant，无权限记录拒绝审计。PostgreSQL FORCE RLS只允许读取当前tenant/user grant，运行账号无写策略与grant写权限；全局权限仅数据库运维配置，非租户管理员HTTP自授权。既有租户RLS与复合外键不变。新增13项权限、撤权、跨租户/复合FK反例；Focused72项通过，Mypy52/Ruff/契约通过；真实PostgreSQL16 check_postgres.py退出0，包含独立grant读取、仅ingest禁止publish及运行账号INSERT/UPDATE/DELETE授权检查和实际UPDATE拒绝，原全部迁移/RLS/并发/撤权门禁保留。全局操作入口的完整事务测试将在D02完成后继续验证。
+
+
+## 本轮D02过程验证与最终自检
+
+原始/清洗/核验来源字节先一次性受限捕获，公开knowledge/legal命名空间及解析后路径都检查，禁止摄取私有上传/路径链接；完整CorpusBundle内容寻址。修订表独立于正文hash，核验元数据改变新增不可变revision；稳定标题/law_id注册表持续保留，换来源/移出再加入不能绕过身份和重叠版本检查。发布、停用、回滚追加历史并与双序号CAS/审计同事务，重复请求绑定完整请求hash，失败无孤立数据，已发布检索不读取当前可变目录；请求冻结publication/revision，历史读取对照索引/hash，停用当前不销毁旧运行。
+
+D02/D05及原运行Focused60项通过；全部法规组合171项通过，Mypy54/Ruff/所有生成/契约通过。真实PostgreSQL16先执行原check_postgres.py，再check_legal_publications.py，均退出0：两次核验竞争仅一胜、同文本新核验独立修订、发布与回滚竞争仅一胜、幂等不重复、运行/来源重现、tenant admin禁止全局操作、真实FORCE RLS/WITH CHECK、运行角色受限、REVOKE审计INSERT触发全事务回滚、停用/恢复为新历史、特权历史DELETE拒绝、跨租户项目运行拒绝及global grant即时撤权。容器已清理；日志task0006-lifecycle-baseline-pg.log/task0006-lifecycle-pg.log。CI新增同等专项，原门禁不删除。
+
+最终自检额外补齐：含文字页头的大面积扫描主体不能假装完整PDF映射；结果框架必须是查询框架子集且唯一；先校验运行hash再读取其发布绑定。81项相关Focused通过，旧安全/类型规则均保留。过程中新发布测试夹具注册错误已修正；所有真实事务/RLS断言保留。当前还未把过程结果冒称整任务最终Full/远程CI，任务仍in_progress，待最终候选验收。
