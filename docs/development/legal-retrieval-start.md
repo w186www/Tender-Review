@@ -33,7 +33,7 @@ $env:PYTHONUTF8 = '1'
 
 修订捕获完整公共knowledge/legal字节、索引和官方核验证据；verified资料必须具备冻结核验来源与verify权限，不信任模型或仅提高字段。核验日期不得来自未来。同文本新核验产生独立revision；稳定law_id注册表防换来源/删除重加绕过版本关系。draft_sequence和publication_sequence独立CAS，发布必须引用当前draft，幂等request_id绑定完整请求/内容hash。历史revision/publication/identity不可更新/删除，发布、停用、回滚与状态/审计同事务，失败全部回滚。rollback引用已有发布并创建新publication，disable停止当前检索但不删除历史。
 
-业务入口services/legal_management.retrieve_published_for_project只读取当前已发布快照，先鉴权项目再按数据库上下文构造query；请求冻结publication/revision/index/context/date/actor/hash。read_run重新核对身份、项目、运行hash及冻结发布绑定，历史不按新上下文重算。公共法规可跨租户读取，项目运行隔离不变；公共库不得摄取私有招标正文或路径链接。此任务提供服务及鉴权CLI，未新增管理前端/HTTP路由；LangGraph接入属于TASK-0009。
+业务入口services/legal_management.retrieve_published_for_project只读取当前已发布快照，先鉴权项目再按数据库上下文构造query；请求冻结publication/revision/index/context/date/actor/hash。read_run重新核对身份、项目、运行hash及冻结发布绑定，历史不按新上下文重算。公共法规可跨租户读取，项目运行隔离不变；公共库不得摄取私有招标正文或路径链接。TASK-0009的LangGraph审查图已消费该服务，检索结果绑定冻结发布/修订、项目范围和审查基准日；证据校验在发布前重新解析引用。此处仍未新增法规管理前端/HTTP路由；TASK-0009远程CI尚待执行，详见其validation记录。
 
 ## 本地诊断与边界
 

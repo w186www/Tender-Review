@@ -9,8 +9,8 @@
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha3 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |
 | RetrievalResult | schema_version=v1alpha5 / Query v1alpha3 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |
 | ParsedDocument、ParserRequest、ParserResponse | schema_version=v1alpha1 / 集合v1alpha2 | 闭合字段、定位、哈希、OCR置信度、封闭问题码、资源策略、结果/错误互斥；由类型源生成并验证漂移 |
-| ComplianceReviewState | schema_version=v1alpha2 | 补齐引用，Python类型从Schema生成 |
-| ComplianceFinding | 集合v1alpha2 | status拆为evidence_status与review_status，人工决定需审计字段 |
+| ComplianceReviewState / ComplianceFinding | schema_version=v1alpha2 / 集合v1alpha2 | TASK-0009增加有界Skill汇合/结果引用、result_published和显式冲突；State findings为摘要子集 |
+| SemanticAnalysisResponse | schema_version=v1alpha1 | 新增严格闭合的模型语义响应契约，模型只产生分析建议 |
 | DevelopmentTask | schema_version=v1alpha2 | 相关需求与局部验收分离，completed逐项需要证据 |
 | EvidenceRef、ModelResponse | 集合v1alpha2 | 格式与内容约束沿用，增加有效正反例 |
 | ErrorCode | 集合v1alpha2 | 明确11个业务码和HTTP_ERROR兜底，未知码被拒绝 |
@@ -26,3 +26,5 @@
 D04新增Project/ContextFields采购方式、采购主体、对象与框架字段；旧API输入仍有效，缺省unknown/空框架，法规检索返回context_incomplete且不调用Embedding。旧项目/运行行不改写；新Query v1alpha3、Result v1alpha5、Manifest v1alpha3/Index v1alpha4明确升级，State与正式EvidenceRef不变。
 
 全局管理新增CorpusBundle/RevisionRequest/PublicationRequest/OperatorCapabilities独立Schema；actor不从请求取得。数据库新迁移1600授权及1700不可变修订/发布/状态/身份，不更改已有业务表。Result仍v1alpha5，持久请求额外冻结publication/revision标识，由request_hash绑定并读回对照不可变索引。
+
+TASK-0009的State/Risk扩展仍处于未对生产消费者发布的v1alpha3开发契约集合中；本仓库无生产消费者或持久生产Checkpoint。State只保留有界摘要/引用（运行时State最多64 KiB、500条finding、100条error），完整结果放在PostgreSQL制品表。严格Schema消费者应重新生成并接受新增状态/字段；若未来发布时需要兼容旧Risk完整对象或旧枚举封闭行为，应升级契约版本并提供迁移。新增持久表由迁移202610141800创建，旧数据/Checkpoint不作静默改写。

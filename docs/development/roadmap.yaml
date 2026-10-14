@@ -65,7 +65,7 @@
     {
       "id": "M2",
       "name": "法规、规则与模型网关",
-      "status": "in_progress",
+      "status": "completed",
       "depends_on": [
         "M1"
       ],
@@ -106,7 +106,7 @@
     {
       "id": "M3",
       "name": "审查闭环与界面",
-      "status": "planned",
+      "status": "in_progress",
       "depends_on": [
         "M2"
       ],

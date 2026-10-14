@@ -2,8 +2,8 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0009",
   "title": "LangGraph 审查引擎、证据门禁和恢复",
-  "status": "planned",
-  "owner": "unassigned",
+  "status": "in_progress",
+  "owner": "Codex",
   "depends_on": [
     "TASK-0005",
     "TASK-0006",
@@ -57,12 +57,12 @@
     {
       "id": "TASK0009-001",
       "description": "模型分析接收法规结果，缺证据只能降级",
-      "evidence": []
+      "evidence": ["docs/development/TASK-0009-validation.md"]
     },
     {
       "id": "TASK0009-002",
       "description": "Worker重启、中断恢复和重复投递不重复发布结果",
-      "evidence": []
+      "evidence": ["docs/development/TASK-0009-validation.md"]
     }
   ],
   "verify": [
