@@ -2,8 +2,8 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0011",
   "title": "前端完整业务操作与管理界面",
-  "status": "planned",
-  "owner": "unassigned",
+  "status": "in_progress",
+  "owner": "Codex",
   "depends_on": [
     "TASK-0010"
   ],
@@ -48,7 +48,9 @@
   ],
   "steps": [
     "选择前端技术栈并记录ADR，依据API契约生成客户端",
-    "实现上传、进度、原文证据、人工复核、报告、版本发布与审计界面"
+    "实现上传、进度、原文证据、人工复核、报告、版本发布与审计界面",
+    "对接真实FastAPI/数据库并执行隔离授权离线审查器的浏览器E2E",
+    "补齐并验收FR-013法规、规则、Skill及模型配置版本管理范围"
   ],
   "acceptance_checks": [
     {
@@ -65,5 +67,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+  "handoff_notes": "源码候选b1d7ca9。本地Full、PostgreSQL16/RLS与离线ReviewEngine专项已通过；Playwright全链路仍缺隔离服务/身份配置，FR-013管理API尚无正式服务设计。两个TASK acceptance_checks evidence保持空，状态in_progress；未执行远程推送或归档。仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
 }
