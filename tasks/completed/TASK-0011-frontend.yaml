@@ -79,5 +79,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "TASK0011-001/002本地证据通过；源码候选57d2515c6e4f2d6816bf94c2ed04e82759acd6c4的源码CI 38600922153、验收记录提交750833cf1ffdd99f889676ec93575498479d1851的Quick CI 38603582949均成功。正式归档提交的CI仍待核验。真实Edge/FastAPI/PostgreSQL/MinIO/ClamAV/离线ReviewEngine E2E为5/5，FR-013配置版本服务/API/页面、PostgreSQL专项及ReviewEngine冻结快照绑定通过；详见 docs/development/TASK-0011-validation.md。DEC-002未批准在线模型，默认无ReviewEngine时返回503；本任务完成不代表相关全局AC或M3完成。"
+  "handoff_notes": "TASK0011-001/002本地证据通过；源码候选57d2515c6e4f2d6816bf94c2ed04e82759acd6c4的源码CI 38600922153、验收记录提交750833cf1ffdd99f889676ec93575498479d1851的Quick CI 38603582949、归档提交05c2b91655a7152b28692c7f5216de3ace3d7ff8的CI 38604186570均成功（归档impact/quick/verify-required成功）。真实Edge/FastAPI/PostgreSQL/MinIO/ClamAV/离线ReviewEngine E2E为5/5，FR-013配置版本服务/API/页面、PostgreSQL专项及ReviewEngine冻结快照绑定通过；详见 docs/development/TASK-0011-validation.md。DEC-002未批准在线模型，默认无ReviewEngine时返回503；本任务完成不代表相关全局AC或M3完成。"
 }

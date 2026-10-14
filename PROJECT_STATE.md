@@ -1,8 +1,8 @@
 # PROJECT_STATE
 
-更新时间：2026-10-14
+更新时间：2026-10-15
 架构基线：ADR-0012本期法规生命周期/来源映射接受；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
-当前里程碑：M1基础退出检查已通过；M2退出条件已满足并完成；M3进行中。TASK-0010已归档；TASK-0011已形成正式归档候选，等待归档 CI 核验。
+当前里程碑：M1基础退出检查已通过；M2退出条件已满足并完成；M3进行中。TASK-0010与TASK-0011已归档。
 
 ## 已完成
 
@@ -26,24 +26,23 @@
 
 - TASK-0007已完成并归档：五类无模型确定性Skill、版本化规则与候选发现契约、原文定位/稳定去重及法规检索主题。源码236d2a6e231be030f719b0bbabc3f2b0a50039b3 Focused 30项、最终Full448项本地通过（0失败/错误/跳过），真实HTTP/身份/租户集成检查通过；远程38516913371适用作业及汇总门禁成功。详见TASK-0007-validation.md。
 - TASK-0010已完成并归档：源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`本地Full504及PostgreSQL16专项通过；源码CI38556383801、验收记录CI38557180768、归档CI38557509858所有适用作业均成功。复核/审计、不可变Word/PDF报告、引用回查和越权导出审计已实现。生产模型路由仍受DEC-002限制；详见`docs/development/TASK-0010-validation.md`。
+- TASK-0011已完成并归档：源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`，归档提交`05c2b91655a7152b28692c7f5216de3ace3d7ff8`；源码CI 38600922153、验收记录CI 38603582949、归档CI 38604186570 的适用作业均成功。FR-013配置版本管理已实现；真实浏览器E2E 5/5、PostgreSQL16专项、Focused 69和本地Full 510通过。DEC-002仍未批准在线模型；详见`docs/development/TASK-0011-validation.md`。
 
 ## 正在进行
 
 - TASK-0009：源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的TASK0009-001/002本地证据、Focused13、Full500及真实PostgreSQL恢复/并发/事务故障专项通过；用户确认源码提交与验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI通过。任务文件已准备本地归档候选并移入completed；本次归档提交的远程CI尚待执行/核验，故项目总体仍待最终确认。详见`docs/development/TASK-0009-validation.md`。
 - M2正式退出条件按证据核实：TASK-0007候选追溯、TASK-0006检索过滤、TASK-0008适配器合规均满足；roadmap.yaml标记M2 completed、M3 in_progress。局部任务完成不代表AC-003或M3完整闭环通过。
 - TASK-0009生产模型仍受DEC-002禁用；TASK-0008预算账本仍仅具单进程一致性；TASK-0010默认不启用生产模型执行。
-- TASK-0011归档候选：源码CI 38600922153 与验收记录 Quick CI 38603582949 均成功；正式归档提交及归档CI待核验。E2E 5/5、FR-013、PostgreSQL与Full证据见`docs/development/TASK-0011-validation.md`。
 
 ## 下一步
 
 1. 核验TASK-0009归档候选远程CI；TASK-0010已完成远程源码、记录和归档CI验收。
 2. 法规库42份旧文本继续unverified，另3份未收录；逐项官方核验后才能支持确定依据，不从模型/索引标注推断效力。
 3. 2019《实施条例》工程招标范围核验截止2026-10-14，未来基准日需新核验或显式参考。未知地区/采购上下文及大面积扫描正文映射失败关闭。
-4. 核验TASK-0011正式归档CI；在其成功前不将归档候选视为最终完成，不启动TASK-0012。TASK-0011完成也不代表M3或相关全局AC完成。
 
 ## 最近验证
 
-- TASK-0011最终源码`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`的 Windows baseline、PostgreSQL、ingestion、verify-required CI 全部成功；本地 Full 510 passed（对应源码`57d3a833f59a09e9c938837671a8769d91c7fc5b`，其后仅扩展前端 LF 检出属性），FR-013 Focused 69 passed，PostgreSQL16两个专项通过；真实 Microsoft Edge Playwright E2E 5/5，使用真实 FastAPI/PostgreSQL/文件服务及授权注入的离线 ReviewEngine，并验证持久化结果。前端 OpenAPI 生成内容与契约一致；两次 CI 失败的共同根因已定位为 Windows CRLF 检出，`.gitattributes` 固定所有前端文本为 LF，当前 SHA 的 baseline 成功。详情见`docs/development/TASK-0011-validation.md`。
+- TASK-0011已归档：源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`的 Windows baseline、PostgreSQL、ingestion、verify-required CI 全部成功；验收记录CI和归档CI的impact/quick/verify-required适用作业成功。归档提交`05c2b91655a7152b28692c7f5216de3ace3d7ff8`对应归档CI 38604186570。源码本地 Full 510 passed（对应源码`57d3a833f59a09e9c938837671a8769d91c7fc5b`，其后仅扩展前端LF检出属性），FR-013 Focused 69 passed，PostgreSQL16两个专项通过；真实 Microsoft Edge Playwright E2E 5/5，使用真实 FastAPI/PostgreSQL/文件服务及授权注入的离线ReviewEngine，并验证持久化结果。前端 OpenAPI生成内容与契约一致；Windows CRLF检出问题已通过`.gitattributes`固定所有前端文本为LF解决。详情见`docs/development/TASK-0011-validation.md`。
 - TASK-0009归档候选：源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`的Focused13、最终Full500（0失败/错误/跳过）、Ruff、Mypy80文件、契约/生成/秘密检查、真实HTTP/身份/撤权和PostgreSQL恢复/并发/事务故障专项通过。用户确认源码及验证记录提交的必要远程CI通过；本次归档记录Quick通过，归档提交远程CI待核验。DEC-002未批准、在线模型调用未验证、预算账本仅单进程一致性、法律证据最高为suspected；TASK-0010源码/记录/归档CI均已成功。详见`docs/development/TASK-0009-validation.md`。
 - TASK-0010源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`：最终完整`verify.ps1 -Mode Full`通过504项、0失败/错误/跳过；Ruff、Mypy85源文件、契约/生成一致性与真实HTTP/身份/项目流程通过。PostgreSQL16真实迁移/RLS/复合FK/并发/回滚及TASK-0009审查恢复、TASK-0010决定幂等与并发、共享结构化报告、DOCX/PDF生成、原文回查、授权与拒绝导出审计专项通过。源码CI38556383801、验收记录CI38557180768及归档CI38557509858均全部适用作业成功。DEC-002未批准，生产模型路由仍关闭。详见`docs/development/TASK-0010-validation.md`。
 
@@ -73,7 +72,7 @@
 
 ## 已知问题
 
-- TASK-0011的真实浏览器链路与FR-013配置版本管理已通过本任务局部验收；源码CI和验收记录CI已成功，正式归档CI待核验。这不代表相关全局AC或M3已完成。
+- TASK-0011的真实浏览器链路与FR-013配置版本管理已通过本任务局部验收并正式归档；局部完成不代表相关全局AC或M3已完成。
 - Word内嵌图片需人工转录；DOCX外部关系含超链接严格拒绝；中文复杂版面质量仍需黄金集验收。详见secure-ingestion-start.md。
 - 本机Docker Linux Engine已可用（29.2.1）；临时PostgreSQL16本机迁移/权限/RLS/并发/回滚与真实S3/扫描/OCR检查通过，仅测试服务已清理。TASK-0005历史PowerShell完整门禁186项全通过；当前任务结果见最近验证。
 - Windows受限沙箱会阻断asyncio内部回环连接；完整验收须允许本机回环网络，不能跳过测试。

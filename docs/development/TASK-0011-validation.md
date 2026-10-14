@@ -1,7 +1,8 @@
 # TASK-0011 本地验证与验收记录
 
 - 更新时间：2026-10-15
-- 当前状态：两个局部验收项及源码 CI 已通过；验收记录提交 `750833cf1ffdd99f889676ec93575498479d1851` 的 Quick CI <https://github.com/w186www/Tender-Review/actions/runs/38603582949> 已通过。正式归档 CI 尚待完成，因此当前进入归档候选阶段。
+- 当前状态：TASK0011-001/002及FR-013局部验收通过，正式归档已完成。验收记录提交 `750833cf1ffdd99f889676ec93575498479d1851` 的 Quick CI <https://github.com/w186www/Tender-Review/actions/runs/38603582949>、归档提交 `05c2b91655a7152b28692c7f5216de3ace3d7ff8` 的 CI <https://github.com/w186www/Tender-Review/actions/runs/38604186570> 均成功；归档CI的 `impact`、`quick` 和 `verify-required` 成功，文档归档策略跳过 `baseline`、`postgres` 和 `ingestion`。
+- 归档提交：`05c2b91655a7152b28692c7f5216de3ace3d7ff8`。
 - 分支：`work/TASK-0011`
 - 最终源码候选：`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`（`fix: pin frontend files to LF for Biome`）
 - 前端与 FR-013 实现：`a8c43454138c2867d735402d1f330869fa18ba16`
@@ -57,4 +58,4 @@ TASK-0006 的法规发布快照、TASK-0007 的规则/Skill 版本身份继续�
 | TASK0011-002：键盘、中文状态/错误和服务端权限 | 通过；键盘/中文/401/403/409/503/撤权/跨租户场景均执行 | 本记录、`src/frontend/e2e/workbench.spec.ts`、`tests/test_identity_projects.py` |
 | FR-013：法规、规则、Skill 和模型策略配置版本化管理 | 通过；持久化 API/页面、授权操作、审计、哈希、发布/停用/回滚、冻结快照均有实现和测试 | 本记录、`tests/test_review_configurations.py`、`scripts/check_legal_publications.py` |
 
-所有审查输出仍受 Evidence Checker 和原有证据门禁约束；没有修改 `knowledge/legal/**`、`docs/reference/*.docx`，没有接入在线模型或加入 TASK-0012。当前等待本验收记录提交 CI 与正式归档/归档 CI 完成后，再把任务状态改为 `completed`。
+所有审查输出仍受 Evidence Checker 和原有证据门禁约束；没有修改 `knowledge/legal/**`、`docs/reference/*.docx`，没有接入在线模型或加入 TASK-0012。归档候选的本地 Quick 与归档CI均成功，状态已经正式完成；本次仅归档记录补充远程CI证据。
