@@ -26,17 +26,19 @@
 
 ## 正在进行
 
-- TASK-0006继续in_progress；既有检索候选、D01–D07及历史问题保留。当前Codex已复现D03：DTO/Schema接受未核实但eligible_for_confirmation=true的矛盾输入，接下来直接修复、自检及验证；不再等待另一代理批准。M1基础验收不代表完整生产验收。
+- TASK-0006继续in_progress；既有检索候选、D01–D07及历史问题保留。当前Codex已修复D03：Result v1alpha3正式EvidenceRef与资格/原因/引用/哈希/定位/日期/集合关联校验、冻结索引解析，95项Focused、真实PostgreSQL及最终Full323项通过（0失败/0错误/0跳过与两项HTTP检查），源码CI待核对；不再等待另一代理批准。M1基础验收不代表完整生产验收。
 
 ## 下一步
 
 1. TASK-0017已完成，修复源码68d67a80943e9c531f58ced7557d0c24938d84e9运行38496768950最终success，所有适用作业和verify-required成功，远程JUnit279/0/0/0。原38446832736失败日志已取得，根因及修复证据见TASK-0017-validation.md。
-2. 使用当前单Codex继续TASK-0006，先修D03矛盾输入、正式EvidenceRef映射与引用集合关联校验，逐项保留D01/D02/D04/D05/D07余项。按模块Focused，最终候选Full/专项，仅记录Quick；未完成不合入main，后续任务暂不启动。
+2. 使用当前单Codex继续TASK-0006，先核对D03候选源码CI并绑定证据；随后处理D01未知上界/局部废止、D02核验修订/发布并发回滚、D04采购方式/交叉框架/条款范围、D05全局运维授权及D07原始HTML/PDF映射余项。按模块Focused，最终候选Full/专项，仅记录Quick；未完成不合入main，后续任务暂不启动。
 3. 用户2026-10-14授权更新法规库；保留42份旧文本，新增司法部2019修订《实施条例》及原始HTML。旧版本保持unverified；逐项核实后才能支持确定依据。
 4. 法规核验截止2026-10-14；未来基准日须更新核验或显式参考模式，默认不沿用过期核验。
 5. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
+
+- TASK-0006 D03续建：95项Focused、真实PostgreSQL16及最终Full323项通过（JUnit0失败/0错误/0跳过，Ruff、Mypy48文件、正式契约/生成与两项实际HTTP检查）。修复Result v1alpha3正式EvidenceRef/资格矛盾/引用集合与冻结制品解析；D07同文本制品引用部分修复，原始清洗映射等余项保留。最终源码SHA/远程CI待补记，后续仅工程记录Quick，无重复Full；TASK-0006继续in_progress。
 
 - TASK-0017已归档：初始0016b306源码本地Full277项，但远程38446832736最终failure；日志确认旧42份法规CRLF哈希与Linux LF检出不一致。修复源码68d67a80943e9c531f58ced7557d0c24938d84e9，84项Focused、真实PostgreSQL16专项和最终Full279项通过（0失败/0错误/0跳过，Mypy48源文件及两个真实HTTP检查）。远程https://github.com/w186www/Tender-Review/actions/runs/38496768950 completed/success：baseline/postgres/ingestion/verify-required全部成功，下载远程JUnit核验279/0/0/0。仅记录/归档变动后Quick通过，未重复Full。完成规则ADR-0011，证据TASK-0017-validation.md；TASK-0006没有自动完成。
 

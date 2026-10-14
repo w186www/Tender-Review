@@ -1,10 +1,20 @@
 """Closed legal DTOs; JSON contracts generated before consumers are implemented."""
 
+import hashlib
+import re
 from datetime import date, datetime
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    WithJsonSchema,
+    field_validator,
+    model_validator,
+)
 
 from .regions import ALIASES, normalize_region
 
@@ -140,24 +150,93 @@ class RetrievalQuery(RetrievalInput):
         return normalize_region(value)
 
 
+class EvidenceRef(Closed):
+    """Runtime validation of the existing formal EvidenceRef, referenced directly in JSON."""
+
+    evidence_id: str = Field(min_length=1, max_length=128)
+    kind: Literal["document", "law", "policy", "internal_rule"]
+    title: str = Field(min_length=1, max_length=500)
+    article: str | None = Field(default=None, max_length=200)
+    quote: str = Field(min_length=1, max_length=8000)
+    source_uri: str = Field(min_length=1, max_length=2048)
+    source_hash: str = Field(pattern=r"^[a-fA-F0-9]{64}$")
+    page: int | None = Field(default=None, ge=1, strict=True)
+    locator: str | None = Field(default=None, max_length=500)
+    effective_from: date | None = None
+    effective_to: date | None = None
+    version_status: VersionStatus
+    jurisdiction: str | None = Field(default=None, max_length=200)
+
+
 class LegalHit(Closed):
-    evidence_id: str
-    law_id: str
-    title: str
-    article: str | None
-    version: str
-    quote: str
-    quote_hash: str
-    source_uri: str
-    source_hash: str
-    text_hash: str
-    locator: str
+    model_config = ConfigDict(json_schema_extra={
+        "allOf": [{
+            "if": {"properties": {"eligible_for_confirmation": {"const": True}},
+                   "required": ["eligible_for_confirmation"]},
+            "then": {"properties": {
+                "reason": {"const": "valid"},
+                "version_status": {"const": "verified_current"},
+                "article": {"type": "string", "minLength": 1},
+                "effective_from": {"type": "string", "format": "date"},
+            }},
+            "else": {"properties": {
+                "reason": {"enum": ["unverified", "outside_verification_horizon", "unlocated"]},
+                "version_status": {"const": "unverified"},
+            }},
+        }],
+    })
+    evidence_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    law_id: str = Field(min_length=1, max_length=128)
+    title: str = Field(min_length=1, max_length=500)
+    article: str | None = Field(max_length=200)
+    version: str = Field(min_length=1, max_length=500)
+    quote: str = Field(min_length=1, max_length=8000)
+    quote_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    source_uri: str = Field(min_length=1, max_length=2048)
+    source_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    text_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    locator: str = Field(min_length=1, max_length=500)
     effective_from: date | None
     effective_to: date | None
     version_status: VersionStatus
-    eligible_for_confirmation: bool
+    eligible_for_confirmation: bool = Field(strict=True)
     reason: Reason
     score: float = Field(ge=0)
+    evidence: Annotated[EvidenceRef, WithJsonSchema({
+        "$ref": "https://bidding-compliance.local/schemas/evidence.schema.json",
+    })]
+
+    @model_validator(mode="after")
+    def consistent_evidence(self) -> Self:
+        eligible = self.reason == "valid"
+        if self.eligible_for_confirmation != eligible or self.version_status != (
+            "verified_current" if eligible else "unverified"
+        ):
+            raise ValueError("legal evidence eligibility mismatch")
+        if eligible and (not self.article or self.effective_from is None):
+            raise ValueError("confirmable legal evidence requires article and effective date")
+        if self.effective_to and (
+            self.effective_from is None or self.effective_to <= self.effective_from
+        ):
+            raise ValueError("legal evidence interval mismatch")
+        match = re.fullmatch(r"(.+)#chars=([0-9]+):([0-9]+)", self.locator)
+        if match is None or int(match[3]) - int(match[2]) != len(self.quote):
+            raise ValueError("legal quotation locator mismatch")
+        if hashlib.sha256(self.quote.encode("utf-8")).hexdigest() != self.quote_hash:
+            raise ValueError("legal quotation hash mismatch")
+        evidence = self.evidence
+        expected = {
+            "evidence_id": self.evidence_id, "title": self.title, "article": self.article,
+            "quote": self.quote, "source_uri": "artifact://legal-text/" + self.text_hash,
+            "source_hash": self.text_hash, "locator": f"chars={match[2]}:{match[3]}",
+            "effective_from": self.effective_from, "effective_to": self.effective_to,
+            "version_status": self.version_status,
+        }
+        if evidence.kind not in {"law", "policy"} or evidence.page is not None or any(
+            getattr(evidence, key) != value for key, value in expected.items()
+        ):
+            raise ValueError("formal evidence association mismatch")
+        return self
 
 
 class Excluded(Closed):
@@ -199,19 +278,26 @@ class RetrievalResult(Closed):
             },
         ],
     })
-    schema_version: Literal["v1alpha2"] = "v1alpha2"
+    schema_version: Literal["v1alpha3"] = "v1alpha3"
     snapshot_hash: Digest = Field(pattern=r"^[a-f0-9]{64}$")
-    retrieval_version: Literal["bm25-char-cosine-rrf-2"] = "bm25-char-cosine-rrf-2"
+    retrieval_version: Literal["bm25-char-cosine-rrf-3"] = "bm25-char-cosine-rrf-3"
     normalization_version: Literal["cn-regions-1"] = "cn-regions-1"
     status: Literal["complete", "context_incomplete"] = "complete"
     context_error: Literal["REGION_UNMAPPED", "CONTEXT_INVALID"] | None = None
     query: RetrievalQuery | None
     hits: tuple[LegalHit, ...]
+    citable_evidence: tuple[str, ...] = Field(json_schema_extra={"uniqueItems": True})
     excluded: tuple[Excluded, ...] = ()
     run_snapshot: RunSnapshot | None = None
 
     @model_validator(mode="after")
     def consistent_status(self) -> Self:
+        identities = [hit.evidence_id for hit in self.hits]
+        if len(identities) != len(set(identities)):
+            raise ValueError("duplicate evidence identity")
+        expected = tuple(hit.evidence_id for hit in self.hits if hit.eligible_for_confirmation)
+        if self.citable_evidence != expected:
+            raise ValueError("citable evidence association mismatch")
         if self.status == "context_incomplete":
             if self.query is not None or self.hits or self.context_error is None:
                 raise ValueError("incomplete context cannot produce query or evidence")
@@ -219,6 +305,17 @@ class RetrievalResult(Closed):
                 raise ValueError("incomplete context requires an exclusion")
         elif self.query is None or self.context_error is not None:
             raise ValueError("complete retrieval requires query and no context error")
+        if self.query:
+            for hit in self.hits:
+                if hit.reason != "valid" and not self.query.include_references:
+                    raise ValueError("reference evidence requires explicit reference mode")
+                if hit.evidence.jurisdiction != self.query.region:
+                    raise ValueError("evidence jurisdiction mismatch")
+                if (
+                    (hit.effective_from and self.query.review_date < hit.effective_from)
+                    or (hit.effective_to and self.query.review_date >= hit.effective_to)
+                ):
+                    raise ValueError("evidence is outside review date interval")
         if self.run_snapshot and self.query:
             if self.run_snapshot.review_date != self.query.review_date:
                 raise ValueError("run date does not match query date")

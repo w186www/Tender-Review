@@ -4,7 +4,14 @@ import hashlib
 import re
 from pathlib import Path
 
-from .contracts import LegalClause, LegalIndex, LegalManifest, LegalVersion
+from .contracts import (
+    LegalClause,
+    LegalHit,
+    LegalIndex,
+    LegalManifest,
+    LegalVersion,
+    RetrievalQuery,
+)
 
 ARTICLE = re.compile(
     r"(?m)^[ \t\u3000]*(第[一二三四五六七八九十百千万零〇两0-9]+条"
@@ -111,3 +118,48 @@ def load_index(root: Path, path: Path, expected_hash: str) -> LegalIndex:
     if ingest(root, index.manifest) != index:
         raise ValueError("legal index does not reproduce its sources")
     return index
+
+
+def resolve_evidence(root: Path, index: LegalIndex, hit: LegalHit, query: RetrievalQuery) -> str:
+    """Resolve formal artifact URI through the frozen index, never through caller paths/URLs."""
+    hit = LegalHit.model_validate(hit.model_dump())
+    clause = next((c for c in index.clauses if c.clause_id == hit.evidence_id), None)
+    version = next((v for v in index.manifest.versions if (
+        v.law_id == hit.law_id and v.version == hit.version
+    )), None)
+    if clause is None or version is None or (
+        clause.law_id != version.law_id or clause.version != version.version
+        or clause.quote != hit.quote or clause.quote_hash != hit.quote_hash
+        or hit.locator != f"{version.text_path}#chars={clause.start}:{clause.end}"
+        or hit.text_hash != version.text_hash or hit.source_hash != version.source_hash
+        or hit.source_uri != version.source_uri or hit.title != version.title
+        or hit.article != clause.article or hit.effective_from != version.effective_from
+        or hit.effective_to != version.effective_to
+        or hit.evidence.kind != ("policy" if version.authority in {
+            "policy", "reference",
+        } else "law")
+    ):
+        raise ValueError("evidence does not match frozen legal index")
+    # Resolve the date/scope against frozen metadata, not against a caller's eligibility flag.
+    from .retrieval import scope_exclusions
+
+    reason = (
+        "unverified" if version.verification == "unverified"
+        else "outside_verification_horizon" if (
+            version.verified_through is None or query.review_date > version.verified_through
+        ) else "unlocated" if clause.article is None else "valid"
+    )
+    if (
+        scope_exclusions(version, query) or hit.reason != reason
+        or hit.evidence.jurisdiction != query.region
+        or (reason != "valid" and not query.include_references)
+    ):
+        raise ValueError("evidence does not match frozen legal applicability")
+    raw = read_bounded(root, version.text_path)
+    source = read_bounded(root, version.source_snapshot_path)
+    if digest(raw) != hit.evidence.source_hash or digest(source) != version.source_hash:
+        raise ValueError("legal evidence artifact hash mismatch")
+    quote = raw.decode("utf-8")[clause.start:clause.end]
+    if quote != hit.evidence.quote or digest(quote.encode("utf-8")) != clause.quote_hash:
+        raise ValueError("legal evidence artifact locator mismatch")
+    return quote

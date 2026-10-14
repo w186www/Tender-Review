@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import Protocol
 
 from .contracts import (
+    EvidenceRef,
     Excluded,
     ExclusionReason,
     LegalHit,
@@ -164,6 +165,17 @@ class LegalRetriever:
                 effective_from=version.effective_from, effective_to=version.effective_to,
                 version_status=status, eligible_for_confirmation=reason == "valid",
                 reason=reason, score=score,
+                evidence=EvidenceRef(
+                    evidence_id=key, kind="policy" if version.authority in {
+                        "policy", "reference",
+                    } else "law",
+                    title=version.title, article=clause.article, quote=clause.quote,
+                    source_uri="artifact://legal-text/" + version.text_hash,
+                    source_hash=version.text_hash,
+                    locator=f"chars={clause.start}:{clause.end}",
+                    effective_from=version.effective_from, effective_to=version.effective_to,
+                    version_status=status, jurisdiction=query.region,
+                ),
             ))
         matched_versions = {(lookup[key][0].law_id, lookup[key][0].version) for key in scores}
         for version_key, version in versions.items():
@@ -176,4 +188,7 @@ class LegalRetriever:
         return RetrievalResult(
             snapshot_hash=self.snapshot_hash, query=query, hits=tuple(hits),
             excluded=tuple(excluded),
+            citable_evidence=tuple(
+                hit.evidence_id for hit in hits if hit.eligible_for_confirmation
+            ),
         )

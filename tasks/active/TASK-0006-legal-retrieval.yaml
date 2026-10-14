@@ -63,7 +63,9 @@
         "tests/test_legal_retrieval.py",
         "docs/development/TASK-0006-validation.md",
         "config/legal/manifest.json",
-        "docs/development/legal-retrieval-start.md"
+        "docs/development/legal-retrieval-start.md",
+        "tests/test_legal_evidence.py",
+        "contracts/schemas/legal-result.schema.json"
       ]
     },
     {
@@ -73,12 +75,14 @@
         "tests/test_legal_retrieval.py",
         "docs/development/TASK-0006-validation.md",
         "config/legal/manifest.json",
-        "docs/development/legal-retrieval-start.md"
+        "docs/development/legal-retrieval-start.md",
+        "tests/test_legal_evidence.py",
+        "contracts/schemas/legal-result.schema.json"
       ]
     }
   ],
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "用户2026-10-14恢复单Codex实施，取消默认跨软件/独立代理审批；现有检索代码保留，D01–D07等实际问题仍需处理。任务继续in_progress，不能仅因取消角色关卡宣告已验收。过程Focused，最终代码候选Full，纯归档记录Quick并绑定原证据。"
+  "handoff_notes": "当前单Codex直接实施和自检；TASK-0017已完成，源码68d67a809的远程38496768950全部适用作业成功。TASK-0006续建D03：Result v1alpha3、正式EvidenceRef与citable_evidence、资格/原因/哈希/定位/日期及集合关联校验；冻结索引解析复核真实制品/适用性。95项Focused及真实PostgreSQL通过，最终Full/远程CI按最新validation记录。D01/D02/D04/D05及D07原始HTML/PDF映射等余项仍未解决，任务保持in_progress；不能把单项修复或角色取消当作全任务完成，不合入main、不启动后续任务。"
 }

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from bidding_compliance.api import create_app
 from bidding_compliance.core.config import Settings
 from bidding_compliance.legal.contracts import LegalManifest
-from bidding_compliance.legal.corpus import ingest
+from bidding_compliance.legal.corpus import ingest, resolve_evidence
 from bidding_compliance.legal.retrieval import LegalRetriever
 from bidding_compliance.persistence.database import make_engine, migrate, set_tenant
 from bidding_compliance.persistence.models import (
@@ -190,6 +190,10 @@ def main() -> None:
                 text="投标保证金", review_date=date(2026, 10, 14),
             )
             assert result.hits and result.run_snapshot is not None
+            assert result.query is not None
+            assert result.citable_evidence == tuple(h.evidence_id for h in result.hits)
+            for hit in result.hits:
+                assert resolve_evidence(root, retriever.index, hit, result.query) == hit.quote
             run_id = result.run_snapshot.run_id
         with Session(runtime) as db:
             who = authenticate(db, runtime_settings, a["Authorization"].split(" ", 1)[1])

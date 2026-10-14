@@ -6,6 +6,8 @@
 
 ### Added
 
+- TASK-0006 D03续建：Result v1alpha3正式EvidenceRef与完整citable_evidence关联校验，拒绝未核实却可确认、引用/哈希/定位/日期矛盾；证据URI/hash指同一清洗文本，冻结索引解析复核来源及适用性，新增39项回归。旧结果版本显式拒绝，历史记录保留，无DDL变更；其余D问题和任务in_progress保持。
+
 - TASK-0017：verify.ps1增加Quick/Focused并保留默认Full；显式测试路径防越界、独立局部JUnit、失败关闭的CI选档及verify-required汇总门禁。
 
 - TASK-0006纠正：在效版本状态按基准日比较；注册地区映射、context_incomplete与excluded原因；新增202610141200检索运行快照/基准日来源/哈希、读取重新鉴权、RLS和追加写触发器，Query/Result v1alpha2。

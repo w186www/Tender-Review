@@ -56,22 +56,74 @@
     },
     "LegalHit": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "reason": {
+                "enum": [
+                  "unverified",
+                  "outside_verification_horizon",
+                  "unlocated"
+                ]
+              },
+              "version_status": {
+                "const": "unverified"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "eligible_for_confirmation": {
+                "const": true
+              }
+            },
+            "required": [
+              "eligible_for_confirmation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "const": "valid"
+              },
+              "version_status": {
+                "const": "verified_current"
+              },
+              "article": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "effective_from": {
+                "format": "date",
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "evidence_id": {
+          "pattern": "^[a-f0-9]{64}$",
           "title": "Evidence Id",
           "type": "string"
         },
         "law_id": {
+          "maxLength": 128,
+          "minLength": 1,
           "title": "Law Id",
           "type": "string"
         },
         "title": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Title",
           "type": "string"
         },
         "article": {
           "anyOf": [
             {
+              "maxLength": 200,
               "type": "string"
             },
             {
@@ -81,30 +133,41 @@
           "title": "Article"
         },
         "version": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Version",
           "type": "string"
         },
         "quote": {
+          "maxLength": 8000,
+          "minLength": 1,
           "title": "Quote",
           "type": "string"
         },
         "quote_hash": {
+          "pattern": "^[a-f0-9]{64}$",
           "title": "Quote Hash",
           "type": "string"
         },
         "source_uri": {
+          "maxLength": 2048,
+          "minLength": 1,
           "title": "Source Uri",
           "type": "string"
         },
         "source_hash": {
+          "pattern": "^[a-f0-9]{64}$",
           "title": "Source Hash",
           "type": "string"
         },
         "text_hash": {
+          "pattern": "^[a-f0-9]{64}$",
           "title": "Text Hash",
           "type": "string"
         },
         "locator": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Locator",
           "type": "string"
         },
@@ -159,6 +222,9 @@
           "minimum": 0,
           "title": "Score",
           "type": "number"
+        },
+        "evidence": {
+          "$ref": "https://bidding-compliance.local/schemas/evidence.schema.json"
         }
       },
       "required": [
@@ -178,7 +244,8 @@
         "version_status",
         "eligible_for_confirmation",
         "reason",
-        "score"
+        "score",
+        "evidence"
       ],
       "title": "LegalHit",
       "type": "object"
@@ -431,8 +498,8 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "v1alpha2",
-      "default": "v1alpha2",
+      "const": "v1alpha3",
+      "default": "v1alpha3",
       "title": "Schema Version",
       "type": "string"
     },
@@ -442,8 +509,8 @@
       "type": "string"
     },
     "retrieval_version": {
-      "const": "bm25-char-cosine-rrf-2",
-      "default": "bm25-char-cosine-rrf-2",
+      "const": "bm25-char-cosine-rrf-3",
+      "default": "bm25-char-cosine-rrf-3",
       "title": "Retrieval Version",
       "type": "string"
     },
@@ -495,6 +562,14 @@
       "title": "Hits",
       "type": "array"
     },
+    "citable_evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citable Evidence",
+      "type": "array",
+      "uniqueItems": true
+    },
     "excluded": {
       "default": [],
       "items": {
@@ -518,7 +593,8 @@
   "required": [
     "snapshot_hash",
     "query",
-    "hits"
+    "hits",
+    "citable_evidence"
   ],
   "title": "RetrievalResult",
   "type": "object",

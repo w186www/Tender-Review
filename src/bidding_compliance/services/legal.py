@@ -66,6 +66,7 @@ def retrieve_for_project(
         ) else "CONTEXT_INVALID"
         result = RetrievalResult(
             snapshot_hash=retriever.snapshot_hash, query=None, hits=(),
+            citable_evidence=(),
             status="context_incomplete", context_error=error,
             excluded=(Excluded(reasons=("context_incomplete",)),),
         )
@@ -75,7 +76,7 @@ def retrieve_for_project(
     run_id = str(uuid4())
     now = datetime.now(UTC)
     frozen = {
-        "schema_version": "v1alpha2", "run_id": run_id, "tenant_id": principal.tenant_id,
+        "schema_version": result.schema_version, "run_id": run_id, "tenant_id": principal.tenant_id,
         "project_id": project_id, "actor_id": principal.user_id,
         "context_version": context_version, "context": context,
         "context_hash": canonical_hash(context), "request": request.model_dump(mode="json"),
@@ -135,7 +136,7 @@ def validate_run(record: LegalRetrievalRun) -> RetrievalResult:
             "run_id", "tenant_id", "project_id", "actor_id", "context_version",
         )
     ) or any(frozen[key] != getattr(result, key) for key in (
-        "snapshot_hash", "retrieval_version", "normalization_version",
+        "schema_version", "snapshot_hash", "retrieval_version", "normalization_version",
     )):
         raise ValueError("retrieval run input/result mismatch")
     if result.query:

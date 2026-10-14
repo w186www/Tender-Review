@@ -1,5 +1,17 @@
 # TASK-0006 修订设计与D01–D07回应
 
+## 2026-10-14当前Codex续建：D03具体修复
+
+本节依据ADR-0011由当前Codex设计与自检，覆盖下文已撤销的角色关卡；历史发现和独立审查原文保留。任务仍in_progress。
+
+已复现DTO与JSON Schema同时接受reason/version_status=unverified而eligible_for_confirmation=true。修复先落正式契约：Result升v1alpha3，Query维持v1alpha2，Manifest/Index维持v1alpha1；新增正式EvidenceRef引用及citable_evidence（evidence_id集合）。Schema拒绝资格/原因/版本状态矛盾；关联字段、引用/文本哈希、字符区间、日期和集合完整性在LegalHit/RetrievalResult服务校验，不能只信Schema结构。
+
+EvidenceRef.source_uri使用artifact://legal-text/<text_hash>，source_hash同一清洗文本制品的SHA-256，locator=chars=start:end；原始官方网页URL/来源快照哈希继续独立保留在LegalHit，避免HTML哈希与清洗文本字符定位混用。读取证据须对照已冻结索引找到文本路径，受限读取并重新核验字节、定位与引用，不访问官方URL、不信任任意路径。kind由法规authority映射law/policy，未核实和未定位仍不能进入citable_evidence；双框架、局部适用等D04余项不因此关闭，最终finding仍受Evidence Checker约束。
+
+Result旧v1alpha2不能静默升级。无生产数据、无需更改表DDL；持久快照记录新结果版本。旧运行历史保留，在消费者升级前明确拒绝不兼容版本，不重写旧行。新Schema通过外部$ref引用正式evidence.schema.json，并以正式Schema校验全部生成证据。Focused覆盖法规/运行/契约与新反例；最终候选Full及真实PostgreSQL专项，不修改既有检查。
+
+本轮处理D03和D07中的同制品引用问题，D01/D02/D04/D05及D07原始HTML/PDF清洗映射余项仍需实现；不把单项修复当作TASK-0006整体完成。
+
 2026-10-14；状态：本轮修复方案c232e4bb经独立设计复审approved；完整任务仍changes_requested。原changes_requested保留在tasks/reviews/TASK-0006.md；旧草案不是已批准实现依据。此次纠正实施者自行归档，不用215项自测代替独立审查。ADR-0009为协作关卡，法规方案使用ADR-0010。
 
 ## 本轮具体设计

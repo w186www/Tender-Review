@@ -782,7 +782,7 @@
       "id": "legal-result-complete-valid",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha2",
+        "schema_version": "v1alpha3",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
           "schema_version": "v1alpha2",
@@ -797,7 +797,8 @@
         "hits": [],
         "status": "complete",
         "excluded": [],
-        "context_error": null
+        "context_error": null,
+        "citable_evidence": []
       },
       "expected_valid": true
     },
@@ -805,7 +806,7 @@
       "id": "legal-result-status-error-contradiction",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha2",
+        "schema_version": "v1alpha3",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
           "schema_version": "v1alpha2",
@@ -820,7 +821,8 @@
         "hits": [],
         "status": "complete",
         "excluded": [],
-        "context_error": "CONTEXT_INVALID"
+        "context_error": "CONTEXT_INVALID",
+        "citable_evidence": []
       },
       "expected_valid": false
     },
@@ -828,7 +830,7 @@
       "id": "legal-result-context-has-query",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha2",
+        "schema_version": "v1alpha3",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
           "schema_version": "v1alpha2",
@@ -851,7 +853,8 @@
             ]
           }
         ],
-        "context_error": "REGION_UNMAPPED"
+        "context_error": "REGION_UNMAPPED",
+        "citable_evidence": []
       },
       "expected_valid": false
     },
@@ -874,7 +877,316 @@
         "hits": [],
         "status": "complete",
         "excluded": [],
-        "context_error": null
+        "context_error": null,
+        "citable_evidence": []
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-formal-evidence-valid",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha3",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha2",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": "2020-01-01",
+            "effective_to": null,
+            "version_status": "verified_current",
+            "eligible_for_confirmation": true,
+            "reason": "valid",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+              "kind": "law",
+              "title": "合成法规",
+              "article": "第一条",
+              "quote": "第一条 合成投标保证金不得超过限额。",
+              "source_uri": "artifact://legal-text/e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "page": null,
+              "locator": "chars=5:23",
+              "effective_from": "2020-01-01",
+              "effective_to": null,
+              "version_status": "verified_current",
+              "jurisdiction": "CN/福建/福州"
+            }
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-result-unverified-confirmable",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha3",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha2",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": "2020-01-01",
+            "effective_to": null,
+            "version_status": "unverified",
+            "eligible_for_confirmation": true,
+            "reason": "unverified",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+              "kind": "law",
+              "title": "合成法规",
+              "article": "第一条",
+              "quote": "第一条 合成投标保证金不得超过限额。",
+              "source_uri": "artifact://legal-text/e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "page": null,
+              "locator": "chars=5:23",
+              "effective_from": "2020-01-01",
+              "effective_to": null,
+              "version_status": "verified_current",
+              "jurisdiction": "CN/福建/福州"
+            }
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-valid-nonconfirmable",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha3",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha2",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": "2020-01-01",
+            "effective_to": null,
+            "version_status": "verified_current",
+            "eligible_for_confirmation": false,
+            "reason": "valid",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+              "kind": "law",
+              "title": "合成法规",
+              "article": "第一条",
+              "quote": "第一条 合成投标保证金不得超过限额。",
+              "source_uri": "artifact://legal-text/e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "page": null,
+              "locator": "chars=5:23",
+              "effective_from": "2020-01-01",
+              "effective_to": null,
+              "version_status": "verified_current",
+              "jurisdiction": "CN/福建/福州"
+            }
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-missing-effective-date",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha3",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha2",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": null,
+            "effective_to": null,
+            "version_status": "verified_current",
+            "eligible_for_confirmation": true,
+            "reason": "valid",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+              "kind": "law",
+              "title": "合成法规",
+              "article": "第一条",
+              "quote": "第一条 合成投标保证金不得超过限额。",
+              "source_uri": "artifact://legal-text/e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "page": null,
+              "locator": "chars=5:23",
+              "effective_from": "2020-01-01",
+              "effective_to": null,
+              "version_status": "verified_current",
+              "jurisdiction": "CN/福建/福州"
+            }
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-arbitrary-evidence",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha3",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha2",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": "2020-01-01",
+            "effective_to": null,
+            "version_status": "verified_current",
+            "eligible_for_confirmation": true,
+            "reason": "valid",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "arbitrary": "not EvidenceRef"
+            }
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
       },
       "expected_valid": false
     }
