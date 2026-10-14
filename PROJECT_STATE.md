@@ -26,19 +26,19 @@
 
 ## 正在进行
 
-- TASK-0006继续in_progress；既有检索候选、D01–D07及历史问题保留。当前Codex已修复D03：Result v1alpha3正式EvidenceRef与资格/原因/引用/哈希/定位/日期/集合关联校验、冻结索引解析，95项Focused、真实PostgreSQL及最终Full323项通过（0失败/0错误/0跳过与两项HTTP检查），源码CI待核对；不再等待另一代理批准。M1基础验收不代表完整生产验收。
+- TASK-0006继续in_progress；既有检索候选、D01–D07及历史问题保留。当前Codex已修复D03：Result v1alpha3正式EvidenceRef与资格/原因/引用/哈希/定位/日期/集合关联校验、冻结索引解析，95项Focused、真实PostgreSQL及最终Full323项通过（0失败/0错误/0跳过与两项HTTP检查），源码f0bd827的远程38498549575全部适用作业成功，远程JUnit323/0/0/0；不再等待另一代理批准。M1基础验收不代表完整生产验收。
 
 ## 下一步
 
 1. TASK-0017已完成，修复源码68d67a80943e9c531f58ced7557d0c24938d84e9运行38496768950最终success，所有适用作业和verify-required成功，远程JUnit279/0/0/0。原38446832736失败日志已取得，根因及修复证据见TASK-0017-validation.md。
-2. 使用当前单Codex继续TASK-0006，先核对D03候选源码CI并绑定证据；随后处理D01未知上界/局部废止、D02核验修订/发布并发回滚、D04采购方式/交叉框架/条款范围、D05全局运维授权及D07原始HTML/PDF映射余项。按模块Focused，最终候选Full/专项，仅记录Quick；未完成不合入main，后续任务暂不启动。
+2. 使用当前单Codex继续TASK-0006，D03源码f0bd827及远程38498549575已核验成功并绑定证据。继续处理D01未知上界/局部废止、D02核验修订/发布并发回滚、D04采购方式/交叉框架/条款范围、D05全局运维授权及D07原始HTML/PDF映射余项。按模块Focused，最终候选Full/专项，仅记录Quick；未完成不合入main，后续任务暂不启动。
 3. 用户2026-10-14授权更新法规库；保留42份旧文本，新增司法部2019修订《实施条例》及原始HTML。旧版本保持unverified；逐项核实后才能支持确定依据。
 4. 法规核验截止2026-10-14；未来基准日须更新核验或显式参考模式，默认不沿用过期核验。
 5. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
 
-- TASK-0006 D03续建：95项Focused、真实PostgreSQL16及最终Full323项通过（JUnit0失败/0错误/0跳过，Ruff、Mypy48文件、正式契约/生成与两项实际HTTP检查）。修复Result v1alpha3正式EvidenceRef/资格矛盾/引用集合与冻结制品解析；D07同文本制品引用部分修复，原始清洗映射等余项保留。最终源码SHA/远程CI待补记，后续仅工程记录Quick，无重复Full；TASK-0006继续in_progress。
+- TASK-0006 D03续建：95项Focused、真实PostgreSQL16及最终Full323项通过（JUnit0失败/0错误/0跳过，Ruff、Mypy48文件、正式契约/生成与两项实际HTTP检查）。修复Result v1alpha3正式EvidenceRef/资格矛盾/引用集合与冻结制品解析；D07同文本制品引用部分修复，原始清洗映射等余项保留。最终源码f0bd8270d990d5e5dc6897f329a770d7db332099已推送，远程https://github.com/w186www/Tender-Review/actions/runs/38498549575 completed/success，baseline/postgres/ingestion/verify-required全部成功，下载远程JUnit核验323/0/0/0，后续仅工程记录Quick，无重复Full；TASK-0006继续in_progress。
 
 - TASK-0017已归档：初始0016b306源码本地Full277项，但远程38446832736最终failure；日志确认旧42份法规CRLF哈希与Linux LF检出不一致。修复源码68d67a80943e9c531f58ced7557d0c24938d84e9，84项Focused、真实PostgreSQL16专项和最终Full279项通过（0失败/0错误/0跳过，Mypy48源文件及两个真实HTTP检查）。远程https://github.com/w186www/Tender-Review/actions/runs/38496768950 completed/success：baseline/postgres/ingestion/verify-required全部成功，下载远程JUnit核验279/0/0/0。仅记录/归档变动后Quick通过，未重复Full。完成规则ADR-0011，证据TASK-0017-validation.md；TASK-0006没有自动完成。
 
@@ -88,3 +88,5 @@
 - 2026-10-14用户新指令覆盖之前的恢复分支限制：实现已保全迁移到work/TASK-0006；git fetch origin main核对最新main=bd2da2da984b6d1c34f3cfdb7da69e21661523be，当前任务分支已包含该提交。无force push/reset --hard，恢复分支和保全stash保留。
 - 用户本次指令由ADR-0011记录，撤销ADR-0009默认跨软件/独立代理关卡；现有实现/问题与法规ADR-0010 proposed保留。Codex按实际验收自行收尾，不能假称独立审查或自动关闭问题。
 - 不恢复DeepSeek派工或自动代理审批。当前无额外代理运行；保留历史审查的真实发现作为问题清单。
+
+本轮源码验收提交f0bd8270d990d5e5dc6897f329a770d7db332099；后续仅证据/工程记录变化，Quick，不重复Full。保全stash@{0}仍保留；任务分支未合入main，没有启动后续任务，未创建其他代理或跨软件接力。

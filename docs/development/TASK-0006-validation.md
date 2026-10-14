@@ -62,10 +62,14 @@
 |---|---|---|
 | D01 | 原半开区间与历史基准日在效状态修复保留 | 未知上界/核实无终止区分、局部废止门禁仍未完成 |
 | D02 | 原内容寻址索引与完整运行输入冻结保留 | 独立核验修订实体、全局publication/current原子发布、并发/回滚仍未完成 |
-| D03 | 本轮实现正式EvidenceRef、资格矛盾拒绝、集合引用完整性、制品/适用性解析，95项专项与真实数据库通过 | 最终Full323项通过；源码CI待补记；完整法律适用性仍取决D04，不能直接输出最终finding |
+| D03 | 本轮实现正式EvidenceRef、资格矛盾拒绝、集合引用完整性、制品/适用性解析，95项专项与真实数据库通过 | 最终Full323项通过；源码CI全部适用作业成功；完整法律适用性仍取决D04，不能直接输出最终finding |
 | D04 | 原地区注册映射、上下文显式错误、基准日/项目运行冻结保留 | 采购方式、交叉法律框架及条款级范围仍未完成 |
 | D05 | 原业务鉴权、跨租户/撤权与真实RLS保留 | 全局运维授权及发布/停用/回滚审计仍未完成 |
 | D06 | 每次独立run，无公共/租户结果缓存 | 启用缓存前须重新设计全部输入键和授权；不声称缓存性能验收 |
 | D07 | 本轮解决EvidenceRef URI/hash/locator同一文本制品，真实引用可解析；原字节哈希/84条/长条切片保留 | HTML清洗到原始字节映射、真实PDF覆盖/目录排除仍未完成 |
 
 此表为当前Codex自检，不虚称独立审查。未关闭项保留具体验收要求，TASK-0006不归档、不合入main、不启动后续任务。
+
+本轮D03最终源码候选f0bd8270d990d5e5dc6897f329a770d7db332099（分支work/TASK-0006），本地Full323项及真实PostgreSQL专项绑定该提交中的代码/契约/测试/脚本。远程新运行https://github.com/w186www/Tender-Review/actions/runs/38498549575最终completed/success：impact/baseline/postgres/ingestion/verify-required全部success，quick仅因Full选档不适用。已下载远程baseline-test-results并核验323 tests、0 failures、0 errors、0 skipped。源码之后只更新工程证据，Quick，不重复Full；之前TASK-0017的成功CI不冒作此源码证据。保全stash仍在，main未修改。
+
+最终证据记录相对f0bd827仅PROJECT_STATE、任务/自检/验证/CHANGELOG和提示文本变动，无代码/契约/数据/配置/依赖/测试/脚本变化；Quick通过。D03的本轮引用契约/解析修复有真实证据，D07仅关闭同一文本制品引用部分；全任务仍in_progress。下一步为D01未知上界/局部废止，再依次处理表中各项剩余验收，不合入main、不启动后续任务。

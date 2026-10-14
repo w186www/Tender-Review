@@ -84,5 +84,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "当前单Codex直接实施和自检；TASK-0017已完成，源码68d67a809的远程38496768950全部适用作业成功。TASK-0006续建D03：Result v1alpha3、正式EvidenceRef与citable_evidence、资格/原因/哈希/定位/日期及集合关联校验；冻结索引解析复核真实制品/适用性。95项Focused及真实PostgreSQL通过，最终Full/远程CI按最新validation记录。D01/D02/D04/D05及D07原始HTML/PDF映射等余项仍未解决，任务保持in_progress；不能把单项修复或角色取消当作全任务完成，不合入main、不启动后续任务。"
+  "handoff_notes": "当前单Codex直接实施和自检；TASK-0017已completed。TASK-0006 D03源码f0bd8270d990d5e5dc6897f329a770d7db332099：Result v1alpha3正式EvidenceRef/citable_evidence、资格/原因/哈希/定位/日期/集合关联与冻结制品/适用性解析。95项Focused、真实PostgreSQL16、最终Full323项通过；远程38498549575全部适用作业及verify-required成功，下载JUnit323/0/0/0。之后仅记录Quick。D01未知上界/局部废止、D02核验修订/发布并发回滚、D04采购方式/交叉框架/条款范围、D05全局运维授权与D07原始HTML/PDF映射仍未完成，依次继续；D06无缓存边界保留。任务in_progress，不合入main、不启动后续任务。"
 }
