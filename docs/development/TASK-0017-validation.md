@@ -35,3 +35,9 @@
 | TASK0017-002 完整门禁保留、档位不冒称完整通过 | scripts/verify.ps1、verification_impact.py、test_verification_modes.py、CI verify-required；实际26项Focused和277项Full |
 
 Full后只更新这类记录和任务归档，核对没有代码/配置/数据/契约/测试/脚本变化，再Quick即可；不再全测相同源码。远程CI按确切提交核验，当前分支work/TASK-0006，未把未收尾法规任务合入main。
+
+## 最终验收与归档
+
+源码68d67a80943e9c531f58ced7557d0c24938d84e9已推送，修复运行https://github.com/w186www/Tender-Review/actions/runs/38496768950最终completed/success，impact/baseline/postgres/ingestion/verify-required全部success。quick仅因Full选档不适用。已下载baseline-test-results并核验远程JUnit：279 tests、0 failures、0 errors、0 skipped。原失败运行38446832736保留为失败证据，未盲目重跑原运行。
+
+TASK0017-001/002均有真实证据，TASK-0017标completed并移动至tasks/completed。归档相对上述源码仅任务/验证/工程状态/提示和CHANGELOG记录变化，执行Quick，不重复Full。TASK-0006仍in_progress；既有D问题没有因本任务CI成功自动关闭。当前Codex将先处理已复现D03结果矛盾与证据关联问题；未合入main、未启动后续任务。

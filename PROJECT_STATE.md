@@ -22,21 +22,23 @@
 
 - TASK-0006：独立法规契约、来源/正文快照、有效区间与核验截止日、范围过滤、条款摄取、BM25/字符向量混合检索和项目鉴权；43版本/3120片段，新增司法部2019《实施条例》84条，实现候选已有自测。正式任务in_progress，既有问题待当前Codex按实际验收处理；本次不宣告完成。
 
+- TASK-0017：单Codex实施、Quick/Focused/Full与失败关闭CI已完成；修复跨平台CRLF检出，最终源码68d67a80943e9c531f58ced7557d0c24938d84e9本地/远程Full279项与PostgreSQL、ingestion、汇总门禁通过，归档记录用Quick。
+
 ## 正在进行
 
-- TASK-0017进行中：恢复单Codex实施与分层门禁；当前仅改工程规则/脚本/CI，未改TASK-0006业务代码。TASK-0006继续in_progress，a88f517候选与既有D问题保留，后续由Codex直接核对和修复，不再等待另一代理批准。M1基础验收不代表完整生产验收。
+- TASK-0006继续in_progress；既有检索候选、D01–D07及历史问题保留。当前Codex已复现D03：DTO/Schema接受未核实但eligible_for_confirmation=true的矛盾输入，接下来直接修复、自检及验证；不再等待另一代理批准。M1基础验收不代表完整生产验收。
 
 ## 下一步
 
-1. 先完成TASK-0017的远程核验：源码0016b306550f341f514f2d35a62c2385e968f612运行最终failure，baseline/ingestion成功，postgres/verify-required失败。已取得日志并定位42份旧法规CRLF哈希与Linux LF检出不一致；.gitattributes修复和fresh clone回归后84项Focused及真实PostgreSQL16专项通过，最终Full279项通过，新源码远程CI待核对。
-2. 使用当前单Codex继续TASK-0006，按既有D问题和局部验收核对检索状态、地区、基准日与来源等；自检如实记录，满足最终Full及专项验收才归档。后续任务暂不启动。
+1. TASK-0017已完成，修复源码68d67a80943e9c531f58ced7557d0c24938d84e9运行38496768950最终success，所有适用作业和verify-required成功，远程JUnit279/0/0/0。原38446832736失败日志已取得，根因及修复证据见TASK-0017-validation.md。
+2. 使用当前单Codex继续TASK-0006，先修D03矛盾输入、正式EvidenceRef映射与引用集合关联校验，逐项保留D01/D02/D04/D05/D07余项。按模块Focused，最终候选Full/专项，仅记录Quick；未完成不合入main，后续任务暂不启动。
 3. 用户2026-10-14授权更新法规库；保留42份旧文本，新增司法部2019修订《实施条例》及原始HTML。旧版本保持unverified；逐项核实后才能支持确定依据。
 4. 法规核验截止2026-10-14；未来基准日须更新核验或显式参考模式，默认不沿用过期核验。
 5. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
 
-- TASK-0017：本地Focused仅新增策略回归26项通过；最终候选完整Full277项、0失败/0错误/0跳过，Mypy48源文件、两个实际HTTP检查及契约/静态检查通过。源码0016b306550f341f514f2d35a62c2385e968f612已推送；远程运行https://github.com/w186www/Tender-Review/actions/runs/38446832736 最终已核对completed/failure：impact/baseline/ingestion成功，postgres/verify-required失败；失败日志已取得，根因是旧42份法规CRLF哈希与Linux LF检出不一致。修复跨平台检出规则后84项Focused与真实PostgreSQL16通过，最终候选Full279项通过（0失败/0错误/0跳过及两个真实HTTP检查），新远程CI待核对。TASK-0017仍in_progress。完成规则见ADR-0011，证据见TASK-0017-validation.md。TASK-0006不因测试通过或角色取消自动完成。
+- TASK-0017已归档：初始0016b306源码本地Full277项，但远程38446832736最终failure；日志确认旧42份法规CRLF哈希与Linux LF检出不一致。修复源码68d67a80943e9c531f58ced7557d0c24938d84e9，84项Focused、真实PostgreSQL16专项和最终Full279项通过（0失败/0错误/0跳过，Mypy48源文件及两个真实HTTP检查）。远程https://github.com/w186www/Tender-Review/actions/runs/38496768950 completed/success：baseline/postgres/ingestion/verify-required全部成功，下载远程JUnit核验279/0/0/0。仅记录/归档变动后Quick通过，未重复Full。完成规则ADR-0011，证据TASK-0017-validation.md；TASK-0006没有自动完成。
 
 - TASK-0006本轮纠正：最终完整verify.ps1通过251项、0失败/0错误/0跳过（JUnit已核对），Mypy48文件；真实HTTP健康/身份/项目/撤销通过。56项法规专项、109项组合检查通过；临时PostgreSQL16增量/重复迁移、RLS/WITH CHECK、最小权限、运行读取/撤权/触发器/完整回滚实证通过，容器已清理。两次中间失败保留在TASK-0006-validation.md；无远端CI新证据。
 

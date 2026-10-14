@@ -33,6 +33,8 @@
 
 ### Changed
 
+- TASK-0017已归档：源码68d67a809的本地/远程279项Full、真实PostgreSQL、ingestion及verify-required均通过；远程JUnit0失败/错误/跳过。TASK-0006仍进行中，D问题保留。
+
 - TASK-0017远程PostgreSQL故障定位：旧42份法规的CRLF哈希与Linux默认LF检出不一致。固定跨平台检出字节并增加真实Git克隆/全部语料哈希与定位回归，保留原文及严格哈希断言。
 
 - 用户要求恢复单Codex直接实施/自检/收尾，ADR-0011替代默认跨软件/独立代理审批；既有TASK-0006代码和问题保留。纯记录/归档改动Quick，代码候选Full，取消相同源码反复全测。
