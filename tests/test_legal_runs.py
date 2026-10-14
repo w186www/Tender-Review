@@ -35,9 +35,13 @@ from bidding_compliance.services import legal
 
 @pytest.fixture
 def system(tmp_path):
-    engine = make_engine(Settings(
-        _env_file=None, app_env="test", database_url="sqlite:///" + str(tmp_path / "runs.db"),
-    ))
+    engine = make_engine(
+        Settings(
+            _env_file=None,
+            app_env="test",
+            database_url="sqlite:///" + str(tmp_path / "runs.db"),
+        )
+    )
     # Verify a real incremental upgrade instead of creating ORM tables.
     migrate(engine, "202610131300")
     with Session(engine) as db:
@@ -46,15 +50,45 @@ def system(tmp_path):
             db.add(Tenant(tenant_id=tenant, name=tenant, active=True))
         db.flush()
         for tenant in ("a", "b"):
-            db.add(User(tenant_id=tenant, user_id="u", username="u", role="reviewer",
-                        password_hash=str(uuid4()), active=True))
+            db.add(
+                User(
+                    tenant_id=tenant,
+                    user_id="u",
+                    username="u",
+                    role="reviewer",
+                    password_hash=str(uuid4()),
+                    active=True,
+                )
+            )
         db.flush()
         for tenant in ("a", "b"):
-            db.add(AuthSession(tenant_id=tenant, user_id="u", session_id="s",
-                               expires_at=now + timedelta(hours=1), revoked=False))
-            db.add(Project(tenant_id=tenant, project_id="p", version=1, created_by="u",
-                           created_at=now, context=dict(region="福建省福州市",
-                           procurement_type="government", project_type="works", name=tenant)))
+            db.add(
+                AuthSession(
+                    tenant_id=tenant,
+                    user_id="u",
+                    session_id="s",
+                    expires_at=now + timedelta(hours=1),
+                    revoked=False,
+                )
+            )
+            db.add(
+                Project(
+                    tenant_id=tenant,
+                    project_id="p",
+                    version=1,
+                    created_by="u",
+                    created_at=now,
+                    context=dict(
+                        region="福建省福州市",
+                        procurement_type="government",
+                        project_type="works",
+                        name=tenant,
+                        procurement_method="tender",
+                        buyer_type="government_entity",
+                        subject_type="works",
+                    ),
+                )
+            )
         db.commit()
     migrate(engine)
     migrate(engine)
@@ -79,23 +113,39 @@ def principal(tenant="a"):
 
 
 def retrieve(db, retriever, day=date(2026, 10, 14)):
-    return legal.retrieve_for_project(db, principal(), "p", retriever,
-                                      text="投标保证金", review_date=day)
+    return legal.retrieve_for_project(
+        db, principal(), "p", retriever, text="投标保证金", review_date=day
+    )
 
 
-@pytest.mark.parametrize("region,expected", [
-    ("CN", "CN"), ("福建省", "CN/福建"), ("福建省福州市", "CN/福建/福州"),
-    ("CN/福建省/福州市", "CN/福建/福州"), ("CN/福建/福州", "CN/福建/福州"),
-    ("广州", "CN/广东/广州"), ("广西壮族自治区", "CN/广西"),
-])
+@pytest.mark.parametrize(
+    "region,expected",
+    [
+        ("CN", "CN"),
+        ("福建省", "CN/福建"),
+        ("福建省福州市", "CN/福建/福州"),
+        ("CN/福建省/福州市", "CN/福建/福州"),
+        ("CN/福建/福州", "CN/福建/福州"),
+        ("广州", "CN/广东/广州"),
+        ("广西壮族自治区", "CN/广西"),
+    ],
+)
 def test_registered_region_normalization(region, expected):
     assert normalize_region(region) == expected
     assert query(region=region).region == expected
 
 
-@pytest.mark.parametrize("region", [
-    "", "福建省外", "CN/不存在", "CN/广东/福州", "CN/福建/福州/鼓楼", "CN/福建/未知市",
-])
+@pytest.mark.parametrize(
+    "region",
+    [
+        "",
+        "福建省外",
+        "CN/不存在",
+        "CN/广东/福州",
+        "CN/福建/福州/鼓楼",
+        "CN/福建/未知市",
+    ],
+)
 def test_unknown_regions_fail_explicitly(region):
     with pytest.raises(ValueError, match="REGION_UNMAPPED"):
         normalize_region(region)
@@ -166,8 +216,10 @@ def test_runtime_history_is_append_only(system, action):
     engine, retriever, _ = system
     with Session(engine) as db:
         result = retrieve(db, retriever)
-        statement = update(LegalRetrievalRun).values(context_version=9) if action == "update" else (
-            delete(LegalRetrievalRun)
+        statement = (
+            update(LegalRetrievalRun).values(context_version=9)
+            if action == "update"
+            else (delete(LegalRetrievalRun))
         )
         with pytest.raises(IntegrityError, match="append-only"):
             db.execute(statement)
@@ -214,44 +266,78 @@ def test_run_and_audit_are_atomic(system, monkeypatch):
         assert list(db.scalars(select(AuditEvent))) == []
 
 
-@pytest.mark.parametrize("day,expected_reason", [
-    ("2019-12-31", "not_yet_effective"), ("2026-10-14", "expired"),
-    ("2026-10-15", "expired"),
-])
+@pytest.mark.parametrize(
+    "day,expected_reason",
+    [
+        ("2019-12-31", "not_yet_effective"),
+        ("2026-10-14", "expired"),
+        ("2026-10-15", "expired"),
+    ],
+)
 def test_excluded_time_boundaries(tmp_path, day, expected_reason):
-    index = ingest(tmp_path, LegalManifest(versions=(version(
-        tmp_path, effective_to="2026-10-14",
-    ),)))
+    index = ingest(
+        tmp_path,
+        LegalManifest(
+            versions=(
+                version(
+                    tmp_path,
+                    effective_to="2026-10-14",
+                ),
+            )
+        ),
+    )
     result = LegalRetriever(index).search(query(review_date=day))
     assert not result.hits
     assert expected_reason in result.excluded[0].reasons
 
 
 def test_start_and_pre_end_are_current_not_historical(tmp_path):
-    index = ingest(tmp_path, LegalManifest(versions=(version(
-        tmp_path, effective_to="2026-10-14",
-    ),)))
+    index = ingest(
+        tmp_path,
+        LegalManifest(
+            versions=(
+                version(
+                    tmp_path,
+                    effective_to="2026-10-14",
+                ),
+            )
+        ),
+    )
     for day in ("2020-01-01", "2026-10-13"):
         result = LegalRetriever(index).search(query(review_date=day))
         assert result.hits[0].version_status == "verified_current"
 
 
 def test_excluded_scope_and_unverified_are_both_visible(tmp_path):
-    index = ingest(tmp_path, LegalManifest(versions=(version(
-        tmp_path, verification="unverified", verified_through=None,
-    ),)))
+    index = ingest(
+        tmp_path,
+        LegalManifest(
+            versions=(
+                version(
+                    tmp_path,
+                    verification="unverified",
+                    verified_through=None,
+                ),
+            )
+        ),
+    )
     result = LegalRetriever(index).search(query(region="CN/广东", procurement_type="enterprise"))
     assert not result.hits
     assert set(result.excluded[0].reasons) == {
-        "jurisdiction_mismatch", "procurement_mismatch", "unverified",
+        "jurisdiction_mismatch",
+        "procurement_mismatch",
+        "unverified",
     }
 
 
-@pytest.mark.parametrize("change", [
-    {"context_error": "CONTEXT_INVALID"},
-    {"status": "context_incomplete", "context_error": "REGION_UNMAPPED"},
-    {"schema_version": "v1alpha1"},
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"context_error": "CONTEXT_INVALID"},
+        {"status": "context_incomplete", "context_error": "REGION_UNMAPPED"},
+        {"schema_version": "v1alpha1"},
+    ],
+)
 def test_result_contradictions_and_old_version_rejected(tmp_path, change):
     index = ingest(tmp_path, LegalManifest(versions=(version(tmp_path),)))
     payload = LegalRetriever(index).search(query()).model_dump(mode="json")

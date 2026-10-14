@@ -25,16 +25,40 @@ REGION_VALUES: list[JsonValue] = [value for value in sorted(set(ALIASES.values()
 Digest = str
 Procurement = Literal["government", "enterprise", "other"]
 ProjectType = Literal["works", "goods", "services"]
+Method = Literal["tender", "non_tender"]
+Buyer = Literal["government_entity", "enterprise", "other"]
+Subject = Literal["works", "works_related_goods", "works_related_services", "goods", "services"]
+Framework = Literal["tendering", "government_procurement"]
 Reason = Literal[
-    "valid", "unverified", "outside_verification_horizon", "unlocated",
-    "unknown_end", "clause_unverified", "extraction_unverified",
+    "valid",
+    "unverified",
+    "outside_verification_horizon",
+    "unlocated",
+    "unknown_end",
+    "clause_unverified",
+    "extraction_unverified",
+    "applicability_unverified",
 ]
 VersionStatus = Literal["verified_current", "verified_historical", "unverified"]
 ExclusionReason = Literal[
-    "not_yet_effective", "expired", "jurisdiction_mismatch", "procurement_mismatch",
-    "project_type_mismatch", "unverified", "outside_verification_horizon",
-    "unlocated", "no_text_match", "context_incomplete", "unknown_end", "clause_unverified",
+    "not_yet_effective",
+    "expired",
+    "jurisdiction_mismatch",
+    "procurement_mismatch",
+    "project_type_mismatch",
+    "unverified",
+    "outside_verification_horizon",
+    "unlocated",
+    "no_text_match",
+    "context_incomplete",
+    "unknown_end",
+    "clause_unverified",
     "extraction_unverified",
+    "applicability_unverified",
+    "method_mismatch",
+    "buyer_mismatch",
+    "subject_mismatch",
+    "framework_mismatch",
 ]
 
 
@@ -59,6 +83,29 @@ class ClauseEffect(Closed):
         return self
 
 
+class Applicability(Closed):
+    procurement_methods: tuple[Method, ...] = Field(min_length=1, max_length=2)
+    buyer_types: tuple[Buyer, ...] = Field(min_length=1, max_length=3)
+    subject_types: tuple[Subject, ...] = Field(min_length=1, max_length=5)
+    legal_frameworks: tuple[Framework, ...] = Field(min_length=1, max_length=2)
+    jurisdictions: tuple[str, ...] | None = None
+    procurement_types: tuple[Procurement, ...] | None = None
+    project_types: tuple[ProjectType, ...] | None = None
+
+    @field_validator("jurisdictions")
+    @classmethod
+    def valid_scope_regions(cls, values: tuple[str, ...] | None) -> tuple[str, ...] | None:
+        if values == ():
+            raise ValueError("empty jurisdiction restriction")
+        return tuple(normalize_region(x) for x in values) if values else None
+
+
+class ClauseScope(Closed):
+    article: str = Field(min_length=1, max_length=200)
+    scope: Applicability
+    note: str = Field(min_length=1, max_length=2000)
+
+
 class LegalVersion(Closed):
     law_id: str = Field(min_length=1, max_length=128)
     title: str = Field(min_length=1, max_length=500)
@@ -78,6 +125,8 @@ class LegalVersion(Closed):
     source_format: Literal["text", "moj_html", "pdf"] = "text"
     extraction_header: str = Field(default="", max_length=2000)
     expected_articles: tuple[str, ...] | None = None
+    applicability: Applicability | None = None
+    clause_scopes: tuple[ClauseScope, ...] = ()
     jurisdictions: tuple[str, ...] = Field(min_length=1, max_length=50)
     procurement_types: tuple[Procurement, ...] = Field(min_length=1, max_length=3)
     project_types: tuple[ProjectType, ...] = Field(min_length=1, max_length=3)
@@ -93,8 +142,11 @@ class LegalVersion(Closed):
     def valid_metadata(self) -> Self:
         url = urlsplit(self.source_uri)
         if (
-            url.scheme not in {"https", "http"} or not url.hostname
-            or not url.hostname.endswith(".gov.cn") or url.username or url.password
+            url.scheme not in {"https", "http"}
+            or not url.hostname
+            or not url.hostname.endswith(".gov.cn")
+            or url.username
+            or url.password
             or (self.verification == "verified" and url.scheme != "https")
         ):
             raise ValueError("official source required; verified sources require HTTPS")
@@ -103,7 +155,8 @@ class LegalVersion(Closed):
         if (self.end_status == "confirmed_end") != (self.effective_to is not None):
             raise ValueError("version end status/date mismatch")
         if self.verification == "verified" and (
-            not self.effective_from or not self.verified_through
+            not self.effective_from
+            or not self.verified_through
             or self.verified_through < self.effective_from
             or self.authority == "reference"
         ):
@@ -113,6 +166,9 @@ class LegalVersion(Closed):
         articles = [x.article for x in self.clause_effects]
         if len(articles) != len(set(articles)):
             raise ValueError("duplicate clause effect")
+        scope_articles = [x.article for x in self.clause_scopes]
+        if len(scope_articles) != len(set(scope_articles)):
+            raise ValueError("duplicate clause scope")
         for effect in self.clause_effects:
             starts = [x for x in (effect.effective_from, self.effective_from) if x is not None]
             start = max(starts) if starts else None
@@ -123,7 +179,7 @@ class LegalVersion(Closed):
 
 
 class LegalManifest(Closed):
-    schema_version: Literal["v1alpha2"] = "v1alpha2"
+    schema_version: Literal["v1alpha3"] = "v1alpha3"
     versions: tuple[LegalVersion, ...] = Field(min_length=1, max_length=1000)
 
     @model_validator(mode="after")
@@ -132,16 +188,15 @@ class LegalManifest(Closed):
         if len(keys) != len(set(keys)):
             raise ValueError("duplicate legal version")
         for i, left in enumerate(self.versions):
-            for right in self.versions[i + 1:]:
+            for right in self.versions[i + 1 :]:
                 if left.law_id != right.law_id:
                     continue
                 if left.verification != "verified" or right.verification != "verified":
                     continue
                 if left.effective_from is None or right.effective_from is None:
                     raise ValueError("verified interval missing")
-                if (
-                    (left.effective_to is None or right.effective_from < left.effective_to)
-                    and (right.effective_to is None or left.effective_from < right.effective_to)
+                if (left.effective_to is None or right.effective_from < left.effective_to) and (
+                    right.effective_to is None or left.effective_from < right.effective_to
                 ):
                     raise ValueError("overlapping verified versions")
         return self
@@ -175,7 +230,9 @@ class SourceSpan(Closed):
             if self.byte_start is None or self.byte_end is None or self.byte_end <= self.byte_start:
                 raise ValueError("source byte span required")
         elif self.kind == "pdf_glyph" and (
-            self.page is None or self.bbox is None or self.bbox[2] < self.bbox[0]
+            self.page is None
+            or self.bbox is None
+            or self.bbox[2] < self.bbox[0]
             or self.bbox[3] < self.bbox[1]
         ):
             raise ValueError("PDF page/glyph box required")
@@ -219,8 +276,8 @@ class SourceExtractionResult(Closed):
 
 
 class LegalIndex(Closed):
-    schema_version: Literal["v1alpha3"] = "v1alpha3"
-    pipeline_version: Literal["legal-ingestion-3"] = "legal-ingestion-3"
+    schema_version: Literal["v1alpha4"] = "v1alpha4"
+    pipeline_version: Literal["legal-ingestion-4"] = "legal-ingestion-4"
     manifest: LegalManifest
     clauses: tuple[LegalClause, ...] = Field(min_length=1, max_length=50000)
     source_maps: tuple[SourceMap, ...]
@@ -235,13 +292,62 @@ class RetrievalInput(Closed):
 
 
 class RetrievalQuery(RetrievalInput):
-    schema_version: Literal["v1alpha2"] = "v1alpha2"
+    schema_version: Literal["v1alpha3"] = "v1alpha3"
     region: str = Field(
-        min_length=1, max_length=200,
+        min_length=1,
+        max_length=200,
         json_schema_extra={"enum": REGION_VALUES},
     )
     procurement_type: Procurement
     project_type: ProjectType
+    procurement_method: Method
+    buyer_type: Buyer
+    subject_type: Subject
+    legal_frameworks: tuple[Framework, ...] = Field(default=(), max_length=2)
+
+    @model_validator(mode="after")
+    def consistent_context(self) -> Self:
+        expected_subject = {
+            "works": "works",
+            "works_related_goods": "goods",
+            "works_related_services": "services",
+            "goods": "goods",
+            "services": "services",
+        }[self.subject_type]
+        if expected_subject != self.project_type:
+            raise ValueError("CONTEXT_INVALID: subject/project mismatch")
+        expected_buyer = {
+            "government": "government_entity",
+            "enterprise": "enterprise",
+            "other": "other",
+        }[self.procurement_type]
+        if self.buyer_type != expected_buyer:
+            raise ValueError("CONTEXT_INVALID: buyer/procurement mismatch")
+        frameworks: tuple[Framework, ...]
+        if self.procurement_type == "government":
+            frameworks = (
+                ("tendering", "government_procurement")
+                if (
+                    self.procurement_method == "tender"
+                    and self.subject_type
+                    in {
+                        "works",
+                        "works_related_goods",
+                        "works_related_services",
+                    }
+                )
+                else ("government_procurement",)
+            )
+        elif self.procurement_type == "enterprise":
+            frameworks = ("tendering",) if self.procurement_method == "tender" else ()
+        else:
+            frameworks = self.legal_frameworks
+        if not frameworks or (self.legal_frameworks and self.legal_frameworks != frameworks):
+            raise ValueError("CONTEXT_INVALID: confirmed consistent legal frameworks required")
+        if len(set(frameworks)) != len(frameworks):
+            raise ValueError("CONTEXT_INVALID: duplicate framework")
+        object.__setattr__(self, "legal_frameworks", frameworks)
+        return self
 
     @field_validator("region")
     @classmethod
@@ -268,25 +374,42 @@ class EvidenceRef(Closed):
 
 
 class LegalHit(Closed):
-    model_config = ConfigDict(json_schema_extra={
-        "allOf": [{
-            "if": {"properties": {"eligible_for_confirmation": {"const": True}},
-                   "required": ["eligible_for_confirmation"]},
-            "then": {"properties": {
-                "reason": {"const": "valid"},
-                "version_status": {"const": "verified_current"},
-                "article": {"type": "string", "minLength": 1},
-                "effective_from": {"type": "string", "format": "date"},
-            }},
-            "else": {"properties": {
-                "reason": {"enum": [
-                    "unverified", "outside_verification_horizon", "unlocated",
-                    "unknown_end", "clause_unverified", "extraction_unverified",
-                ]},
-                "version_status": {"const": "unverified"},
-            }},
-        }],
-    })
+    model_config = ConfigDict(
+        json_schema_extra={
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {"eligible_for_confirmation": {"const": True}},
+                        "required": ["eligible_for_confirmation"],
+                    },
+                    "then": {
+                        "properties": {
+                            "reason": {"const": "valid"},
+                            "version_status": {"const": "verified_current"},
+                            "article": {"type": "string", "minLength": 1},
+                            "effective_from": {"type": "string", "format": "date"},
+                        }
+                    },
+                    "else": {
+                        "properties": {
+                            "reason": {
+                                "enum": [
+                                    "unverified",
+                                    "outside_verification_horizon",
+                                    "unlocated",
+                                    "unknown_end",
+                                    "clause_unverified",
+                                    "extraction_unverified",
+                                    "applicability_unverified",
+                                ]
+                            },
+                            "version_status": {"const": "unverified"},
+                        }
+                    },
+                }
+            ],
+        }
+    )
     evidence_id: str = Field(pattern=r"^[a-f0-9]{64}$")
     law_id: str = Field(min_length=1, max_length=128)
     title: str = Field(min_length=1, max_length=500)
@@ -303,10 +426,16 @@ class LegalHit(Closed):
     version_status: VersionStatus
     eligible_for_confirmation: bool = Field(strict=True)
     reason: Reason
+    applicable_frameworks: tuple[Framework, ...]
     score: float = Field(ge=0)
-    evidence: Annotated[EvidenceRef, WithJsonSchema({
-        "$ref": "https://bidding-compliance.local/schemas/evidence.schema.json",
-    })]
+    evidence: Annotated[
+        EvidenceRef,
+        WithJsonSchema(
+            {
+                "$ref": "https://bidding-compliance.local/schemas/evidence.schema.json",
+            }
+        ),
+    ]
 
     @model_validator(mode="after")
     def consistent_evidence(self) -> Self:
@@ -317,6 +446,8 @@ class LegalHit(Closed):
             raise ValueError("legal evidence eligibility mismatch")
         if eligible and (not self.article or self.effective_from is None):
             raise ValueError("confirmable legal evidence requires article and effective date")
+        if eligible and not self.applicable_frameworks:
+            raise ValueError("confirmable legal evidence requires applicable framework")
         if self.effective_to and self.effective_from and self.effective_to <= self.effective_from:
             raise ValueError("legal evidence interval mismatch")
         match = re.fullmatch(r"(.+)#chars=([0-9]+):([0-9]+)", self.locator)
@@ -326,14 +457,21 @@ class LegalHit(Closed):
             raise ValueError("legal quotation hash mismatch")
         evidence = self.evidence
         expected = {
-            "evidence_id": self.evidence_id, "title": self.title, "article": self.article,
-            "quote": self.quote, "source_uri": "artifact://legal-text/" + self.text_hash,
-            "source_hash": self.text_hash, "locator": f"chars={match[2]}:{match[3]}",
-            "effective_from": self.effective_from, "effective_to": self.effective_to,
+            "evidence_id": self.evidence_id,
+            "title": self.title,
+            "article": self.article,
+            "quote": self.quote,
+            "source_uri": "artifact://legal-text/" + self.text_hash,
+            "source_hash": self.text_hash,
+            "locator": f"chars={match[2]}:{match[3]}",
+            "effective_from": self.effective_from,
+            "effective_to": self.effective_to,
             "version_status": self.version_status,
         }
-        if evidence.kind not in {"law", "policy"} or evidence.page is not None or any(
-            getattr(evidence, key) != value for key, value in expected.items()
+        if (
+            evidence.kind not in {"law", "policy"}
+            or evidence.page is not None
+            or any(getattr(evidence, key) != value for key, value in expected.items())
         ):
             raise ValueError("formal evidence association mismatch")
         return self
@@ -360,28 +498,39 @@ class RunSnapshot(Closed):
 
 
 class RetrievalResult(Closed):
-    model_config = ConfigDict(json_schema_extra={
-        "allOf": [
-            {
-                "if": {"properties": {"status": {"const": "context_incomplete"}},
-                       "required": ["status"]},
-                "then": {"properties": {
-                    "query": {"type": "null"}, "hits": {"maxItems": 0},
-                    "context_error": {"enum": ["REGION_UNMAPPED", "CONTEXT_INVALID"]},
-                    "excluded": {"minItems": 1},
-                }, "required": ["context_error", "excluded"]},
-            },
-            {
-                "if": {"properties": {"status": {"const": "complete"}}},
-                "then": {"properties": {
-                    "query": {"type": "object"}, "context_error": {"type": "null"},
-                }},
-            },
-        ],
-    })
-    schema_version: Literal["v1alpha4"] = "v1alpha4"
+    model_config = ConfigDict(
+        json_schema_extra={
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {"status": {"const": "context_incomplete"}},
+                        "required": ["status"],
+                    },
+                    "then": {
+                        "properties": {
+                            "query": {"type": "null"},
+                            "hits": {"maxItems": 0},
+                            "context_error": {"enum": ["REGION_UNMAPPED", "CONTEXT_INVALID"]},
+                            "excluded": {"minItems": 1},
+                        },
+                        "required": ["context_error", "excluded"],
+                    },
+                },
+                {
+                    "if": {"properties": {"status": {"const": "complete"}}},
+                    "then": {
+                        "properties": {
+                            "query": {"type": "object"},
+                            "context_error": {"type": "null"},
+                        }
+                    },
+                },
+            ],
+        }
+    )
+    schema_version: Literal["v1alpha5"] = "v1alpha5"
     snapshot_hash: Digest = Field(pattern=r"^[a-f0-9]{64}$")
-    retrieval_version: Literal["bm25-char-cosine-rrf-4"] = "bm25-char-cosine-rrf-4"
+    retrieval_version: Literal["bm25-char-cosine-rrf-5"] = "bm25-char-cosine-rrf-5"
     normalization_version: Literal["cn-regions-1"] = "cn-regions-1"
     status: Literal["complete", "context_incomplete"] = "complete"
     context_error: Literal["REGION_UNMAPPED", "CONTEXT_INVALID"] | None = None
@@ -412,9 +561,8 @@ class RetrievalResult(Closed):
                     raise ValueError("reference evidence requires explicit reference mode")
                 if hit.evidence.jurisdiction != self.query.region:
                     raise ValueError("evidence jurisdiction mismatch")
-                if (
-                    (hit.effective_from and self.query.review_date < hit.effective_from)
-                    or (hit.effective_to and self.query.review_date >= hit.effective_to)
+                if (hit.effective_from and self.query.review_date < hit.effective_from) or (
+                    hit.effective_to and self.query.review_date >= hit.effective_to
                 ):
                     raise ValueError("evidence is outside review date interval")
         if self.run_snapshot and self.query:

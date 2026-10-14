@@ -716,7 +716,10 @@
         "procurement_type": "government",
         "project_type": "works",
         "limit": 5,
-        "include_references": false
+        "include_references": false,
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
       },
       "expected_valid": true
     },
@@ -730,7 +733,10 @@
         "procurement_type": "government",
         "project_type": "works",
         "limit": 5,
-        "include_references": false
+        "include_references": false,
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
       },
       "expected_valid": false
     },
@@ -745,7 +751,10 @@
         "project_type": "works",
         "limit": 5,
         "include_references": false,
-        "tenant_id": "synthetic"
+        "tenant_id": "synthetic",
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
       },
       "expected_valid": false
     },
@@ -759,7 +768,10 @@
         "procurement_type": "government",
         "project_type": "works",
         "limit": 0,
-        "include_references": false
+        "include_references": false,
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
       },
       "expected_valid": false
     },
@@ -767,14 +779,17 @@
       "id": "legal-query-unknown-region",
       "schema": "contracts/schemas/legal-query.schema.json",
       "data": {
-        "schema_version": "v1alpha2",
+        "schema_version": "v1alpha3",
         "text": "合成保证金",
         "review_date": "2026-10-14",
         "region": "未知区域",
         "procurement_type": "government",
         "project_type": "works",
         "limit": 5,
-        "include_references": false
+        "include_references": false,
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
       },
       "expected_valid": false
     },
@@ -782,17 +797,20 @@
       "id": "legal-result-complete-valid",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha4",
+        "schema_version": "v1alpha5",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "text": "合成保证金",
           "review_date": "2026-10-14",
           "region": "CN/福建/福州",
           "procurement_type": "government",
           "project_type": "works",
           "limit": 5,
-          "include_references": false
+          "include_references": false,
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [],
         "status": "complete",
@@ -806,17 +824,20 @@
       "id": "legal-result-status-error-contradiction",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha4",
+        "schema_version": "v1alpha5",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "text": "合成保证金",
           "review_date": "2026-10-14",
           "region": "CN/福建/福州",
           "procurement_type": "government",
           "project_type": "works",
           "limit": 5,
-          "include_references": false
+          "include_references": false,
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [],
         "status": "complete",
@@ -830,17 +851,20 @@
       "id": "legal-result-context-has-query",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha4",
+        "schema_version": "v1alpha5",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "text": "合成保证金",
           "review_date": "2026-10-14",
           "region": "CN/福建/福州",
           "procurement_type": "government",
           "project_type": "works",
           "limit": 5,
-          "include_references": false
+          "include_references": false,
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [],
         "status": "context_incomplete",
@@ -865,14 +889,17 @@
         "schema_version": "v1alpha1",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "text": "合成保证金",
           "review_date": "2026-10-14",
           "region": "CN/福建/福州",
           "procurement_type": "government",
           "project_type": "works",
           "limit": 5,
-          "include_references": false
+          "include_references": false,
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [],
         "status": "complete",
@@ -886,9 +913,9 @@
       "id": "legal-result-formal-evidence-valid",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha4",
+        "schema_version": "v1alpha5",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-4",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -897,10 +924,13 @@
           "review_date": "2026-10-14",
           "limit": 10,
           "include_references": true,
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "region": "CN/福建/福州",
           "procurement_type": "government",
-          "project_type": "works"
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [
           {
@@ -935,7 +965,10 @@
               "effective_to": null,
               "version_status": "verified_current",
               "jurisdiction": "CN/福建/福州"
-            }
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
           }
         ],
         "citable_evidence": [
@@ -950,9 +983,9 @@
       "id": "legal-result-unverified-confirmable",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha4",
+        "schema_version": "v1alpha5",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-4",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -961,10 +994,13 @@
           "review_date": "2026-10-14",
           "limit": 10,
           "include_references": true,
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "region": "CN/福建/福州",
           "procurement_type": "government",
-          "project_type": "works"
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [
           {
@@ -999,7 +1035,10 @@
               "effective_to": null,
               "version_status": "verified_current",
               "jurisdiction": "CN/福建/福州"
-            }
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
           }
         ],
         "citable_evidence": [
@@ -1014,9 +1053,9 @@
       "id": "legal-result-valid-nonconfirmable",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha4",
+        "schema_version": "v1alpha5",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-4",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -1025,10 +1064,13 @@
           "review_date": "2026-10-14",
           "limit": 10,
           "include_references": true,
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "region": "CN/福建/福州",
           "procurement_type": "government",
-          "project_type": "works"
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [
           {
@@ -1063,7 +1105,10 @@
               "effective_to": null,
               "version_status": "verified_current",
               "jurisdiction": "CN/福建/福州"
-            }
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
           }
         ],
         "citable_evidence": [
@@ -1078,9 +1123,9 @@
       "id": "legal-result-missing-effective-date",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha4",
+        "schema_version": "v1alpha5",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-4",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -1089,10 +1134,13 @@
           "review_date": "2026-10-14",
           "limit": 10,
           "include_references": true,
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "region": "CN/福建/福州",
           "procurement_type": "government",
-          "project_type": "works"
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [
           {
@@ -1127,7 +1175,10 @@
               "effective_to": null,
               "version_status": "verified_current",
               "jurisdiction": "CN/福建/福州"
-            }
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
           }
         ],
         "citable_evidence": [
@@ -1142,9 +1193,9 @@
       "id": "legal-result-arbitrary-evidence",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha4",
+        "schema_version": "v1alpha5",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-4",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -1153,10 +1204,13 @@
           "review_date": "2026-10-14",
           "limit": 10,
           "include_references": true,
-          "schema_version": "v1alpha2",
+          "schema_version": "v1alpha3",
           "region": "CN/福建/福州",
           "procurement_type": "government",
-          "project_type": "works"
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
         },
         "hits": [
           {
@@ -1179,7 +1233,10 @@
             "score": 0.03278688524590164,
             "evidence": {
               "arbitrary": "not EvidenceRef"
-            }
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
           }
         ],
         "citable_evidence": [

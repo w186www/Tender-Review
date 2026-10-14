@@ -54,7 +54,12 @@
               "context_incomplete",
               "unknown_end",
               "clause_unverified",
-              "extraction_unverified"
+              "extraction_unverified",
+              "applicability_unverified",
+              "method_mismatch",
+              "buyer_mismatch",
+              "subject_mismatch",
+              "framework_mismatch"
             ],
             "type": "string"
           },
@@ -82,7 +87,8 @@
                   "unlocated",
                   "unknown_end",
                   "clause_unverified",
-                  "extraction_unverified"
+                  "extraction_unverified",
+                  "applicability_unverified"
                 ]
               },
               "version_status": {
@@ -234,10 +240,22 @@
             "unlocated",
             "unknown_end",
             "clause_unverified",
-            "extraction_unverified"
+            "extraction_unverified",
+            "applicability_unverified"
           ],
           "title": "Reason",
           "type": "string"
+        },
+        "applicable_frameworks": {
+          "items": {
+            "enum": [
+              "tendering",
+              "government_procurement"
+            ],
+            "type": "string"
+          },
+          "title": "Applicable Frameworks",
+          "type": "array"
         },
         "score": {
           "minimum": 0,
@@ -265,6 +283,7 @@
         "version_status",
         "eligible_for_confirmation",
         "reason",
+        "applicable_frameworks",
         "score",
         "evidence"
       ],
@@ -298,8 +317,8 @@
           "type": "boolean"
         },
         "schema_version": {
-          "const": "v1alpha2",
-          "default": "v1alpha2",
+          "const": "v1alpha3",
+          "default": "v1alpha3",
           "title": "Schema Version",
           "type": "string"
         },
@@ -374,6 +393,47 @@
           ],
           "title": "Project Type",
           "type": "string"
+        },
+        "procurement_method": {
+          "enum": [
+            "tender",
+            "non_tender"
+          ],
+          "title": "Procurement Method",
+          "type": "string"
+        },
+        "buyer_type": {
+          "enum": [
+            "government_entity",
+            "enterprise",
+            "other"
+          ],
+          "title": "Buyer Type",
+          "type": "string"
+        },
+        "subject_type": {
+          "enum": [
+            "works",
+            "works_related_goods",
+            "works_related_services",
+            "goods",
+            "services"
+          ],
+          "title": "Subject Type",
+          "type": "string"
+        },
+        "legal_frameworks": {
+          "default": [],
+          "items": {
+            "enum": [
+              "tendering",
+              "government_procurement"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "title": "Legal Frameworks",
+          "type": "array"
         }
       },
       "required": [
@@ -381,7 +441,10 @@
         "review_date",
         "region",
         "procurement_type",
-        "project_type"
+        "project_type",
+        "procurement_method",
+        "buyer_type",
+        "subject_type"
       ],
       "title": "RetrievalQuery",
       "type": "object"
@@ -519,8 +582,8 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "v1alpha4",
-      "default": "v1alpha4",
+      "const": "v1alpha5",
+      "default": "v1alpha5",
       "title": "Schema Version",
       "type": "string"
     },
@@ -530,8 +593,8 @@
       "type": "string"
     },
     "retrieval_version": {
-      "const": "bm25-char-cosine-rrf-4",
-      "default": "bm25-char-cosine-rrf-4",
+      "const": "bm25-char-cosine-rrf-5",
+      "default": "bm25-char-cosine-rrf-5",
       "title": "Retrieval Version",
       "type": "string"
     },

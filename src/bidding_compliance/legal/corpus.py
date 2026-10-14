@@ -193,6 +193,8 @@ def ingest(
             raise ValueError("legal article coverage mismatch")
         if any(effect.article not in articles for effect in version.clause_effects):
             raise ValueError("clause effect refers to a missing article")
+        if any(scope.article not in articles for scope in version.clause_scopes):
+            raise ValueError("clause scope refers to a missing article")
         clauses.extend(pieces)
         origin = map_source(raw, source, version, extractor)
         if any(span.kind == "header" and any(
@@ -257,13 +259,19 @@ def resolve_evidence(root: Path, index: LegalIndex, hit: LegalHit, query: Retrie
     ):
         raise ValueError("evidence does not match frozen legal index")
     # Resolve the date/scope against frozen metadata, not against a caller's eligibility flag.
-    from .retrieval import clause_exclusions, clause_window, confirmation_reason
+    from .retrieval import (
+        applicable_frameworks,
+        clause_exclusions,
+        clause_window,
+        confirmation_reason,
+    )
 
     reason = confirmation_reason(version, clause.article, query)
     start, end, _, _ = clause_window(version, clause.article)
     if (
         clause_exclusions(version, clause.article, query) or hit.reason != reason
         or hit.effective_from != start or hit.effective_to != end
+        or hit.applicable_frameworks != applicable_frameworks(version, clause.article, query)
         or hit.evidence.jurisdiction != query.region
         or (reason != "valid" and not query.include_references)
     ):

@@ -25,8 +25,8 @@
       "type": "boolean"
     },
     "schema_version": {
-      "const": "v1alpha2",
-      "default": "v1alpha2",
+      "const": "v1alpha3",
+      "default": "v1alpha3",
       "title": "Schema Version",
       "type": "string"
     },
@@ -101,6 +101,47 @@
       ],
       "title": "Project Type",
       "type": "string"
+    },
+    "procurement_method": {
+      "enum": [
+        "tender",
+        "non_tender"
+      ],
+      "title": "Procurement Method",
+      "type": "string"
+    },
+    "buyer_type": {
+      "enum": [
+        "government_entity",
+        "enterprise",
+        "other"
+      ],
+      "title": "Buyer Type",
+      "type": "string"
+    },
+    "subject_type": {
+      "enum": [
+        "works",
+        "works_related_goods",
+        "works_related_services",
+        "goods",
+        "services"
+      ],
+      "title": "Subject Type",
+      "type": "string"
+    },
+    "legal_frameworks": {
+      "default": [],
+      "items": {
+        "enum": [
+          "tendering",
+          "government_procurement"
+        ],
+        "type": "string"
+      },
+      "maxItems": 2,
+      "title": "Legal Frameworks",
+      "type": "array"
     }
   },
   "required": [
@@ -108,7 +149,10 @@
     "review_date",
     "region",
     "procurement_type",
-    "project_type"
+    "project_type",
+    "procurement_method",
+    "buyer_type",
+    "subject_type"
   ],
   "title": "RetrievalQuery",
   "type": "object",

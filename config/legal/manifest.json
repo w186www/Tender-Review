@@ -1,5 +1,5 @@
 {
-  "schema_version": "v1alpha2",
+  "schema_version": "v1alpha3",
   "versions": [
     {
       "law_id": "4e7223995c70401b200954e1",
@@ -1329,7 +1329,7 @@
         "works"
       ],
       "authority": "regulation",
-      "verification_note": "司法部国家行政法规库LawID=339原始HTML，修订沿革至2019-03-02；提取完整84条并逐项定位。仅启用工程范围，其他范围待单独审定；核验截止2026-10-14，禁止据此承诺未来效力。；2026-10-14核对司法部现行有效库及北京发改委2019修订页现行有效标注，未发现整部终止日期；此确认仅截至verified_through，不表示永久有效。",
+      "verification_note": "司法部国家行政法规库LawID=339原始HTML，修订沿革至2019-03-02；提取完整84条并逐项定位。仅启用工程范围，其他范围待单独审定；核验截止2026-10-14，禁止据此承诺未来效力。；2026-10-14核对司法部现行有效库及北京发改委2019修订页现行有效标注，未发现整部终止日期；此确认仅截至verified_through，不表示永久有效。；采购方式限定招标，采购对象仅工程；采购政策交叉条款须按条款范围另行核验，不自动扩张至货物/服务。",
       "end_status": "confirmed_open",
       "source_format": "moj_html",
       "extraction_header": "法规名称：中华人民共和国招标投标法实施条例\n版本说明：2019年第三次修订\n来源：https://xzfg.moj.gov.cn/front/law/detail?LawID=339&Query=\n抓取日期：2026-10-14\n------------------------------------------------------------\n",
@@ -1418,7 +1418,23 @@
         "第八十二条",
         "第八十三条",
         "第八十四条"
-      ]
+      ],
+      "applicability": {
+        "procurement_methods": [
+          "tender"
+        ],
+        "buyer_types": [
+          "government_entity",
+          "enterprise",
+          "other"
+        ],
+        "subject_types": [
+          "works"
+        ],
+        "legal_frameworks": [
+          "tendering"
+        ]
+      }
     }
   ]
 }

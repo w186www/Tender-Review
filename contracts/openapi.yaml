@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.4.0
+  version: 0.5.0
   description: v1alpha2 开发契约；所有业务接口要求租户范围和审计关联 ID。
 servers:
 - url: /api/v1
@@ -1094,6 +1094,43 @@ components:
           - string
           - 'null'
           maxLength: 1000
+        procurement_method: &id001
+          default: unknown
+          enum:
+          - tender
+          - non_tender
+          - unknown
+          title: Procurement Method
+          type: string
+        buyer_type: &id002
+          default: unknown
+          enum:
+          - government_entity
+          - enterprise
+          - other
+          - unknown
+          title: Buyer Type
+          type: string
+        subject_type: &id003
+          default: unknown
+          enum:
+          - works
+          - works_related_goods
+          - works_related_services
+          - goods
+          - services
+          - unknown
+          title: Subject Type
+          type: string
+        legal_frameworks: &id004
+          items:
+            enum:
+            - tendering
+            - government_procurement
+            type: string
+          maxItems: 2
+          title: Legal Frameworks
+          type: array
     ProjectCreate:
       allOf:
       - $ref: '#/components/schemas/ProjectFields'
@@ -1685,6 +1722,10 @@ components:
           - type: 'null'
           default: null
           title: Applicable System
+        procurement_method: *id001
+        buyer_type: *id002
+        subject_type: *id003
+        legal_frameworks: *id004
       required:
       - name
       - procurement_type

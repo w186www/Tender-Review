@@ -5,5 +5,8 @@
   "procurement_type": "government",
   "project_type": "works",
   "limit": 5,
-  "include_references": false
+  "include_references": false,
+  "procurement_method": "tender",
+  "buyer_type": "government_entity",
+  "subject_type": "works"
 }

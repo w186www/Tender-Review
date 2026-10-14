@@ -125,7 +125,13 @@ def main() -> None:
     )
     runtime = make_engine(runtime_settings)
     body = dict(
-        name="synthetic", procurement_type="government", project_type="works", region="福建省福州市"
+        name="synthetic",
+        procurement_type="government",
+        project_type="works",
+        region="福建省福州市",
+        procurement_method="tender",
+        buyer_type="government_entity",
+        subject_type="works",
     )
     with TestClient(create_app(runtime_settings)) as client:
 
@@ -186,8 +192,12 @@ def main() -> None:
         with Session(runtime) as db:
             who = authenticate(db, runtime_settings, a["Authorization"].split(" ", 1)[1])
             result = retrieve_for_project(
-                db, who, project["project_id"], retriever,
-                text="投标保证金", review_date=date(2026, 10, 14),
+                db,
+                who,
+                project["project_id"],
+                retriever,
+                text="投标保证金",
+                review_date=date(2026, 10, 14),
             )
             assert result.hits and result.run_snapshot is not None
             assert result.query is not None
@@ -198,10 +208,12 @@ def main() -> None:
         with Session(runtime) as db:
             who = authenticate(db, runtime_settings, a["Authorization"].split(" ", 1)[1])
             assert read_run(db, who, run_id) == result
-            assert db.execute(text(
-                "SELECT has_table_privilege(current_user,'legal_retrieval_run','UPDATE'), "
-                "has_table_privilege(current_user,'legal_retrieval_run','DELETE')"
-            )).one() == (False, False)
+            assert db.execute(
+                text(
+                    "SELECT has_table_privilege(current_user,'legal_retrieval_run','UPDATE'), "
+                    "has_table_privilege(current_user,'legal_retrieval_run','DELETE')"
+                )
+            ).one() == (False, False)
             set_tenant(db, "b")
             assert list(db.scalars(select(LegalRetrievalRun))) == []
             who_b = authenticate(db, runtime_settings, b["Authorization"].split(" ", 1)[1])
@@ -211,11 +223,20 @@ def main() -> None:
                 pass
             else:
                 raise AssertionError("Cross-tenant retrieval run leaked")
-            db.add(LegalRetrievalRun(
-                tenant_id="a", run_id=str(uuid4()), project_id=project["project_id"],
-                actor_id="reviewer", context_version=2, request_snapshot={}, request_hash="0" * 64,
-                result={}, result_hash="0" * 64, created_at=datetime.now(),
-            ))
+            db.add(
+                LegalRetrievalRun(
+                    tenant_id="a",
+                    run_id=str(uuid4()),
+                    project_id=project["project_id"],
+                    actor_id="reviewer",
+                    context_version=2,
+                    request_snapshot={},
+                    request_hash="0" * 64,
+                    result={},
+                    result_hash="0" * 64,
+                    created_at=datetime.now(),
+                )
+            )
             try:
                 db.flush()
             except DBAPIError:
@@ -311,8 +332,9 @@ def main() -> None:
     migrate(admin)
     runtime.dispose()
     admin.dispose()
-    print("PASS: PostgreSQL migration, API, RLS, tenant FKs, concurrency, "
-          "retrieval runs and rollback")
+    print(
+        "PASS: PostgreSQL migration, API, RLS, tenant FKs, concurrency, retrieval runs and rollback"
+    )
 
 
 if __name__ == "__main__":

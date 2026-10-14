@@ -1,5 +1,129 @@
 {
   "$defs": {
+    "Applicability": {
+      "additionalProperties": false,
+      "properties": {
+        "procurement_methods": {
+          "items": {
+            "enum": [
+              "tender",
+              "non_tender"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Procurement Methods",
+          "type": "array"
+        },
+        "buyer_types": {
+          "items": {
+            "enum": [
+              "government_entity",
+              "enterprise",
+              "other"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Buyer Types",
+          "type": "array"
+        },
+        "subject_types": {
+          "items": {
+            "enum": [
+              "works",
+              "works_related_goods",
+              "works_related_services",
+              "goods",
+              "services"
+            ],
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Subject Types",
+          "type": "array"
+        },
+        "legal_frameworks": {
+          "items": {
+            "enum": [
+              "tendering",
+              "government_procurement"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Legal Frameworks",
+          "type": "array"
+        },
+        "jurisdictions": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Jurisdictions"
+        },
+        "procurement_types": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "government",
+                  "enterprise",
+                  "other"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Procurement Types"
+        },
+        "project_types": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "works",
+                  "goods",
+                  "services"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Types"
+        }
+      },
+      "required": [
+        "procurement_methods",
+        "buyer_types",
+        "subject_types",
+        "legal_frameworks"
+      ],
+      "title": "Applicability",
+      "type": "object"
+    },
     "ClauseEffect": {
       "additionalProperties": false,
       "properties": {
@@ -67,6 +191,33 @@
         "note"
       ],
       "title": "ClauseEffect",
+      "type": "object"
+    },
+    "ClauseScope": {
+      "additionalProperties": false,
+      "properties": {
+        "article": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Article",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Applicability"
+        },
+        "note": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "article",
+        "scope",
+        "note"
+      ],
+      "title": "ClauseScope",
       "type": "object"
     },
     "LegalVersion": {
@@ -216,6 +367,25 @@
           "default": null,
           "title": "Expected Articles"
         },
+        "applicability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Applicability"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "clause_scopes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClauseScope"
+          },
+          "title": "Clause Scopes",
+          "type": "array"
+        },
         "jurisdictions": {
           "items": {
             "type": "string"
@@ -298,8 +468,8 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "v1alpha2",
-      "default": "v1alpha2",
+      "const": "v1alpha3",
+      "default": "v1alpha3",
       "title": "Schema Version",
       "type": "string"
     },
