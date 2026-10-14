@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0010",
   "title": "人工复核、审计和Word/PDF报告",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0009",
@@ -75,5 +75,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "本地验收通过；远程源码 CI 与归档提交 CI 待执行。因DEC-002未批准，API工厂仅接受宿主注入已授权ReviewEngine，默认不启用模型执行。仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+  "handoff_notes": "本地验收、源码候选CI与验收记录CI已通过；当前提交为归档候选，归档提交CI成功后正式完成。因DEC-002未批准，API工厂仅接受宿主注入已授权ReviewEngine，默认不启用模型执行。仅本任务acceptance_checks决定任务完成；相关AC仍按里程碑验收。"
 }

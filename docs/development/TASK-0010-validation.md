@@ -4,7 +4,10 @@
 - 分支：`work/TASK-0010`
 - 基线：TASK-0009归档提交 `50ee5b11ec850b24ed5dfcce36c8e86e45f06af7`
 - 源码候选提交：`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`
-- 任务状态：本地验收通过，远程源码 CI 与归档提交 CI 待执行。没有推送远端。
+- 任务状态：本地验收、源码 CI 和验收记录 CI 已通过；本次改动为正式归档候选，归档提交 CI 待执行。
+- 验收记录提交：`39f73931adb79afe9927c8e962ad473c626fd70f`
+- 源码 GitHub Actions：<https://github.com/w186www/Tender-Review/actions/runs/38556383801>，impact、baseline、postgres、ingestion、verify-required成功；quick按full范围选择规则跳过。
+- 验收记录 GitHub Actions：<https://github.com/w186www/Tender-Review/actions/runs/38557180768>，impact、quick、verify-required成功；baseline、postgres、ingestion按quick范围选择规则跳过。
 
 TASK-0010复用TASK-0009的 `ReviewEngineRun`、`ReviewArtifact`、`ReviewDecision`、`ReviewResult`、`publish_result` 和 LangGraph PostgreSQL Checkpoint。没有另建结果发布系统。法规支持绑定尚未批准，Evidence Checker现有门禁保持不变，人工决定不提升 `evidence_status`。
 
@@ -47,7 +50,7 @@ Full有两个既有 `pypdf.add_js` 弃用警告；不影响测试结果。所有
 ## 限制与后续
 
 - DEC-002仍未批准，模型生产路由保持关闭。`create_app`允许宿主显式注入已授权 `ReviewEngine`；默认不构造网关或执行模型调用。未注入时，resume API返回服务不可用。
-- 源码候选尚无远程GitHub CI证据；TASK-0010仍为 `in_progress`。未得到本次远程写入授权，因此未推送。按项目流程，用户普通推送后应核验源码CI，再记录验收提交，并在归档提交CI通过后将任务移动到 `tasks/completed/`。
+- 归档候选的GitHub Actions尚未完成。只有归档提交CI全部适用作业和 `verify-required` 成功后，才正式宣告TASK-0010 completed；归档提交CI通过前保留此状态限制。
 - 本任务未实现前端工作台；TASK-0011及后续任务未启动。
 
 TASK-0011可复用 `ReviewReportContent` / `ReviewReport` 不可变制品、`report_content_id`、结果/snapshot/content哈希、现有报告生成与导出服务，以及授权历史片段解析接口。
