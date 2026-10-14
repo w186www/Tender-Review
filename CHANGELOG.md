@@ -6,7 +6,9 @@
 
 ### Added
 
-- TASK-0009 本地归档候选：TASK0009-001/002正式验收、本地 Full 500、Focused 13、真实 PostgreSQL 恢复/并发/事务故障专项通过。源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`和验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI由用户确认成功；本次归档提交的远程CI待核验，全部适用作业及`verify-required`成功后方正式完成。DEC-002仍待批准、生产模型路由禁用、预算账本仅单进程一致性、法律证据最高为suspected；未进行真实供应商调用，未启动TASK-0010。详见 `docs/development/TASK-0009-validation.md`。
+- TASK-0010：实现人工复核决定/审计历史与幂等结果发布、结构化不可变报告版本、Word/PDF渲染、原文历史片段回查及授权导出审计。源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`本地Full504项与PostgreSQL16专项通过；远程CI与正式归档待执行，未推送。DEC-002未批准，默认模型执行关闭。详见`docs/development/TASK-0010-validation.md`。
+
+- TASK-0009 本地归档候选：TASK0009-001/002正式验收、本地 Full 500、Focused 13、真实 PostgreSQL 恢复/并发/事务故障专项通过。源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`和验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI由用户确认成功；本次归档提交的远程CI待核验，全部适用作业及`verify-required`成功后方正式完成。DEC-002仍待批准、生产模型路由禁用、预算账本仅单进程一致性、法律证据最高为suspected；未进行真实供应商调用。该记录形成时TASK-0010尚未启动。详见 `docs/development/TASK-0009-validation.md`。
 
 - TASK-0008 archived after formal TASK0008-001/002 checks, local Focused 54 and Full 487, real local HTTP/identity checks, and GitHub Actions run 38521959503 succeeded for impact/baseline/postgres/ingestion/verify-required. Added a provider-neutral gateway, OpenAI Responses and Anthropic Messages adapters, strict structured output validation, server-side routing/authorization, budget reservation, bounded retry/circuit breaker, and audit metadata. No live OpenAI/Anthropic calls were made. DEC-002 remains pending, production routes remain disabled, and the in-memory budget ledger provides single-process consistency only; shared persistence and multi-process production safety remain prerequisites.
 

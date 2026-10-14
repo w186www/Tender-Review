@@ -2,8 +2,8 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0010",
   "title": "人工复核、审计和Word/PDF报告",
-  "status": "planned",
-  "owner": "unassigned",
+  "status": "in_progress",
+  "owner": "Codex",
   "depends_on": [
     "TASK-0009",
     "TASK-0004"
@@ -56,16 +56,24 @@
     {
       "id": "TASK0010-001",
       "description": "接受、修改和驳回保留前后值与理由，证据不足不会变成确定违规",
-      "evidence": []
+      "evidence": [
+        "docs/development/TASK-0010-validation.md",
+        "tests/test_review_reports.py::test_task0010_human_projection_keeps_evidence_status_separate",
+        "scripts/check_review_engine.py::verify_review_engine"
+      ]
     },
     {
       "id": "TASK0010-002",
       "description": "报告读取不可变快照，引用和页码可回到原文，越权导出失败",
-      "evidence": []
+      "evidence": [
+        "docs/development/TASK-0010-validation.md",
+        "tests/test_review_reports.py::test_task0010_word_and_pdf_are_real_parseable_chinese_reports",
+        "scripts/check_review_engine.py::verify_review_engine"
+      ]
     }
   ],
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
+  "handoff_notes": "本地验收通过；远程源码 CI 与归档提交 CI 待执行。因DEC-002未批准，API工厂仅接受宿主注入已授权ReviewEngine，默认不启用模型执行。仅本任务 acceptance_checks 决定任务完成；相关 AC 仍按里程碑验收。"
 }
