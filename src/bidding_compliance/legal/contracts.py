@@ -23,17 +23,37 @@ REGION_VALUES: list[JsonValue] = [value for value in sorted(set(ALIASES.values()
 Digest = str
 Procurement = Literal["government", "enterprise", "other"]
 ProjectType = Literal["works", "goods", "services"]
-Reason = Literal["valid", "unverified", "outside_verification_horizon", "unlocated"]
+Reason = Literal[
+    "valid", "unverified", "outside_verification_horizon", "unlocated",
+    "unknown_end", "clause_unverified",
+]
 VersionStatus = Literal["verified_current", "verified_historical", "unverified"]
 ExclusionReason = Literal[
     "not_yet_effective", "expired", "jurisdiction_mismatch", "procurement_mismatch",
     "project_type_mismatch", "unverified", "outside_verification_horizon",
-    "unlocated", "no_text_match", "context_incomplete",
+    "unlocated", "no_text_match", "context_incomplete", "unknown_end", "clause_unverified",
 ]
 
 
 class Closed(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+
+
+class ClauseEffect(Closed):
+    article: str = Field(min_length=1, max_length=200)
+    effective_from: date | None = None
+    effective_to: date | None = None
+    end_status: Literal["inherit", "unknown", "confirmed_open", "confirmed_end"] = "inherit"
+    verification: Literal["verified", "unverified"]
+    note: str = Field(min_length=1, max_length=2000)
+
+    @model_validator(mode="after")
+    def consistent_end(self) -> Self:
+        if (self.end_status == "confirmed_end") != (self.effective_to is not None):
+            raise ValueError("clause end status/date mismatch")
+        if self.effective_from and self.effective_to and self.effective_to <= self.effective_from:
+            raise ValueError("clause interval must be nonempty")
+        return self
 
 
 class LegalVersion(Closed):
@@ -50,6 +70,8 @@ class LegalVersion(Closed):
     verified_through: date | None
     effective_from: date | None
     effective_to: date | None
+    end_status: Literal["unknown", "confirmed_open", "confirmed_end"] = "unknown"
+    clause_effects: tuple[ClauseEffect, ...] = ()
     jurisdictions: tuple[str, ...] = Field(min_length=1, max_length=50)
     procurement_types: tuple[Procurement, ...] = Field(min_length=1, max_length=3)
     project_types: tuple[ProjectType, ...] = Field(min_length=1, max_length=3)
@@ -70,10 +92,10 @@ class LegalVersion(Closed):
             or (self.verification == "verified" and url.scheme != "https")
         ):
             raise ValueError("official source required; verified sources require HTTPS")
-        if self.effective_to and (
-            not self.effective_from or self.effective_to <= self.effective_from
-        ):
+        if self.effective_to and self.effective_from and self.effective_to <= self.effective_from:
             raise ValueError("effective interval must be nonempty [from, to)")
+        if (self.end_status == "confirmed_end") != (self.effective_to is not None):
+            raise ValueError("version end status/date mismatch")
         if self.verification == "verified" and (
             not self.effective_from or not self.verified_through
             or self.verified_through < self.effective_from
@@ -82,11 +104,20 @@ class LegalVersion(Closed):
             raise ValueError("verified versions require dates and normative authority")
         if any(not region.strip() for region in self.jurisdictions):
             raise ValueError("jurisdiction must not be empty")
+        articles = [x.article for x in self.clause_effects]
+        if len(articles) != len(set(articles)):
+            raise ValueError("duplicate clause effect")
+        for effect in self.clause_effects:
+            starts = [x for x in (effect.effective_from, self.effective_from) if x is not None]
+            start = max(starts) if starts else None
+            ends = [x for x in (effect.effective_to, self.effective_to) if x is not None]
+            if start and ends and min(ends) <= start:
+                raise ValueError("clause interval outside version")
         return self
 
 
 class LegalManifest(Closed):
-    schema_version: Literal["v1alpha1"] = "v1alpha1"
+    schema_version: Literal["v1alpha2"] = "v1alpha2"
     versions: tuple[LegalVersion, ...] = Field(min_length=1, max_length=1000)
 
     @model_validator(mode="after")
@@ -122,8 +153,8 @@ class LegalClause(Closed):
 
 
 class LegalIndex(Closed):
-    schema_version: Literal["v1alpha1"] = "v1alpha1"
-    pipeline_version: Literal["legal-ingestion-1"] = "legal-ingestion-1"
+    schema_version: Literal["v1alpha2"] = "v1alpha2"
+    pipeline_version: Literal["legal-ingestion-2"] = "legal-ingestion-2"
     manifest: LegalManifest
     clauses: tuple[LegalClause, ...] = Field(min_length=1, max_length=50000)
 
@@ -180,7 +211,10 @@ class LegalHit(Closed):
                 "effective_from": {"type": "string", "format": "date"},
             }},
             "else": {"properties": {
-                "reason": {"enum": ["unverified", "outside_verification_horizon", "unlocated"]},
+                "reason": {"enum": [
+                    "unverified", "outside_verification_horizon", "unlocated",
+                    "unknown_end", "clause_unverified",
+                ]},
                 "version_status": {"const": "unverified"},
             }},
         }],
@@ -215,9 +249,7 @@ class LegalHit(Closed):
             raise ValueError("legal evidence eligibility mismatch")
         if eligible and (not self.article or self.effective_from is None):
             raise ValueError("confirmable legal evidence requires article and effective date")
-        if self.effective_to and (
-            self.effective_from is None or self.effective_to <= self.effective_from
-        ):
+        if self.effective_to and self.effective_from and self.effective_to <= self.effective_from:
             raise ValueError("legal evidence interval mismatch")
         match = re.fullmatch(r"(.+)#chars=([0-9]+):([0-9]+)", self.locator)
         if match is None or int(match[3]) - int(match[2]) != len(self.quote):
@@ -242,6 +274,7 @@ class LegalHit(Closed):
 class Excluded(Closed):
     law_id: str | None = None
     version: str | None = None
+    article: str | None = None
     reasons: tuple[ExclusionReason, ...] = Field(min_length=1)
 
 
@@ -278,9 +311,9 @@ class RetrievalResult(Closed):
             },
         ],
     })
-    schema_version: Literal["v1alpha3"] = "v1alpha3"
+    schema_version: Literal["v1alpha4"] = "v1alpha4"
     snapshot_hash: Digest = Field(pattern=r"^[a-f0-9]{64}$")
-    retrieval_version: Literal["bm25-char-cosine-rrf-3"] = "bm25-char-cosine-rrf-3"
+    retrieval_version: Literal["bm25-char-cosine-rrf-4"] = "bm25-char-cosine-rrf-4"
     normalization_version: Literal["cn-regions-1"] = "cn-regions-1"
     status: Literal["complete", "context_incomplete"] = "complete"
     context_error: Literal["REGION_UNMAPPED", "CONTEXT_INVALID"] | None = None

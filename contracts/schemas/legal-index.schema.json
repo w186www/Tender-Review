@@ -1,5 +1,74 @@
 {
   "$defs": {
+    "ClauseEffect": {
+      "additionalProperties": false,
+      "properties": {
+        "article": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Article",
+          "type": "string"
+        },
+        "effective_from": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective From"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective To"
+        },
+        "end_status": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "unknown",
+            "confirmed_open",
+            "confirmed_end"
+          ],
+          "title": "End Status",
+          "type": "string"
+        },
+        "verification": {
+          "enum": [
+            "verified",
+            "unverified"
+          ],
+          "title": "Verification",
+          "type": "string"
+        },
+        "note": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "article",
+        "verification",
+        "note"
+      ],
+      "title": "ClauseEffect",
+      "type": "object"
+    },
     "LegalClause": {
       "additionalProperties": false,
       "properties": {
@@ -66,8 +135,8 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "const": "v1alpha1",
-          "default": "v1alpha1",
+          "const": "v1alpha2",
+          "default": "v1alpha2",
           "title": "Schema Version",
           "type": "string"
         },
@@ -185,6 +254,24 @@
           ],
           "title": "Effective To"
         },
+        "end_status": {
+          "default": "unknown",
+          "enum": [
+            "unknown",
+            "confirmed_open",
+            "confirmed_end"
+          ],
+          "title": "End Status",
+          "type": "string"
+        },
+        "clause_effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClauseEffect"
+          },
+          "title": "Clause Effects",
+          "type": "array"
+        },
         "jurisdictions": {
           "items": {
             "type": "string"
@@ -267,14 +354,14 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "v1alpha1",
-      "default": "v1alpha1",
+      "const": "v1alpha2",
+      "default": "v1alpha2",
       "title": "Schema Version",
       "type": "string"
     },
     "pipeline_version": {
-      "const": "legal-ingestion-1",
-      "default": "legal-ingestion-1",
+      "const": "legal-ingestion-2",
+      "default": "legal-ingestion-2",
       "title": "Pipeline Version",
       "type": "string"
     },

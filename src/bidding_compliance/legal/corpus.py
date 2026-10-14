@@ -87,7 +87,11 @@ def ingest(root: Path, manifest: LegalManifest) -> LegalIndex:
             raise ValueError("corpus exceeds ingestion budget")
         if digest(raw) != version.text_hash or digest(source) != version.source_hash:
             raise ValueError("legal source hash mismatch")
-        clauses.extend(split_clauses(raw.decode("utf-8"), version))
+        pieces = split_clauses(raw.decode("utf-8"), version)
+        articles = {c.article for c in pieces}
+        if any(effect.article not in articles for effect in version.clause_effects):
+            raise ValueError("clause effect refers to a missing article")
+        clauses.extend(pieces)
     return LegalIndex(manifest=manifest, clauses=tuple(clauses))
 
 
@@ -123,6 +127,7 @@ def load_index(root: Path, path: Path, expected_hash: str) -> LegalIndex:
 def resolve_evidence(root: Path, index: LegalIndex, hit: LegalHit, query: RetrievalQuery) -> str:
     """Resolve formal artifact URI through the frozen index, never through caller paths/URLs."""
     hit = LegalHit.model_validate(hit.model_dump())
+    query = RetrievalQuery.model_validate(query.model_dump())
     clause = next((c for c in index.clauses if c.clause_id == hit.evidence_id), None)
     version = next((v for v in index.manifest.versions if (
         v.law_id == hit.law_id and v.version == hit.version
@@ -133,24 +138,20 @@ def resolve_evidence(root: Path, index: LegalIndex, hit: LegalHit, query: Retrie
         or hit.locator != f"{version.text_path}#chars={clause.start}:{clause.end}"
         or hit.text_hash != version.text_hash or hit.source_hash != version.source_hash
         or hit.source_uri != version.source_uri or hit.title != version.title
-        or hit.article != clause.article or hit.effective_from != version.effective_from
-        or hit.effective_to != version.effective_to
+        or hit.article != clause.article
         or hit.evidence.kind != ("policy" if version.authority in {
             "policy", "reference",
         } else "law")
     ):
         raise ValueError("evidence does not match frozen legal index")
     # Resolve the date/scope against frozen metadata, not against a caller's eligibility flag.
-    from .retrieval import scope_exclusions
+    from .retrieval import clause_exclusions, clause_window, confirmation_reason
 
-    reason = (
-        "unverified" if version.verification == "unverified"
-        else "outside_verification_horizon" if (
-            version.verified_through is None or query.review_date > version.verified_through
-        ) else "unlocated" if clause.article is None else "valid"
-    )
+    reason = confirmation_reason(version, clause.article, query)
+    start, end, _, _ = clause_window(version, clause.article)
     if (
-        scope_exclusions(version, query) or hit.reason != reason
+        clause_exclusions(version, clause.article, query) or hit.reason != reason
+        or hit.effective_from != start or hit.effective_to != end
         or hit.evidence.jurisdiction != query.region
         or (reason != "valid" and not query.include_references)
     ):

@@ -5,9 +5,9 @@
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
 | OpenAPI | 0.4.0 | 新增文档查询、片段、附件下载、质量修正和上下文确认；Document 增加状态与解析版本，消费者须更新状态枚举 |
-| LegalManifest、LegalIndex | schema_version=v1alpha1 / 集合v1alpha2 | 公共语料快照；地区在加载服务校验为支持的行政区，现有43版本兼容 |
+| LegalManifest、LegalIndex | schema_version=v1alpha2 / 集合v1alpha2 | D01：end_status及独立条款效力修订；旧索引/manifest明确升级，原文与来源字节不变 |
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha2 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |
-| RetrievalResult | schema_version=v1alpha3 / Query仍v1alpha2 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |
+| RetrievalResult | schema_version=v1alpha4 / Query仍v1alpha2 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |
 | ParsedDocument、ParserRequest、ParserResponse | schema_version=v1alpha1 / 集合v1alpha2 | 闭合字段、定位、哈希、OCR置信度、封闭问题码、资源策略、结果/错误互斥；由类型源生成并验证漂移 |
 | ComplianceReviewState | schema_version=v1alpha2 | 补齐引用，Python类型从Schema生成 |
 | ComplianceFinding | 集合v1alpha2 | status拆为evidence_status与review_status，人工决定需审计字段 |

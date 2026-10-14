@@ -782,7 +782,7 @@
       "id": "legal-result-complete-valid",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha3",
+        "schema_version": "v1alpha4",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
           "schema_version": "v1alpha2",
@@ -806,7 +806,7 @@
       "id": "legal-result-status-error-contradiction",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha3",
+        "schema_version": "v1alpha4",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
           "schema_version": "v1alpha2",
@@ -830,7 +830,7 @@
       "id": "legal-result-context-has-query",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha3",
+        "schema_version": "v1alpha4",
         "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "query": {
           "schema_version": "v1alpha2",
@@ -886,9 +886,9 @@
       "id": "legal-result-formal-evidence-valid",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha3",
+        "schema_version": "v1alpha4",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "retrieval_version": "bm25-char-cosine-rrf-4",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -950,9 +950,9 @@
       "id": "legal-result-unverified-confirmable",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha3",
+        "schema_version": "v1alpha4",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "retrieval_version": "bm25-char-cosine-rrf-4",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -1014,9 +1014,9 @@
       "id": "legal-result-valid-nonconfirmable",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha3",
+        "schema_version": "v1alpha4",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "retrieval_version": "bm25-char-cosine-rrf-4",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -1078,9 +1078,9 @@
       "id": "legal-result-missing-effective-date",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha3",
+        "schema_version": "v1alpha4",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "retrieval_version": "bm25-char-cosine-rrf-4",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,
@@ -1142,9 +1142,9 @@
       "id": "legal-result-arbitrary-evidence",
       "schema": "contracts/schemas/legal-result.schema.json",
       "data": {
-        "schema_version": "v1alpha3",
+        "schema_version": "v1alpha4",
         "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
-        "retrieval_version": "bm25-char-cosine-rrf-3",
+        "retrieval_version": "bm25-char-cosine-rrf-4",
         "normalization_version": "cn-regions-1",
         "status": "complete",
         "context_error": null,

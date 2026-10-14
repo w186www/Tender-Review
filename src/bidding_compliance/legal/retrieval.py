@@ -4,6 +4,7 @@ import math
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from datetime import date
 from typing import Protocol
 
 from .contracts import (
@@ -75,6 +76,48 @@ def scope_matches(version: LegalVersion, query: RetrievalQuery) -> bool:
     return not scope_exclusions(version, query)
 
 
+def clause_window(
+    version: LegalVersion, article: str | None,
+) -> tuple[date | None, date | None, str, bool]:
+    effect = next((x for x in version.clause_effects if x.article == article), None)
+    starts = [x for x in (version.effective_from, effect.effective_from if effect else None)
+              if x is not None]
+    ends = [x for x in (version.effective_to, effect.effective_to if effect else None)
+            if x is not None]
+    status = "unknown" if version.end_status == "unknown" or (
+        effect and effect.end_status == "unknown"
+    ) else "confirmed_end" if ends else "confirmed_open"
+    return max(starts) if starts else None, min(ends) if ends else None, status, (
+        effect is None or effect.verification == "verified"
+    )
+
+
+def clause_exclusions(
+    version: LegalVersion, article: str | None, query: RetrievalQuery,
+) -> list[ExclusionReason]:
+    reasons = scope_exclusions(version, query)
+    start, end, _, _ = clause_window(version, article)
+    if start and query.review_date < start and "not_yet_effective" not in reasons:
+        reasons.append("not_yet_effective")
+    if end and query.review_date >= end and "expired" not in reasons:
+        reasons.append("expired")
+    return reasons
+
+
+def confirmation_reason(
+    version: LegalVersion, article: str | None, query: RetrievalQuery,
+) -> Reason:
+    _, _, end_status, clause_verified = clause_window(version, article)
+    return (
+        "unverified" if version.verification == "unverified"
+        else "outside_verification_horizon" if (
+            version.verified_through is None or query.review_date > version.verified_through
+        ) else "unknown_end" if end_status == "unknown"
+        else "clause_unverified" if not clause_verified
+        else "unlocated" if article is None else "valid"
+    )
+
+
 class LegalRetriever:
     def __init__(self, index: LegalIndex, embedding: Embedding | None = None) -> None:
         self.index = index
@@ -93,6 +136,8 @@ class LegalRetriever:
                 reasons.append("unverified")
             elif version.verified_through is None or query.review_date > version.verified_through:
                 reasons.append("outside_verification_horizon")
+            if version.end_status == "unknown":
+                reasons.append("unknown_end")
             if reasons:
                 excluded.append(Excluded(
                     law_id=version.law_id, version=version.version, reasons=tuple(reasons),
@@ -100,14 +145,20 @@ class LegalRetriever:
         eligible = []
         for clause in self.index.clauses:
             version = versions[(clause.law_id, clause.version)]
-            if not scope_matches(version, query):
+            reasons = clause_exclusions(version, clause.article, query)
+            reason = confirmation_reason(version, clause.article, query)
+            if reason != "valid" and reason not in reasons:
+                reasons.append(reason)
+            if reasons and not any(
+                x.law_id == version.law_id and x.version == version.version
+                and x.article == clause.article and x.reasons == tuple(reasons) for x in excluded
+            ):
+                excluded.append(Excluded(
+                    law_id=version.law_id, version=version.version, article=clause.article,
+                    reasons=tuple(reasons),
+                ))
+            if clause_exclusions(version, clause.article, query):
                 continue
-            reason: Reason = (
-                "unverified" if version.verification == "unverified"
-                else "outside_verification_horizon" if (
-                    version.verified_through is None or query.review_date > version.verified_through
-                ) else "unlocated" if clause.article is None else "valid"
-            )
             if reason == "valid" or query.include_references:
                 eligible.append((clause, version, reason))
             elif reason == "unlocated" and not any(
@@ -150,6 +201,7 @@ class LegalRetriever:
         hits = []
         for key, score in sorted(scores.items(), key=lambda x: (-x[1], x[0]))[:query.limit]:
             clause, version, reason = lookup[key]
+            effective_from, effective_to, _, _ = clause_window(version, clause.article)
             status: VersionStatus = (
                 "unverified" if reason != "valid" else
                 "verified_historical" if (
@@ -162,7 +214,7 @@ class LegalRetriever:
                 quote_hash=clause.quote_hash, source_uri=version.source_uri,
                 source_hash=version.source_hash, text_hash=version.text_hash,
                 locator=f"{version.text_path}#chars={clause.start}:{clause.end}",
-                effective_from=version.effective_from, effective_to=version.effective_to,
+                effective_from=effective_from, effective_to=effective_to,
                 version_status=status, eligible_for_confirmation=reason == "valid",
                 reason=reason, score=score,
                 evidence=EvidenceRef(
@@ -173,7 +225,7 @@ class LegalRetriever:
                     source_uri="artifact://legal-text/" + version.text_hash,
                     source_hash=version.text_hash,
                     locator=f"chars={clause.start}:{clause.end}",
-                    effective_from=version.effective_from, effective_to=version.effective_to,
+                    effective_from=effective_from, effective_to=effective_to,
                     version_status=status, jurisdiction=query.region,
                 ),
             ))

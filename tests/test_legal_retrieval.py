@@ -36,10 +36,13 @@ def version(root, **changes):
         text_hash=digest(path.read_bytes()), source_uri="https://example.gov.cn/law",
         source_snapshot_path="law.txt", source_hash=digest(path.read_bytes()),
         captured_on="2026-10-14", verification="verified", verified_through="2026-10-14",
-        effective_from="2020-01-01", effective_to=None, jurisdictions=["CN/福建"],
+        effective_from="2020-01-01", effective_to=None, end_status="confirmed_open",
+        jurisdictions=["CN/福建"],
         procurement_types=["government"], project_types=["works"], authority="regulation",
         verification_note="仅测试用合成法规，非真实法律依据。",
     )
+    if changes.get("effective_to") and "end_status" not in changes:
+        changes["end_status"] = "confirmed_end"
     return LegalVersion.model_validate_json(json.dumps({**payload, **changes}))
 
 

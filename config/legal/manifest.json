@@ -1,5 +1,5 @@
 {
-  "schema_version": "v1alpha1",
+  "schema_version": "v1alpha2",
   "versions": [
     {
       "law_id": "4e7223995c70401b200954e1",
@@ -29,7 +29,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "a273f6b956365e42b7b72f9b",
@@ -59,7 +60,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。司法部沿革显示2017/2018/2019修订，本文件2011原文不可作为现行版本。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。司法部沿革显示2017/2018/2019修订，本文件2011原文不可作为现行版本。",
+      "end_status": "unknown"
     },
     {
       "law_id": "e6805a5c40f1c49b9553e1bb",
@@ -89,7 +91,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "4e459c3d9219d6bac9017ac3",
@@ -119,7 +122,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "973a78cc981bc1b36e409448",
@@ -149,7 +153,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "347596a2132adb62e9b7a2d1",
@@ -179,7 +184,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "1c2d28abd893e4ae0f1ef111",
@@ -209,7 +215,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "428d105dea15101deb4808f9",
@@ -239,7 +246,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "a4a2b60a920a434cb864df4b",
@@ -269,7 +277,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "d7879331ea8cb80f6f937b12",
@@ -299,7 +308,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "d362b81e387fc87b8ffa0922",
@@ -329,7 +339,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "9b438c8b8a7e331c17351898",
@@ -359,7 +370,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "86072f006718457886863e0e",
@@ -389,7 +401,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "427346dd4babd614cd601272",
@@ -419,7 +432,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "f491da9b5840f1ecc7b9db54",
@@ -449,7 +463,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "13fdfdd0e884f6889ae661bb",
@@ -479,7 +494,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "1f221ddf1119fea30b9c110c",
@@ -509,7 +525,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "a2d288fd4fc2b24ee468e18d",
@@ -539,7 +556,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "0fae48555f11d04dfaaf36e4",
@@ -569,7 +587,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "daba57f672e50cc38f0b7e03",
@@ -599,7 +618,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "a998847ee9f7027a3ef61265",
@@ -629,7 +649,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "491fc0d935f4e7b958cd983f",
@@ -659,7 +680,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "0554db4ee9575fb8ad810105",
@@ -689,7 +711,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "21e2d6d3cd220e3099a088a9",
@@ -719,7 +742,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "97ae4d629c27b8e05e602d02",
@@ -749,7 +773,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "0eb96efabc44c09dbd6e54c3",
@@ -779,7 +804,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "c4fae54dd0b6a9e23ce2d58a",
@@ -809,7 +835,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "10bea7aa21ff5e6189c72ac6",
@@ -839,7 +866,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "1eabfb507465cd886023fed0",
@@ -869,7 +897,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "8f94064e438adfd50a1f0f47",
@@ -899,7 +928,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "ce30cb05103fce05b228760a",
@@ -929,7 +959,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "bbac7c7bb55e9307c022ce96",
@@ -959,7 +990,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "640322539fcf840cb309010d",
@@ -989,7 +1021,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "74b705f5770fca322f02fe53",
@@ -1019,7 +1052,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "583618190d6752219a718915",
@@ -1049,7 +1083,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。原文为2016版，标题已提示2025修正，必须补齐新版本。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。原文为2016版，标题已提示2025修正，必须补齐新版本。",
+      "end_status": "unknown"
     },
     {
       "law_id": "eaa165cdd53724754f8c286f",
@@ -1079,7 +1114,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "f7205f29a7f6d374f7e66ef6",
@@ -1109,7 +1145,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "bca18863bdd9cb167e7fa335",
@@ -1139,7 +1176,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "2d66fcffb5677ccdc93afeb2",
@@ -1169,7 +1207,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "877801c6e657cf4a1100698e",
@@ -1199,7 +1238,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "49e17a2c0e74967bb6e17949",
@@ -1229,7 +1269,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "c92005f722132efa3cd8840e",
@@ -1259,7 +1300,8 @@
         "services"
       ],
       "authority": "reference",
-      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。"
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
     },
     {
       "law_id": "a273f6b956365e42b7b72f9b",
@@ -1287,7 +1329,8 @@
         "works"
       ],
       "authority": "regulation",
-      "verification_note": "司法部国家行政法规库LawID=339原始HTML，修订沿革至2019-03-02；提取完整84条并逐项定位。仅启用工程范围，其他范围待单独审定；核验截止2026-10-14，禁止据此承诺未来效力。"
+      "verification_note": "司法部国家行政法规库LawID=339原始HTML，修订沿革至2019-03-02；提取完整84条并逐项定位。仅启用工程范围，其他范围待单独审定；核验截止2026-10-14，禁止据此承诺未来效力。；2026-10-14核对司法部现行有效库及北京发改委2019修订页现行有效标注，未发现整部终止日期；此确认仅截至verified_through，不表示永久有效。",
+      "end_status": "confirmed_open"
     }
   ]
 }

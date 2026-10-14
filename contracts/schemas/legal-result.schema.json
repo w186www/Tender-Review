@@ -27,6 +27,18 @@
           "default": null,
           "title": "Version"
         },
+        "article": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Article"
+        },
         "reasons": {
           "items": {
             "enum": [
@@ -39,7 +51,9 @@
               "outside_verification_horizon",
               "unlocated",
               "no_text_match",
-              "context_incomplete"
+              "context_incomplete",
+              "unknown_end",
+              "clause_unverified"
             ],
             "type": "string"
           },
@@ -64,7 +78,9 @@
                 "enum": [
                   "unverified",
                   "outside_verification_horizon",
-                  "unlocated"
+                  "unlocated",
+                  "unknown_end",
+                  "clause_unverified"
                 ]
               },
               "version_status": {
@@ -213,7 +229,9 @@
             "valid",
             "unverified",
             "outside_verification_horizon",
-            "unlocated"
+            "unlocated",
+            "unknown_end",
+            "clause_unverified"
           ],
           "title": "Reason",
           "type": "string"
@@ -498,8 +516,8 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "v1alpha3",
-      "default": "v1alpha3",
+      "const": "v1alpha4",
+      "default": "v1alpha4",
       "title": "Schema Version",
       "type": "string"
     },
@@ -509,8 +527,8 @@
       "type": "string"
     },
     "retrieval_version": {
-      "const": "bm25-char-cosine-rrf-3",
-      "default": "bm25-char-cosine-rrf-3",
+      "const": "bm25-char-cosine-rrf-4",
+      "default": "bm25-char-cosine-rrf-4",
       "title": "Retrieval Version",
       "type": "string"
     },

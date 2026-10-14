@@ -73,3 +73,7 @@
 本轮D03最终源码候选f0bd8270d990d5e5dc6897f329a770d7db332099（分支work/TASK-0006），本地Full323项及真实PostgreSQL专项绑定该提交中的代码/契约/测试/脚本。远程新运行https://github.com/w186www/Tender-Review/actions/runs/38498549575最终completed/success：impact/baseline/postgres/ingestion/verify-required全部success，quick仅因Full选档不适用。已下载远程baseline-test-results并核验323 tests、0 failures、0 errors、0 skipped。源码之后只更新工程证据，Quick，不重复Full；之前TASK-0017的成功CI不冒作此源码证据。保全stash仍在，main未修改。
 
 最终证据记录相对f0bd827仅PROJECT_STATE、任务/自检/验证/CHANGELOG和提示文本变动，无代码/契约/数据/配置/依赖/测试/脚本变化；Quick通过。D03的本轮引用契约/解析修复有真实证据，D07仅关闭同一文本制品引用部分；全任务仍in_progress。下一步为D01未知上界/局部废止，再依次处理表中各项剩余验收，不合入main、不启动后续任务。
+
+## 本轮D01过程验证（完整收尾前）
+
+实际接手HEAD b8ed12d，任务实际文件TASK-0006-legal-retrieval.yaml，工作区干净且远程一致。旧源码323项结果不冒作新代码证据。ADR-0012明确效力/适用性/来源/发布边界。D01新增end_status与ClauseEffect：unknown上界仅参考；confirmed_open仍受核验截止日约束；局部废止在当日只排除相应条款，其他已核实条款保留；条款修订不能指不存在条号。Manifest/Index v1alpha2与Result v1alpha4；已知终止日但起日未知的旧资料仅参考且终止当日强制排除，不可确认。Focused112项通过，Ruff/Mypy48文件/契约检查通过；新增17项D01正反/日期/局部废止/替换测试。过程中契约fixture算法版本未同步、5处行宽静态错误和1处未核实参考的未知起日边界失败均已修正，未删除/跳过断言。最终Full与真实集成将在全部缺陷修复后的最终候选执行。
