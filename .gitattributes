@@ -4,5 +4,5 @@ knowledge/legal/**/*.txt text eol=crlf
 knowledge/legal/snapshots/** -text -diff
 knowledge/legal/versions/** -text
 
-# Keep OpenAPI-generated TypeScript deterministic across Windows and Unix checkouts.
-src/frontend/src/api/*.d.ts text eol=lf
+# Biome enforces LF formatting; keep all checked-in frontend files deterministic across platforms.
+src/frontend/** text eol=lf
