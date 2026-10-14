@@ -1,8 +1,8 @@
 # PROJECT_STATE
 
 更新时间：2026-10-14
-架构基线：ADR-0012本期法规生命周期/来源映射接受；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha2
-当前里程碑：M1基础退出检查已通过；M2法规检索实现；规则与模型网关待开始
+架构基线：ADR-0012本期法规生命周期/来源映射接受；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
+当前里程碑：M1基础退出检查已通过；M2法规检索/规则进行中，法规与Skill局部任务完成，模型网关待开始
 
 ## 已完成
 
@@ -24,19 +24,23 @@
 
 - TASK-0017：单Codex实施、Quick/Focused/Full与失败关闭CI已完成；修复跨平台CRLF检出，最终源码68d67a80943e9c531f58ced7557d0c24938d84e9本地/远程Full279项与PostgreSQL、ingestion、汇总门禁通过，归档记录用Quick。
 
+- TASK-0007已完成并归档：五类无模型确定性Skill、版本化规则与候选发现契约、原文定位/稳定去重及法规检索主题。源码236d2a6e231be030f719b0bbabc3f2b0a50039b3 Focused 30项、最终Full448项本地通过（0失败/错误/跳过），真实HTTP/身份/租户集成检查通过；远程38516913371适用作业及汇总门禁成功。详见TASK-0007-validation.md。
+
 ## 正在进行
 
-- M2尚未完成，TASK-0006局部退出已满足；TASK-0007规则引擎/五类Skill及TASK-0008模型适配器仍planned，未自动启动。
-- TASK-0007已从已归档TASK-0006源码5347b110分支work/TASK-0007启动；本轮实施规则引擎、五类独立Skill、候选去重/原文定位与覆盖契约，不提前做完整审查图。
+- M2尚未完成；TASK-0006与TASK-0007局部退出已满足，TASK-0008模型适配器仍planned且未启动。
+- TASK-0007已在work/TASK-0007完成并归档；代码未合入main。候选发现不等于法规效力判断或AC-003全局审查闭环。
 
 ## 下一步
 
-1. 完成TASK-0007规则引擎与五类Skill；再按正式依赖评估TASK-0008。TASK-0008未启动，M2完整退出另验。
+1. 按正式依赖和明确任务安排后续TASK-0008；当前未启动，M2完整退出另验。
 2. 法规库42份旧文本继续unverified，另3份未收录；逐项官方核验后才能支持确定依据，不从模型/索引标注推断效力。
 3. 2019《实施条例》工程招标范围核验截止2026-10-14，未来基准日需新核验或显式参考。未知地区/采购上下文及大面积扫描正文映射失败关闭。
 4. 完整LangGraph、规则、模型、人工复核、报告、界面与部署按正式任务执行。
 
 ## 最近验证
+
+- TASK-0007最终代码源码236d2a6e231be030f719b0bbabc3f2b0a50039b3：Focused 30项通过；Full 448项、0失败/0错误/0跳过，Ruff、Mypy64源文件、契约生成检查及真实HTTP/身份/项目/撤权/租户隔离验证通过。Full在本机回环网络授权下执行，JUnit `.verification/pytest-result.xml`；两个既有pypdf `add_js`弃用警告。远程https://github.com/w186www/Tender-Review/actions/runs/38516913371 对应该源码，impact/baseline/postgres/ingestion/verify-required全部success；远端JUnit artifact已生成，但下载接口需认证，未声称远端测试数量。代码提交与证据绑定；后续文档/任务归档改动仅Quick，不重复Full，不合入main、不启动TASK-0008。详见docs/development/TASK-0007-validation.md。
 
 - TASK-0006最终源码5347b110a8c3561c72086afd455755810de59abf：一次Full413项、0失败/错误/跳过，Ruff/Mypy54源文件与契约/生成、两个实际HTTP通过；真实PostgreSQL原迁移/RLS/复合FK/增量降级及全局核验/发布竞争、最小权限、撤权、失败事务回滚/历史重现通过。最终固定Docker官方PDF84条/15页、隔离、MinIO/ClamAV/OCR/HTTP全部通过，测试容器清理。远程https://github.com/w186www/Tender-Review/actions/runs/38510406707 completed/success，impact/baseline/postgres/ingestion/verify-required全部success，下载远程JUnit413/0/0/0。归档/证据后仅Quick，源码无变化，不重复Full。
 
@@ -81,7 +85,7 @@
 ## 数据与迁移
 
 - 数据库迁移版本：202610141700（新增全局grant、不可变核验/来源/发布与状态，原检索历史保留）（显式执行，API不自动建表）；降级移除新增解析历史，先备份并停止写入，见secure-ingestion-start.md。
-- 契约集合版本：`v1alpha2`；事件信封和模型profile示例维持各自v1alpha1，详见contracts/VERSION.md。
+- 契约集合版本：`v1alpha3`；事件信封和模型profile示例维持各自v1alpha1，详见contracts/VERSION.md。
 - 生产数据：无。
 
 
@@ -91,4 +95,4 @@
 - 用户本次指令由ADR-0011记录，撤销ADR-0009默认跨软件/独立代理关卡；现有实现/问题与法规ADR-0010 proposed保留。Codex按实际验收自行收尾，不能假称独立审查或自动关闭问题。
 - 不恢复DeepSeek派工或自动代理审批。当前无额外代理运行；保留历史审查的真实发现作为问题清单。
 
-当前验收源码5347b110a8c3561c72086afd455755810de59abf；本地Full413/真实集成和远程38510406707全部成功，任务completed并归档；后续只证据/工程记录变化用Quick，不重复Full。旧f0bd827仅D03历史验收。保全stash@{0}仍保留；任务分支未合入main，没有启动后续任务，未创建其他代理或跨软件接力。
+当前TASK-0007验收源码236d2a6e231be030f719b0bbabc3f2b0a50039b3；本地Focused30、Full448/真实集成和远程38516913371适用作业全部成功，任务已完成并归档。后续仅证据/工程记录变更执行Quick，不重复Full。当前分支work/TASK-0007未合入main，TASK-0008未启动；TASK-0006的历史验收和保全stash@{0}均保留，未创建其他代理或跨软件接力。

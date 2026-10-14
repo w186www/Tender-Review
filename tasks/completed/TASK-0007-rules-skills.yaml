@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0007",
   "title": "规则引擎与五类 Skill 规范",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0005",
@@ -28,6 +28,7 @@
     "docs/architecture/langgraph.md",
     "docs/architecture/data-flow.md",
     "docs/development/testing-standard.md",
+    "docs/development/TASK-0007-validation.md",
     "docs/decisions/ADR-0005-contracts-and-evidence-dependencies.md",
     "docs/decisions/ADR-0008-secure-ingestion.md",
     "docs/decisions/ADR-0011-development-and-validation.md",
@@ -75,16 +76,38 @@
     {
       "id": "TASK0007-001",
       "description": "规则扫描不依赖LLM即可复现候选风险",
-      "evidence": []
+      "evidence": [
+        "docs/development/TASK-0007-validation.md",
+        "src/bidding_compliance/domain/rules/engine.py",
+        "src/bidding_compliance/domain/skills/qualification.py",
+        "src/bidding_compliance/domain/skills/technical.py",
+        "src/bidding_compliance/domain/skills/evaluation.py",
+        "src/bidding_compliance/domain/skills/contract.py",
+        "src/bidding_compliance/domain/skills/procedure.py",
+        "tests/test_rules_skills.py",
+        "evals/golden_cases/GC-0001-region-restriction.json",
+        "evals/golden_cases/GC-0002-exclusive-brand.json",
+        "evals/golden_cases/GC-0003-score-total-mismatch.json",
+        "evals/golden_cases/GC-0004-key-contract-placeholder.json",
+        "evals/golden_cases/GC-0005-tender-time-order.json"
+      ]
     },
     {
       "id": "TASK0007-002",
       "description": "每个候选保留原文定位、规则版本和Skill版本",
-      "evidence": []
+      "evidence": [
+        "docs/development/TASK-0007-validation.md",
+        "src/bidding_compliance/domain/rules/models.py",
+        "src/bidding_compliance/domain/rules/engine.py",
+        "src/bidding_compliance/services/candidate_discovery.py",
+        "contracts/schemas/candidate-discovery-result.schema.json",
+        "tests/test_candidate_discovery.py",
+        "tests/test_rules_skills.py"
+      ]
     }
   ],
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "单Codex依ADR-0011实施；TASK-0006源码5347b110已核验并为当前分支祖先。实现五类独立确定性Skill、规则/Skill/文档快照版本、结构化表完整性/日期歧义的失败关闭覆盖、原文定位、稳定去重、发现结果/Skill覆盖/法规检索主题。不得实现完整LangGraph/模型/最终结论。代码候选完成后按本任务Prompt运行各Skill专项、Focused、Full与CI。"
+  "handoff_notes": "单Codex依ADR-0011实施；TASK-0006源码5347b110为当前分支祖先。五类独立确定性Skill、版本化契约/候选发现、失败关闭覆盖、原文定位、稳定去重、检索主题已完成。源码236d2a6e231be030f719b0bbabc3f2b0a50039b3的Focused 30项、Full 448项本地全过，真实集成/HTTP检查通过；远程CI 38516913371的baseline/PostgreSQL/ingestion/verify-required全部success。TASK-0007已满足局部退出；不代表AC-003全局审查闭环完成。未合入main，未启动TASK-0008。"
 }
