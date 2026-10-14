@@ -75,5 +75,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "本地验收、源码候选CI与验收记录CI已通过；当前提交为归档候选，归档提交CI成功后正式完成。因DEC-002未批准，API工厂仅接受宿主注入已授权ReviewEngine，默认不启用模型执行。仅本任务acceptance_checks决定任务完成；相关AC仍按里程碑验收。"
+  "handoff_notes": "本地验收、源码候选CI、验收记录CI和正式归档CI均已通过。因DEC-002未批准，API工厂仅接受宿主注入已授权ReviewEngine，默认不启用模型执行。仅本任务acceptance_checks决定任务完成；相关AC仍按里程碑验收。"
 }

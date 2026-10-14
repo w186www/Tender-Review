@@ -4,10 +4,12 @@
 - 分支：`work/TASK-0010`
 - 基线：TASK-0009归档提交 `50ee5b11ec850b24ed5dfcce36c8e86e45f06af7`
 - 源码候选提交：`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`
-- 任务状态：本地验收、源码 CI 和验收记录 CI 已通过；本次改动为正式归档候选，归档提交 CI 待执行。
+- 任务状态：completed。源码候选、验收记录和正式归档提交的必要远程CI均通过。
 - 验收记录提交：`39f73931adb79afe9927c8e962ad473c626fd70f`
+- 正式归档提交：`c6c49ef850e2828305e444087cb1e0d8c24c72b4`
 - 源码 GitHub Actions：<https://github.com/w186www/Tender-Review/actions/runs/38556383801>，impact、baseline、postgres、ingestion、verify-required成功；quick按full范围选择规则跳过。
 - 验收记录 GitHub Actions：<https://github.com/w186www/Tender-Review/actions/runs/38557180768>，impact、quick、verify-required成功；baseline、postgres、ingestion按quick范围选择规则跳过。
+- 归档 GitHub Actions：<https://github.com/w186www/Tender-Review/actions/runs/38557509858>，impact、quick、verify-required成功；baseline、postgres、ingestion按quick范围选择规则跳过。
 
 TASK-0010复用TASK-0009的 `ReviewEngineRun`、`ReviewArtifact`、`ReviewDecision`、`ReviewResult`、`publish_result` 和 LangGraph PostgreSQL Checkpoint。没有另建结果发布系统。法规支持绑定尚未批准，Evidence Checker现有门禁保持不变，人工决定不提升 `evidence_status`。
 
@@ -50,7 +52,7 @@ Full有两个既有 `pypdf.add_js` 弃用警告；不影响测试结果。所有
 ## 限制与后续
 
 - DEC-002仍未批准，模型生产路由保持关闭。`create_app`允许宿主显式注入已授权 `ReviewEngine`；默认不构造网关或执行模型调用。未注入时，resume API返回服务不可用。
-- 归档候选的GitHub Actions尚未完成。只有归档提交CI全部适用作业和 `verify-required` 成功后，才正式宣告TASK-0010 completed；归档提交CI通过前保留此状态限制。
+- TASK-0010已完成正式归档；上述归档CI运行通过。前端工作台与部署不在本任务范围内，TASK-0011未启动。
 - 本任务未实现前端工作台；TASK-0011及后续任务未启动。
 
 TASK-0011可复用 `ReviewReportContent` / `ReviewReport` 不可变制品、`report_content_id`、结果/snapshot/content哈希、现有报告生成与导出服务，以及授权历史片段解析接口。
