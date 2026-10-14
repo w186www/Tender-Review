@@ -39,6 +39,7 @@ from bidding_compliance.services.legal_management import (
     read_publication,
     retrieve_published_for_project,
 )
+from bidding_compliance.services.review_configurations import verify_frozen_configuration
 from bidding_compliance.services.review_persistence import (
     MAX_ARTIFACT_BYTES,
     RESULT_PENDING_ID,
@@ -129,9 +130,29 @@ def _snapshot_inputs(
         or index_hash(bundle.index) != snapshot["legal_index_hash"]
     ):
         raise ValueError("pinned legal publication changed or is unavailable")
-    if snapshot["ruleset_sha256"] != ruleset_sha256(tuple(snapshot["skill_ids"])):
+    skill_ids = tuple(snapshot["skill_ids"])
+    if snapshot["ruleset_sha256"] != ruleset_sha256(skill_ids):
         raise ValueError("review ruleset snapshot mismatch")
-    if snapshot["model_policy"] != {
+    if "configuration_snapshot" in snapshot:
+        frozen_configuration = snapshot["configuration_snapshot"]
+        if (
+            frozen_configuration.get("legal_publication_id") != snapshot["legal_publication_id"]
+            or frozen_configuration.get("skill_ids") != list(skill_ids)
+            or frozen_configuration.get("ruleset_sha256") != snapshot["ruleset_sha256"]
+            or frozen_configuration.get("model_policy") != snapshot["model_policy"]
+        ):
+            raise ValueError("review configuration snapshot does not match run snapshot")
+        verified_policy = verify_frozen_configuration(
+            session,
+            principal,
+            revision_id=snapshot["configuration_revision_id"],
+            snapshot_hash=snapshot["configuration_snapshot_hash"],
+            snapshot=frozen_configuration,
+            runtime_policy=model_policy,
+        )
+        if verified_policy != model_policy:
+            raise ValueError("model policy differs from the frozen configuration")
+    elif snapshot["model_policy"] != {
         "profile": model_policy.profile,
         "timeout_seconds": model_policy.timeout_seconds,
         "max_attempts": model_policy.max_attempts,
@@ -173,11 +194,19 @@ def build_review_graph(
     gateway: ModelGateway,
     model_policy: ModelPolicy,
     checkpointer: BaseCheckpointSaver[Any],
+    skill_ids: tuple[str, ...] | None = None,
     legal_root: Path | None = None,
 ) -> Any:
     """Compile the persisted review DAG. A per-invocation principal is rechecked per node."""
     schema_root = legal_root or ROOT
     analysis_schema = _analysis_schema(schema_root)
+    selected_skill_ids = tuple(sorted(skill_ids or SKILLS))
+    if (
+        not selected_skill_ids
+        or len(selected_skill_ids) != len(set(selected_skill_ids))
+        or set(selected_skill_ids) - set(SKILLS)
+    ):
+        raise ValueError("review graph references an invalid installed Skill set")
 
     def with_session(
         function: Callable[[Session], dict[str, Any]],
@@ -360,7 +389,7 @@ def build_review_graph(
     def dispatch_skills(state: ComplianceReviewState) -> list[Send]:
         if not state.get("review_snapshot_ref"):
             raise ValueError("review snapshot must be frozen before Skill dispatch")
-        skills = tuple(SKILLS)
+        skills = selected_skill_ids
         return [
             Send(
                 "skill_work",
@@ -377,7 +406,7 @@ def build_review_graph(
         ]
 
     def candidate_discovery(state: ComplianceReviewState) -> dict[str, Any]:
-        skill_ids = sorted(SKILLS)
+        skill_ids = list(selected_skill_ids)
         return {
             "skill_expected": skill_ids,
             "skill_finished": [],
@@ -883,9 +912,7 @@ def build_review_graph(
                             "summary": "Unknown or duplicate model candidate reference.",
                         }
                     )
-                legal_valid = has_confirmable_legal_support(
-                    verified_laws, invalid=law_invalid
-                )
+                legal_valid = has_confirmable_legal_support(verified_laws, invalid=law_invalid)
                 evidence_status = evidence_status_for_support(
                     document_valid=document_valid, legal_valid=legal_valid
                 )

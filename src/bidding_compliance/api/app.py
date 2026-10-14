@@ -12,8 +12,10 @@ from bidding_compliance.core.config import Settings
 from bidding_compliance.persistence.database import make_engine
 from bidding_compliance.services.review_engine import ReviewEngine
 
+from .configuration_management import router as configuration_management_router
 from .documents import router as documents_router
 from .errors import http_error_handler, validation_error_handler
+from .legal_management import router as legal_management_router
 from .management import router as management_router
 from .middleware import RequestContextMiddleware
 from .projects import router
@@ -55,6 +57,8 @@ def create_app(
     app.include_router(documents_router)
     app.include_router(reviews_router)
     app.include_router(management_router)
+    app.include_router(configuration_management_router)
+    app.include_router(legal_management_router)
     app.add_middleware(UploadBodyLimit)
     app.add_middleware(RequestContextMiddleware)
     app.add_exception_handler(HTTPException, http_error_handler)

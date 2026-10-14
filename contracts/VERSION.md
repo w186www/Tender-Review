@@ -4,7 +4,7 @@
 
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
-| OpenAPI | 0.6.0 | 增加人工复核、版本检查、继续执行、原文历史定位、不可变发布、Word/PDF报告生成和授权导出接口 |
+| OpenAPI | 0.7.0 | 增加法规与审查配置的草稿、发布、停用、回滚管理接口；模型配置只允许安全运行策略，不包含密钥或外部路由 |
 | LegalManifest、LegalIndex | Manifest v1alpha3 / Index v1alpha4 | D01条款效力；D07冻结原始字节/PDF字符框映射与显式文本排除；旧索引明确升级，原文与来源字节不变 |
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha3 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |
 | RetrievalResult | schema_version=v1alpha5 / Query v1alpha3 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |

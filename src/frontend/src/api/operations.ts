@@ -11,6 +11,11 @@ export type RiskFinding = components["schemas"]["RiskFinding"];
 export type CitationLocation = components["schemas"]["CitationLocation"];
 export type ReportMetadata = components["schemas"]["ReportMetadata"];
 export type AuditEvent = components["schemas"]["AuditEvent"];
+export type ConfigurationCatalog =
+  components["schemas"]["ConfigurationCatalog"];
+export type ConfigurationState =
+  components["schemas"]["ConfigurationStateResponse"];
+export type LegalManagement = components["schemas"]["LegalManagementResponse"];
 export type ReadRequestOptions = { signal?: AbortSignal };
 
 export const api = {
@@ -303,5 +308,46 @@ export const api = {
         signal: options?.signal,
       }),
     );
+  },
+  async configurationCatalog(options?: ReadRequestOptions) {
+    return unwrap(
+      client.GET("/admin/configurations/catalog", { signal: options?.signal }),
+    );
+  },
+  async configurations(options?: ReadRequestOptions) {
+    return unwrap(
+      client.GET("/admin/configurations", { signal: options?.signal }),
+    );
+  },
+  async createConfigurationDraft(
+    body: components["schemas"]["ConfigurationDraftRequest"],
+  ) {
+    return unwrap(client.POST("/admin/configurations/drafts", { body }));
+  },
+  async publishConfiguration(
+    body: components["schemas"]["ConfigurationPublishRequest"],
+  ) {
+    return unwrap(client.POST("/admin/configurations/publish", { body }));
+  },
+  async deactivateConfiguration(
+    body: components["schemas"]["ConfigurationDisableRequest"],
+  ) {
+    return unwrap(client.POST("/admin/configurations/deactivate", { body }));
+  },
+  async rollbackConfiguration(
+    body: components["schemas"]["ConfigurationRollbackRequest"],
+  ) {
+    return unwrap(client.POST("/admin/configurations/rollback", { body }));
+  },
+  async legalManagement(options?: ReadRequestOptions) {
+    return unwrap(client.GET("/admin/legal", { signal: options?.signal }));
+  },
+  async createLegalDraft(body: components["schemas"]["LegalDraftRequest"]) {
+    return unwrap(client.POST("/admin/legal/drafts", { body }));
+  },
+  async changeLegalPublication(
+    body: components["schemas"]["PublicationRequest"],
+  ) {
+    return unwrap(client.POST("/admin/legal/publications", { body }));
   },
 };

@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from bidding_compliance.core.config import Settings
 from bidding_compliance.domain.identity import Principal, Role
+from bidding_compliance.domain.review_configuration import ModelPolicySnapshot
 from bidding_compliance.domain.rules.engine import SKILLS, ruleset_sha256
 from bidding_compliance.domain.rules.models import DiscoveryDocumentRequest
 from bidding_compliance.graph.review import build_review_graph, initial_state
@@ -39,6 +40,7 @@ from bidding_compliance.services.identity import audit
 from bidding_compliance.services.legal import require_identity
 from bidding_compliance.services.legal_management import read_publication
 from bidding_compliance.services.projects import find_project
+from bidding_compliance.services.review_configurations import resolve_execution_configuration
 from bidding_compliance.services.review_persistence import (
     approved_findings,
     authorized_run,
@@ -171,6 +173,19 @@ class ReviewEngine:
         request_hash = self._request_hash(request)
         with self.session_factory() as session:
             require_identity(session, principal)
+            existing = session.get(
+                ReviewEngineRun,
+                (principal.tenant_id, request.review_task_id, request.run_id),
+                populate_existing=True,
+            )
+            if existing is not None:
+                if (
+                    existing.request_hash != request_hash
+                    or existing.project_id != request.project_id
+                ):
+                    raise ValueError("duplicate delivery changed the frozen review request")
+                find_project(session, principal, existing.project_id)
+                return self._handle(existing)
             project = find_project(session, principal, request.project_id)
             input_snapshot, _ = snapshot_for_project(
                 session,
@@ -178,8 +193,18 @@ class ReviewEngine:
                 request.project_id,
                 tuple(sorted(request.document_requests, key=lambda item: item.document_id)),
             )
-            publication, bundle = read_publication(session, principal)
-            skill_ids = sorted(SKILLS)
+            config_revision_id, config_hash, config_snapshot = resolve_execution_configuration(
+                session, principal, self.model_policy
+            )
+            config_policy = ModelPolicySnapshot.model_validate(
+                config_snapshot["model_policy"]
+            ).to_policy()
+            if request.model_profile != config_policy.profile:
+                raise ValueError("request profile differs from the active review configuration")
+            publication, bundle = read_publication(
+                session, principal, config_snapshot["legal_publication_id"]
+            )
+            skill_ids = list(config_snapshot["skill_ids"])
             context_hash = content_hash(project.context)
             frozen = {
                 "schema_version": "task0009-review-snapshot.v1",
@@ -205,25 +230,15 @@ class ReviewEngine:
                 "legal_index_hash": index_hash(bundle.index),
                 "prompt_version": request.prompt_version,
                 "model_profile": request.model_profile,
-                "model_policy": self._policy_snapshot(),
+                "model_policy": config_snapshot["model_policy"],
+                "configuration_revision_id": config_revision_id,
+                "configuration_snapshot_hash": config_hash,
+                "configuration_snapshot": config_snapshot,
             }
             snapshot_hash = content_hash(frozen)
             task = session.get(
                 ReviewTask, (principal.tenant_id, request.review_task_id), populate_existing=True
             )
-            existing = session.get(
-                ReviewEngineRun,
-                (principal.tenant_id, request.review_task_id, request.run_id),
-                populate_existing=True,
-            )
-            if existing is not None:
-                if (
-                    existing.request_hash != request_hash
-                    or existing.project_id != request.project_id
-                ):
-                    raise ValueError("duplicate delivery changed the frozen review request")
-                find_project(session, principal, existing.project_id)
-                return self._handle(existing)
             if task is not None:
                 raise ValueError("review_task_id is already bound to a different run")
             now = datetime.now(UTC)
@@ -438,13 +453,19 @@ class ReviewEngine:
                     current = authorized_run(session, principal, row.review_task_id, row.run_id)
                     return {"status": current.status, "busy": True}
             saver = AsyncPostgresSaver(conn, serde=JsonPlusSerializer(pickle_fallback=False))
+            frozen_policy = (
+                ModelPolicySnapshot.model_validate(row.snapshot["model_policy"]).to_policy()
+                if "configuration_snapshot" in row.snapshot
+                else self.model_policy
+            )
             graph = build_review_graph(
                 session_factory=self.session_factory,
                 principal=principal,
                 gateway=self.gateway,
-                model_policy=self.model_policy,
+                model_policy=frozen_policy,
                 checkpointer=saver,
                 legal_root=self.legal_root,
+                skill_ids=tuple(row.snapshot.get("skill_ids", SKILLS.keys())),
             )
             saved = await graph.aget_state(config)
             values = dict(saved.values) if saved and saved.values else {}

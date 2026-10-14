@@ -2,6 +2,11 @@ import type { FullConfig } from "@playwright/test";
 
 const required = [
   "E2E_BASE_URL",
+  "E2E_NO_REVIEW_BASE_URL",
+  "E2E_ADMIN_DATABASE_URL",
+  "E2E_ADMIN_TENANT",
+  "E2E_ADMIN_USERNAME",
+  "E2E_ADMIN_PASSWORD",
   "E2E_REVIEWER_TENANT",
   "E2E_REVIEWER_USERNAME",
   "E2E_REVIEWER_PASSWORD",
@@ -11,6 +16,9 @@ const required = [
   "E2E_OPERATOR_TENANT",
   "E2E_OPERATOR_USERNAME",
   "E2E_OPERATOR_PASSWORD",
+  "E2E_CROSS_TENANT_REVIEWER_TENANT",
+  "E2E_CROSS_TENANT_REVIEWER_USERNAME",
+  "E2E_CROSS_TENANT_REVIEWER_PASSWORD",
 ];
 
 export default async function globalSetup(_config: FullConfig) {
@@ -19,7 +27,16 @@ export default async function globalSetup(_config: FullConfig) {
     throw new Error(`TASK-0011 browser E2E requires a separately provisioned isolated backend and test identities. Missing: ${missing.join(", ")}`);
   }
   const base = new URL(process.env.E2E_BASE_URL!);
-  if (base.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(base.hostname)) {
+  const noExecutor = new URL(process.env.E2E_NO_REVIEW_BASE_URL!);
+  const database = new URL(process.env.E2E_ADMIN_DATABASE_URL!);
+  if (
+    base.protocol !== "http:" ||
+    noExecutor.protocol !== "http:" ||
+    !["127.0.0.1", "localhost"].includes(base.hostname) ||
+    !["127.0.0.1", "localhost"].includes(noExecutor.hostname) ||
+    !["postgresql:", "postgresql+psycopg:"].includes(database.protocol) ||
+    !["127.0.0.1", "localhost"].includes(database.hostname)
+  ) {
     throw new Error("TASK-0011 E2E accepts only an isolated loopback test server; remote services are not allowed.");
   }
 }

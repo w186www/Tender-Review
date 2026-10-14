@@ -106,6 +106,15 @@ def main() -> None:
         connection.execute(text("GRANT SELECT ON legal_operator_grant TO task4_runtime"))
         connection.execute(
             text(
+                "GRANT SELECT, INSERT ON review_configuration_revision, "
+                "review_configuration_event TO task4_runtime"
+            )
+        )
+        connection.execute(
+            text("GRANT SELECT, INSERT, UPDATE ON review_configuration_state TO task4_runtime")
+        )
+        connection.execute(
+            text(
                 "GRANT SELECT, INSERT ON document_section, section_revision, "
                 "document_context_version TO task4_runtime"
             )
@@ -114,10 +123,12 @@ def main() -> None:
             text(
                 "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class "
                 "WHERE relname IN ('ingestion_job','document_section','section_revision',"
-                "'document_context_version','legal_retrieval_run')"
+                "'document_context_version','legal_retrieval_run',"
+                "'review_configuration_revision','review_configuration_event',"
+                "'review_configuration_state')"
             )
         ).all()
-        assert len(policies) == 5 and all(p[1] and p[2] for p in policies)
+        assert len(policies) == 8 and all(p[1] and p[2] for p in policies)
         connection.execute(
             text(
                 "GRANT SELECT, INSERT ON project_version, idempotency_record, "

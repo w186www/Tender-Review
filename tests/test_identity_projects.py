@@ -163,6 +163,33 @@ def test_cross_tenant_read_update_history_list_and_forged_header(system):
     assert create(client, b).json()["tenant_id"] == "b"
 
 
+def test_configuration_management_requires_tenant_admin_and_authentication(system):
+    client, engine, _, _ = system
+    catalog_url = "/api/v1/admin/configurations/catalog"
+    state_url = "/api/v1/admin/configurations"
+    assert client.get(catalog_url).status_code == 401
+
+    reviewer = sign_in(system)
+    assert client.get(catalog_url, headers=reviewer).status_code == 403
+    assert client.get(state_url, headers=reviewer).status_code == 403
+
+    admin = sign_in(system, role="admin")
+    catalog = client.get(catalog_url, headers=admin)
+    assert catalog.status_code == 200, catalog.text
+    payload = catalog.json()
+    assert payload["skills"]
+    assert "api_key" not in payload["model_policy"]
+    assert "provider" not in payload["model_policy"]
+    assert client.get(state_url, headers=admin).json()["items"] == []
+    with Session(engine) as db:
+        denied = list(
+            db.scalars(
+                select(AuditEvent).where(AuditEvent.action == "configuration.operation_denied")
+            )
+        )
+        assert len(denied) == 2
+
+
 @pytest.mark.parametrize("role", ["admin", "auditor", "operator"])
 def test_role_matrix_rejects_project_creation_and_update(system, role):
     client, engine, _, _ = system
@@ -384,17 +411,13 @@ def test_task0011_project_workbench_lists_documents_and_durable_review_status(sy
         )
         db.commit()
 
-    docs = client.get(
-        f"/api/v1/projects/{project['project_id']}/documents", headers=headers
-    )
+    docs = client.get(f"/api/v1/projects/{project['project_id']}/documents", headers=headers)
     assert docs.status_code == 200, docs.text
     validate("DocumentList", docs.json())
     assert docs.json()["items"][0]["document_id"] == document_id
     assert docs.json()["items"][0]["file_format"] == "pdf"
 
-    reviews = client.get(
-        f"/api/v1/projects/{project['project_id']}/reviews", headers=headers
-    )
+    reviews = client.get(f"/api/v1/projects/{project['project_id']}/reviews", headers=headers)
     assert reviews.status_code == 200, reviews.text
     validate("ReviewList", reviews.json())
     assert reviews.json()["items"][0]["status"] == "running"
@@ -440,9 +463,7 @@ def test_task0011_audit_query_is_tenant_scoped_and_auditor_only(system):
             )
         db.commit()
 
-    reviewer = client.get(
-        "/api/v1/audit/events", headers=sign_in(system, role="reviewer")
-    )
+    reviewer = client.get("/api/v1/audit/events", headers=sign_in(system, role="reviewer"))
     assert reviewer.status_code == 403
     auditor = client.get(
         "/api/v1/audit/events",

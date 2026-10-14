@@ -119,6 +119,12 @@ def main() -> None:
         conn.execute(text("GRANT SELECT,INSERT,UPDATE ON auth_session TO task6_runtime"))
         conn.execute(
             text(
+                "GRANT SELECT ON review_configuration_revision, "
+                "review_configuration_event, review_configuration_state TO task6_runtime"
+            )
+        )
+        conn.execute(
+            text(
                 "GRANT SELECT,INSERT ON audit_event, legal_retrieval_run, "
                 "legal_corpus_revision, legal_publication, legal_law_identity TO task6_runtime"
             )
@@ -151,10 +157,12 @@ def main() -> None:
                 "SELECT relrowsecurity,relforcerowsecurity FROM pg_class "
                 "WHERE relname IN ('legal_operator_grant','legal_corpus_state',"
                 "'legal_corpus_revision',"
-                "'legal_publication','legal_law_identity','review_report_content','review_report')"
+                "'legal_publication','legal_law_identity','review_report_content','review_report',"
+                "'review_configuration_revision','review_configuration_event',"
+                "'review_configuration_state')"
             )
         ).all()
-        assert len(flags) == 7 and all(row == (True, True) for row in flags)
+        assert len(flags) == 10 and all(row == (True, True) for row in flags)
     runtime_settings = settings.model_copy(
         update={
             "database_url": settings.database_url.__class__(

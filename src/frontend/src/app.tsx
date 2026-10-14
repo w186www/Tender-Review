@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 import { useAuth } from "./auth";
 import { AuditPage } from "./pages/audit";
+import { ConfigurationPage } from "./pages/configuration";
 import { LoginPage } from "./pages/login";
 import { ProjectPage } from "./pages/project";
 import { ProjectsPage } from "./pages/projects";
@@ -85,6 +86,16 @@ function AppShell() {
               <span aria-hidden="true">≡</span> 审计记录
             </NavLink>
           )}
+          {identity?.role === "admin" && (
+            <NavLink
+              to="/configurations"
+              className={({ isActive }) =>
+                isActive ? "nav-link active" : "nav-link"
+              }
+            >
+              <span aria-hidden="true">⚙</span> 配置版本
+            </NavLink>
+          )}
         </nav>
         <div className="sidebar-footnote">
           <span className="status-dot" aria-hidden="true" />
@@ -145,6 +156,7 @@ export function App() {
           <Route path="reviews" element={<PendingReviewsPage />} />
           <Route path="reviews/:reviewTaskId/:runId" element={<ReviewPage />} />
           <Route path="audit" element={<AuditPage />} />
+          <Route path="configurations" element={<ConfigurationPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>

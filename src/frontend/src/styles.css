@@ -674,6 +674,58 @@ tbody tr:hover {
   margin-top: 0;
 }
 
+.configuration-page > .panel {
+  margin-top: 20px;
+}
+.configuration-controls {
+  margin-top: 16px;
+}
+.configuration-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.configuration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 9px;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.configuration-reason {
+  margin-top: 16px;
+}
+.configuration-footnote {
+  margin: 12px 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.configuration-releases {
+  margin-top: 17px;
+  border-top: 1px solid var(--line);
+  padding-top: 13px;
+  color: #405264;
+  font-size: 0.84rem;
+}
+.configuration-releases summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.configuration-releases ul {
+  display: grid;
+  gap: 10px;
+  padding-left: 20px;
+}
+.configuration-releases li {
+  display: grid;
+  gap: 5px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1172,8 +1224,12 @@ blockquote {
     font-size: 1.15rem;
   }
   .form-grid,
+  .configuration-policy-grid,
   .filter-panel {
     grid-template-columns: 1fr;
+  }
+  .configuration-actions {
+    align-items: stretch;
   }
   .filter-actions {
     grid-column: auto;

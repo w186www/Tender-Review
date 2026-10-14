@@ -603,6 +603,120 @@ class LegalCorpusState(Base):
     )
 
 
+class ReviewConfigurationRevision(Base):
+    """Immutable tenant-scoped release of existing legal/rule/skill/model identities."""
+
+    __tablename__ = "review_configuration_revision"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "actor_id"], ["app_user.tenant_id", "app_user.user_id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "parent_revision_id"],
+            [
+                "review_configuration_revision.tenant_id",
+                "review_configuration_revision.revision_id",
+            ],
+        ),
+        UniqueConstraint("tenant_id", "revision_sequence"),
+        UniqueConstraint("tenant_id", "actor_id", "request_id"),
+        CheckConstraint("revision_sequence >= 1"),
+        CheckConstraint("length(request_hash) = 64 AND length(snapshot_hash) = 64"),
+        CheckConstraint("length(CAST(snapshot AS TEXT)) <= 1000000"),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    revision_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    revision_sequence: Mapped[int] = mapped_column(Integer)
+    parent_revision_id: Mapped[str | None] = mapped_column(String(36))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    request_id: Mapped[str] = mapped_column(String(64))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
+    snapshot_hash: Mapped[str] = mapped_column(String(64))
+    reason: Mapped[str] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReviewConfigurationEvent(Base):
+    """Append-only lifecycle event; state pointers are changed only with a matching event."""
+
+    __tablename__ = "review_configuration_event"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "actor_id"], ["app_user.tenant_id", "app_user.user_id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "revision_id"],
+            [
+                "review_configuration_revision.tenant_id",
+                "review_configuration_revision.revision_id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "previous_active_id"],
+            [
+                "review_configuration_revision.tenant_id",
+                "review_configuration_revision.revision_id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "active_revision_id"],
+            [
+                "review_configuration_revision.tenant_id",
+                "review_configuration_revision.revision_id",
+            ],
+        ),
+        UniqueConstraint("tenant_id", "sequence"),
+        UniqueConstraint("tenant_id", "actor_id", "request_id"),
+        CheckConstraint("sequence >= 1 AND expected_sequence >= 0"),
+        CheckConstraint("operation IN ('draft','publish','disable','rollback')"),
+        CheckConstraint("length(request_hash) = 64"),
+        CheckConstraint("(operation IN ('disable','draft') OR active_revision_id IS NOT NULL)"),
+        CheckConstraint(
+            "(operation = 'disable' AND revision_id IS NULL) OR "
+            "(operation != 'disable' AND revision_id IS NOT NULL)"
+        ),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    operation: Mapped[str] = mapped_column(String(20))
+    revision_id: Mapped[str | None] = mapped_column(String(36))
+    previous_active_id: Mapped[str | None] = mapped_column(String(36))
+    active_revision_id: Mapped[str | None] = mapped_column(String(36))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    request_id: Mapped[str] = mapped_column(String(64))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    expected_sequence: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReviewConfigurationState(Base):
+    """Mutable per-tenant CAS pointers to immutable configuration revisions/events."""
+
+    __tablename__ = "review_configuration_state"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id"], ["tenant.tenant_id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "active_revision_id"],
+            [
+                "review_configuration_revision.tenant_id",
+                "review_configuration_revision.revision_id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "draft_revision_id"],
+            [
+                "review_configuration_revision.tenant_id",
+                "review_configuration_revision.revision_id",
+            ],
+        ),
+        CheckConstraint("sequence >= 0 AND draft_sequence >= 0"),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    sequence: Mapped[int] = mapped_column(Integer, default=0)
+    active_revision_id: Mapped[str | None] = mapped_column(String(36))
+    draft_sequence: Mapped[int] = mapped_column(Integer, default=0)
+    draft_revision_id: Mapped[str | None] = mapped_column(String(36))
+
+
 class LegalLawIdentity(Base):
     __tablename__ = "legal_law_identity"
     __table_args__ = (

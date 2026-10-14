@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.6.0
-  description: v1alpha3 开发契约；人工决定、不可变报告和导出均在服务端鉴权并审计。
+  version: 0.7.0
+  description: v1alpha3 开发契约；配置发布、人工决定、不可变报告和导出均在服务端鉴权并审计。
 servers:
 - url: /api/v1
 paths:
@@ -1357,6 +1357,483 @@ paths:
               schema: {type: string, format: binary}
         '403': {description: 权限不足}
         '404': {description: 报告不可用}
+  /admin/configurations/catalog:
+    get:
+      summary: Get Catalog
+      operationId: getConfigurationCatalog
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationCatalog'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations:
+    get:
+      summary: List Configurations
+      operationId: listConfigurations
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations/drafts:
+    post:
+      summary: Create Draft
+      operationId: createConfigurationDraft
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationDraftRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations/publish:
+    post:
+      summary: Publish
+      operationId: publishConfiguration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationPublishRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations/deactivate:
+    post:
+      summary: Deactivate
+      operationId: deactivateConfiguration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationDisableRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations/rollback:
+    post:
+      summary: Rollback
+      operationId: rollbackConfiguration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationRollbackRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/legal:
+    get:
+      summary: Get Legal Management
+      operationId: getLegalManagement
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalManagementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/legal/drafts:
+    post:
+      summary: Create Legal Draft
+      operationId: createLegalDraft
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegalDraftRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalManagementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/legal/publications:
+    post:
+      summary: Change Legal Publication
+      operationId: changeLegalPublication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalManagementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
 components:
   securitySchemes:
     bearerAuth:
@@ -1389,6 +1866,642 @@ components:
       required: true
       schema: {type: string, format: uuid}
   schemas:
+    ConfigurationCatalog:
+      properties:
+        skills:
+          items:
+            $ref: '#/components/schemas/SkillCatalogItem'
+          type: array
+          title: Skills
+        model_policy:
+          $ref: '#/components/schemas/ModelPolicySnapshot'
+        model_configuration_boundary:
+          type: string
+          title: Model Configuration Boundary
+      additionalProperties: false
+      type: object
+      required:
+      - skills
+      - model_policy
+      - model_configuration_boundary
+      title: ConfigurationCatalog
+    ConfigurationDisableRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - reason
+      title: ConfigurationDisableRequest
+    ConfigurationDraftRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        expected_draft_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Draft Sequence
+        expected_legal_publication_id:
+          type: string
+          maxLength: 36
+          minLength: 1
+          title: Expected Legal Publication Id
+        skill_ids:
+          items:
+            type: string
+            enum:
+            - qualification_review
+            - technical_review
+            - evaluation_review
+            - contract_review
+            - procedure_review
+          type: array
+          maxItems: 5
+          minItems: 1
+          title: Skill Ids
+        model_policy:
+          $ref: '#/components/schemas/ModelPolicySnapshot'
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - expected_draft_sequence
+      - expected_legal_publication_id
+      - skill_ids
+      - model_policy
+      - reason
+      title: ConfigurationDraftRequest
+    ConfigurationEventItem:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        sequence:
+          type: integer
+          title: Sequence
+        operation:
+          type: string
+          enum:
+          - draft
+          - publish
+          - disable
+          - rollback
+          title: Operation
+        revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Revision Id
+        previous_active_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Previous Active Id
+        active_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Revision Id
+        actor_id:
+          type: string
+          title: Actor Id
+        request_id:
+          type: string
+          title: Request Id
+        reason:
+          type: string
+          title: Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - event_id
+      - sequence
+      - operation
+      - revision_id
+      - previous_active_id
+      - active_revision_id
+      - actor_id
+      - request_id
+      - reason
+      - created_at
+      title: ConfigurationEventItem
+    ConfigurationPublishRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        revision_id:
+          type: string
+          maxLength: 36
+          minLength: 36
+          title: Revision Id
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - revision_id
+      - reason
+      title: ConfigurationPublishRequest
+    ConfigurationRevisionItem:
+      properties:
+        revision_id:
+          type: string
+          title: Revision Id
+        revision_sequence:
+          type: integer
+          title: Revision Sequence
+        parent_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Revision Id
+        snapshot:
+          additionalProperties: true
+          type: object
+          title: Snapshot
+        snapshot_hash:
+          type: string
+          title: Snapshot Hash
+        reason:
+          type: string
+          title: Reason
+        actor_id:
+          type: string
+          title: Actor Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        status:
+          type: string
+          enum:
+          - active
+          - draft
+          - inactive
+          title: Status
+      additionalProperties: false
+      type: object
+      required:
+      - revision_id
+      - revision_sequence
+      - parent_revision_id
+      - snapshot
+      - snapshot_hash
+      - reason
+      - actor_id
+      - created_at
+      - status
+      title: ConfigurationRevisionItem
+    ConfigurationRollbackRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        target_revision_id:
+          type: string
+          maxLength: 36
+          minLength: 36
+          title: Target Revision Id
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - target_revision_id
+      - reason
+      title: ConfigurationRollbackRequest
+    ConfigurationStateResponse:
+      properties:
+        sequence:
+          type: integer
+          title: Sequence
+        draft_sequence:
+          type: integer
+          title: Draft Sequence
+        active_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Revision Id
+        draft_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Draft Revision Id
+        items:
+          items:
+            $ref: '#/components/schemas/ConfigurationRevisionItem'
+          type: array
+          title: Items
+        events:
+          items:
+            $ref: '#/components/schemas/ConfigurationEventItem'
+          type: array
+          title: Events
+      additionalProperties: false
+      type: object
+      required:
+      - sequence
+      - draft_sequence
+      - active_revision_id
+      - draft_revision_id
+      - items
+      - events
+      title: ConfigurationStateResponse
+    LegalDraftRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_draft_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Draft Sequence
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_draft_sequence
+      - reason
+      title: LegalDraftRequest
+    LegalManagementResponse:
+      properties:
+        sequence:
+          type: integer
+          title: Sequence
+        publication_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Publication Id
+        draft_sequence:
+          type: integer
+          title: Draft Sequence
+        draft_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Draft Revision Id
+        capabilities:
+          items:
+            type: string
+          type: array
+          title: Capabilities
+        revisions:
+          items:
+            $ref: '#/components/schemas/LegalRevisionItem'
+          type: array
+          title: Revisions
+        publications:
+          items:
+            $ref: '#/components/schemas/LegalPublicationItem'
+          type: array
+          title: Publications
+      additionalProperties: false
+      type: object
+      required:
+      - sequence
+      - publication_id
+      - draft_sequence
+      - draft_revision_id
+      - capabilities
+      - revisions
+      - publications
+      title: LegalManagementResponse
+    LegalPublicationItem:
+      properties:
+        publication_id:
+          type: string
+          title: Publication Id
+        sequence:
+          type: integer
+          title: Sequence
+        previous_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Previous Id
+        target_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Id
+        revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Revision Id
+        operation:
+          type: string
+          enum:
+          - publish
+          - disable
+          - rollback
+          title: Operation
+        reason:
+          type: string
+          title: Reason
+        actor_id:
+          type: string
+          title: Actor Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - publication_id
+      - sequence
+      - previous_id
+      - target_id
+      - revision_id
+      - operation
+      - reason
+      - actor_id
+      - created_at
+      title: LegalPublicationItem
+    LegalRevisionItem:
+      properties:
+        revision_id:
+          type: string
+          title: Revision Id
+        draft_sequence:
+          type: integer
+          title: Draft Sequence
+        parent_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Id
+        operation:
+          type: string
+          enum:
+          - ingest
+          - verify
+          title: Operation
+        content_hash:
+          type: string
+          title: Content Hash
+        index_hash:
+          type: string
+          title: Index Hash
+        reason:
+          type: string
+          title: Reason
+        actor_id:
+          type: string
+          title: Actor Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        versions:
+          items:
+            $ref: '#/components/schemas/LegalVersionSummary'
+          type: array
+          title: Versions
+      additionalProperties: false
+      type: object
+      required:
+      - revision_id
+      - draft_sequence
+      - parent_id
+      - operation
+      - content_hash
+      - index_hash
+      - reason
+      - actor_id
+      - created_at
+      - versions
+      title: LegalRevisionItem
+    LegalVersionSummary:
+      properties:
+        law_id:
+          type: string
+          title: Law Id
+        title:
+          type: string
+          title: Title
+        version:
+          type: string
+          title: Version
+        verification:
+          type: string
+          title: Verification
+        verified_through:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Verified Through
+        end_status:
+          type: string
+          title: End Status
+      additionalProperties: false
+      type: object
+      required:
+      - law_id
+      - title
+      - version
+      - verification
+      - verified_through
+      - end_status
+      title: LegalVersionSummary
+    ModelPolicySnapshot:
+      properties:
+        profile:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Profile
+        timeout_seconds:
+          type: number
+          maximum: 3600.0
+          exclusiveMinimum: 0.0
+          title: Timeout Seconds
+        max_attempts:
+          type: integer
+          maximum: 3.0
+          minimum: 1.0
+          title: Max Attempts
+        max_input_tokens:
+          anyOf:
+          - type: integer
+            maximum: 1000000.0
+            minimum: 1.0
+          - type: 'null'
+          title: Max Input Tokens
+        max_output_tokens:
+          anyOf:
+          - type: integer
+            maximum: 1000000.0
+            minimum: 1.0
+          - type: 'null'
+          title: Max Output Tokens
+        temperature:
+          type: number
+          maximum: 2.0
+          minimum: 0.0
+          title: Temperature
+        data_policy:
+          type: string
+          enum:
+          - public
+          - internal
+          - confidential
+          - restricted
+          title: Data Policy
+      additionalProperties: false
+      type: object
+      required:
+      - profile
+      - timeout_seconds
+      - max_attempts
+      - temperature
+      - data_policy
+      title: ModelPolicySnapshot
+      description: Provider-neutral execution limits; credentials and provider routing
+        are excluded.
+    PublicationRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        operation:
+          type: string
+          enum:
+          - publish
+          - disable
+          - rollback
+          title: Operation
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+        revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Revision Id
+        expected_draft_sequence:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Expected Draft Sequence
+        target_publication_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Publication Id
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - operation
+      - reason
+      title: PublicationRequest
+    SkillCatalogItem:
+      properties:
+        skill_id:
+          type: string
+          enum:
+          - qualification_review
+          - technical_review
+          - evaluation_review
+          - contract_review
+          - procedure_review
+          title: Skill Id
+        skill_version:
+          type: string
+          title: Skill Version
+        category:
+          type: string
+          title: Category
+        rule_versions:
+          additionalProperties:
+            type: string
+          type: object
+          title: Rule Versions
+      additionalProperties: false
+      type: object
+      required:
+      - skill_id
+      - skill_version
+      - category
+      - rule_versions
+      title: SkillCatalogItem
     ReviewDecisionRequest:
       type: object
       additionalProperties: false

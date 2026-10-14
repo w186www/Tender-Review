@@ -730,6 +730,7 @@ function ContextDialog({
               <ContextInput
                 label="行业"
                 value={fields.industry || ""}
+                required={false}
                 onChange={(value) => update("industry", value || null)}
               />
               <div className="form-field">
@@ -809,10 +810,12 @@ function ContextInput({
   label,
   value,
   onChange,
+  required = true,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  required?: boolean;
 }) {
   const id = `context-${label}`;
   return (
@@ -820,7 +823,7 @@ function ContextInput({
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
-        required
+        required={required}
         maxLength={300}
         value={value}
         onChange={(event) => onChange(event.target.value)}

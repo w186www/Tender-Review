@@ -4,12 +4,13 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  const apiTarget = process.env.BIDDING_API_TARGET || env.BIDDING_API_TARGET;
   return {
     plugins: [react()],
     server: {
       proxy: {
         "/api/v1": {
-          target: env.BIDDING_API_TARGET || "http://127.0.0.1:8000",
+          target: apiTarget || "http://127.0.0.1:8000",
           changeOrigin: false,
         },
       },
