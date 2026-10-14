@@ -1,0 +1,1 @@
+"""Independent provider protocol adapters."""

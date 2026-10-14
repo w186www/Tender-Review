@@ -6,6 +6,8 @@
 
 ### Added
 
+- TASK-0008 implementation candidate: provider-neutral gateway, OpenAI Responses and Anthropic Messages adapters, strict structured output validation, server-side routing/authorization, budget reservation, bounded retry/circuit breaker, and audit metadata. Focused 54 tests pass; full verification and remote CI are pending. Production routes remain disabled pending DEC-002 and shared budget persistence.
+
 - TASK-0007：实现五类无模型确定性Skill、版本化规则/Skill/候选发现契约、失败关闭覆盖、可追溯原文定位、稳定去重与法规检索主题。源码236d2a6e本地Focused30及Full448全通过，远程38516913371所有适用作业成功；任务已归档，M2仍待TASK-0008及整体退出验收。
 
 - TASK-0006 D01/D02/D04/D05/D07：明确未知有效期与局部废止；采购方式/主体/对象及双框架、条款范围交集；原始HTML字节和PDF页框与清洗文本映射；独立全局grant及鉴权CLI；不可变来源/核验修订、稳定法规身份、双CAS发布/停用/回滚和原子审计。Manifest3/Index4/Query3/Result5、OpenAPI0.5.0、迁移1600/1700；旧法规核验状态及原文保留。源码5347b110的本地/远程Full413项及真实PostgreSQL/Docker/官方PDF/文件接入成功，D01–D07本期退出条件满足并归档；证据38510406707，远程JUnit413/0/0/0。后续记录Quick，不重复Full、不合入main、不启动后续任务。

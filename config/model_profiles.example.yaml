@@ -29,15 +29,11 @@ profiles:
     data_policy: confidential
 routes:
   primary_fast:
-    providers:
-      - adapter: configured_provider_a
-        model: configured-fast-model
-      - adapter: configured_provider_b
-        model: configured-fallback-model
+    enabled: false # External calls stay disabled until DEC-002 and a trusted budget are approved.
+    providers: []
+    allow_fallback: false
   primary_reasoning:
-    providers:
-      - adapter: configured_provider_a
-        model: configured-reasoning-model
-      - adapter: configured_provider_b
-        model: configured-fallback-model
+    enabled: false
+    providers: []
+    allow_fallback: false
 
