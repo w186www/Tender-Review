@@ -55,7 +55,7 @@
         "AGENTS.md",
         "docs/decisions/ADR-0011-development-and-validation.md",
         "docs/development/development-workflow.md",
-        "tasks/active/TASK-0006-legal-retrieval.yaml",
+        "tasks/completed/TASK-0006-legal-retrieval.yaml",
         "docs/development/TASK-0017-validation.md"
       ]
     },

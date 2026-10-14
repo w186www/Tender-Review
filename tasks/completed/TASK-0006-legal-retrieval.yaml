@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0006",
   "title": "法规版本摄取与适用范围检索",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0004"
@@ -102,5 +102,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "D01/D02/D04/D05/D07实现与过程Focused/真实PostgreSQL验证完成，D03/D06保留并加固。最终候选Full/真实隔离与远程CI待验，仍in_progress，不合入main、不启动后续任务。42旧法规不提高核验，有限覆盖和契约升级见ADR-0012。"
+  "handoff_notes": "依据ADR-0011/0012由当前Codex独立实施/自检。D01未知上界/局部废止、D02不可变核验/来源/双CAS发布回滚、D04方式/双框架/条款范围、D05独立全局能力、D07HTML/PDF原始映射本期缺陷全部关闭；D03正式引用/D06无缓存边界保持。源码5347b110a8c3561c72086afd455755810de59abf本地Full413/0/0/0，Ruff/Mypy54与两个真实HTTP通过；真实PostgreSQL迁移/RLS/并发/撤权/审计失败回滚、固定Docker官方PDF84条15页及MinIO/ClamAV/OCR/HTTP均通过。远程https://github.com/w186www/Tender-Review/actions/runs/38510406707所有适用作业与汇总success，下载JUnit413/0/0/0。后续纯记录Quick，无重复Full；归档不代表全库效力/神经召回/生产AC验收，旧42法规仍unverified、有限地区/工程范围及核验截止保留。main/stash未动，后续建议TASK-0007，未启动。"
 }

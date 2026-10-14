@@ -2,7 +2,41 @@
 
 历史自测日期：2026-10-14，原恢复分支未提交候选。下述215项及旧索引哈希只属于原自测；自审completed已撤销，不能作为本轮独立审查通过证据。
 
-## 局部验收
+## 当前最终候选验收（2026-10-14，单Codex自检）
+
+源码：5347b110a8c3561c72086afd455755810de59abf，work/TASK-0006。接手实际HEAD为b8ed12d4bbac8836922a80c2816cb975829f679a，工作区干净且与远程一致；不是直接沿用聊天中的f0bd827。D01/D07/D04/D05/D02依赖顺序分别提交d9aa320/4241f4e/baf6ac5/0556869/5347b11。main保持bd2da2da984b6d1c34f3cfdb7da69e21661523be，保全stash不动，无代理、跨软件审批或后续任务。
+
+| 问题 | 最终实现与验收证据 | 当前局部结论 |
+|---|---|---|
+| D01 | end_status区分未知与核实无终止，条款窗口与父法规取交集；局部废止当日仅排除对应条款，其他有效条款保留。test_legal_lifecycle.py 17项涵盖起日前/日、终止前/当日/后、仅终止日、未知上界、核验截止和替换 | 本期缺陷关闭 |
+| D02 | 独立不可变revision/来源/稳定law_id，双序号CAS和完整CorpusBundle；发布/停用/回滚/审计同事务、幂等绑定内容。test_legal_publications.py 19项；真实PostgreSQL并发及REVOKE审计INSERT失败回滚、特权历史删除拒绝 | 本期缺陷关闭 |
+| D03 | 保留正式EvidenceRef与集合/资格/哈希/定位校验；Result5继续重验效力/范围/框架，历史运行hash先验证再对照不可变发布 | 原修复保持并加固 |
+| D04 | 项目API/context/query方法/主体/对象版本化；未知上下文零Embedding、双框架保留、版本/条款范围交集；test_legal_applicability.py 24项及原地区/上下文变更测试 | 本期缺陷关闭，有限范围不等同全部生产法规适用性 |
+| D05 | 独立5类global capability、live身份/会话/grant；tenant admin拒绝、跨租户run拒绝、撤权及真实FORCE RLS/最小权限。test_legal_authorization.py 13项和两套真实PG专项 | 本期缺陷关闭 |
+| D06 | 无公共/租户结果缓存，每次独立run并冻结所有输入，不跨项目/日期复用；原test_legal_runs.py保持 | 无缓存边界保持；将来缓存另验 |
+| D07 | 原始HTML字节/实体与清洗字符映射，PDF页框/glyph覆盖、目录/页脚排除、generated头禁引用、重复/丢失条号拒绝；test_legal_sources.py 10项及真实隔离84条/15页PDF专项 | 本期缺陷关闭；大面积扫描PDF失败关闭，不虚称OCR完整覆盖 |
+
+TASK0006-001通过：未核实、未知上界、超核验日、未知范围、无完整定位均不可确认；显式参考仍有原因，已知过期/地区/方式/条款不适用不返回。TASK0006-002通过：完整可信项目上下文和基准日生成query，返回原文/条号/来源/哈希/框架/证据定位，冻结publication/revision/index/context/actor和审计，真实原字节可重现。
+
+最终本地./scripts/verify.ps1 Full退出0，JUnit413 tests/0 failures/0 errors/0 skipped；169.51秒，Ruff与Mypy54文件、全部契约/生成及实际HTTP健康、登录/项目/版本/撤销通过。相对旧D03的323项增加90项：D01 17、D07 10、D04 24、D05 13、D02 19及7项正式管理契约正反例。只有两项pypdf合成恶意JS拒绝样本弃用警告，无放宽/删除/跳过测试。
+
+同一源码真实集成全部退出0：
+- .verification/task0006-final-baseline-pg.log：原迁移/重复/增量/元数据、身份/项目API、RLS、租户复合FK、运行读取撤权及完整降级/重建。
+- .verification/task0006-final-lifecycle-pg.log：全局grant最小权限/真实RLS、并发核验及发布/回滚各一胜、相同文本独立修订、幂等、冻结字节重现、越权/撤权、审计失败原子回滚、停用/恢复追加历史、特权DELETE拒绝。
+- .verification/task0006-final-parser.log/.verification/task0006-final-sources.log：重新构建最终固定镜像，UID/只读/无网络/权限/资源限制，真实官方PDF84条15页与glyph覆盖。镜像配置sha256:e82ac6a5b0ee7bd90853afd4642bebf28667f25b73081594e738e8d6d3824faf。
+- .verification/task0006-final-ingestion.log：既有真实MinIO、ClamAV良性/恶意门禁、PDF/DOCX/图片/扫描PDF OCR、HTTP/上下文/下载/租户隔离。全部自有测试容器已清理，无现有数据库改动。
+
+远程候选运行：https://github.com/w186www/Tender-Review/actions/runs/38510406707 ，head_sha必须等于上列源码。已核对completed/success：impact/baseline/postgres/ingestion/verify-required全部success，quick因Full选档不适用。下载.verification/task0006-final-remote-junit/pytest-result.xml，远程JUnit413 tests、0 failures、0 errors、0 skipped；179.012秒，与本地相符。完整CI与JUnit绑定上述实际源码，非旧f0bd827证据。
+
+契约升级Manifest3/Index4/Query3/Result5、OpenAPI0.5.0，新增管理/来源DTO；显式迁移1600/1700，旧身份/项目/检索历史不改写。无生产数据，旧结果须原消费者。正文/来源/核验字节冻结不进入State。新业务入口只读当前已发布快照，历史入口重新鉴权，CLI不自动授予全局能力。
+
+剩余边界不是被放宽的门禁：42旧文本仍unverified，新增2019工程招标范围核验只到2026-10-14；未支持地区/未知项目上下文/无法完整映射扫描正文失败关闭。全库效力核验、3份缺失资料、pgvector/神经召回/性能、规则、模型、前端、完整LangGraph和M2/M5全局验收尚未实现。没有已知未解决的本期D01–D07阻断；全部本期条件、最终Full、真实集成和源码远程CI均已满足，TASK-0006达到局部退出条件并归档；M2整体未完成。源码之后仅任务/文档证据记录，用Quick，不重复Full。
+
+归档第一次Quick失败：TASK-0017证据清单仍引用active/TASK-0006路径。已将该纯任务元数据引用同步为completed路径，未删证据/放宽检查；重新Quick通过，代码/契约/数据/配置/依赖/测试/验证脚本均与5347b110相同，不重复Full。
+
+以下各节保留历史候选及中间失败，不作为当前源码的验收结果。
+
+## 历史局部验收
 
 | 验收 | 证据 | 结果 |
 |---|---|---|
@@ -45,7 +79,7 @@
 本轮代码候选：a88f5171888a2ede21122332c243451446ad96f4；基线main：bd2da2da984b6d1c34f3cfdb7da69e21661523be。上述251项最终检查针对该候选提交的源文件/契约/测试，候选之后仅补交接/验证/阶段记录；实施者停止写入待独立审查。
 
 
-## 2026-10-14 单Codex续建D03（当前记录）
+## 历史D03单Codex续建记录
 
 本节覆盖历史默认独立代理/跨软件关卡；依据ADR-0011由当前Codex设计、实现、自检。历史真实发现及失败记录保留。TASK-0017先完成：源码68d67a809、远程38496768950全部适用作业/汇总门禁成功，279项远程JUnit0失败/错误/跳过。TASK-0006仍in_progress。
 
@@ -56,7 +90,7 @@
 - 真实一次性PostgreSQL16运行修改后的scripts/check_postgres.py退出0：原有增量/重复迁移、元数据一致性、并发/租户复合FK、FORCE RLS/WITH CHECK、最小授权、运行读取/撤权、追加写触发器、完整降级/重建均保留；新增持久化返回证据集合及制品逐项解析。日志.verification/task0006-evidence-postgres.log，测试容器已清理。
 - 最终代码候选Full退出0：323项、0失败/0错误/0跳过，JUnit已复核；Ruff、Mypy48源文件、契约/生成一致性与两项真实HTTP检查全部通过，仅原pypdf合成拒绝样本弃用警告。相对TASK-0017的279项增加39项证据专项及5项正式契约fixture。此后仅工程记录变化用Quick，不重复Full；此次源码SHA/远程CI另行补记，不复用TASK-0017 CI。
 
-### 当前自检问题状态
+### 历史D03候选自检问题状态
 
 | 问题 | 本次真实处理 | 剩余事项 |
 |---|---|---|
