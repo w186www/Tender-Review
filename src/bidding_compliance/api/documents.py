@@ -16,7 +16,7 @@ from bidding_compliance.ingestion.schemas import (
     SectionsResponse,
 )
 from bidding_compliance.ingestion.storage import make_store
-from bidding_compliance.services import documents
+from bidding_compliance.services import documents, reports
 
 from .projects import DB, User
 from .schemas import ErrorResponse
@@ -164,3 +164,30 @@ def original(
             "Cache-Control": "no-store",
         },
     )
+
+
+@router.get(
+    "/{documentId}/sections/{sectionId}/revisions/{revision}",
+    operation_id="resolveDocumentCitation",
+)
+def resolve_citation(
+    projectId: str,
+    documentId: str,
+    sectionId: str,
+    revision: int,
+    sourceHash: str,
+    principal: User,
+    session: DB,
+) -> dict[str, object]:
+    try:
+        return reports.citation_fragment(
+            session,
+            principal,
+            project_id=projectId,
+            document_id=documentId,
+            section_id=sectionId,
+            revision=revision,
+            source_hash=sourceHash,
+        )
+    except (LookupError, PermissionError, ValueError) as exc:
+        raise translate(exc) from exc

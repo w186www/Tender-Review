@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.5.0
-  description: v1alpha2 开发契约；所有业务接口要求租户范围和审计关联 ID。
+  version: 0.6.0
+  description: v1alpha3 开发契约；人工决定、不可变报告和导出均在服务端鉴权并审计。
 servers:
 - url: /api/v1
 paths:
@@ -1029,6 +1029,194 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{projectId}/documents/{documentId}/sections/{sectionId}/revisions/{revision}:
+    get:
+      operationId: resolveDocumentCitation
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: sectionId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: revision
+        in: path
+        required: true
+        schema: {type: integer, minimum: 0}
+      - name: sourceHash
+        in: query
+        required: true
+        schema: {type: string, pattern: '^[a-f0-9]{64}$'}
+      responses:
+        '200':
+          description: 经租户和项目授权回查的历史原文片段
+          content:
+            application/json:
+              schema: {type: object}
+        '403': {description: 权限不足}
+        '404': {description: 引用不可用}
+  /review-tasks/pending:
+    get:
+      operationId: listPendingReviews
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200': {description: 待复核任务}
+        '403': {description: 权限不足}
+  /review-tasks/{reviewTaskId}/runs/{runId}/findings:
+    get:
+      operationId: getReviewFindings
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 当前复核状态和风险项
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewFindings'}
+        '403': {description: 权限不足}
+        '404': {description: 任务不可用}
+  /review-tasks/{reviewTaskId}/runs/{runId}/findings/{findingId}:
+    get:
+      operationId: getReviewFinding
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      - name: findingId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200': {description: 风险及独立证据状态}
+        '403': {description: 权限不足}
+        '404': {description: 风险不可用}
+  /review-tasks/{reviewTaskId}/runs/{runId}/findings/{findingId}/decisions:
+    post:
+      operationId: submitReviewDecision
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      - name: findingId
+        in: path
+        required: true
+        schema: {type: string}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReviewDecisionRequest'}
+      responses:
+        '200':
+          description: 已追加保存的不可变决定
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewDecision'}
+        '403': {description: 权限不足}
+        '409': {description: 任务状态或结果版本冲突}
+        '422': {description: 决定或修改字段无效}
+  /review-tasks/{reviewTaskId}/runs/{runId}/history:
+    get:
+      operationId: getReviewHistory
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 追加式人工复核历史
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewHistory'}
+        '403': {description: 权限不足}
+  /review-tasks/{reviewTaskId}/runs/{runId}/publish:
+    post:
+      operationId: publishReviewResult
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200': {description: 幂等发布的不可变结果版本}
+        '403': {description: 权限不足}
+        '409': {description: 仍有待处理风险或任务状态冲突}
+  /review-tasks/{reviewTaskId}/runs/{runId}/resume:
+    post:
+      operationId: resumeReviewRun
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200': {description: 从持久 LangGraph 人工中断继续执行}
+        '403': {description: 权限不足}
+        '409': {description: 恢复条件或版本冲突}
+        '503': {description: 审查 Worker 未连接}
+  /review-results/{resultId}/reports/{outputFormat}:
+    post:
+      operationId: createReviewReport
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: resultId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: outputFormat
+        in: path
+        required: true
+        schema: {type: string, enum: [docx, pdf]}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: 不可变 Word/PDF 制品元信息
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportMetadata'}
+        '403': {description: 权限不足}
+        '409': {description: 报告内容或版本冲突}
+  /reports/{reportId}/content:
+    get:
+      operationId: exportReviewReport
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 当前授权校验并写入导出审计后的报告文件
+          content:
+            application/pdf:
+              schema: {type: string, format: binary}
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: {type: string, format: binary}
+        '403': {description: 权限不足}
+        '404': {description: 报告不可用}
 components:
   securitySchemes:
     bearerAuth:
@@ -1050,7 +1238,91 @@ components:
         type: string
         minLength: 16
         maxLength: 200
+    ReviewTaskId:
+      name: reviewTaskId
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 64}
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
   schemas:
+    ReviewDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, expected_snapshot_hash, reason]
+      properties:
+        decision: {type: string, enum: [accept, modify, reject]}
+        expected_snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        reason: {type: string, minLength: 1, maxLength: 2000}
+        modified_finding:
+          type: [object, 'null']
+          properties:
+            title: {type: string, minLength: 1, maxLength: 300}
+            description: {type: string, minLength: 1, maxLength: 4000}
+            severity: {type: string, enum: [low, medium, high, critical]}
+            recommendation: {type: string, minLength: 1, maxLength: 4000}
+            reasoning_summary: {type: string, minLength: 1, maxLength: 4000}
+      allOf:
+      - if:
+          properties: {decision: {const: modify}}
+          required: [decision]
+        then:
+          properties: {modified_finding: {type: object, minProperties: 1}}
+          required: [modified_finding]
+        else:
+          properties: {modified_finding: {type: 'null'}}
+    ReviewFindings:
+      type: object
+      additionalProperties: false
+      required: [review_task_id, run_id, snapshot_hash, status, findings, pending_finding_ids]
+      properties:
+        review_task_id: {type: string}
+        run_id: {type: string, format: uuid}
+        snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        status: {type: string}
+        findings: {type: array, items: {type: object}}
+        pending_finding_ids: {type: array, items: {type: string}}
+    ReviewDecision:
+      type: object
+      additionalProperties: false
+      required: [decision_id, review_task_id, run_id, finding_id, decision, before_state, after_state, reason, reviewer_id, request_id, request_trace_id, decided_at]
+      properties:
+        decision_id: {type: string, format: uuid}
+        review_task_id: {type: string}
+        run_id: {type: string, format: uuid}
+        finding_id: {type: string}
+        decision: {type: string, enum: [accept, modify, reject, confirm_no_findings]}
+        before_state: {type: object}
+        after_state: {type: object}
+        reason: {type: string, minLength: 1, maxLength: 2000}
+        reviewer_id: {type: string}
+        request_id: {type: string}
+        request_trace_id: {type: [string, 'null'], format: uuid}
+        decided_at: {type: string, format: date-time}
+    ReviewHistory:
+      type: object
+      additionalProperties: false
+      required: [review_task_id, run_id, decisions]
+      properties:
+        review_task_id: {type: string}
+        run_id: {type: string, format: uuid}
+        decisions: {type: array, items: {$ref: '#/components/schemas/ReviewDecision'}}
+    ReportMetadata:
+      type: object
+      additionalProperties: false
+      required: [report_id, report_content_id, result_id, format, template_version, snapshot_hash, content_hash, created_at]
+      properties:
+        report_id: {type: string, format: uuid}
+        report_content_id: {type: string, format: uuid}
+        result_id: {type: string, format: uuid}
+        format: {type: string, enum: [docx, pdf]}
+        template_version: {type: string}
+        snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        content_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        created_at: {type: string, format: date-time}
     ProjectFields:
       type: object
       required:

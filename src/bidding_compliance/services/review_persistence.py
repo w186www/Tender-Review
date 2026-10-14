@@ -13,6 +13,7 @@ from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from bidding_compliance.domain.identity import Principal, Role
@@ -216,14 +217,19 @@ def submit_decision(
     request_id: str,
     reason: str,
     modified_finding: dict[str, Any] | None = None,
+    expected_snapshot_hash: str | None = None,
+    request_trace_id: str | None = None,
 ) -> ReviewDecision:
+    require_identity(session, principal)
     if principal.role is not Role.REVIEWER:
+        audit(session, principal.tenant_id, principal.user_id, "review.decision_denied", finding_id)
+        session.commit()
         raise PermissionError("human review requires reviewer role")
     row = authorized_run(session, principal, review_task_id, run_id)
-    if row.status != "waiting_human":
-        raise ValueError("review is not waiting for a human decision")
     if row.snapshot_hash != content_hash(row.snapshot):
         raise ValueError("review snapshot hash mismatch")
+    if expected_snapshot_hash is not None and expected_snapshot_hash != row.snapshot_hash:
+        raise ValueError("review result version conflict")
     existing_request = session.scalar(
         select(ReviewDecision).where(
             ReviewDecision.tenant_id == principal.tenant_id,
@@ -242,6 +248,8 @@ def submit_decision(
         ):
             raise ValueError("decision request idempotency conflict")
         return existing_request
+    if row.status != "waiting_human":
+        raise ValueError("review is not waiting for a human decision")
     finding = _finding_for_decision(session, principal, row, finding_id)
     if finding_id == RESULT_PENDING_ID:
         if decision != "confirm_no_findings" or finding is not None:
@@ -262,6 +270,8 @@ def submit_decision(
         raise ValueError("unsupported human decision")
     if (decision == "modify") != (modified_finding is not None):
         raise ValueError("modified finding is required only for modify decisions")
+    if decision == "modify" and not modified_finding:
+        raise ValueError("modify decisions require at least one allowed field")
     if decision == "modify":
         assert finding is not None and modified_finding is not None
         allowed = {"title", "description", "severity", "recommendation", "reasoning_summary"}
@@ -298,7 +308,9 @@ def submit_decision(
             and prior.reviewer_id == principal.user_id
         ):
             return prior
-        raise ValueError("finding already has a conflicting immutable decision")
+        raise ValueError("finding already has a conflicting immutable decision") from None
+    decided_at = datetime.now(UTC)
+    before_state = finding or {"finding_id": RESULT_PENDING_ID, "review_status": "pending"}
     decision_row = ReviewDecision(
         tenant_id=principal.tenant_id,
         decision_id=str(uuid4()),
@@ -306,17 +318,75 @@ def submit_decision(
         run_id=run_id,
         finding_id=finding_id,
         decision=decision,
+        before_state=before_state,
+        after_state=_decision_projection(
+            before_state, decision, modified_finding, principal, reason, decided_at
+        ),
         modified_finding=modified_finding,
         snapshot_hash=row.snapshot_hash,
         reviewer_id=principal.user_id,
         request_id=request_id,
+        request_trace_id=request_trace_id,
         reason=reason.strip(),
-        decided_at=datetime.now(UTC),
+        decided_at=decided_at,
     )
     session.add(decision_row)
     audit(session, principal.tenant_id, principal.user_id, "review.decision", finding_id)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        authorized_run(session, principal, review_task_id, run_id)
+        replay = session.scalar(
+            select(ReviewDecision).where(
+                ReviewDecision.tenant_id == principal.tenant_id,
+                ReviewDecision.reviewer_id == principal.user_id,
+                ReviewDecision.request_id == request_id,
+            )
+        )
+        if replay is not None and (
+            replay.review_task_id == review_task_id
+            and replay.run_id == run_id
+            and replay.finding_id == finding_id
+            and replay.decision == decision
+            and replay.reason == reason.strip()
+            and replay.modified_finding == modified_finding
+        ):
+            return replay
+        raise ValueError("finding already has a conflicting immutable decision") from None
     return decision_row
+
+
+def _decision_projection(
+    finding: dict[str, Any],
+    decision: str,
+    modified_finding: dict[str, Any] | None,
+    principal: Principal,
+    reason: str,
+    decided_at: datetime,
+) -> dict[str, Any]:
+    projected = json.loads(canonical_json(finding))
+    if decision == "confirm_no_findings":
+        projected["review_status"] = "confirmed_no_findings"
+        projected["human_review"] = {
+            "reviewer_id": principal.user_id,
+            "decided_at": decided_at.isoformat(),
+            "reason": reason.strip(),
+        }
+        return cast(dict[str, Any], projected)
+    if decision == "modify":
+        projected.update(modified_finding or {})
+    projected["review_status"] = {
+        "accept": "accepted",
+        "modify": "modified",
+        "reject": "rejected",
+    }[decision]
+    projected["human_review"] = {
+        "reviewer_id": principal.user_id,
+        "decided_at": decided_at.isoformat(),
+        "reason": reason.strip(),
+    }
+    return cast(dict[str, Any], projected)
 
 
 def approved_findings(
@@ -362,22 +432,29 @@ def approved_findings(
     validator = Draft202012Validator(risk_schema, registry=registry)
     result = []
     for original in findings:
-        item = json.loads(canonical_json(original))
-        decision = by_finding[item["finding_id"]]
+        decision = by_finding[original["finding_id"]]
         if decision.reviewer_id == "" or decision.decision == "confirm_no_findings":
             raise ValueError("invalid finding review decision")
-        if decision.decision == "modify":
-            item.update(decision.modified_finding or {})
-        item["review_status"] = {
-            "accept": "accepted",
-            "modify": "modified",
-            "reject": "rejected",
-        }[decision.decision]
-        item["human_review"] = {
-            "reviewer_id": decision.reviewer_id,
-            "decided_at": decision.decided_at.isoformat(),
-            "reason": decision.reason,
-        }
+        item = (
+            json.loads(canonical_json(decision.after_state))
+            if decision.after_state is not None
+            else json.loads(canonical_json(original))
+        )
+        if decision.after_state is None:
+            if decision.decision == "modify":
+                item.update(decision.modified_finding or {})
+            item["review_status"] = {
+                "accept": "accepted",
+                "modify": "modified",
+                "reject": "rejected",
+            }[decision.decision]
+            item["human_review"] = {
+                "reviewer_id": decision.reviewer_id,
+                "decided_at": decision.decided_at.isoformat(),
+                "reason": decision.reason,
+            }
+        if item.get("evidence_status") != original.get("evidence_status"):
+            raise ValueError("human review cannot change the independently checked evidence status")
         validator.validate(item)
         result.append(item)
     return result

@@ -12,11 +12,15 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZipFile
 
 import psycopg
+from docx import Document as WordDocument
 from psycopg.rows import dict_row
+from pypdf import PdfReader
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -37,6 +41,7 @@ from bidding_compliance.model_gateway.errors import GatewayErrorCode, ModelGatew
 from bidding_compliance.model_gateway.protocol import ModelGateway
 from bidding_compliance.persistence.database import make_engine, set_tenant
 from bidding_compliance.persistence.models import (
+    AuditEvent,
     AuthSession,
     Document,
     DocumentContextVersion,
@@ -45,13 +50,25 @@ from bidding_compliance.persistence.models import (
     ReviewArtifact,
     ReviewDecision,
     ReviewEngineRun,
+    ReviewReportContent,
     ReviewResult,
+    ReviewTask,
+    User,
+)
+from bidding_compliance.services.identity import PASSWORDS
+from bidding_compliance.services.reports import (
+    citation_fragment,
+    create_report,
+    export_report,
+    report_payload,
 )
 from bidding_compliance.services.review_engine import ReviewEngine, ReviewRequest
 from bidding_compliance.services.review_persistence import (
     RESULT_PENDING_ID,
+    approved_findings,
     authorized_run,
     publish_result,
+    submit_decision,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -314,9 +331,7 @@ def verify_review_engine(
             f"gateway_calls={gateway.calls}, errors={failure_errors!r}"
         )
     with Session(runtime_engine) as session:
-        failed_run = authorized_run(
-            session, principal, request.review_task_id, request.run_id
-        )
+        failed_run = authorized_run(session, principal, request.review_task_id, request.run_id)
         if (
             failed_run.status != "failed"
             or failed_run.failure_code != GatewayErrorCode.TIMEOUT.value
@@ -345,6 +360,7 @@ def verify_review_engine(
         )
         if merged is None or not merged.content["findings"]:
             raise AssertionError("synthetic evidence review produced no merged findings")
+        source_finding = merged.content["findings"][0]
         for finding in merged.content["findings"]:
             law_evidence = [
                 item for item in finding["evidence"] if item["kind"] in {"law", "policy"}
@@ -440,6 +456,362 @@ def verify_review_engine(
         )
         if len(results) != 1:
             raise AssertionError("review result publication was not exactly once")
+        persisted_decisions = list(
+            session.scalars(
+                select(ReviewDecision).where(
+                    ReviewDecision.tenant_id == principal.tenant_id,
+                    ReviewDecision.review_task_id == request.review_task_id,
+                    ReviewDecision.run_id == request.run_id,
+                )
+            )
+        )
+        if len(persisted_decisions) != 1:
+            raise AssertionError("human decision history was not persisted exactly once")
+        decision_record = persisted_decisions[0]
+        if (
+            decision_record.before_state is None
+            or decision_record.after_state is None
+            or decision_record.reason.strip() == ""
+            or decision_record.request_id == ""
+        ):
+            raise AssertionError("human review did not retain before/after values and reason")
+        if decision_record.finding_id == RESULT_PENDING_ID:
+            if decision_record.after_state.get("review_status") != "confirmed_no_findings":
+                raise AssertionError("empty result confirmation history is incomplete")
+        elif (
+            decision_record.before_state.get("review_status") != "pending"
+            or decision_record.after_state.get("review_status") != "accepted"
+            or decision_record.before_state.get("evidence_status")
+            != decision_record.after_state.get("evidence_status")
+        ):
+            raise AssertionError("human status changed or omitted the independent evidence state")
+        published = results[0]
+        first_docx = create_report(
+            session,
+            principal,
+            result_id=published.result_id,
+            output_format="docx",
+            idempotency_key="task0010-postgres-docx-first",
+        )
+        repeated_docx = create_report(
+            session,
+            principal,
+            result_id=published.result_id,
+            output_format="docx",
+            idempotency_key="task0010-postgres-docx-first",
+        )
+        pdf_report = create_report(
+            session,
+            principal,
+            result_id=published.result_id,
+            output_format="pdf",
+            idempotency_key="task0010-postgres-pdf-first",
+        )
+        if first_docx.report_id != repeated_docx.report_id:
+            raise AssertionError("report generation retry created a second formal artifact")
+        if (
+            first_docx.report_content_id != pdf_report.report_content_id
+            or first_docx.report_content_id != repeated_docx.report_content_id
+        ):
+            raise AssertionError("Word and PDF did not reuse one structured report version")
+        set_tenant(session, principal.tenant_id)
+        structured_report = session.get(
+            ReviewReportContent,
+            (principal.tenant_id, first_docx.report_content_id),
+        )
+        if (
+            structured_report is None
+            or structured_report.content["report_id"] != first_docx.report_content_id
+            or structured_report.content_hash == ""
+        ):
+            raise AssertionError("structured report version was not durably registered")
+        if (
+            first_docx.snapshot_hash != published.snapshot_hash
+            or pdf_report.snapshot_hash != published.snapshot_hash
+        ):
+            raise AssertionError("Word/PDF did not bind to the immutable result snapshot")
+        if not first_docx.content.startswith(b"PK") or not pdf_report.content.startswith(b"%PDF-"):
+            raise AssertionError("report artifacts do not contain their declared file formats")
+        with ZipFile(BytesIO(first_docx.content)) as archive:
+            if "word/document.xml" not in archive.namelist():
+                raise AssertionError("Word artifact is not a parseable DOCX package")
+        if not WordDocument(BytesIO(first_docx.content)).paragraphs:
+            raise AssertionError("Word report has no readable body")
+        if len(PdfReader(BytesIO(pdf_report.content)).pages) < 1:
+            raise AssertionError("PDF report has no pages")
+        if published.content["findings"]:
+            report_body = WordDocument(BytesIO(first_docx.content))
+            if not any("投标人必须在本市注册" in p.text for p in report_body.paragraphs):
+                raise AssertionError("report omitted its source excerpt")
+            payload = report_payload(session, principal, published)
+            cite = payload["findings"][0]["citations"][0]
+            resolved = citation_fragment(
+                session,
+                principal,
+                project_id=published.content["project_id"],
+                document_id=cite["document_id"],
+                section_id=cite["section_id"],
+                revision=cite["section_revision"],
+                source_hash=cite["raw_source_sha256"],
+            )
+            if resolved["fragment"]["text"] != cite["quote"]:
+                raise AssertionError(
+                    "report citation did not resolve to the exact original fragment"
+                )
+        exported = export_report(session, principal, first_docx.report_id)
+        if exported.content_hash != first_docx.content_hash:
+            raise AssertionError("authorized report export changed the artifact")
+        set_tenant(session, principal.tenant_id)
+        exported_events = session.scalar(
+            select(func.count(AuditEvent.event_id)).where(
+                AuditEvent.tenant_id == principal.tenant_id,
+                AuditEvent.actor_id == principal.user_id,
+                AuditEvent.action == "report.exported",
+                AuditEvent.resource_id == first_docx.report_id,
+            )
+        )
+        if exported_events != 1:
+            raise AssertionError("report export did not produce exactly one audit event")
+        if pending_findings:
+            concurrent_reviewer = Principal(
+                principal.tenant_id, "u2", "reviewer-two", Role.REVIEWER, str(uuid4())
+            )
+            auditor = Principal(principal.tenant_id, "u3", "auditor", Role.AUDITOR, str(uuid4()))
+            tenant_admin = Principal(
+                principal.tenant_id, "u4", "tenant-admin", Role.ADMIN, str(uuid4())
+            )
+            with Session(admin_engine) as admin_session:
+                for secondary, role in (
+                    (concurrent_reviewer, "reviewer"),
+                    (auditor, "auditor"),
+                    (tenant_admin, "admin"),
+                ):
+                    admin_session.add(
+                        User(
+                            tenant_id=principal.tenant_id,
+                            user_id=secondary.user_id,
+                            username="synthetic-" + secondary.user_id,
+                            password_hash=PASSWORDS.hash(str(uuid4())),
+                            role=role,
+                            active=True,
+                        )
+                    )
+                admin_session.flush()
+                for secondary, _ in (
+                    (concurrent_reviewer, "reviewer"),
+                    (auditor, "auditor"),
+                    (tenant_admin, "admin"),
+                ):
+                    admin_session.add(
+                        AuthSession(
+                            tenant_id=principal.tenant_id,
+                            session_id=secondary.session_id,
+                            user_id=secondary.user_id,
+                            expires_at=datetime.now(UTC) + timedelta(hours=1),
+                            revoked=False,
+                        )
+                    )
+                admin_session.commit()
+
+            def create_decision_case(label: str) -> tuple[str, str, str]:
+                synthetic_task = f"task0010-{label}-" + uuid4().hex[:12]
+                synthetic_run = str(uuid4())
+                snapshot = json.loads(json.dumps(row.snapshot))
+                snapshot.update(
+                    {
+                        "tenant_id": principal.tenant_id,
+                        "project_id": row.project_id,
+                        "review_task_id": synthetic_task,
+                        "run_id": synthetic_run,
+                    }
+                )
+                snapshot_digest = _canonical_hash(snapshot)
+                artifact_content = {"findings": [source_finding]}
+                artifact_digest = _canonical_hash(artifact_content)
+                artifact_id = hashlib.sha256(
+                    (
+                        f"{principal.tenant_id}\0{synthetic_task}\0{synthetic_run}\0"
+                        f"merged_findings\0{artifact_digest}"
+                    ).encode()
+                ).hexdigest()
+                with Session(admin_engine) as admin_session:
+                    admin_session.add(
+                        ReviewTask(
+                            tenant_id=principal.tenant_id,
+                            review_task_id=synthetic_task,
+                            project_id=row.project_id,
+                            run_id=synthetic_run,
+                            status="waiting_human",
+                        )
+                    )
+                    admin_session.flush()
+                    admin_session.add(
+                        ReviewEngineRun(
+                            tenant_id=principal.tenant_id,
+                            review_task_id=synthetic_task,
+                            run_id=synthetic_run,
+                            project_id=row.project_id,
+                            actor_id=principal.user_id,
+                            status="waiting_human",
+                            snapshot=snapshot,
+                            snapshot_hash=snapshot_digest,
+                            request_hash="d" * 64,
+                            retry_count=0,
+                            publication_id=row.publication_id,
+                            revision_id=row.revision_id,
+                            created_at=datetime.now(UTC),
+                            updated_at=datetime.now(UTC),
+                        )
+                    )
+                    admin_session.flush()
+                    admin_session.add(
+                        ReviewArtifact(
+                            tenant_id=principal.tenant_id,
+                            artifact_id=artifact_id,
+                            review_task_id=synthetic_task,
+                            run_id=synthetic_run,
+                            kind="merged_findings",
+                            content=artifact_content,
+                            content_hash=artifact_digest,
+                            created_at=datetime.now(UTC),
+                        )
+                    )
+                    admin_session.commit()
+                return synthetic_task, synthetic_run, snapshot_digest
+
+            for action, reviewer in (
+                ("accept", principal),
+                ("modify", concurrent_reviewer),
+                ("reject", principal),
+            ):
+                case_task, case_run, case_hash = create_decision_case(action)
+                key = "t10-" + uuid4().hex
+                changes = {"title": "经人工修改的风险标题"} if action == "modify" else None
+                with factory() as decision_session:
+                    stored = submit_decision(
+                        decision_session,
+                        reviewer,
+                        review_task_id=case_task,
+                        run_id=case_run,
+                        finding_id=source_finding["finding_id"],
+                        decision=action,
+                        request_id=key,
+                        reason="Synthetic TASK-0010 action verification.",
+                        modified_finding=changes,
+                        expected_snapshot_hash=case_hash,
+                        request_trace_id=str(uuid4()),
+                    )
+                    duplicate = submit_decision(
+                        decision_session,
+                        reviewer,
+                        review_task_id=case_task,
+                        run_id=case_run,
+                        finding_id=source_finding["finding_id"],
+                        decision=action,
+                        request_id=key,
+                        reason="Synthetic TASK-0010 action verification.",
+                        modified_finding=changes,
+                        expected_snapshot_hash=case_hash,
+                    )
+                    projected = approved_findings(
+                        decision_session,
+                        reviewer,
+                        authorized_run(decision_session, reviewer, case_task, case_run),
+                        [source_finding],
+                    )[0]
+                    if (
+                        stored.decision_id != duplicate.decision_id
+                        or stored.before_state.get("review_status") != "pending"
+                        or stored.after_state.get("review_status") != projected["review_status"]
+                        or stored.before_state.get("evidence_status")
+                        != stored.after_state.get("evidence_status")
+                        or stored.reason.strip() == ""
+                        or stored.request_trace_id is None
+                    ):
+                        raise AssertionError(
+                            f"{action} review did not persist an immutable audit pair"
+                        )
+                    if action == "modify" and projected["title"] != changes["title"]:
+                        raise AssertionError(
+                            "human modification was not included in the result projection"
+                        )
+
+            race_task, race_run, race_hash = create_decision_case("race")
+
+            def race_decision(pair):
+                reviewer, decision_value = pair
+                try:
+                    with factory() as decision_session:
+                        return submit_decision(
+                            decision_session,
+                            reviewer,
+                            review_task_id=race_task,
+                            run_id=race_run,
+                            finding_id=source_finding["finding_id"],
+                            decision=decision_value,
+                            request_id="t10-" + uuid4().hex,
+                            reason="Concurrent TASK-0010 reviewer conflict check.",
+                            expected_snapshot_hash=race_hash,
+                        )
+                except ValueError:
+                    return None
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                competing = list(
+                    pool.map(
+                        race_decision, ((principal, "accept"), (concurrent_reviewer, "reject"))
+                    )
+                )
+            if sum(item is not None for item in competing) != 1:
+                raise AssertionError("concurrent reviewers both changed the same risk")
+
+            denied_task, denied_run, denied_hash = create_decision_case("denied")
+            with factory() as decision_session:
+                try:
+                    submit_decision(
+                        decision_session,
+                        auditor,
+                        review_task_id=denied_task,
+                        run_id=denied_run,
+                        finding_id=source_finding["finding_id"],
+                        decision="accept",
+                        request_id="t10-" + uuid4().hex,
+                        reason="Non-reviewer denial check.",
+                        expected_snapshot_hash=denied_hash,
+                    )
+                except PermissionError:
+                    pass
+                else:
+                    raise AssertionError("non-reviewer submitted a human review decision")
+                set_tenant(decision_session, principal.tenant_id)
+                denied_event = decision_session.scalar(
+                    select(func.count(AuditEvent.event_id)).where(
+                        AuditEvent.tenant_id == principal.tenant_id,
+                        AuditEvent.action == "review.decision_denied",
+                    )
+                )
+                if not denied_event:
+                    raise AssertionError("denied review decision was not audited")
+
+            with factory() as export_session:
+                try:
+                    export_report(export_session, tenant_admin, first_docx.report_id)
+                except PermissionError:
+                    pass
+                else:
+                    raise AssertionError("tenant admin exported a reviewer-only report")
+                set_tenant(export_session, principal.tenant_id)
+                export_denied = export_session.scalar(
+                    select(func.count(AuditEvent.event_id)).where(
+                        AuditEvent.tenant_id == principal.tenant_id,
+                        AuditEvent.actor_id == tenant_admin.user_id,
+                        AuditEvent.action == "report.export_denied",
+                        AuditEvent.resource_id == first_docx.report_id,
+                    )
+                )
+                if export_denied != 1:
+                    raise AssertionError("denied report export was not audited")
+
     def duplicate_publish(_):
         with factory() as session:
             row = authorized_run(session, principal, request.review_task_id, request.run_id)
@@ -711,9 +1083,7 @@ def verify_review_engine(
             )
             connection.execute(text("DROP FUNCTION task0009_fail_review_result_insert()"))
     with factory() as session:
-        authorized_run(
-            session, principal, failure_request.review_task_id, failure_request.run_id
-        )
+        authorized_run(session, principal, failure_request.review_task_id, failure_request.run_id)
         result_count = session.scalar(
             select(func.count(ReviewResult.result_id)).where(
                 ReviewResult.tenant_id == principal.tenant_id,
@@ -778,9 +1148,7 @@ def verify_review_engine(
         )
         recovered_result_id = recovered_result.result_id
     with factory() as session:
-        authorized_run(
-            session, principal, failure_request.review_task_id, failure_request.run_id
-        )
+        authorized_run(session, principal, failure_request.review_task_id, failure_request.run_id)
         result_count = session.scalar(
             select(func.count(ReviewResult.result_id)).where(
                 ReviewResult.tenant_id == principal.tenant_id,

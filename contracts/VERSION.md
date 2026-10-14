@@ -4,7 +4,7 @@
 
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
-| OpenAPI | 0.5.0 | 新增文档查询、片段、附件下载、质量修正和上下文确认；Document 增加状态与解析版本，消费者须更新状态枚举 |
+| OpenAPI | 0.6.0 | 增加人工复核、版本检查、继续执行、原文历史定位、不可变发布、Word/PDF报告生成和授权导出接口 |
 | LegalManifest、LegalIndex | Manifest v1alpha3 / Index v1alpha4 | D01条款效力；D07冻结原始字节/PDF字符框映射与显式文本排除；旧索引明确升级，原文与来源字节不变 |
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha3 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |
 | RetrievalResult | schema_version=v1alpha5 / Query v1alpha3 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |
@@ -18,6 +18,7 @@
 | ReviewTaskEvent | envelope schema_version=v1alpha1 | 信封字段未变，保持原版本；payload另行按生产事件契约细化 |
 | 模型profile配置 | schema_version=v1alpha1 | 当前用途示例未变，运行时校验待TASK-0008 |
 | RuleDefinition / SkillDefinition / CandidateDiscovery | 新增闭合 v1alpha1 Schema；CandidateDiscovery绑定输入文档/项目版本、规则集摘要、引擎版本、逐Skill覆盖、检索主题、定位原文摘录及稳定候选身份，不改变Risk或Graph State |
+| ReviewDecision / ReviewReport | 新增复核请求与结构化报告 Schema；决定保存独立证据状态及前后值，报告定位绑定源文档哈希、片段修订和原文摘录哈希 |
 
 风险的旧status不能自动等价迁移：accepted等人工状态无法证明原证据状态，导入时须补证或人工决定。旧State/Checkpoint不得静默按新定义恢复。当前没有生产数据，因此本次没有实际数据迁移。
 

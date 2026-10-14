@@ -367,10 +367,13 @@ class ReviewDecision(Base):
     run_id: Mapped[str] = mapped_column(String(36))
     finding_id: Mapped[str] = mapped_column(String(128))
     decision: Mapped[str] = mapped_column(String(24))
+    before_state: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    after_state: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     modified_finding: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     snapshot_hash: Mapped[str] = mapped_column(String(64))
     reviewer_id: Mapped[str] = mapped_column(String(64))
     request_id: Mapped[str] = mapped_column(String(64))
+    request_trace_id: Mapped[str | None] = mapped_column(String(36))
     reason: Mapped[str] = mapped_column(String(2000))
     decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -404,6 +407,63 @@ class ReviewResult(Base):
     content: Mapped[dict[str, Any]] = mapped_column(JSON)
     content_hash: Mapped[str] = mapped_column(String(64))
     reviewer_id: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReviewReportContent(Base):
+    """One immutable structured report version shared by all rendered formats."""
+
+    __tablename__ = "review_report_content"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "result_id"], ["review_result.tenant_id", "review_result.result_id"]
+        ),
+        ForeignKeyConstraint(["tenant_id", "actor_id"], ["app_user.tenant_id", "app_user.user_id"]),
+        UniqueConstraint("tenant_id", "result_id", "template_version"),
+        CheckConstraint("length(snapshot_hash) = 64 AND length(content_hash) = 64"),
+        CheckConstraint("length(CAST(content AS TEXT)) <= 20000000"),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    report_content_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    result_id: Mapped[str] = mapped_column(String(36))
+    template_version: Mapped[str] = mapped_column(String(32))
+    snapshot_hash: Mapped[str] = mapped_column(String(64))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    content: Mapped[dict[str, Any]] = mapped_column(JSON)
+    actor_id: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReviewReport(Base):
+    """Immutable, content-addressed Word/PDF products of one published result."""
+
+    __tablename__ = "review_report"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "result_id"], ["review_result.tenant_id", "review_result.result_id"]
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "report_content_id"],
+            ["review_report_content.tenant_id", "review_report_content.report_content_id"],
+        ),
+        ForeignKeyConstraint(["tenant_id", "actor_id"], ["app_user.tenant_id", "app_user.user_id"]),
+        UniqueConstraint("tenant_id", "result_id", "format", "template_version"),
+        UniqueConstraint("tenant_id", "idempotency_key"),
+        CheckConstraint("format IN ('docx','pdf')"),
+        CheckConstraint("length(snapshot_hash) = 64 AND length(content_hash) = 64"),
+        CheckConstraint("length(content) > 0 AND length(content) <= 20000000"),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    report_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    result_id: Mapped[str] = mapped_column(String(36))
+    report_content_id: Mapped[str] = mapped_column(String(36))
+    format: Mapped[str] = mapped_column(String(8))
+    template_version: Mapped[str] = mapped_column(String(32))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    snapshot_hash: Mapped[str] = mapped_column(String(64))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    actor_id: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 

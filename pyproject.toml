@@ -28,6 +28,8 @@ dependencies = [
   "defusedxml>=0.7,<1",
   "httpx>=0.28,<1",
   "jsonschema>=4.23,<5",
+  "reportlab>=4,<5",
+  "python-docx>=1.2,<2",
 ]
 
 [project.optional-dependencies]
@@ -40,8 +42,6 @@ dev = [
   "ruff>=0.8,<1",
   "PyYAML>=6.0,<7",
   "openapi-spec-validator>=0.7,<1",
-  "reportlab>=4,<5",
-  "python-docx>=1.2,<2",
   "types-PyYAML>=6,<7",
   "types-defusedxml>=0.7,<1",
   "boto3-stubs[s3]>=1.35,<2",
