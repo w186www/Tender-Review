@@ -1,8 +1,8 @@
-# TASK-0018 本地验证与验收记录
+# TASK-0018 本地验收与远端交付记录
 
 - 日期：2026-10-15
 - 基线：`62c49cd326152f0f5bef75e5cc87efb7014b2f38`，包含 TASK-0011 最终证据提交
-- 状态：实施与验收进行中；本记录只把实际测量和已运行检查标为通过
+- 状态：本地正式验收完成；代码提交远端 Full 与 verify-required 已通过；本次归档证据更新按 Quick 门禁执行
 - 范围决策：ADR-0016 经用户批准调整 TASK-0018；ADR-0015 原文保留，不修改 TASK-0012/TASK-0013、已归档任务、法规原文或历史已发布结果
 - 数据边界：未读取真实 API Key；未调用在线模型；未上传真实招标文件或法规文本；没有 BGE/PaddleOCR 部署
 
@@ -103,13 +103,14 @@
 | 仓库治理、契约与秘密 Quick 阶段 | 通过 | 最终任务、验证记录、路线图和项目状态更新后运行 `./scripts/verify.ps1 -Mode Quick`，退出 0。 |
 | 正式 Focused | 通过 | 独立验证副本运行正式 Focused：144 passed、0 failed/errors/skipped；Ruff、Mypy 97 个源文件、OpenAPI、Biome、TypeScript、前端 Vitest 6 项与生产构建均通过。JUnit：`.verification/pytest-focused-result.xml`。 |
 | 正式 Full 与前端检查 | 通过 | 独立验证副本运行正式 Full：537 passed、0 failed/errors/skipped；前端 Vitest 6 项、OpenAPI、Biome、TypeScript、生产构建以及真实回环 HTTP 健康检查、身份/项目生命周期 smoke 均通过。JUnit：`.verification/pytest-result.xml`。仅有 2 条既有 `pypdf.add_js` 弃用警告。 |
+| GitHub Actions（代码提交） | 通过 | [Run 38641374412](https://github.com/w186www/Tender-Review/actions/runs/38641374412)，对应源码提交 da7325bb95a10a10fcca82151c22c6272980d091。impact 选中 mode=full（首次推送无可比较基线，按策略失败关闭到 Full）；baseline 日志为 537 passed、2 warnings；postgres、ingestion、verify-required 均 success。quick 因 Full 模式 skipped，属合法选择。 |
 | PostgreSQL 16 专项 | 通过 | 已缓存的 PostgreSQL 16 镜像以 `--pull=never` 启动一次性随机密码容器，仅映射 `127.0.0.1`；`check_postgres.py` 与 `check_legal_publications.py` 均通过。覆盖迁移/ORM、FORCE RLS、租户隔离、复合 FK、并发幂等与 CAS、法规检索运行、Checkpoint 新进程中断恢复、人工决定、撤权、发布生命周期、审计失败事务回滚及本次 ReviewRuntimeProvenance JSON 快照恢复断言。容器结束后清理。 |
 | 真实隔离容器安全门禁 | 通过 | 固定 parser SHA `2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c228b1ac00a41bb597`：`check_parser_sandbox.py` 验证非 root、只读、无网络、无权限提升、noexec tmpfs、512 MiB/32 PID 限额；`check_ingestion_containers.py` 使用合成 PDF/DOCX/PNG/扫描 PDF，通过真实 MinIO、ClamAV、Tesseract、隔离解析、HTTP、定位、租户隔离与下载检查，退出 0 并清理本次服务容器。 |
 | 百炼 MockTransport Schema/错误/超时测试 | 通过 | Provider、SQLite 索引和 OCR 夹具专项 22 项通过；模型网关安全/适配器协议 39 项通过；完整 Pytest 中均再次执行。没有真实 HTTP transport、API Key 或供应商调用。 |
 
-正式 Focused 有 1 条、Full 有 2 条既有 `pypdf.add_js` 弃用警告；无失败/错误/跳过。审批后的 DNS/HTTPS、npm 安装及正式 Focused/Full 均只针对 `_task0018_isolated_20261015_a`；随后仅把通过哈希核对的源码、测试和任务记录同步到原工作区。原有 46 项工作内容均保留；TASK-0018 记录按验收结果更新并移至 `tasks/completed`，新增的 provenance 测试后当前 Git 状态为 47 项。原工作区与隔离副本的 `package-lock.json` SHA-256 相同。验证期间没有访问在线模型、读取真实 API Key、上传真实文件或法规文本、推送代码或触碰历史发布快照。
+正式 Focused 有 1 条、Full 有 2 条既有 `pypdf.add_js` 弃用警告；无失败/错误/跳过。审批后的 DNS/HTTPS、npm 安装及正式 Focused/Full 均只针对 `_task0018_isolated_20261015_a`；随后仅把通过哈希核对的源码、测试和任务记录同步到原工作区。原有 46 项工作内容均保留；TASK-0018 记录按验收结果更新并移至 `tasks/completed`，交付前审计共 61 条状态路径（29 个已跟踪改动、32 个未跟踪文件）；路径集合与隔离副本一致且逐文件 SHA-256 全匹配。52 个源码/契约/脚本/测试/评测文件清单 SHA-256 为 92D559884EEA235BB217277519BC4BE765323ED8290268EEBEB9F1338E2265AD。源码/测试文件时间均早于 Full JUnit 日志，Full 后只有归档/状态文档变化；原工作区 Quick 退出码 0。原工作区与隔离副本的 `package-lock.json` SHA-256 相同。正式本地验收时没有访问在线模型、读取真实 API Key、上传真实文件或法规原文，也没有触碰历史发布快照。交付候选只含合成评测及指标、标识和来源哈希，不含真实招标文件或法规正文。
 
-没有远程 CI 证据：本轮没有提交或推送。用户只批准本地实施与验收。
+代码提交远端 CI 与本轮归档证据提交的验证范围分别记录；当前源码 Full 已通过，归档证据更新继续执行 Quick/远端门禁。
 
 ## 未授权与后续依赖
 

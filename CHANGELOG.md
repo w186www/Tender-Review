@@ -6,7 +6,7 @@
 
 ### Added
 
-- TASK-0018 已完成本地验收：法规检索评测、Mock-only 百炼 Embedding Provider、SQLite 向量持久化与断点续建、Tesseract 合成扫描基线、运行版本追溯。补齐向量缓存损坏/缺失/续建完整性检查与 ReviewRuntimeProvenance JSON 持久化测试。正式 Focused 144 项、Full 537 项及 PostgreSQL16/RLS/ReviewEngine 专项通过；官方 npm registry 安装184包，`package-lock.json` SHA-256 未变。原有46项工作内容完整保留；更新任务记录并新增 provenance 测试后当前 Git 状态为47项。无真实 API Key、供应商调用或真实文件外发；DEC-002 待批准。详见 `docs/development/TASK-0018-validation.md`。
+- TASK-0018 本地与远端交付验收完成：法规检索评测、Mock-only 百炼 Embedding Provider、SQLite 向量持久化与断点续建、Tesseract 合成扫描基线、运行版本追溯。补齐向量缓存损坏/缺失/续建完整性检查与 ReviewRuntimeProvenance JSON 持久化测试。本地正式 Focused 144 项、Full 537 项及 PostgreSQL16/RLS/ReviewEngine 专项通过；源码提交 da7325bb95a10a10fcca82151c22c6272980d091 的 GitHub Actions Run 38641374412 completed/success（mode=full，baseline 537 passed/2 warnings，postgres/ingestion/verify-required success）；官方 npm registry 安装184包，`package-lock.json` SHA-256 未变。交付前审计的61条状态路径与隔离副本逐路径、逐文件SHA-256一致。无真实 API Key、供应商调用或真实文件外发；DEC-002 待批准。详见 `docs/development/TASK-0018-validation.md`。
 
 - TASK-0011已正式归档：源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`，归档提交`05c2b91655a7152b28692c7f5216de3ace3d7ff8`；源码CI 38600922153、验收记录CI 38603582949和归档CI 38604186570 的适用作业均成功。FR-013配置版本服务/API/页面、审计与ReviewEngine冻结快照已实现；真实 Microsoft Edge E2E 5/5，PostgreSQL16专项、FR-013 Focused 69和本地Full 510通过。Windows CRLF根因已通过固定前端文本LF解决，OpenAPI与Biome检查均保留。DEC-002未批准，未调用在线模型。详见`docs/development/TASK-0011-validation.md`。
 
