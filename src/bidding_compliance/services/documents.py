@@ -6,7 +6,7 @@ import re
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -51,6 +51,7 @@ def response(document: Document) -> DocumentResponse:
         dict(
             document_id=document.document_id,
             project_id=document.project_id,
+            file_format=document.file_format,
             status=document.status,
             sha256=document.sha256,
             media_type=document.media_type,
@@ -60,6 +61,26 @@ def response(document: Document) -> DocumentResponse:
             issues=document.issues,
         )
     )
+
+
+def list_documents(
+    session: Session,
+    principal: Principal,
+    project: str,
+    *,
+    offset: int,
+    limit: int,
+) -> tuple[list[DocumentResponse], int]:
+    find_project(session, principal, project)
+    base = select(Document).where(
+        Document.tenant_id == principal.tenant_id,
+        Document.project_id == project,
+    )
+    total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+    rows = session.scalars(
+        base.order_by(Document.document_id).offset(offset).limit(limit)
+    )
+    return [response(row) for row in rows], total
 
 
 def find_document(session: Session, principal: Principal, project: str, document: str) -> Document:

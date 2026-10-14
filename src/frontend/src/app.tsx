@@ -1,0 +1,154 @@
+import { useState } from "react";
+import {
+  Navigate,
+  NavLink,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import { useAuth } from "./auth";
+import { AuditPage } from "./pages/audit";
+import { LoginPage } from "./pages/login";
+import { ProjectPage } from "./pages/project";
+import { ProjectsPage } from "./pages/projects";
+import { PendingReviewsPage, ReviewPage } from "./pages/reviews";
+import { Button, Loading } from "./ui";
+
+const roleNames: Record<string, string> = {
+  reviewer: "审核员",
+  auditor: "审计员",
+  admin: "管理员",
+  operator: "运维人员",
+};
+
+function AuthRequired() {
+  const auth = useAuth();
+  const location = useLocation();
+  if (auth.loading) return <Loading label="正在验证登录状态" />;
+  if (!auth.identity)
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  return <Outlet />;
+}
+
+function AppShell() {
+  const { identity, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function exit() {
+    setSigningOut(true);
+    await signOut();
+    setSigningOut(false);
+    navigate("/login", { replace: true });
+  }
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar" aria-label="主导航">
+        <div className="brand-lockup">
+          <span className="brand-mark" aria-hidden="true">
+            招
+          </span>
+          <span>
+            <strong>合规审查</strong>
+            <small>业务工作台</small>
+          </span>
+        </div>
+        <nav className="nav-list">
+          <NavLink
+            to="/projects"
+            className={({ isActive }) =>
+              isActive ? "nav-link active" : "nav-link"
+            }
+          >
+            <span aria-hidden="true">▦</span> 项目工作台
+          </NavLink>
+          {identity?.role === "reviewer" && (
+            <NavLink
+              to="/reviews"
+              className={({ isActive }) =>
+                isActive ? "nav-link active" : "nav-link"
+              }
+            >
+              <span aria-hidden="true">✓</span> 待复核任务
+            </NavLink>
+          )}
+          {identity?.role === "auditor" && (
+            <NavLink
+              to="/audit"
+              className={({ isActive }) =>
+                isActive ? "nav-link active" : "nav-link"
+              }
+            >
+              <span aria-hidden="true">≡</span> 审计记录
+            </NavLink>
+          )}
+        </nav>
+        <div className="sidebar-footnote">
+          <span className="status-dot" aria-hidden="true" />
+          状态与结论来自服务端
+        </div>
+      </aside>
+      <div className="main-column">
+        <header className="topbar">
+          <div className="breadcrumb">
+            招标合规审查 <span aria-hidden="true">/</span> 工作台
+          </div>
+          <div className="user-menu">
+            <span className="user-avatar" aria-hidden="true">
+              {identity?.username.slice(0, 1) || "用"}
+            </span>
+            <span className="user-label">
+              <strong>{identity?.username}</strong>
+              <small>{identity && roleNames[identity.role]} · 当前租户</small>
+            </span>
+            <Button
+              variant="quiet"
+              onClick={() => void exit()}
+              disabled={signingOut}
+            >
+              {signingOut ? "正在退出" : "退出登录"}
+            </Button>
+          </div>
+        </header>
+        <main id="main-content" className="main-content" tabIndex={-1}>
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <section className="page-wrap">
+      <h1>页面不存在</h1>
+      <p>此地址没有对应的业务页面，或当前账号无权访问。</p>
+      <NavLink className="button button-primary" to="/projects">
+        返回项目工作台
+      </NavLink>
+    </section>
+  );
+}
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<AuthRequired />}>
+        <Route element={<AppShell />}>
+          <Route index element={<Navigate to="/projects" replace />} />
+          <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/:projectId" element={<ProjectPage />} />
+          <Route path="reviews" element={<PendingReviewsPage />} />
+          <Route path="reviews/:reviewTaskId/:runId" element={<ReviewPage />} />
+          <Route path="audit" element={<AuditPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<Navigate to="/projects" replace />} />
+    </Routes>
+  );
+}

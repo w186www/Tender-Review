@@ -146,6 +146,27 @@ paths:
           maximum: 100
           default: 20
   /projects/{projectId}/documents:
+    get:
+      operationId: listProjectDocuments
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: 项目内可见文档及真实处理状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DocumentList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 权限不足}
+        '404': {$ref: '#/components/responses/NotFound'}
     post:
       operationId: uploadDocument
       security:
@@ -219,6 +240,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /projects/{projectId}/reviews:
+    get:
+      operationId: listProjectReviews
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: 项目审查任务及持久状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 权限不足}
+        '404': {$ref: '#/components/responses/NotFound'}
     post:
       operationId: createReview
       security:
@@ -230,21 +272,10 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required:
-              - document_ids
-              properties:
-                document_ids:
-                  type: array
-                  minItems: 1
-                  uniqueItems: true
-                  items:
-                    type: string
+            schema: {$ref: '#/components/schemas/CreateReview'}
       responses:
         '202':
-          description: 审查任务已排队
+          description: 审查已启动或已持久排队；具体阶段以响应状态为准
           content:
             application/json:
               schema:
@@ -253,6 +284,64 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403': {description: 权限不足}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: 幂等键冲突或文档版本冲突}
+        '503': {description: 已授权审查执行器不可用}
+  /review-results/{resultId}/reports:
+    get:
+      operationId: listReviewReports
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: resultId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 不可变结果版本对应的报告制品
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 权限不足}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /audit/events:
+    get:
+      operationId: listAuditEvents
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: resource_id
+        in: query
+        schema: {type: string, maxLength: 64}
+      - name: actor_id
+        in: query
+        schema: {type: string, maxLength: 64}
+      - name: action
+        in: query
+        schema: {type: string, maxLength: 100}
+      - name: from
+        in: query
+        schema: {type: string, format: date-time}
+      - name: to
+        in: query
+        schema: {type: string, format: date-time}
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      responses:
+        '200':
+          description: 当前租户内授权的只读审计事件
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuditEventList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 仅审计员可查询}
   /reviews/{reviewTaskId}:
     get:
       operationId: getReview
@@ -1073,7 +1162,11 @@ paths:
         in: query
         schema: {type: integer, minimum: 1, maximum: 100, default: 20}
       responses:
-        '200': {description: 待复核任务}
+        '200':
+          description: 当前账号可见的待复核任务
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PendingReviewList'}
         '403': {description: 权限不足}
   /review-tasks/{reviewTaskId}/runs/{runId}/findings:
     get:
@@ -1107,6 +1200,27 @@ paths:
         '200': {description: 风险及独立证据状态}
         '403': {description: 权限不足}
         '404': {description: 风险不可用}
+  /review-tasks/{reviewTaskId}/runs/{runId}/findings/{findingId}/citations:
+    get:
+      operationId: resolveReviewFindingCitations
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      - name: findingId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200':
+          description: 服务端校验的精确原文版本和定位
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewCitations'}
+        '403': {description: 权限不足}
+        '404': {description: 原文或风险不可用}
+        '422': {description: 摘录校验失败，关闭定位}
   /review-tasks/{reviewTaskId}/runs/{runId}/findings/{findingId}/decisions:
     post:
       operationId: submitReviewDecision
@@ -1158,7 +1272,11 @@ paths:
       - {$ref: '#/components/parameters/ReviewTaskId'}
       - {$ref: '#/components/parameters/RunId'}
       responses:
-        '200': {description: 幂等发布的不可变结果版本}
+        '200':
+          description: 幂等发布的不可变结果版本
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublishedResult'}
         '403': {description: 权限不足}
         '409': {description: 仍有待处理风险或任务状态冲突}
   /review-tasks/{reviewTaskId}/runs/{runId}/resume:
@@ -1170,10 +1288,32 @@ paths:
       - {$ref: '#/components/parameters/ReviewTaskId'}
       - {$ref: '#/components/parameters/RunId'}
       responses:
-        '200': {description: 从持久 LangGraph 人工中断继续执行}
+        '200':
+          description: 从持久 LangGraph 人工中断继续执行后的真实任务状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewTask'}
         '403': {description: 权限不足}
         '409': {description: 恢复条件或版本冲突}
         '503': {description: 审查 Worker 未连接}
+  /review-tasks/{reviewTaskId}/runs/{runId}/retry:
+    post:
+      operationId: retryReviewRun
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 有界重试后的持久化任务状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewTask'}
+        '403': {description: 权限不足}
+        '404': {description: 任务不可用}
+        '409': {description: 任务不具备重试条件}
+        '503': {description: 授权执行器不可用}
   /review-results/{resultId}/reports/{outputFormat}:
     post:
       operationId: createReviewReport
@@ -1254,7 +1394,7 @@ components:
       additionalProperties: false
       required: [decision, expected_snapshot_hash, reason]
       properties:
-        decision: {type: string, enum: [accept, modify, reject]}
+        decision: {type: string, enum: [accept, modify, reject, confirm_no_findings]}
         expected_snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
         reason: {type: string, minLength: 1, maxLength: 2000}
         modified_finding:
@@ -1283,8 +1423,101 @@ components:
         run_id: {type: string, format: uuid}
         snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
         status: {type: string}
-        findings: {type: array, items: {type: object}}
+        findings: {type: array, items: {$ref: '#/components/schemas/RiskFinding'}}
         pending_finding_ids: {type: array, items: {type: string}}
+    EvidenceRef:
+      type: object
+      additionalProperties: false
+      required: [evidence_id, kind, title, quote, source_uri, source_hash, version_status]
+      properties:
+        evidence_id: {type: string, minLength: 1, maxLength: 128}
+        kind: {type: string, enum: [document, law, policy, internal_rule]}
+        title: {type: string, minLength: 1, maxLength: 500}
+        article: {type: [string, 'null'], maxLength: 200}
+        quote: {type: string, minLength: 1, maxLength: 8000}
+        source_uri: {type: string, minLength: 1, maxLength: 2048}
+        source_hash: {type: string, pattern: '^[a-fA-F0-9]{64}$'}
+        page: {type: [integer, 'null'], minimum: 1}
+        locator: {type: [string, 'null'], maxLength: 500}
+        effective_from: {type: [string, 'null'], format: date}
+        effective_to: {type: [string, 'null'], format: date}
+        version_status: {type: string, enum: [verified_current, verified_historical, unverified]}
+        jurisdiction: {type: [string, 'null'], maxLength: 200}
+    RiskFinding:
+      type: object
+      additionalProperties: false
+      required: [finding_id, category, title, description, severity, evidence_status, review_status, source_excerpt, sources, evidence, recommendation]
+      properties:
+        finding_id: {type: string, minLength: 1, maxLength: 128}
+        category: {type: string, enum: [qualification, technical, evaluation, contract, procedure]}
+        title: {type: string, minLength: 1, maxLength: 300}
+        description: {type: string, minLength: 1, maxLength: 4000}
+        severity: {type: string, enum: [low, medium, high, critical]}
+        evidence_status: {type: string, enum: [candidate, confirmed, suspected, insufficient_evidence]}
+        review_status: {type: string, enum: [pending, accepted, modified, rejected]}
+        source_excerpt: {$ref: '#/components/schemas/EvidenceRef'}
+        sources:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string, enum: [rule, retrieval, model, human]}
+        conflicts:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [source, assessment, summary]
+            properties:
+              source: {type: string, enum: [rule, model, retrieval]}
+              assessment: {type: string, minLength: 1, maxLength: 100}
+              summary: {type: string, minLength: 1, maxLength: 1000}
+        evidence: {type: array, items: {$ref: '#/components/schemas/EvidenceRef'}}
+        rule_ids: {type: array, uniqueItems: true, items: {type: string, maxLength: 128}}
+        reasoning_summary: {type: [string, 'null'], maxLength: 4000}
+        recommendation: {type: string, minLength: 1, maxLength: 4000}
+        confidence: {type: [number, 'null'], minimum: 0, maximum: 1}
+        human_review:
+          type: object
+          additionalProperties: false
+          required: [reviewer_id, decided_at, reason]
+          properties:
+            reviewer_id: {type: string, minLength: 1, maxLength: 128}
+            decided_at: {type: string, format: date-time}
+            reason: {type: string, minLength: 1, maxLength: 2000}
+    CitationLocation:
+      type: object
+      additionalProperties: false
+      required: [document_id, raw_source_sha256, parse_version, section_id, section_revision, locator, page, coordinate_system, bbox, quote, quote_sha256]
+      properties:
+        document_id: {type: string}
+        raw_source_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        parse_version: {type: integer, minimum: 1}
+        section_id: {type: string}
+        section_revision: {type: integer, minimum: 0}
+        locator: {type: string}
+        page: {type: [integer, 'null'], minimum: 1}
+        coordinate_system: {type: string, enum: [pdf_points, image_pixels, ooxml]}
+        bbox:
+          type: [array, 'null']
+          minItems: 4
+          maxItems: 4
+          items: {type: number}
+        quote: {type: string}
+        quote_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+    ReviewCitations:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/CitationLocation'}}
+    PublishedResult:
+      type: object
+      additionalProperties: false
+      required: [result_id, content_hash]
+      properties:
+        result_id: {type: string, format: uuid}
+        content_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
     ReviewDecision:
       type: object
       additionalProperties: false
@@ -1430,12 +1663,16 @@ components:
             format: date-time
     Document:
       additionalProperties: false
+      required: [document_id, project_id, file_format, status, sha256]
       properties:
         document_id:
           title: Document Id
           type: string
         project_id:
           title: Project Id
+          type: string
+        file_format:
+          enum: [pdf, docx, png, jpeg]
           type: string
         status:
           enum:
@@ -1501,13 +1738,28 @@ components:
           maxItems: 20
           title: Issues
           type: array
-      required:
-      - document_id
-      - project_id
-      - status
-      - sha256
       title: DocumentResponse
       type: object
+    DocumentList:
+      type: object
+      additionalProperties: false
+      required: [items, offset, limit, total]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Document'}}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
+    CreateReview:
+      type: object
+      additionalProperties: false
+      required: [document_ids]
+      properties:
+        document_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 128}
     ReviewTask:
       type: object
       additionalProperties: false
@@ -1516,6 +1768,11 @@ components:
       - project_id
       - run_id
       - status
+      - snapshot_hash
+      - retry_count
+      - failure_code
+      - result_id
+      - created_at
       properties:
         review_task_id:
           type: string
@@ -1529,13 +1786,68 @@ components:
           - queued
           - running
           - waiting_human
-          - succeeded
+          - result_published
           - failed
           - cancelled
-        progress:
-          type: number
-          minimum: 0
-          maximum: 1
+        snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        retry_count: {type: integer, minimum: 0, maximum: 2}
+        failure_code: {type: [string, 'null']}
+        result_id: {type: [string, 'null'], format: uuid}
+        created_at: {type: string, format: date-time}
+    ReviewList:
+      type: object
+      additionalProperties: false
+      required: [items, offset, limit, total]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ReviewTask'}}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
+    PendingReview:
+      type: object
+      additionalProperties: false
+      required: [review_task_id, run_id, project_id, snapshot_hash, status, created_at]
+      properties:
+        review_task_id: {type: string}
+        run_id: {type: string, format: uuid}
+        project_id: {type: string}
+        snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        status: {type: string, const: waiting_human}
+        created_at: {type: string, format: date-time}
+    PendingReviewList:
+      type: object
+      additionalProperties: false
+      required: [items, offset, limit]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/PendingReview'}}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+    ReportList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ReportMetadata'}}
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, actor_id, action, resource_id, request_id, occurred_at]
+      properties:
+        event_id: {type: string}
+        actor_id: {type: [string, 'null']}
+        action: {type: string}
+        resource_id: {type: [string, 'null']}
+        request_id: {type: string}
+        occurred_at: {type: string, format: date-time}
+    AuditEventList:
+      type: object
+      additionalProperties: false
+      required: [items, offset, limit, total]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/AuditEvent'}}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
     ErrorCode:
       type: string
       enum:

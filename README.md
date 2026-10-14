@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**M1 后端与安全文件接入已通过基础退出检查，下一阶段为 M2 法规、规则与模型网关。** 后端已实现身份、租户隔离、项目版本、安全上传、独立隔离解析、OCR、原文定位与人工质量/上下文确认。TASK-0006已实现离线法规摄取、快照及混合检索；规则、模型和完整审查仍待后续任务。准确状态与验收证据见 [PROJECT_STATE.md](PROJECT_STATE.md)。
+**TASK-0011 前端工作台开发中。** React/TypeScript 工作台已连接项目、文件接入、审查、人工复核、结果发布、报告及审计 API；按任务验收标准，隔离后端浏览器 E2E 和法规/规则/Skill/模型配置的版本管理页面仍未验收。项目阶段与证据见 [PROJECT_STATE.md](PROJECT_STATE.md) 和 [TASK-0011 验证记录](docs/development/TASK-0011-validation.md)。
 
 ## 新开发者或 AI 的入口
 
@@ -41,6 +41,8 @@ python -m venv .venv
 统一验证现已包含真实后端启动与本机HTTP烟雾检查，检查后自动清理自己的测试服务。
 
 实际文件上传与 Worker 操作见 [安全文件接入启动说明](docs/development/secure-ingestion-start.md)。需要 Docker Linux Engine、受控解析镜像和 ClamAV；CI 另强制验证真实 S3、杀毒、OCR 与解析隔离。开发本地存储不适用于生产。
+
+前端工作台的 API 代理、Node/npm 版本、构建和浏览器 E2E 前置条件见[前端工作台说明](docs/development/frontend-workbench.md)。
 
 若使用的打包Python没有ensurepip，可用支持虚拟环境的标准Python，或由已有pip执行 `python -m pip --python .venv/Scripts/python.exe install -r requirements-dev.lock` 后安装项目。不要把其他项目的site-packages加入本项目环境。
 

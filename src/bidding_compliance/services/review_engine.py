@@ -35,6 +35,7 @@ from bidding_compliance.persistence.models import (
     ReviewTask,
 )
 from bidding_compliance.services.candidate_discovery import snapshot_for_project
+from bidding_compliance.services.identity import audit
 from bidding_compliance.services.legal import require_identity
 from bidding_compliance.services.legal_management import read_publication
 from bidding_compliance.services.projects import find_project
@@ -302,6 +303,8 @@ class ReviewEngine:
     async def resume(
         self, principal: Principal, review_task_id: str, run_id: str
     ) -> dict[str, Any]:
+        if principal.role is not Role.REVIEWER:
+            raise PermissionError("review resume requires reviewer role")
         with self.session_factory() as session:
             mutable_row = authorized_run(session, principal, review_task_id, run_id)
             row = self._handle(mutable_row)
@@ -337,6 +340,8 @@ class ReviewEngine:
         )
 
     async def retry(self, principal: Principal, review_task_id: str, run_id: str) -> dict[str, Any]:
+        if principal.role is not Role.REVIEWER:
+            raise PermissionError("review retry requires reviewer role")
         retryable = {
             GatewayErrorCode.TIMEOUT.value,
             GatewayErrorCode.RATE_LIMITED.value,
@@ -358,6 +363,7 @@ class ReviewEngine:
             task = session.get(ReviewTask, (principal.tenant_id, review_task_id))
             if task is not None:
                 task.status = "running"
+            audit(session, principal.tenant_id, principal.user_id, "review.retry", review_task_id)
             session.commit()
             row = self._handle(mutable_row)
         return await self._invoke(principal, row, resume=False, retry=True)

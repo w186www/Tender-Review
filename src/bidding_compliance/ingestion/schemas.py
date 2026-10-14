@@ -168,6 +168,7 @@ class ParserResponse(Closed):
 class DocumentResponse(Closed):
     document_id: str
     project_id: str
+    file_format: Literal["pdf", "docx", "png", "jpeg"]
     status: Literal[
         "quarantined",
         "accepted",
@@ -184,6 +185,13 @@ class DocumentResponse(Closed):
     context_version: int = Field(default=0, ge=0)
     parse_version: int = Field(default=0, ge=0)
     issues: list[Issue] = Field(default_factory=list, max_length=20)
+
+
+class DocumentList(Closed):
+    items: list[DocumentResponse]
+    offset: int = Field(ge=0)
+    limit: int = Field(ge=1, le=100)
+    total: int = Field(ge=0)
 
 
 class SectionResponse(Closed):

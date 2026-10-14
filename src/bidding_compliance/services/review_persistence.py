@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from bidding_compliance.core.dates import isoformat_utc
 from bidding_compliance.domain.identity import Principal, Role
 from bidding_compliance.persistence.models import (
     ReviewArtifact,
@@ -370,7 +371,7 @@ def _decision_projection(
         projected["review_status"] = "confirmed_no_findings"
         projected["human_review"] = {
             "reviewer_id": principal.user_id,
-            "decided_at": decided_at.isoformat(),
+            "decided_at": isoformat_utc(decided_at),
             "reason": reason.strip(),
         }
         return cast(dict[str, Any], projected)
@@ -383,7 +384,7 @@ def _decision_projection(
     }[decision]
     projected["human_review"] = {
         "reviewer_id": principal.user_id,
-        "decided_at": decided_at.isoformat(),
+        "decided_at": isoformat_utc(decided_at),
         "reason": reason.strip(),
     }
     return cast(dict[str, Any], projected)
@@ -450,7 +451,7 @@ def approved_findings(
             }[decision.decision]
             item["human_review"] = {
                 "reviewer_id": decision.reviewer_id,
-                "decided_at": decision.decided_at.isoformat(),
+                "decided_at": isoformat_utc(decision.decided_at),
                 "reason": decision.reason,
             }
         if item.get("evidence_status") != original.get("evidence_status"):

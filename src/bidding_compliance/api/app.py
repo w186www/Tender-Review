@@ -14,6 +14,7 @@ from bidding_compliance.services.review_engine import ReviewEngine
 
 from .documents import router as documents_router
 from .errors import http_error_handler, validation_error_handler
+from .management import router as management_router
 from .middleware import RequestContextMiddleware
 from .projects import router
 from .reviews import router as reviews_router
@@ -53,6 +54,7 @@ def create_app(
     app.include_router(router)
     app.include_router(documents_router)
     app.include_router(reviews_router)
+    app.include_router(management_router)
     app.add_middleware(UploadBodyLimit)
     app.add_middleware(RequestContextMiddleware)
     app.add_exception_handler(HTTPException, http_error_handler)

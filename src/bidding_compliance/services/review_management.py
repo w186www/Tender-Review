@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from bidding_compliance.core.dates import isoformat_utc
 from bidding_compliance.domain.identity import Principal, Role
+from bidding_compliance.domain.rules.models import DiscoveryDocumentRequest
 from bidding_compliance.persistence.models import (
+    Document,
     ReviewArtifact,
     ReviewDecision,
     ReviewEngineRun,
@@ -31,6 +34,141 @@ def _require_reader(session: Session, principal: Principal) -> None:
         audit(session, principal.tenant_id, principal.user_id, "review.read_denied")
         session.commit()
         raise PermissionError("review results are not authorized")
+
+
+def document_requests(
+    session: Session, principal: Principal, project_id: str, document_ids: list[str]
+) -> tuple[DiscoveryDocumentRequest, ...]:
+    require_identity(session, principal)
+    if principal.role is not Role.REVIEWER:
+        raise PermissionError("review creation requires reviewer role")
+    find_project(session, principal, project_id)
+    rows = list(
+        session.scalars(
+            select(Document).where(
+                Document.tenant_id == principal.tenant_id,
+                Document.project_id == project_id,
+                Document.document_id.in_(document_ids),
+            )
+        )
+    )
+    by_id = {row.document_id: row for row in rows}
+    if len(by_id) != len(document_ids):
+        raise LookupError("one or more documents are unavailable")
+    requests = []
+    for document_id in sorted(document_ids):
+        row = by_id[document_id]
+        if row.status != "ready" or row.parse_version < 1 or row.context_version < 1:
+            raise ValueError("review requires parsed documents with confirmed context")
+        requests.append(
+            DiscoveryDocumentRequest(
+                document_id=row.document_id,
+                raw_source_sha256=row.sha256,
+                parse_version=row.parse_version,
+                context_version=row.context_version,
+            )
+        )
+    return tuple(requests)
+
+
+def _run_projection(session: Session, row: ReviewEngineRun) -> dict[str, Any]:
+    result = session.scalar(
+        select(ReviewResult).where(
+            ReviewResult.tenant_id == row.tenant_id,
+            ReviewResult.review_task_id == row.review_task_id,
+            ReviewResult.run_id == row.run_id,
+        )
+    )
+    return {
+        "review_task_id": row.review_task_id,
+        "project_id": row.project_id,
+        "run_id": row.run_id,
+        "status": row.status,
+        "snapshot_hash": row.snapshot_hash,
+        "retry_count": row.retry_count,
+        "failure_code": row.failure_code,
+        "result_id": result.result_id if result else None,
+        "created_at": isoformat_utc(row.created_at),
+        "document_ids": [
+            item["document_id"] for item in row.snapshot.get("document_requests", [])
+        ],
+    }
+
+
+def get_review_status(
+    session: Session, principal: Principal, review_task_id: str
+) -> dict[str, Any]:
+    _require_reader(session, principal)
+    row = session.scalar(
+        select(ReviewEngineRun).where(
+            ReviewEngineRun.tenant_id == principal.tenant_id,
+            ReviewEngineRun.review_task_id == review_task_id,
+        )
+    )
+    if row is None:
+        raise LookupError("review unavailable")
+    find_project(session, principal, row.project_id)
+    return _run_projection(session, row)
+
+
+def authorize_review_control(
+    session: Session, principal: Principal, review_task_id: str, run_id: str, action: str
+) -> ReviewEngineRun:
+    row = authorized_run(session, principal, review_task_id, run_id)
+    if principal.role is not Role.REVIEWER:
+        audit(
+            session,
+            principal.tenant_id,
+            principal.user_id,
+            f"review.{action}_denied",
+            review_task_id,
+        )
+        session.commit()
+        raise PermissionError("review control requires reviewer role")
+    return row
+
+
+def get_run_by_identity(
+    session: Session, principal: Principal, review_task_id: str
+) -> dict[str, Any] | None:
+    _require_reader(session, principal)
+    row = session.scalar(
+        select(ReviewEngineRun).where(
+            ReviewEngineRun.tenant_id == principal.tenant_id,
+            ReviewEngineRun.review_task_id == review_task_id,
+        )
+    )
+    if row is None:
+        return None
+    find_project(session, principal, row.project_id)
+    return _run_projection(session, row)
+
+
+def list_project_reviews(
+    session: Session,
+    principal: Principal,
+    project_id: str,
+    *,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    _require_reader(session, principal)
+    find_project(session, principal, project_id)
+    condition = (
+        (ReviewEngineRun.tenant_id == principal.tenant_id)
+        & (ReviewEngineRun.project_id == project_id)
+    )
+    total = session.scalar(
+        select(func.count()).select_from(ReviewEngineRun).where(condition)
+    ) or 0
+    rows = session.scalars(
+        select(ReviewEngineRun)
+        .where(condition)
+        .order_by(ReviewEngineRun.created_at.desc(), ReviewEngineRun.review_task_id)
+        .offset(offset)
+        .limit(limit)
+    )
+    return [_run_projection(session, row) for row in rows], total
 
 
 def list_waiting(
@@ -57,7 +195,7 @@ def list_waiting(
                 "project_id": row.project_id,
                 "snapshot_hash": row.snapshot_hash,
                 "status": row.status,
-                "created_at": row.created_at.isoformat(),
+                "created_at": isoformat_utc(row.created_at),
             }
         )
     return result
@@ -102,7 +240,7 @@ def get_findings(
             }[decision.decision]
             finding["human_review"] = {
                 "reviewer_id": decision.reviewer_id,
-                "decided_at": decision.decided_at.isoformat(),
+                "decided_at": isoformat_utc(decision.decided_at),
                 "reason": decision.reason,
             }
             if decision.modified_finding:

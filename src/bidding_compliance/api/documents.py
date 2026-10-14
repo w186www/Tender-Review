@@ -2,7 +2,7 @@
 
 from typing import Annotated, cast
 
-from fastapi import APIRouter, File, Header, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, File, Header, HTTPException, Query, Request, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from bidding_compliance.core.config import Settings
@@ -11,6 +11,7 @@ from bidding_compliance.ingestion.ports import IngestionError
 from bidding_compliance.ingestion.schemas import (
     ContextConfirmation,
     DocumentContext,
+    DocumentList,
     DocumentResponse,
     QualityCorrection,
     SectionsResponse,
@@ -28,6 +29,23 @@ router = APIRouter(
         for status in (400, 401, 403, 404, 409, 413, 415, 422, 500)
     },
 )
+
+
+@router.get("", response_model=DocumentList, operation_id="listProjectDocuments")
+def list_project_documents(
+    projectId: str,
+    principal: User,
+    session: DB,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> DocumentList:
+    try:
+        items, total = documents.list_documents(
+            session, principal, projectId, offset=offset, limit=limit
+        )
+        return DocumentList(items=items, offset=offset, limit=limit, total=total)
+    except (PermissionError, LookupError) as exc:
+        raise translate(exc) from exc
 
 
 def translate(error: Exception) -> HTTPException:

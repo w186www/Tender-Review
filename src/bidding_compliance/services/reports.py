@@ -29,6 +29,7 @@ from bidding_compliance.services.projects import find_project
 from bidding_compliance.services.reporting import render_docx, render_pdf
 from bidding_compliance.services.review_persistence import (
     RESULT_PENDING_ID,
+    authorized_run,
     canonical_json,
     content_hash,
 )
@@ -44,11 +45,32 @@ def _source_locations(
     run: ReviewEngineRun,
     finding: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    return _resolve_source_locations(
+        session,
+        principal,
+        project_id=result.content["project_id"],
+        review_task_id=result.review_task_id,
+        run_id=result.run_id,
+        snapshot=run.snapshot,
+        finding=finding,
+    )
+
+
+def _resolve_source_locations(
+    session: Session,
+    principal: Principal,
+    *,
+    project_id: str,
+    review_task_id: str,
+    run_id: str,
+    snapshot: dict[str, Any],
+    finding: dict[str, Any],
+) -> list[dict[str, Any]]:
     discovery_row = session.scalar(
         select(ReviewArtifact).where(
             ReviewArtifact.tenant_id == principal.tenant_id,
-            ReviewArtifact.review_task_id == result.review_task_id,
-            ReviewArtifact.run_id == result.run_id,
+            ReviewArtifact.review_task_id == review_task_id,
+            ReviewArtifact.run_id == run_id,
             ReviewArtifact.kind == "candidate_discovery",
         )
     )
@@ -60,16 +82,14 @@ def _source_locations(
     candidate = None
     for entry in discovery.get("candidates", []):
         expected_id = hashlib.sha256(
-            f"{principal.tenant_id}:{result.review_task_id}:{result.run_id}:{entry['candidate_id']}".encode()
+            f"{principal.tenant_id}:{review_task_id}:{run_id}:{entry['candidate_id']}".encode()
         ).hexdigest()
         if expected_id == finding["finding_id"]:
             candidate = entry
             break
     if candidate is None:
         raise ValueError("finding does not bind to the frozen source candidate")
-    snapshot_docs = {
-        item["document_id"]: item for item in run.snapshot["input_snapshot"]["documents"]
-    }
+    snapshot_docs = {item["document_id"]: item for item in snapshot["input_snapshot"]["documents"]}
     evidence_by_source = {
         (item.get("source_hash"), item.get("page"), item.get("locator"), item.get("quote"))
         for item in finding.get("evidence", [])
@@ -89,7 +109,7 @@ def _source_locations(
         document = session.scalar(
             select(Document).where(
                 Document.tenant_id == principal.tenant_id,
-                Document.project_id == result.content["project_id"],
+                Document.project_id == project_id,
                 Document.document_id == source["document_id"],
             )
         )
@@ -149,6 +169,56 @@ def _source_locations(
     if not result_locations:
         raise ValueError("formal report requires a verifiable original document citation")
     return result_locations
+
+
+def resolve_review_finding_citations(
+    session: Session,
+    principal: Principal,
+    *,
+    review_task_id: str,
+    run_id: str,
+    finding_id: str,
+) -> list[dict[str, Any]]:
+    require_identity(session, principal)
+    if principal.role not in {Role.REVIEWER, Role.AUDITOR}:
+        audit(session, principal.tenant_id, principal.user_id, "review.citation_denied", finding_id)
+        session.commit()
+        raise PermissionError("review citation is not authorized")
+    run = authorized_run(session, principal, review_task_id, run_id)
+    if content_hash(run.snapshot) != run.snapshot_hash:
+        raise ValueError("review input snapshot hash mismatch")
+    artifact = session.scalar(
+        select(ReviewArtifact).where(
+            ReviewArtifact.tenant_id == principal.tenant_id,
+            ReviewArtifact.review_task_id == review_task_id,
+            ReviewArtifact.run_id == run_id,
+            ReviewArtifact.kind == "merged_findings",
+        )
+    )
+    if artifact is None or content_hash(artifact.content) != artifact.content_hash:
+        raise ValueError("review findings artifact is unavailable or changed")
+    finding = next(
+        (
+            item
+            for item in artifact.content.get("findings", [])
+            if item.get("finding_id") == finding_id
+        ),
+        None,
+    )
+    if finding is None:
+        raise LookupError("finding is unavailable")
+    locations = _resolve_source_locations(
+        session,
+        principal,
+        project_id=run.project_id,
+        review_task_id=review_task_id,
+        run_id=run_id,
+        snapshot=run.snapshot,
+        finding=finding,
+    )
+    audit(session, principal.tenant_id, principal.user_id, "review.citation_resolved", finding_id)
+    session.commit()
+    return locations
 
 
 def report_payload(
@@ -382,6 +452,35 @@ def export_report(session: Session, principal: Principal, report_id: str) -> Rev
     audit(session, principal.tenant_id, principal.user_id, "report.exported", row.report_id)
     session.commit()
     return row
+
+
+def list_reports(
+    session: Session, principal: Principal, result_id: str
+) -> list[ReviewReport]:
+    require_identity(session, principal)
+    if principal.role not in {Role.REVIEWER, Role.AUDITOR}:
+        audit(session, principal.tenant_id, principal.user_id, "report.list_denied", result_id)
+        session.commit()
+        raise PermissionError("report list is not authorized")
+    result = session.get(ReviewResult, (principal.tenant_id, result_id))
+    if result is None:
+        audit(session, principal.tenant_id, principal.user_id, "report.not_visible", result_id)
+        session.commit()
+        raise LookupError("report result unavailable")
+    find_project(session, principal, result.content["project_id"])
+    rows = list(
+        session.scalars(
+            select(ReviewReport)
+            .where(
+                ReviewReport.tenant_id == principal.tenant_id,
+                ReviewReport.result_id == result_id,
+            )
+            .order_by(ReviewReport.created_at, ReviewReport.report_id)
+        )
+    )
+    audit(session, principal.tenant_id, principal.user_id, "report.listed", result_id)
+    session.commit()
+    return rows
 
 
 def citation_fragment(

@@ -3,21 +3,33 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, cast
+from uuid import NAMESPACE_URL, uuid5
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from sqlalchemy.exc import IntegrityError
 
+from bidding_compliance.core.dates import isoformat_utc
 from bidding_compliance.core.tracing import get_request_id
 from bidding_compliance.services import reports, review_management, review_persistence
+from bidding_compliance.services.review_engine import ReviewRequest
 
 from .projects import DB, User
 from .review_schemas import (
+    CitationLocation,
+    CreateReviewRequest,
     DecisionRequest,
     DecisionResponse,
+    PendingReviewItem,
+    PendingReviewList,
+    ReportList,
     ReportMetadata,
+    ReviewCitations,
     ReviewFindings,
     ReviewHistory,
+    ReviewTaskList,
+    ReviewTaskResponse,
 )
 from .schemas import ErrorResponse
 
@@ -25,9 +37,103 @@ router = APIRouter(
     prefix="/api/v1",
     responses={
         status: {"model": ErrorResponse, "description": "统一安全错误"}
-        for status in (400, 401, 403, 404, 409, 422, 500)
+        for status in (400, 401, 403, 404, 409, 422, 500, 503)
     },
 )
+
+
+def _task_response(data: dict[str, Any]) -> ReviewTaskResponse:
+    return ReviewTaskResponse.model_validate(
+        {key: data[key] for key in ReviewTaskResponse.model_fields}
+    )
+
+
+@router.get(
+    "/projects/{projectId}/reviews",
+    response_model=ReviewTaskList,
+    operation_id="listProjectReviews",
+)
+def project_reviews(
+    projectId: str,
+    principal: User,
+    session: DB,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> ReviewTaskList:
+    try:
+        items, total = review_management.list_project_reviews(
+            session, principal, projectId, offset=offset, limit=limit
+        )
+        return ReviewTaskList(
+            items=[_task_response(item) for item in items],
+            offset=offset,
+            limit=limit,
+            total=total,
+        )
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.post(
+    "/projects/{projectId}/reviews",
+    status_code=202,
+    response_model=ReviewTaskResponse,
+    operation_id="createReview",
+)
+async def create_review(
+    projectId: str,
+    body: CreateReviewRequest,
+    request: Request,
+    principal: User,
+    session: DB,
+    key: Annotated[str, Header(alias="Idempotency-Key", min_length=16, max_length=200)],
+) -> ReviewTaskResponse:
+    engine = getattr(request.app.state, "review_engine", None)
+    if engine is None:
+        raise HTTPException(503, detail="authorized review executor is unavailable")
+    task_id = str(uuid5(NAMESPACE_URL, f"task0011:{principal.tenant_id}:{key}"))
+    try:
+        existing = review_management.get_run_by_identity(session, principal, task_id)
+        if existing is not None:
+            if (
+                existing["project_id"] != projectId
+                or sorted(existing["document_ids"]) != sorted(body.document_ids)
+            ):
+                raise FileExistsError("idempotency conflict")
+            return _task_response(existing)
+        doc_requests = review_management.document_requests(
+            session, principal, projectId, body.document_ids
+        )
+        review = ReviewRequest(
+            review_task_id=task_id,
+            project_id=projectId,
+            run_id=str(uuid5(NAMESPACE_URL, f"{task_id}:run")),
+            document_requests=doc_requests,
+            review_date=datetime.now(UTC).date(),
+            prompt_version="task0011-ui-v1",
+            model_profile=engine.model_policy.profile,
+        )
+        await engine.start(principal, review)
+        session.expire_all()
+        return _task_response(review_management.get_review_status(session, principal, task_id))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.get(
+    "/reviews/{reviewTaskId}",
+    response_model=ReviewTaskResponse,
+    operation_id="getReview",
+)
+def get_review(
+    reviewTaskId: str, principal: User, session: DB
+) -> ReviewTaskResponse:
+    try:
+        return _task_response(review_management.get_review_status(session, principal, reviewTaskId))
+    except Exception as exc:
+        raise _translate(exc) from exc
 
 
 def _translate(exc: Exception) -> HTTPException:
@@ -40,7 +146,8 @@ def _translate(exc: Exception) -> HTTPException:
     if isinstance(exc, (FileExistsError, IntegrityError)):
         return HTTPException(409)
     if isinstance(exc, ValueError):
-        return HTTPException(409 if "conflict" in str(exc) else 422)
+        conflict_terms = ("conflict", "eligible", "waiting", "status", "approved")
+        return HTTPException(409 if any(term in str(exc) for term in conflict_terms) else 422)
     return HTTPException(500)
 
 
@@ -57,20 +164,28 @@ def _decision_response(row: Any) -> DecisionResponse:
         reviewer_id=row.reviewer_id,
         request_id=row.request_id,
         request_trace_id=row.request_trace_id,
-        decided_at=row.decided_at.isoformat(),
+        decided_at=isoformat_utc(row.decided_at),
     )
 
 
-@router.get("/review-tasks/pending", operation_id="listPendingReviews")
+@router.get(
+    "/review-tasks/pending",
+    response_model=PendingReviewList,
+    operation_id="listPendingReviews",
+)
 def pending_reviews(
     principal: User,
     session: DB,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-) -> dict[str, Any]:
+) -> PendingReviewList:
     try:
         items = review_management.list_waiting(session, principal, offset=offset, limit=limit)
-        return {"items": items}
+        return PendingReviewList(
+            items=[PendingReviewItem.model_validate(item) for item in items],
+            offset=offset,
+            limit=limit,
+        )
     except Exception as exc:
         raise _translate(exc) from exc
 
@@ -111,6 +226,33 @@ def finding(
             "snapshot_hash": data["snapshot_hash"],
             "finding": item,
         }
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.get(
+    "/review-tasks/{reviewTaskId}/runs/{runId}/findings/{findingId}/citations",
+    response_model=ReviewCitations,
+    operation_id="resolveReviewFindingCitations",
+)
+def finding_citations(
+    reviewTaskId: str,
+    runId: str,
+    findingId: str,
+    principal: User,
+    session: DB,
+) -> ReviewCitations:
+    try:
+        locations = reports.resolve_review_finding_citations(
+            session,
+            principal,
+            review_task_id=reviewTaskId,
+            run_id=runId,
+            finding_id=findingId,
+        )
+        return ReviewCitations(
+            items=[CitationLocation.model_validate(item) for item in locations]
+        )
     except Exception as exc:
         raise _translate(exc) from exc
 
@@ -179,6 +321,7 @@ def publish(reviewTaskId: str, runId: str, principal: User, session: DB) -> dict
 
 @router.post(
     "/review-tasks/{reviewTaskId}/runs/{runId}/resume",
+    response_model=ReviewTaskResponse,
     operation_id="resumeReviewRun",
 )
 async def resume(
@@ -187,13 +330,49 @@ async def resume(
     request: Request,
     principal: User,
     session: DB,
-) -> dict[str, Any]:
+) -> ReviewTaskResponse:
     try:
-        review_management.get_findings(session, principal, reviewTaskId, runId)
+        review_management.authorize_review_control(
+            session, principal, reviewTaskId, runId, "resume"
+        )
         engine = getattr(request.app.state, "review_engine", None)
         if engine is None:
             raise HTTPException(503, detail="review execution worker is unavailable")
-        return cast(dict[str, Any], await engine.resume(principal, reviewTaskId, runId))
+        await engine.resume(principal, reviewTaskId, runId)
+        session.expire_all()
+        return _task_response(
+            review_management.get_review_status(session, principal, reviewTaskId)
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.post(
+    "/review-tasks/{reviewTaskId}/runs/{runId}/retry",
+    response_model=ReviewTaskResponse,
+    operation_id="retryReviewRun",
+)
+async def retry(
+    reviewTaskId: str,
+    runId: str,
+    request: Request,
+    principal: User,
+    session: DB,
+) -> ReviewTaskResponse:
+    try:
+        review_management.authorize_review_control(
+            session, principal, reviewTaskId, runId, "retry"
+        )
+        engine = getattr(request.app.state, "review_engine", None)
+        if engine is None:
+            raise HTTPException(503, detail="review execution worker is unavailable")
+        await engine.retry(principal, reviewTaskId, runId)
+        session.expire_all()
+        return _task_response(
+            review_management.get_review_status(session, principal, reviewTaskId)
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -228,7 +407,7 @@ def create_report(
             template_version=row.template_version,
             snapshot_hash=row.snapshot_hash,
             content_hash=row.content_hash,
-            created_at=row.created_at.isoformat(),
+            created_at=isoformat_utc(row.created_at),
         )
     except Exception as exc:
         raise _translate(exc) from exc
@@ -255,3 +434,30 @@ def download_report(reportId: str, principal: User, session: DB) -> Response:
             "ETag": f'"{row.content_hash}"',
         },
     )
+
+
+@router.get(
+    "/review-results/{resultId}/reports",
+    response_model=ReportList,
+    operation_id="listReviewReports",
+)
+def list_reports(resultId: str, principal: User, session: DB) -> ReportList:
+    try:
+        rows = reports.list_reports(session, principal, resultId)
+        return ReportList(
+            items=[
+                ReportMetadata(
+                    report_id=row.report_id,
+                    report_content_id=row.report_content_id,
+                    result_id=row.result_id,
+                    format=cast(Literal["docx", "pdf"], row.format),
+                    template_version=row.template_version,
+                    snapshot_hash=row.snapshot_hash,
+                    content_hash=row.content_hash,
+                    created_at=isoformat_utc(row.created_at),
+                )
+                for row in rows
+            ]
+        )
+    except Exception as exc:
+        raise _translate(exc) from exc

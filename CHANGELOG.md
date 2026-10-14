@@ -6,6 +6,8 @@
 
 ### Added
 
+- TASK-0011开发中：新增React/TypeScript/Vite中文工作台、OpenAPI生成类型API客户端、项目/文档/审查/复核/结果报告/审计界面与项目文档/审查列表/审计查询等后端接口；本地前端API契约、lint、TypeScript、5个单测和生产构建已通过。浏览器完整端到端尚未运行（缺隔离真实后端/离线执行器环境），FR-013规则/法规/Skill/模型配置版本管理API不存在且未伪造，任务仍in_progress。见`docs/development/TASK-0011-validation.md`。
+
 - TASK-0010已完成归档：人工复核决定/审计历史、幂等发布、不可变结构化报告版本、Word/PDF渲染、原文历史片段回查及授权导出审计。源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`本地Full504项与PostgreSQL16专项通过；源码CI38556383801、验收记录CI38557180768及归档CI38557509858全部适用作业成功。DEC-002未批准，默认模型执行关闭。详见`docs/development/TASK-0010-validation.md`。
 
 - TASK-0009 本地归档候选：TASK0009-001/002正式验收、本地 Full 500、Focused 13、真实 PostgreSQL 恢复/并发/事务故障专项通过。源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`和验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI由用户确认成功；本次归档提交的远程CI待核验，全部适用作业及`verify-required`成功后方正式完成。DEC-002仍待批准、生产模型路由禁用、预算账本仅单进程一致性、法律证据最高为suspected；未进行真实供应商调用。该记录形成时TASK-0010尚未启动。详见 `docs/development/TASK-0009-validation.md`。
