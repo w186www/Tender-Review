@@ -1,2 +1,5 @@
+# Legacy source hashes and character offsets were captured from CRLF files.
+# Pin checkout bytes on every platform; newer immutable artifacts stay binary below.
+knowledge/legal/**/*.txt text eol=crlf
 knowledge/legal/snapshots/** -text -diff
 knowledge/legal/versions/** -text

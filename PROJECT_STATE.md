@@ -28,14 +28,15 @@
 
 ## 下一步
 
-1. 使用当前单Codex继续TASK-0006，按既有D问题和局部验收核对检索状态、地区、基准日与来源等；自检如实记录，满足最终Full及专项验收才归档。后续任务暂不启动。
-2. 用户2026-10-14授权更新法规库；保留42份旧文本，新增司法部2019修订《实施条例》及原始HTML。旧版本保持unverified；逐项核实后才能支持确定依据。
-3. 法规核验截止2026-10-14；未来基准日须更新核验或显式参考模式，默认不沿用过期核验。
-4. 实现LangGraph完整流程、人工复核、报告、界面与部署。
+1. 先完成TASK-0017的远程核验：源码0016b306550f341f514f2d35a62c2385e968f612运行最终failure，baseline/ingestion成功，postgres/verify-required失败。已取得日志并定位42份旧法规CRLF哈希与Linux LF检出不一致；.gitattributes修复和fresh clone回归后84项Focused及真实PostgreSQL16专项通过，最终Full279项通过，新源码远程CI待核对。
+2. 使用当前单Codex继续TASK-0006，按既有D问题和局部验收核对检索状态、地区、基准日与来源等；自检如实记录，满足最终Full及专项验收才归档。后续任务暂不启动。
+3. 用户2026-10-14授权更新法规库；保留42份旧文本，新增司法部2019修订《实施条例》及原始HTML。旧版本保持unverified；逐项核实后才能支持确定依据。
+4. 法规核验截止2026-10-14；未来基准日须更新核验或显式参考模式，默认不沿用过期核验。
+5. 实现LangGraph完整流程、人工复核、报告、界面与部署。
 
 ## 最近验证
 
-- TASK-0017：本地Focused仅新增策略回归26项通过；最终候选完整Full277项、0失败/0错误/0跳过，Mypy48源文件、两个实际HTTP检查及契约/静态检查通过。CI选档与总门禁已实现，远程待推送核验。完成规则见ADR-0011，证据见TASK-0017-validation.md。TASK-0006不因测试通过或角色取消自动完成。
+- TASK-0017：本地Focused仅新增策略回归26项通过；最终候选完整Full277项、0失败/0错误/0跳过，Mypy48源文件、两个实际HTTP检查及契约/静态检查通过。源码0016b306550f341f514f2d35a62c2385e968f612已推送；远程运行https://github.com/w186www/Tender-Review/actions/runs/38446832736 最终已核对completed/failure：impact/baseline/ingestion成功，postgres/verify-required失败；失败日志已取得，根因是旧42份法规CRLF哈希与Linux LF检出不一致。修复跨平台检出规则后84项Focused与真实PostgreSQL16通过，最终候选Full279项通过（0失败/0错误/0跳过及两个真实HTTP检查），新远程CI待核对。TASK-0017仍in_progress。完成规则见ADR-0011，证据见TASK-0017-validation.md。TASK-0006不因测试通过或角色取消自动完成。
 
 - TASK-0006本轮纠正：最终完整verify.ps1通过251项、0失败/0错误/0跳过（JUnit已核对），Mypy48文件；真实HTTP健康/身份/项目/撤销通过。56项法规专项、109项组合检查通过；临时PostgreSQL16增量/重复迁移、RLS/WITH CHECK、最小权限、运行读取/撤权/触发器/完整回滚实证通过，容器已清理。两次中间失败保留在TASK-0006-validation.md；无远端CI新证据。
 

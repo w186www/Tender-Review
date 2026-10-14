@@ -9,6 +9,9 @@ from pathlib import Path
 import pytest
 from verification_impact import changed_paths, verification_mode
 
+from bidding_compliance.legal.contracts import LegalManifest
+from bidding_compliance.legal.corpus import digest, index_hash, ingest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -135,3 +138,52 @@ def test_quick_mode_preserves_existing_full_test_evidence():
     assert "[4/6]" not in result.stdout and "Real backend startup" not in result.stdout
     after = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
     assert before == after
+
+
+@pytest.mark.parametrize("autocrlf", ["false", "true"])
+def test_real_corpus_fresh_checkout_preserves_hashes_and_locators(tmp_path, autocrlf):
+    """Reproduce Linux and Windows checkout, including immutable LF source overrides."""
+    executable = shutil.which("git")
+    assert executable
+    source = tmp_path / "source"
+    source.mkdir()
+
+    def git(*arguments):
+        return subprocess.run(  # noqa: S603 - fixed Git with controlled temporary paths
+            [executable, *arguments], capture_output=True, check=True, timeout=30,
+        ).stdout
+
+    git("-C", str(source), "init")
+    git("-C", str(source), "config", "core.autocrlf", "false")
+    shutil.copyfile(ROOT / ".gitattributes", source / ".gitattributes")
+    manifest = LegalManifest.model_validate_json(
+        (ROOT / "config/legal/manifest.json").read_bytes()
+    )
+    for version in manifest.versions:
+        for name in (version.text_path, version.source_snapshot_path):
+            target = source / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / name, target)
+    git("-C", str(source), "add", ".")
+    git(
+        "-C", str(source), "-c", "user.name=verification",
+        "-c", "user.email=verification@example.invalid",
+        "commit", "-m", "synthetic checkout of existing corpus",
+    )
+    checkout = tmp_path / "checkout"
+    git(
+        "clone", "--no-local", "-c", "core.autocrlf=" + autocrlf,
+        "-c", "core.eol=lf", str(source), str(checkout),
+    )
+    for version in manifest.versions:
+        assert digest((checkout / version.text_path).read_bytes()) == version.text_hash
+        assert digest((checkout / version.source_snapshot_path).read_bytes()) == version.source_hash
+    original = ingest(ROOT, manifest)
+    reproduced = ingest(checkout, manifest)
+    assert reproduced == original
+    assert index_hash(reproduced) == index_hash(original)
+    # A real byte change must still fail; the checkout fix does not normalize verification.
+    with (checkout / manifest.versions[0].text_path).open("ab") as stream:
+        stream.write(b"tampered")
+    with pytest.raises(ValueError, match="legal source hash mismatch"):
+        ingest(checkout, manifest)
