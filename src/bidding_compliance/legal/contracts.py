@@ -16,6 +16,8 @@ from pydantic import (
     model_validator,
 )
 
+from bidding_compliance.ingestion.schemas import IngestionPolicy
+
 from .regions import ALIASES, normalize_region
 
 REGION_VALUES: list[JsonValue] = [value for value in sorted(set(ALIASES.values()))]
@@ -25,13 +27,14 @@ Procurement = Literal["government", "enterprise", "other"]
 ProjectType = Literal["works", "goods", "services"]
 Reason = Literal[
     "valid", "unverified", "outside_verification_horizon", "unlocated",
-    "unknown_end", "clause_unverified",
+    "unknown_end", "clause_unverified", "extraction_unverified",
 ]
 VersionStatus = Literal["verified_current", "verified_historical", "unverified"]
 ExclusionReason = Literal[
     "not_yet_effective", "expired", "jurisdiction_mismatch", "procurement_mismatch",
     "project_type_mismatch", "unverified", "outside_verification_horizon",
     "unlocated", "no_text_match", "context_incomplete", "unknown_end", "clause_unverified",
+    "extraction_unverified",
 ]
 
 
@@ -72,6 +75,9 @@ class LegalVersion(Closed):
     effective_to: date | None
     end_status: Literal["unknown", "confirmed_open", "confirmed_end"] = "unknown"
     clause_effects: tuple[ClauseEffect, ...] = ()
+    source_format: Literal["text", "moj_html", "pdf"] = "text"
+    extraction_header: str = Field(default="", max_length=2000)
+    expected_articles: tuple[str, ...] | None = None
     jurisdictions: tuple[str, ...] = Field(min_length=1, max_length=50)
     procurement_types: tuple[Procurement, ...] = Field(min_length=1, max_length=3)
     project_types: tuple[ProjectType, ...] = Field(min_length=1, max_length=3)
@@ -152,11 +158,73 @@ class LegalClause(Closed):
     quote_hash: Digest = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class SourceSpan(Closed):
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+    kind: Literal["text", "html_text", "html_entity", "pdf_glyph", "header", "separator"]
+    byte_start: int | None = Field(default=None, ge=0)
+    byte_end: int | None = Field(default=None, gt=0)
+    page: int | None = Field(default=None, ge=1)
+    bbox: tuple[float, float, float, float] | None = None
+
+    @model_validator(mode="after")
+    def complete_locator(self) -> Self:
+        if self.end <= self.start:
+            raise ValueError("empty source span")
+        if self.kind in {"text", "html_text", "html_entity"}:
+            if self.byte_start is None or self.byte_end is None or self.byte_end <= self.byte_start:
+                raise ValueError("source byte span required")
+        elif self.kind == "pdf_glyph" and (
+            self.page is None or self.bbox is None or self.bbox[2] < self.bbox[0]
+            or self.bbox[3] < self.bbox[1]
+        ):
+            raise ValueError("PDF page/glyph box required")
+        return self
+
+
+class SourceExclusion(Closed):
+    page: int = Field(ge=1)
+    bbox: tuple[float, float, float, float]
+    text: str = Field(min_length=1, max_length=1000)
+    reason: Literal["page_number"]
+
+
+class SourceMap(Closed):
+    law_id: str
+    version: str
+    source_hash: Digest = Field(pattern=r"^[a-f0-9]{64}$")
+    text_hash: Digest = Field(pattern=r"^[a-f0-9]{64}$")
+    extraction_version: Literal["identity-1", "moj-html-map-1", "pdf-glyph-map-1"]
+    spans: tuple[SourceSpan, ...] = Field(min_length=1, max_length=200000)
+    raw_exclusions: tuple[SourceExclusion, ...] = ()
+
+
+class TextExclusion(Closed):
+    law_id: str
+    version: str
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+    reason: Literal["preamble", "chapter", "whitespace", "toc"]
+
+
+class SourceExtractionRequest(Closed):
+    payload_base64: str = Field(min_length=1, max_length=2666668)
+    policy: IngestionPolicy
+
+
+class SourceExtractionResult(Closed):
+    text: str = Field(min_length=1, max_length=100000)
+    spans: tuple[SourceSpan, ...] = Field(min_length=1, max_length=200000)
+    raw_exclusions: tuple[SourceExclusion, ...] = ()
+
+
 class LegalIndex(Closed):
-    schema_version: Literal["v1alpha2"] = "v1alpha2"
-    pipeline_version: Literal["legal-ingestion-2"] = "legal-ingestion-2"
+    schema_version: Literal["v1alpha3"] = "v1alpha3"
+    pipeline_version: Literal["legal-ingestion-3"] = "legal-ingestion-3"
     manifest: LegalManifest
     clauses: tuple[LegalClause, ...] = Field(min_length=1, max_length=50000)
+    source_maps: tuple[SourceMap, ...]
+    text_exclusions: tuple[TextExclusion, ...]
 
 
 class RetrievalInput(Closed):
@@ -213,7 +281,7 @@ class LegalHit(Closed):
             "else": {"properties": {
                 "reason": {"enum": [
                     "unverified", "outside_verification_horizon", "unlocated",
-                    "unknown_end", "clause_unverified",
+                    "unknown_end", "clause_unverified", "extraction_unverified",
                 ]},
                 "version_status": {"const": "unverified"},
             }},

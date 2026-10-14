@@ -9,6 +9,9 @@ from bidding_compliance.legal.contracts import (
     LegalManifest,
     RetrievalQuery,
     RetrievalResult,
+    SourceExtractionRequest,
+    SourceExtractionResult,
+    SourceMap,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +25,9 @@ def main() -> int:
     for model, name in (
         (LegalManifest, "legal-manifest"), (LegalIndex, "legal-index"),
         (RetrievalQuery, "legal-query"), (RetrievalResult, "legal-result"),
+        (SourceMap, "legal-source-map"),
+        (SourceExtractionRequest, "legal-source-request"),
+        (SourceExtractionResult, "legal-source-result"),
     ):
         schema = model.model_json_schema()
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"

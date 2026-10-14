@@ -40,6 +40,7 @@ def version(root, **changes):
         jurisdictions=["CN/福建"],
         procurement_types=["government"], project_types=["works"], authority="regulation",
         verification_note="仅测试用合成法规，非真实法律依据。",
+        expected_articles=["第一条", "第二条"],
     )
     if changes.get("effective_to") and "end_status" not in changes:
         changes["end_status"] = "confirmed_end"
@@ -173,7 +174,9 @@ def test_unlocated_notice_is_reference(tmp_path):
     metadata = version(tmp_path)
     (tmp_path / "law.txt").write_text("通知：投标保证金事项。", encoding="utf-8")
     raw = (tmp_path / "law.txt").read_bytes()
-    metadata = metadata.model_copy(update={"text_hash": digest(raw), "source_hash": digest(raw)})
+    metadata = metadata.model_copy(update={
+        "text_hash": digest(raw), "source_hash": digest(raw), "expected_articles": (),
+    })
     assert not search(tmp_path, metadata).hits
     hit = search(tmp_path, metadata, query(include_references=True)).hits[0]
     assert hit.reason == "unlocated" and not hit.eligible_for_confirmation

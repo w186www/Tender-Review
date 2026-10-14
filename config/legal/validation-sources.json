@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "snapshot_path": "knowledge/legal/snapshots/ordinance-2019-validation.pdf",
+      "source_uri": "https://jsj.xlgl.gov.cn/jsj/zwgk/tzgg/2024091915575288065/2024091915544732856.pdf",
+      "kind": "pdf_mapping_fixture",
+      "sha256": "c116f836e089eb77b96c9c61e71fc6a387bb59d3411c091601ec31700ba3b325",
+      "captured_on": "2026-10-14",
+      "usage": "公开官方资料；PDF仅用于真实解析/定位回归，不自动提升效力核验"
+    },
+    {
+      "snapshot_path": "knowledge/legal/snapshots/ordinance-2019-status-beijing.html",
+      "source_uri": "https://fgw.beijing.gov.cn/fgwzwgk/2024zcwj/flfggz/fg/xzfg/202004/t20200421_3728866.htm",
+      "kind": "verification_status",
+      "sha256": "3228307e85fc087057ee07ae1883b380d7148d8bb25128e86a8d73ab96e62b9d",
+      "captured_on": "2026-10-14",
+      "usage": "公开官方资料；PDF仅用于真实解析/定位回归，不自动提升效力核验"
+    }
+  ]
+}

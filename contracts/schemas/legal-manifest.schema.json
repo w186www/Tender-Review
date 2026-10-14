@@ -185,6 +185,37 @@
           "title": "Clause Effects",
           "type": "array"
         },
+        "source_format": {
+          "default": "text",
+          "enum": [
+            "text",
+            "moj_html",
+            "pdf"
+          ],
+          "title": "Source Format",
+          "type": "string"
+        },
+        "extraction_header": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Extraction Header",
+          "type": "string"
+        },
+        "expected_articles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Articles"
+        },
         "jurisdictions": {
           "items": {
             "type": "string"

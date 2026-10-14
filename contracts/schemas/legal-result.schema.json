@@ -53,7 +53,8 @@
               "no_text_match",
               "context_incomplete",
               "unknown_end",
-              "clause_unverified"
+              "clause_unverified",
+              "extraction_unverified"
             ],
             "type": "string"
           },
@@ -80,7 +81,8 @@
                   "outside_verification_horizon",
                   "unlocated",
                   "unknown_end",
-                  "clause_unverified"
+                  "clause_unverified",
+                  "extraction_unverified"
                 ]
               },
               "version_status": {
@@ -231,7 +233,8 @@
             "outside_verification_horizon",
             "unlocated",
             "unknown_end",
-            "clause_unverified"
+            "clause_unverified",
+            "extraction_unverified"
           ],
           "title": "Reason",
           "type": "string"

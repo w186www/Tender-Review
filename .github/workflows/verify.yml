@@ -72,6 +72,8 @@ jobs:
           echo "MINIO_VERIFY_IMAGE=$(docker image inspect tender-minio-verification:task5 --format '{{.Id}}')" >> "$GITHUB_ENV"
       - name: Verify actual parser isolation
         run: python scripts/check_parser_sandbox.py
+      - name: Verify real legal PDF origin mappings
+        run: python scripts/check_legal_sources.py
       - name: Verify real S3, ClamAV, OCR, worker and HTTP lifecycle
         run: python scripts/check_ingestion_containers.py
       - name: Keep ingestion evidence

@@ -114,7 +114,8 @@ def confirmation_reason(
             version.verified_through is None or query.review_date > version.verified_through
         ) else "unknown_end" if end_status == "unknown"
         else "clause_unverified" if not clause_verified
-        else "unlocated" if article is None else "valid"
+        else "unlocated" if article is None
+        else "extraction_unverified" if version.expected_articles is None else "valid"
     )
 
 

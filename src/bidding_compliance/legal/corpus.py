@@ -1,8 +1,11 @@
 """Bounded ingestion and immutable, content-addressed legal snapshots (NFR-008)."""
 
 import hashlib
+import html
+import os
 import re
 from pathlib import Path
+from typing import Literal
 
 from .contracts import (
     LegalClause,
@@ -11,13 +14,19 @@ from .contracts import (
     LegalManifest,
     LegalVersion,
     RetrievalQuery,
+    SourceExclusion,
+    SourceMap,
+    SourceSpan,
+    TextExclusion,
 )
+from .extraction import PDFExtractor, extract_html
 
 ARTICLE = re.compile(
     r"(?m)^[ \t\u3000]*(第[一二三四五六七八九十百千万零〇两0-9]+条"
     r"(?:之[一二三四五六七八九十]+)?)[ \t\u3000]+"
 )
 CHAPTER = re.compile(r"(?m)^[ \t\u3000]*第[一二三四五六七八九十百]+[章节][^\n]*\n?")
+TOC = re.compile(r"[.．…]{3,}\s*[0-9]+\s*$")
 
 
 def digest(data: bytes) -> str:
@@ -37,7 +46,9 @@ def read_bounded(root: Path, relative: str, maximum: int = 2_000_000) -> bytes:
 
 def split_clauses(text: str, version: LegalVersion) -> tuple[LegalClause, ...]:
     """Keep exact Unicode offsets; headers/chapters cannot masquerade as articles."""
-    matches = list(ARTICLE.finditer(text))
+    matches = [m for m in ARTICLE.finditer(text) if not TOC.search(
+        text[m.start():text.find("\n", m.start()) if "\n" in text[m.start():] else len(text)]
+    )]
     ranges: list[tuple[str | None, int, int]] = []
     if matches:
         seen: set[str] = set()
@@ -76,8 +87,95 @@ def split_clauses(text: str, version: LegalVersion) -> tuple[LegalClause, ...]:
     return tuple(clauses)
 
 
-def ingest(root: Path, manifest: LegalManifest) -> LegalIndex:
+def map_source(
+    raw: bytes, source: bytes, version: LegalVersion, extractor: PDFExtractor | None = None,
+) -> SourceMap:
+    text = raw.decode("utf-8")
+    spans: tuple[SourceSpan, ...]
+    raw_exclusions: tuple[SourceExclusion, ...] = ()
+    algorithm: Literal["identity-1", "moj-html-map-1", "pdf-glyph-map-1"]
+    if version.source_format == "text":
+        if source != raw:
+            raise ValueError("text source requires identical bytes, not an unproved cleaned text")
+        mapped, spans = text, (SourceSpan(
+            start=0, end=len(text), kind="text", byte_start=0, byte_end=len(source),
+        ),)
+        algorithm = "identity-1"
+    elif version.source_format == "moj_html":
+        mapped, spans = extract_html(source, version.extraction_header)
+        algorithm = "moj-html-map-1"
+    else:
+        if extractor is None:
+            from .source_sandbox import DockerPDFExtractor
+
+            extractor = DockerPDFExtractor(os.environ.get("LEGAL_SOURCE_IMAGE", ""))
+        extracted = extractor.extract(source)
+        mapped, spans, raw_exclusions = extracted.text, extracted.spans, extracted.raw_exclusions
+        algorithm = "pdf-glyph-map-1"
+    if mapped != text:
+        raise ValueError("source extraction does not reproduce cleaned legal text")
+    previous = 0
+    for span in spans:
+        if span.start != previous or span.end > len(text):
+            raise ValueError("source mapping has a gap or overlap")
+        fragment = text[span.start:span.end]
+        if span.kind in {"text", "html_text", "html_entity"}:
+            assert span.byte_start is not None and span.byte_end is not None
+            if span.byte_end > len(source):
+                raise ValueError("source byte interval is out of bounds")
+            decoded = source[span.byte_start:span.byte_end].decode("utf-8")
+            if span.kind == "html_entity":
+                decoded = html.unescape(decoded)
+            if decoded != fragment:
+                raise ValueError("source byte mapping mismatch")
+        elif span.kind == "separator" and fragment not in {" ", "\n"}:
+            raise ValueError("generated source separator cannot supply legal text")
+        previous = span.end
+    if previous != len(text):
+        raise ValueError("source mapping does not cover cleaned legal text")
+    return SourceMap(
+        law_id=version.law_id, version=version.version, source_hash=version.source_hash,
+        text_hash=version.text_hash, extraction_version=algorithm, spans=spans,
+        raw_exclusions=raw_exclusions,
+    )
+
+
+def exclusions(
+    text: str, version: LegalVersion, pieces: tuple[LegalClause, ...],
+) -> list[TextExclusion]:
+    output: list[TextExclusion] = []
+    previous = 0
+    for clause in (*pieces,):
+        if clause.start > previous:
+            gap = text[previous:clause.start]
+            reason: Literal["whitespace", "preamble", "chapter", "toc"]
+            reason = "whitespace" if not gap.strip() else "preamble" if previous == 0 else "chapter"
+            if gap.strip() and TOC.search(gap.strip().splitlines()[-1]):
+                reason = "toc"
+            if previous and gap.strip() and not CHAPTER.fullmatch(gap.strip() + "\n"):
+                if version.verification == "verified":
+                    raise ValueError("unexplained legal text exclusion")
+            output.append(TextExclusion(
+                law_id=version.law_id, version=version.version, start=previous,
+                end=clause.start, reason=reason,
+            ))
+        previous = clause.end
+    if previous < len(text):
+        if text[previous:].strip() and version.verification == "verified":
+            raise ValueError("unexplained trailing legal text")
+        output.append(TextExclusion(
+            law_id=version.law_id, version=version.version, start=previous, end=len(text),
+            reason="whitespace",
+        ))
+    return output
+
+
+def ingest(
+    root: Path, manifest: LegalManifest, extractor: PDFExtractor | None = None,
+) -> LegalIndex:
     clauses: list[LegalClause] = []
+    maps: list[SourceMap] = []
+    gaps: list[TextExclusion] = []
     total = 0
     for version in manifest.versions:
         raw = read_bounded(root, version.text_path)
@@ -89,10 +187,24 @@ def ingest(root: Path, manifest: LegalManifest) -> LegalIndex:
             raise ValueError("legal source hash mismatch")
         pieces = split_clauses(raw.decode("utf-8"), version)
         articles = {c.article for c in pieces}
+        if version.expected_articles is not None and tuple(dict.fromkeys(
+            c.article for c in pieces if c.article is not None
+        )) != version.expected_articles:
+            raise ValueError("legal article coverage mismatch")
         if any(effect.article not in articles for effect in version.clause_effects):
             raise ValueError("clause effect refers to a missing article")
         clauses.extend(pieces)
-    return LegalIndex(manifest=manifest, clauses=tuple(clauses))
+        origin = map_source(raw, source, version, extractor)
+        if any(span.kind == "header" and any(
+            c.start < span.end and c.end > span.start for c in pieces
+        ) for span in origin.spans):
+            raise ValueError("generated header cannot be cited as legal text")
+        maps.append(origin)
+        gaps.extend(exclusions(raw.decode("utf-8"), version, pieces))
+    return LegalIndex(
+        manifest=manifest, clauses=tuple(clauses), source_maps=tuple(maps),
+        text_exclusions=tuple(gaps),
+    )
 
 
 def index_hash(index: LegalIndex) -> str:
@@ -164,3 +276,35 @@ def resolve_evidence(root: Path, index: LegalIndex, hit: LegalHit, query: Retrie
     if quote != hit.evidence.quote or digest(quote.encode("utf-8")) != clause.quote_hash:
         raise ValueError("legal evidence artifact locator mismatch")
     return quote
+
+
+def evidence_origins(
+    root: Path, index: LegalIndex, hit: LegalHit, query: RetrievalQuery,
+) -> tuple[SourceSpan, ...]:
+    resolve_evidence(root, index, hit, query)
+    clause = next(c for c in index.clauses if c.clause_id == hit.evidence_id)
+    version = next(v for v in index.manifest.versions if (
+        v.law_id == hit.law_id and v.version == hit.version
+    ))
+    mapping = next(m for m in index.source_maps if (
+        m.law_id == hit.law_id and m.version == hit.version
+    ))
+    source = read_bounded(root, version.source_snapshot_path)
+    text = read_bounded(root, version.text_path).decode("utf-8")
+    output = []
+    for span in mapping.spans:
+        start, end = max(span.start, clause.start), min(span.end, clause.end)
+        if start >= end:
+            continue
+        payload = span.model_dump()
+        if span.kind in {"text", "html_text"}:
+            assert span.byte_start is not None
+            payload["byte_start"] = span.byte_start + len(text[span.start:start].encode("utf-8"))
+            payload["byte_end"] = span.byte_start + len(text[span.start:end].encode("utf-8"))
+            if source[payload["byte_start"]:payload["byte_end"]].decode() != text[start:end]:
+                raise ValueError("evidence origin mismatch")
+        payload.update(start=start, end=end)
+        output.append(SourceSpan.model_validate(payload))
+    if sum(s.end - s.start for s in output) != len(hit.quote):
+        raise ValueError("evidence origin coverage mismatch")
+    return tuple(output)
