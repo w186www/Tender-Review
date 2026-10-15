@@ -32,6 +32,8 @@
 
 TASK-0023 真实 Qwen 业务验收已完成（DEC-006 在正式网页完成审查→复核→发布→Word/PDF 闭环），TASK-0024 已完成法规检索解阻、参考候选展示与三案例排名评测；详情见 [TASK-0023 验证记录](development/TASK-0023-validation.md)、[TASK-0024 验证记录](development/TASK-0024-validation.md) 与 [三案例检索证据摘要](development/TASK-0024-case-evidence.md)，公开/私有演示入口见 [演示指南](DEMO.md)。
 
+TASK-0025 已完成证据分类加固、账本连续性防护与 CI 超时修复，Full CI 全绿；当前进入部署准备阶段，资源测算、数据卷缺口与阻断项见[面试演示部署方案](development/DEPLOYMENT-DEMO.md)。
+
 - 功能：`FR-###`
 - 安全：`SEC-###`
 - 非功能：`NFR-###`

@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0025",
   "title": "证据分类修复、账本回滚防护与 Windows CI 超时",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0024"
@@ -87,5 +87,5 @@
     "./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_legal_evidence_classification.py",
     "./scripts/verify.ps1 -Mode Quick"
   ],
-  "handoff_notes": "源码审查定位三类问题：(1) merge_findings 把 verify_legal_hit 通过的法规全部计入 verified_laws，而该函数只证明引用真实性（存在性、发布绑定、检索一致），不证明法律有效性与适用性，导致 unverified 法规进入 finding evidence 且被排除出 legal_references；现改为只有 eligible_for_confirmation 的法规进入正式证据，其余转入 legal_references。(2) 预算账本为单文件 SQLite，删除即恢复额度；新增 verify_ledger_continuity 在存在审计记录而账本缺失/为空/不可读时失败关闭，但无法检测两文件协同回滚，该能力列为部署阻断。(3) baseline 作业 10 分钟超时改为 20 分钟。"
+  "handoff_notes": "2026-10-16 完成。证据分类：仅通过确认链（eligible_for_confirmation）的法条进入 finding.evidence，其余转入 legal_references 并标注原因、版本状态与 applicable=false；引用不可验证时两处都不进入。账本防护：verify_ledger_continuity 在审计非空而账本缺失/为空/不可读时失败关闭；两文件协同回滚仍属部署阻断，需外部不可变存储，未宣称已解决。CI：jobs.baseline.timeout-minutes 由 10 改为 20，Full CI 全绿（baseline/postgres/ingestion/verify-required 均 success）。回归：新增 7 项证据分类测试与 3 项账本测试。详见 docs/development/TASK-0025-validation.md。后续进入部署准备阶段。"
 }
