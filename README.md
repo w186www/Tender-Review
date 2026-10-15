@@ -4,7 +4,40 @@
 
 ## 当前阶段
 
-**TASK-0021 真实 Qwen 在线审查演示已完成并归档。** 代码 Full CI、归档 Quick CI 均通过；DEC-002 唯一一次百炼 Qwen 合成数据在线 Edge E2E 为 5/5（上传、解析、审查、人工复核及 Word/PDF 导出）。本地 Focused 25、Full 570、PostgreSQL/Checkpoint 专项通过。唯一真实调用授权已消耗，不可额外请求、重试或重跑；TASK-0019 保持 planned，其原独立工作树未参与。提交与 CI 证据见 [PROJECT_STATE.md](PROJECT_STATE.md) 和 [TASK-0021 验证记录](docs/development/TASK-0021-validation.md)，在线演示边界见[安全配置说明](docs/development/model-gateway-online-demo.md)。
+**TASK-0023 真实 Qwen 业务验收已完成，TASK-0024 法规检索解阻已交付。** 分支 `work/TASK-0023`。
+
+### 真实运行证据（调用真实供应商，已记账）
+
+- **TASK-0023 / DEC-006 完整闭环**：天津地铁 11 号线 DOCX 经正式网页完成上传、正式校正、上下文确认、
+  真实 AI 审查、19 项人工复核、结果发布与 Word/PDF 生成下载。模型为阿里云百炼 `qwen3.8-flash`，
+  10 次调用、费用 ¥0.062695；7 批风险发现覆盖 1207 个非空片段，确定性 Skills 候选 0 项而**模型独立发现
+  19 个候选**，19/19 原文定位一致、**0 条违法断言**、全部 `insufficient_evidence` 待核验；下载报告
+  SHA-256 与服务端 `content_hash` 一致。
+- **TASK-0023 / DEC-005 真实供应商验证**：真实 `text-embedding-v4` 取得 1024 维在线向量并完成 SQLite
+  索引与 BM25+向量 RRF 融合（缓存复用不重复付费，覆盖度如实 10/3120）；真实 Qwen 独立发现 41 个候选。
+  该轮 30 次 LLM／3 批 Embedding、费用 ¥1.081571，因 `semantic_analysis` 单请求超时阻断，已在下轮修复。
+- 两条授权在同一 SQLite 账本分别累计，历史互不重置；失败或未知用量按整笔预留记账。
+
+### 离线测试与静态检查证据（未调用供应商）
+
+- **TASK-0024 法规检索解阻**：查明 `CONTEXT_INVALID` 根因是查询构造阶段对企业非招标采购推导出空框架即抛错，
+  且空框架被判为 `framework_mismatch` 二次阻断。现按"未知框架 ≠ 不匹配"处理：不推断框架、允许检索参考候选，
+  但 `confirmation_reason` 在无已确认框架或法规未声明适用范围时返回 `applicability_unverified`，永不返回 `valid`。
+- **参考候选展示**：风险详情页与 Word/PDF 均展示"可能相关法规（适用性未经确认，仅供参考，不计入已核验证据）"，
+  含条款号、来源、版本核验状态与未确认原因；渲染验证基于**提取后的 DOCX/PDF 文本**，不是数据结构。
+- **三案例排名**：生产检索**已是逐候选查询**（`category + problem_key + matched_reason + 原文摘录`）；
+  《民法典》第五百八十五条在逾期违约金案例中排第 7，追加中文法律领域词后第 6。
+- Focused 143 项、Ruff、Mypy 104 源文件、前端 lint/typecheck/单测/build 与 `verify_repo` 通过。
+
+### 已知限制
+
+- **法规库 42/43 版本未核验**且缺生效日期与适用范围声明，唯一已核验版本已超核验期，因此
+  **已核验适用法规数为 0**，任何风险都不能被判定为违法；需法律专业核验后才能改变。
+- 法规库 `source_uri` 多为转载地址；参考候选的排序精度仍有提升空间（语义检索覆盖仅 10/3120）。
+- 未知上传文件不继承既有授权；本机 `test_verification_modes.py` 的 Quick 用例因 PowerShell 输出编码失败
+  （移除本轮变更后同样失败，属既有环境问题）。
+
+TASK-0021 的真实 Qwen 在线演示仍为历史归档证据，其 DEC-002 授权已消耗。
 
 ## 新开发者或 AI 的入口
 
