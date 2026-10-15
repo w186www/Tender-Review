@@ -45,6 +45,19 @@ class OCRRuntimeIdentity(Closed):
     parser_image_sha256: str | None = Field(default=None, pattern="^[a-f0-9]{64}$")
     identity_sha256: str = Field(pattern="^[a-f0-9]{64}$")
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_json_model_ids(cls, value: object) -> object:
+        """Accept JSON arrays at the persisted-data boundary without weakening item checks."""
+        if not isinstance(value, dict):
+            return value
+        model_ids = value.get("model_ids")
+        if not isinstance(model_ids, list):
+            return value
+        normalized = dict(value)
+        normalized["model_ids"] = tuple(model_ids)
+        return normalized
+
     @staticmethod
     def canonical_hash(payload: dict[str, JsonValue]) -> str:
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))

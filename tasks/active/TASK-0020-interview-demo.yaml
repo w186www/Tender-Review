@@ -1,0 +1,185 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0020",
+  "title": "工程化 Agent Demo 端到端闭环与演示交付",
+  "status": "in_progress",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0005",
+    "TASK-0006",
+    "TASK-0007",
+    "TASK-0009",
+    "TASK-0010",
+    "TASK-0011",
+    "TASK-0018"
+  ],
+  "related_requirements": [
+    "FR-001",
+    "FR-002",
+    "FR-004",
+    "FR-005",
+    "FR-006",
+    "FR-007",
+    "FR-008",
+    "FR-009",
+    "FR-010",
+    "FR-011",
+    "FR-012",
+    "FR-013",
+    "FR-014",
+    "SEC-001",
+    "SEC-002",
+    "SEC-003",
+    "SEC-004",
+    "SEC-005",
+    "SEC-007",
+    "SEC-011",
+    "NFR-005",
+    "NFR-006",
+    "NFR-008",
+    "NFR-009",
+    "NFR-010",
+    "NFR-012"
+  ],
+  "related_acceptance": [
+    "AC-001",
+    "AC-002",
+    "AC-003",
+    "AC-004",
+    "AC-005",
+    "AC-006",
+    "AC-007",
+    "AC-008",
+    "AC-009",
+    "AC-011",
+    "AC-012"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/testing-standard.md",
+    "docs/development/development-workflow.md",
+    "docs/development/frontend-workbench.md",
+    "docs/development/identity-data-start.md",
+    "docs/development/secure-ingestion-start.md",
+    "docs/development/TASK-0011-validation.md",
+    "docs/development/TASK-0018-validation.md",
+    "docs/architecture/langgraph.md",
+    "docs/architecture/model-gateway.md",
+    "docs/decisions/ADR-0013-model-gateway-adapters-and-authorization.md",
+    "docs/decisions/ADR-0014-frontend-workbench.md",
+    "docs/decisions/ADR-0016-task-0018-cloud-embedding-contract.md",
+    "tasks/active/TASK-0019-offline-capability-baseline.yaml",
+    "contracts/schemas/task.schema.json"
+  ],
+  "allowed_paths": [
+    "scripts/run_task0011_e2e.py",
+    "scripts/task0011_e2e_app.py",
+    "scripts/task0011_e2e_server.py",
+    "scripts/run_offline_demo_worker.py",
+    "scripts/generate_demo_fixture.py",
+    "evals/demo/**",
+    "src/frontend/src/**",
+    "src/frontend/e2e/**",
+    "tests/test_demo_fixture.py",
+    "tests/test_ocr_runtime_identity.py",
+    "src/bidding_compliance/ingestion/schemas.py",
+    "docs/development/TASK-0020-*.md",
+    "docs/development/frontend-workbench.md",
+    "docs/index.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/roadmap.md",
+    "tasks/active/TASK-0019-offline-capability-baseline.yaml",
+    "tasks/active/TASK-0020-interview-demo.yaml",
+    "tasks/completed/TASK-0020-interview-demo.yaml",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md"
+  ],
+  "must_not_change": [
+    "src/bidding_compliance/** except src/bidding_compliance/ingestion/schemas.py",
+    "tests/** except tests/test_demo_fixture.py and tests/test_ocr_runtime_identity.py",
+    "contracts/**",
+    "knowledge/legal/**",
+    "docs/reference/*.docx",
+    "evals/thresholds.yaml",
+    "tasks/active/TASK-0012-deployment-operations.yaml",
+    "tasks/active/TASK-0013-evaluation-security.yaml",
+    "tasks/active/TASK-0014-delivery-handoff.yaml",
+    "package-lock.json",
+    "requirements-dev.lock",
+    "requirements-embedding.lock",
+    "production model routes, Evidence Checker policy, authorization behavior, or legal evidence status"
+  ],
+  "steps": [
+    "记录正常服务入口、现有测试宿主和前端流程的差距；区分真实服务、离线替身、仅有测试证据及尚未配置的能力。",
+    "在严格 OCRRuntimeIdentity 持久化 JSON 读取边界仅规范化 JSON 数组与 Python tuple 表示；保持字段、内容、身份及原 provenance 哈希校验严格，新增限定测试，不改其他生产审查逻辑。",
+    "使用 TASK-0011 已有隔离服务和正式安全解析/ReviewEngine 能力，提供 loopback-only 的离线演示启动入口；仅为合成数据启动临时PostgreSQL、MinIO、ClamAV和解析容器，使用随机临时凭据并在停止时清理。",
+    "让现有持久化 ingestion_job 队列在隔离演示环境有界消费；调用既有 process_document.py worker，不将解析、鉴权或审查逻辑搬入前端。",
+    "仅显式装配 OfflineReviewGateway；页面和演示材料须清楚显示 deterministic/offline、没有真实LLM语义推理；不得通过普通 API 默认启动路径启用模型。",
+    "提供稳定、可重建且显著标明为合成的 DOCX 演示输入，实际完成创建项目、上传、扫描解析、Skill/RAG、证据检查、人工复核/恢复、结果发布和 Word/PDF 下载。",
+    "保持未核验法规的证据降级；检查没有可核实法规依据时的演示说明。真实供应商接入与公网/远程部署只形成 DEC-002/DEC-001 待批准事项，不执行调用、部署或产生费用。",
+    "执行当前源码候选的 Microsoft Edge 真实浏览器端到端、正式 Focused、Full、PostgreSQL、ingestion 与 Quick/远端CI适用门禁，并将日志、测试统计和源码 SHA 绑定。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0020-001",
+      "description": "Demo 差距记录逐项覆盖网页操作路径，明确正常 API 默认 ReviewEngine 缺失、上传队列消费方式、离线网关边界及现有测试证据的源码身份。",
+      "evidence": [
+        "docs/development/TASK-0020-demo-gap-assessment.md",
+        "docs/development/TASK-0020-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0020-002",
+      "description": "一个受控本机启动命令可让真实前端、FastAPI、PostgreSQL Checkpoint、对象存储、ClamAV/解析器及离线审查链路协同；只监听 loopback、随机生成临时凭据、可退出清理，生产 API 默认仍 fail closed。",
+      "evidence": [
+        "docs/development/TASK-0020-demo-guide.md",
+        "docs/development/TASK-0020-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0020-003",
+      "description": "固定合成输入可在真实浏览器流程中上传并自动处理；五类 Skill、法规检索、Evidence Checker、人工决定/恢复、不可变结果与 Word/PDF 下载均有实际端到端证据。",
+      "evidence": [
+        "docs/development/TASK-0020-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0020-004",
+      "description": "所有离线结果在界面和报告中明显标识为确定性演示替身；没有 Mock 被描述为真实模型能力，没有不适用/未核验法律证据被提升为确定结论。",
+      "evidence": [
+        "docs/development/TASK-0020-demo-guide.md",
+        "src/frontend/src/app.tsx",
+        "docs/development/TASK-0020-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0020-005",
+      "description": "真实 Edge E2E、Focused、Full、PostgreSQL与安全解析专项均绑定最终源码身份；OCRRuntimeIdentity 持久化 JSON 数组 round-trip 保持字段、条目类型、身份及原 provenance 哈希严格校验，并拒绝身份不匹配和篡改；GitHub 适用 CI 对推送 SHA 全部成功。",
+      "evidence": [
+        "tests/test_ocr_runtime_identity.py",
+        "docs/development/TASK-0020-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0020-006",
+      "description": "演示说明给出可重复启动/停止步骤、账号使用方式、实际支持与限制、DEC-001/DEC-002待批准项；没有外部模型调用、公网部署或真实数据外发。",
+      "evidence": [
+        "docs/development/TASK-0020-demo-guide.md",
+        "docs/development/TASK-0020-validation.md"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Focused -TestPaths @('tests/test_demo_fixture.py','tests/test_ocr_runtime_identity.py','tests/test_identity_projects.py','tests/test_ingestion.py','tests/test_review_configurations.py','tests/test_review_reports.py')",
+    "./scripts/verify.ps1 -Mode Full",
+    "./.venv/Scripts/python.exe scripts/run_task0011_e2e.py",
+    "./.venv/Scripts/python.exe scripts/check_postgres.py",
+    "./.venv/Scripts/python.exe scripts/check_legal_publications.py",
+    "$env:PARSER_VERIFY_IMAGE='sha256:2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c228b1ac00a41bb597'; ./.venv/Scripts/python.exe scripts/check_parser_sandbox.py",
+    "$env:PARSER_VERIFY_IMAGE='sha256:2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c228b1ac00a41bb597'; ./.venv/Scripts/python.exe scripts/check_ingestion_containers.py"
+  ],
+  "handoff_notes": "TASK-0019 是此前已创建的离线能力评测任务，本分支不覆盖其目标或实现；其 task 定义保留为 planned，未提交的部分实现继续留在本机独立 work/TASK-0019 worktree，不纳入 TASK-0020 候选。TASK-0020 只交付可本地运行的离线确定性演示。DEC-002 真实模型调用和 DEC-001 外部部署均须先经用户审批；真实招标文件/法规原文不得外发。Demo 不等价于生产部署、M5完整验收或真实LLM语义质量验收。"
+}

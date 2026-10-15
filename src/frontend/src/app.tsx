@@ -24,6 +24,24 @@ const roleNames: Record<string, string> = {
   operator: "运维人员",
 };
 
+function OfflineDemoNotice() {
+  if (import.meta.env.VITE_REVIEW_MODE !== "offline-deterministic") return null;
+  return (
+    <aside
+      className="offline-demo-notice"
+      data-testid="offline-demo-notice"
+      aria-label="执行模式说明"
+      role="note"
+    >
+      <strong>离线确定性演示</strong>
+      <span>
+        本次模型分析由固定测试网关生成，用于验证工作流和证据链；不代表
+        Qwen、DeepSeek 或其他在线大模型的语义审查能力。
+      </span>
+    </aside>
+  );
+}
+
 function AuthRequired() {
   const auth = useAuth();
   const location = useLocation();
@@ -146,21 +164,27 @@ function NotFound() {
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route element={<AuthRequired />}>
-        <Route element={<AppShell />}>
-          <Route index element={<Navigate to="/projects" replace />} />
-          <Route path="projects" element={<ProjectsPage />} />
-          <Route path="projects/:projectId" element={<ProjectPage />} />
-          <Route path="reviews" element={<PendingReviewsPage />} />
-          <Route path="reviews/:reviewTaskId/:runId" element={<ReviewPage />} />
-          <Route path="audit" element={<AuditPage />} />
-          <Route path="configurations" element={<ConfigurationPage />} />
-          <Route path="*" element={<NotFound />} />
+    <>
+      <OfflineDemoNotice />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<AuthRequired />}>
+          <Route element={<AppShell />}>
+            <Route index element={<Navigate to="/projects" replace />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="projects/:projectId" element={<ProjectPage />} />
+            <Route path="reviews" element={<PendingReviewsPage />} />
+            <Route
+              path="reviews/:reviewTaskId/:runId"
+              element={<ReviewPage />}
+            />
+            <Route path="audit" element={<AuditPage />} />
+            <Route path="configurations" element={<ConfigurationPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
         </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/projects" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/projects" replace />} />
+      </Routes>
+    </>
   );
 }

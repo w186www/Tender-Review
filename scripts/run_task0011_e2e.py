@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import secrets
@@ -353,11 +354,18 @@ def _junit_summary(path: Path) -> dict[str, int]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="serve an interactive loopback-only offline demo until Ctrl+C, then clean up",
+    )
+    parser.add_argument(
         "--keep-services",
         action="store_true",
         help="keep isolated API, Vite, PostgreSQL, MinIO, and ClamAV alive for local preview",
     )
     args = parser.parse_args()
+    if args.serve and args.keep_services:
+        parser.error("--serve owns service lifetime and cannot be combined with --keep-services")
     run_id = uuid4().hex
     folder = ROOT / ".verification" / f"task0011-e2e-{run_id}"
     folder.mkdir(parents=True)
@@ -371,6 +379,7 @@ def main() -> int:
         "repository_head": _run(["git", "rev-parse", "HEAD"]),
         "browser": "Microsoft Edge via Playwright channel msedge",
         "review_adapter": "scripts/check_review_engine.py::OfflineReviewGateway",
+        "execution_mode": "offline-deterministic synthetic demo",
         "network_policy": "loopback-only services; no online model route",
         "artifacts": str(folder),
         "status": "running",
@@ -390,7 +399,7 @@ def main() -> int:
             python = sys.executable
         state["python"] = python
 
-        parser_image = _image_id("bidding-parser:task0005")
+        parser_image = _image_id("bidding-parser:task0018-ocrfix2")
         minio_image = _image_id("tender-minio-verification:task5")
         clam_image = _image_id("clamav/clamav:stable")
         state["images"] = {"parser": parser_image, "minio": minio_image, "clamav": clam_image}
@@ -490,6 +499,18 @@ def main() -> int:
         state["data_plane"] = (
             "PostgreSQL 16 migration + runtime RLS role, S3 object storage and ClamAV ready"
         )
+        fixture = folder / "synthetic-tender.docx"
+        _run(
+            [
+                python,
+                str(ROOT / "scripts/generate_demo_fixture.py"),
+                "--output",
+                str(fixture),
+            ]
+        )
+        fixture_sha256 = hashlib.sha256(fixture.read_bytes()).hexdigest()
+        state["synthetic_fixture"] = str(fixture)
+        state["synthetic_fixture_sha256"] = fixture_sha256
 
         api_port, no_review_api_port = _port(), _port()
         ui_port, no_review_ui_port = _port(), _port()
@@ -564,6 +585,18 @@ def main() -> int:
             no_review_process,
             folder / "api-no-review-executor.log",
         )
+        _start_process(
+            "offline-demo-ingestion-worker",
+            [
+                python,
+                str(ROOT / "scripts/run_offline_demo_worker.py"),
+                "--tenant",
+                "tenant-a",
+            ],
+            server_env,
+            ROOT,
+            logs,
+        )
         state["base_legal_publication"] = _bootstrap_legal_publication(
             f"http://127.0.0.1:{api_port}", credentials["tenant-a:admin"]
         )
@@ -571,6 +604,7 @@ def main() -> int:
         vite = str(FRONTEND / "node_modules/vite/bin/vite.js")
         main_ui_env = server_env.copy()
         main_ui_env["BIDDING_API_TARGET"] = f"http://127.0.0.1:{api_port}"
+        main_ui_env["VITE_REVIEW_MODE"] = "offline-deterministic"
         main_ui = _start_process(
             "vite-review-engine",
             [node, vite, "--host", "127.0.0.1", "--port", str(ui_port), "--strictPort"],
@@ -594,6 +628,30 @@ def main() -> int:
             folder / "vite-no-review-executor.log",
         )
 
+        if args.serve:
+            state["browser"] = "manual browser session supplied by the operator"
+            state["status"] = "serving"
+            state["preview_urls"] = {"web": f"http://127.0.0.1:{ui_port}/login"}
+            reviewer = credentials["tenant-a:reviewer"]
+            admin = credentials["tenant-a:admin"]
+            print("离线确定性演示已启动，所有服务仅监听本机 loopback。")
+            print(f"网页：http://127.0.0.1:{ui_port}/login")
+            print(f"合成 DOCX：{fixture}")
+            print(f"管理员账号：{admin['tenant']} / {admin['username']} / {admin['password']}")
+            print(
+                f"审核员账号：{reviewer['tenant']} / {reviewer['username']} / "
+                f"{reviewer['password']}"
+            )
+            print("模式：固定 OfflineReviewGateway；不是 Qwen/DeepSeek 真实语义审查。")
+            print("操作完成后在此终端按 Ctrl+C，服务和临时容器会停止清理。")
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                state["status"] = "stopped"
+                print("正在停止演示服务并清理临时容器。")
+            return 0
+
         junit = folder / "playwright-junit.xml"
         browser_output = folder / "playwright-artifacts"
         e2e_env = server_env.copy()
@@ -603,6 +661,7 @@ def main() -> int:
                 "E2E_NO_REVIEW_BASE_URL": f"http://127.0.0.1:{no_review_ui_port}",
                 "E2E_ADMIN_DATABASE_URL": admin_url,
                 "E2E_PYTHON": python,
+                "E2E_SYNTHETIC_FIXTURE": str(fixture),
                 "E2E_JUNIT_PATH": str(junit),
                 "E2E_OUTPUT_DIR": str(browser_output),
             }

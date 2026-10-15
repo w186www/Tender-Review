@@ -311,7 +311,14 @@ export function ReviewPage() {
     setError(null);
     try {
       const blob = await api.downloadReport(report.report_id);
-      saveBlob(blob, `审查报告-${report.report_id}.${report.format}`);
+      const demoPrefix =
+        import.meta.env.VITE_REVIEW_MODE === "offline-deterministic"
+          ? "离线确定性演示-"
+          : "";
+      saveBlob(
+        blob,
+        `${demoPrefix}审查报告-${report.report_id}.${report.format}`,
+      );
     } catch (reason) {
       setError(errorText(reason));
     } finally {

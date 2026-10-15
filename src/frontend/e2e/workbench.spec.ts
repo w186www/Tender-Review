@@ -32,6 +32,7 @@ async function signIn(
   page: Page,
   identity: Credentials,
   baseUrl = process.env.E2E_BASE_URL!,
+  expectOfflineDemoNotice = true,
 ) {
   await page.goto(`${baseUrl}/login`);
   await page.getByLabel("租户编号").fill(identity.tenant);
@@ -46,6 +47,11 @@ async function signIn(
   const loginResponse = await loginResponsePromise;
   expect(loginResponse.status(), await loginResponse.text()).toBe(200);
   await expect(page).toHaveURL(/\/projects$/);
+  if (expectOfflineDemoNotice) {
+    await expect(page.getByTestId("offline-demo-notice")).toContainText(
+      "不代表 Qwen、DeepSeek",
+    );
+  }
 }
 
 function persisted(command: string, ...args: string[]) {
@@ -61,27 +67,6 @@ function persisted(command: string, ...args: string[]) {
     { cwd: root, env: process.env, encoding: "utf8", maxBuffer: 2_000_000 },
   );
   return JSON.parse(raw) as Record<string, unknown>;
-}
-
-function syntheticDocx(): Buffer {
-  const repositoryRoot = resolve(import.meta.dirname, "../../..");
-  const localPython = resolve(
-    repositoryRoot,
-    process.platform === "win32" ? ".venv/Scripts/python.exe" : ".venv/bin/python",
-  );
-  const python = process.env.E2E_PYTHON || (existsSync(localPython) ? localPython : "python");
-  const script = [
-    "from io import BytesIO",
-    "import sys",
-    "from docx import Document",
-    "document = Document()",
-    "document.add_heading('资格要求', level=1)",
-    "document.add_paragraph('投标人必须在本市注册。该条款仅供隔离测试使用。')",
-    "buffer = BytesIO()",
-    "document.save(buffer)",
-    "sys.stdout.buffer.write(buffer.getvalue())",
-  ].join("\n");
-  return execFileSync(python, ["-c", script], { maxBuffer: 5_000_000 });
 }
 
 test("无效凭据显示真实 401 和中文登录错误", async ({ page }) => {
@@ -230,12 +215,9 @@ test("审核员通过真实服务完成项目、上传、复核、发布与报�
   await expect(page.getByRole("dialog", { name: "新建项目" })).toBeHidden();
   await projectLink.click();
 
-  await page.locator("#tender-file").setInputFiles({
-    name: "synthetic-tender.docx",
-    mimeType:
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    buffer: syntheticDocx(),
-  });
+  const fixture = process.env.E2E_SYNTHETIC_FIXTURE;
+  expect(fixture, "the verification host must generate the documented synthetic DOCX").toBeTruthy();
+  await page.locator("#tender-file").setInputFiles(fixture!);
   const uploadResponsePromise = page.waitForResponse(
     (response) =>
       response.url().includes("/documents") &&
@@ -248,22 +230,6 @@ test("审核员通过真实服务完成项目、上传、复核、发布与报�
   const documentId = uploaded.document_id as string;
   expect(documentId).toBeTruthy();
   await expect(page.getByText("文件已接收", { exact: false })).toBeVisible();
-
-  const workerPath = resolve(import.meta.dirname, "../../../scripts/process_document.py");
-  const python = process.env.E2E_PYTHON!;
-  try {
-    execFileSync(python, [workerPath, "--tenant", "tenant-a", "--document", documentId], {
-      cwd: resolve(import.meta.dirname, "../../.."),
-      env: process.env,
-      timeout: 6 * 60 * 1000,
-      maxBuffer: 5_000_000,
-    });
-  } catch (error) {
-    const output = error as { stdout?: Buffer; stderr?: Buffer; message?: string };
-    throw new Error(
-      `The real document worker failed: ${output.message ?? "unknown error"}\n${output.stdout?.toString("utf8") ?? ""}\n${output.stderr?.toString("utf8") ?? ""}`,
-    );
-  }
 
   const documentTable = page.getByRole("region", { name: "项目招标文件列表" });
   const row = documentTable.getByRole("row").filter({ hasText: documentId });
@@ -440,7 +406,7 @@ test("审计查询、角色权限、跨租户隔离和无执行器 503 均由真
   const noReviewBase = process.env.E2E_NO_REVIEW_BASE_URL!;
   const before = persisted("stats").review_run_count;
   const noReviewPage = await page.context().newPage();
-  await signIn(noReviewPage, credentials("REVIEWER"), noReviewBase);
+  await signIn(noReviewPage, credentials("REVIEWER"), noReviewBase, false);
   await noReviewPage.goto(`${noReviewBase}/projects/${encodeURIComponent(flow!.projectId)}`);
   const documentRow = noReviewPage
     .getByRole("region", { name: "项目招标文件列表" })

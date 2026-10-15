@@ -6,13 +6,15 @@
 
 ### Added
 
+- TASK-0020（本地验收完成，远端CI待闭环）：本机 loopback Demo 使用合成 DOCX 和显式离线 Gateway；修复 OCRRuntimeIdentity 对持久化 JSON 数组的严格 tuple 兼容，保留原身份/provenance 哈希校验。Focused 76、Full 545、真实 Edge 5/5、PostgreSQL/Checkpoint、解析隔离与安全摄取专项及 `--serve` Ctrl+C 清理均通过。TASK-0019 仍为 planned，原本机部分实现保留在独立工作区。未调用真实模型、未外发真实业务数据；DEC-001/DEC-002 未获批准前不部署、不接入在线模型。TASK-0020/M3 保持 in_progress，待推送 SHA 远端 CI 成功后归档。详见 `docs/development/TASK-0020-validation.md`。
+
 - TASK-0018 本地与远端交付验收完成：法规检索评测、Mock-only 百炼 Embedding Provider、SQLite 向量持久化与断点续建、Tesseract 合成扫描基线、运行版本追溯。补齐向量缓存损坏/缺失/续建完整性检查与 ReviewRuntimeProvenance JSON 持久化测试。本地正式 Focused 144 项、Full 537 项及 PostgreSQL16/RLS/ReviewEngine 专项通过；源码提交 da7325bb95a10a10fcca82151c22c6272980d091 的 GitHub Actions Run 38641374412 completed/success（mode=full，baseline 537 passed/2 warnings，postgres/ingestion/verify-required success）；官方 npm registry 安装184包，`package-lock.json` SHA-256 未变。交付前审计的61条状态路径与隔离副本逐路径、逐文件SHA-256一致。无真实 API Key、供应商调用或真实文件外发；DEC-002 待批准。详见 `docs/development/TASK-0018-validation.md`。
 
 - TASK-0011已正式归档：源码候选`57d2515c6e4f2d6816bf94c2ed04e82759acd6c4`，归档提交`05c2b91655a7152b28692c7f5216de3ace3d7ff8`；源码CI 38600922153、验收记录CI 38603582949和归档CI 38604186570 的适用作业均成功。FR-013配置版本服务/API/页面、审计与ReviewEngine冻结快照已实现；真实 Microsoft Edge E2E 5/5，PostgreSQL16专项、FR-013 Focused 69和本地Full 510通过。Windows CRLF根因已通过固定前端文本LF解决，OpenAPI与Biome检查均保留。DEC-002未批准，未调用在线模型。详见`docs/development/TASK-0011-validation.md`。
 
 - TASK-0010已完成归档：人工复核决定/审计历史、幂等发布、不可变结构化报告版本、Word/PDF渲染、原文历史片段回查及授权导出审计。源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`本地Full504项与PostgreSQL16专项通过；源码CI38556383801、验收记录CI38557180768及归档CI38557509858全部适用作业成功。DEC-002未批准，默认模型执行关闭。详见`docs/development/TASK-0010-validation.md`。
 
-- TASK-0009 本地归档候选：TASK0009-001/002正式验收、本地 Full 500、Focused 13、真实 PostgreSQL 恢复/并发/事务故障专项通过。源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`和验证记录提交`99ce00f7b7bef09285e280b9b909143022c847b4`已推送且必要远程CI由用户确认成功；本次归档提交的远程CI待核验，全部适用作业及`verify-required`成功后方正式完成。DEC-002仍待批准、生产模型路由禁用、预算账本仅单进程一致性、法律证据最高为suspected；未进行真实供应商调用。该记录形成时TASK-0010尚未启动。详见 `docs/development/TASK-0009-validation.md`。
+- TASK-0009 已本地归档并完成远端交付：TASK0009-001/002正式验收、本地 Full 500、Focused 13、真实 PostgreSQL 恢复/并发/事务故障专项通过；源码、验收记录、归档分别对应 GitHub Actions Runs 38546165564、38547021471、38547822892，适用门禁成功。DEC-002仍待批准、生产模型路由禁用、预算账本仅单进程一致性、法律证据最高为suspected；未进行真实供应商调用。详见 `docs/development/TASK-0009-validation.md`。
 
 - TASK-0008 archived after formal TASK0008-001/002 checks, local Focused 54 and Full 487, real local HTTP/identity checks, and GitHub Actions run 38521959503 succeeded for impact/baseline/postgres/ingestion/verify-required. Added a provider-neutral gateway, OpenAI Responses and Anthropic Messages adapters, strict structured output validation, server-side routing/authorization, budget reservation, bounded retry/circuit breaker, and audit metadata. No live OpenAI/Anthropic calls were made. DEC-002 remains pending, production routes remain disabled, and the in-memory budget ledger provides single-process consistency only; shared persistence and multi-process production safety remain prerequisites.
 

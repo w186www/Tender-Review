@@ -145,7 +145,8 @@
       "tasks": [
         "TASK-0009",
         "TASK-0010",
-        "TASK-0011"
+        "TASK-0011",
+        "TASK-0020"
       ],
       "related_requirements": [
         "FR-008",
@@ -176,11 +177,50 @@
       ]
     },
     {
+      "id": "M3A",
+      "name": "招标审查能力离线诊断评测",
+      "status": "planned",
+      "depends_on": [
+        "M3"
+      ],
+      "tasks": [
+        "TASK-0019"
+      ],
+      "related_requirements": [
+        "FR-002",
+        "FR-004",
+        "FR-005",
+        "FR-006",
+        "FR-008",
+        "FR-009",
+        "FR-010",
+        "FR-011",
+        "SEC-003",
+        "SEC-004",
+        "NFR-009"
+      ],
+      "related_acceptance": [
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "AC-007"
+      ],
+      "deliverables": [
+        "固定数据身份和标注状态、离线解析/规则/法规/证据/工作流能力报告及分层缺陷清单；不替代 M5 黄金集验收"
+      ],
+      "exit_checks": [
+        "五个合成黄金案例和已授权本地样本的适用评测可重复；所有未测能力、有效分母、离线模型替身边界和正式 Focused/Full/专项证据如实记录"
+      ]
+    },
+    {
       "id": "M4",
       "name": "部署与运维",
       "status": "planned",
       "depends_on": [
-        "M3"
+        "M3",
+        "M3A"
       ],
       "tasks": [
         "TASK-0012"
