@@ -138,7 +138,7 @@
     {
       "id": "M3",
       "name": "审查闭环与界面",
-      "status": "in_progress",
+      "status": "completed",
       "depends_on": [
         "M2"
       ],

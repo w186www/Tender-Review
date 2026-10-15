@@ -14,7 +14,7 @@
 | M5 完整验收 | 0013 | 黄金集、安全、性能与恢复验收证据 |
 | M6 正式交付 | 0014 | 对齐的文档、可部署制品与独立接手演练 |
 
-M0至M2A按仓库验收记录完成。TASK-0009源码、验收记录和归档提交的远端CI均已核实成功（Runs 38546165564、38547021471、38547822892）；TASK-0010/0011 的源码与归档CI证据见各自验证记录。TASK-0019 作为 M3A 离线评测计划保持 planned；TASK-0020 在 M3 补齐本机演示。2026-10-15 TASK-0020 最终本地候选已通过 Focused 76、Full 545、真实 Edge 5/5、PostgreSQL/Checkpoint、parser sandbox、安全摄取和 `--serve` 启停清理。修复仅在严格 `OCRRuntimeIdentity` 可信读取边界兼容 JSON 数组与 tuple，原内容/身份/provenance 哈希校验保持；修复前 E2E 422（run `5484f1c5d8564fd7aa40eb7204fae9ba`）保留为历史根因证据。TASK-0020 与 M3 在推送 SHA 的适用远端 CI 成功前保持 `in_progress`。M4 继续依赖 M3 和 M3A，M4/M5 与 TASK-0012/0013/0014 原有范围保持不变；生产模型和外部部署仍未获批。详见`TASK-0020-validation.md`。
+M0至M3按仓库验收记录完成。TASK-0009源码、验收记录和归档提交的远端CI均已核实成功（Runs 38546165564、38547021471、38547822892）；TASK-0010/0011 的源码与归档CI证据见各自验证记录。TASK-0019 作为 M3A 离线评测计划保持 planned，不在本轮启动。TASK-0020 已通过 Focused 76、Full 545、真实 Edge 5/5、PostgreSQL/Checkpoint、parser sandbox、安全摄取、`--serve` 启停清理及推送 SHA `c85e9155949b1a1d961a1031949f003e1bfe0313` 的 GitHub Actions Run 38688174502（baseline/postgres/ingestion/verify-required success），M3 上传至报告并含复核/恢复的退出条件有本地实证。`OCRRuntimeIdentity` 修复仅在严格可信读取边界兼容 JSON 数组与 tuple，原内容/身份/provenance 哈希校验保持；修复前 E2E 422（run `5484f1c5d8564fd7aa40eb7204fae9ba`）保留为历史根因证据。M3A 与 M4 仍保持 planned；M4/M5 与 TASK-0012/0013/0014 原有范围不变；生产模型和外部部署仍未获批。详见`TASK-0020-validation.md`。
 
 ## 任务与全局验收的区别
 

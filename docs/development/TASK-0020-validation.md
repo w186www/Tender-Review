@@ -1,6 +1,6 @@
 # TASK-0020 本地演示与验收记录
 
-- 状态：`in_progress`；本地验收通过，推送 SHA 的远端 CI 和最终归档待完成。
+- 状态：`completed`；本地验收、推送 SHA 远端 CI 和任务归档均已完成。
 - 分支：`work/TASK-0020`。
 - 基线 HEAD：`00829851018612a275faca9ad6609e10fa38305d`。
 - 范围：本机 loopback、合成数据、显式离线确定性 ReviewEngine；无在线模型调用、无远程部署、无真实招标/法规数据外发；不改变 M4/M5 或 TASK-0012/0013/0014 原验收条件。
@@ -29,6 +29,7 @@
 | 安全摄取专项 | 通过 | `check_ingestion_containers.py` exit 0：真实 ClamAV、MinIO/S3、PDF/DOCX/PNG/扫描 PDF、隔离解析、定位、租户隔离和下载；临时服务与容器已清理。 |
 | `--serve` 启停 | 通过 | `run_id=9a9478a6b4dc4d8b9c1fd0e34b40f09c`；真实启动页与账号提示后 Ctrl+C，manifest 状态 `stopped`；精确检查 `task0011-pg/minio/clam-9a9478a6b4dc` 均已移除。 |
 | npm / 锁文件 | 未变化 | 仅沿用独立 TASK-0020 工作树已经通过官方 `registry.npmjs.org` 安装的锁定依赖；未再次运行 `npm ci`；`package-lock.json` 仍为基线内容。 |
+| GitHub Actions | 通过 | [Run 38688174502](https://github.com/w186www/Tender-Review/actions/runs/38688174502)，push event，HEAD SHA `c85e9155949b1a1d961a1031949f003e1bfe0313`。`impact`、`baseline`、`postgres`、`ingestion`、`verify-required` 均 `completed/success`；baseline JUnit 为 545 passed/0 failed/0 errors/0 skipped，2 条既有警告，artifact ID `11952020781` 与同一 SHA 关联。`quick` `skipped` 是 Full 模式条件下的合法跳过；Full 的 baseline/postgres/ingestion 和汇总门禁均实际成功。 |
 
 Checkpoint 首次单独使用尚未迁移的全新数据库时因 `tenant` 表不存在而失败；这是不符合仓库脚本顺序的测试环境编排错误，不是代码失败。随后在同一新 PostgreSQL 16 实例按 `check_postgres.py` → `check_legal_publications.py` 正确顺序重跑，两项均通过。正式结果使用正确顺序的记录。
 
@@ -42,8 +43,8 @@ Checkpoint 首次单独使用尚未迁移的全新数据库时因 `tenant` 表�
 | TASK0020-002：受控启动、loopback、临时服务和清理 | 本地满足 | `TASK-0020-demo-guide.md`；E2E 与 `--serve` manifest |
 | TASK0020-003：合成文件上传、解析、审查、复核、发布和 Word/PDF | 本地满足 | Edge run `86521e79591241c19b28aaecf0988323`、JUnit |
 | TASK0020-004：离线标识、报告标识、法规证据降级 | 本地满足 | UI、demo guide、Edge 报告下载案例及既有法规证据专项 |
-| TASK0020-005：OCR JSON/provenance 严格性、本地门禁和远端 CI | 本地满足；远端待完成 | `tests/test_ocr_runtime_identity.py`、本节验证结果；推送 SHA 及 GitHub Actions 尚待运行 |
-| TASK0020-006：重复启动/停止、能力限制和 DEC 边界 | 本地满足；远端待完成 | `TASK-0020-demo-guide.md`、`--serve` manifest；远端 CI 待核 |
+| TASK0020-005：OCR JSON/provenance 严格性、本地门禁和远端 CI | 满足 | `tests/test_ocr_runtime_identity.py`、本节本地结果和 Run 38688174502 对提交 SHA 的 Full/专项门禁 |
+| TASK0020-006：重复启动/停止、能力限制和 DEC 边界 | 满足 | `TASK-0020-demo-guide.md`、`--serve` manifest、Run 38688174502 |
 
 TASK-0019 原工作树保护检查：`work/TASK-0019`、HEAD `00829851018612a275faca9ad6609e10fa38305d`；其 11 条状态路径、对应 12 个变更文件 SHA-256 与本轮开始快照相同。本轮未在该工作树执行验证、安装或写入。
 
@@ -63,4 +64,4 @@ $env:PARSER_VERIFY_IMAGE='sha256:2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c
 $env:PARSER_VERIFY_IMAGE='sha256:2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c228b1ac00a41bb597'; ./.venv/Scripts/python.exe scripts/check_ingestion_containers.py
 ```
 
-本地门禁和真实 E2E 已通过；TASK-0020 与 M3 保持 `in_progress`，直到本地候选被逐项审查、提交推送后的适用 GitHub CI 全部完成且成功，再按仓库治理更新归档。
+TASK-0020 已归档。TASK-0019 仍为 `planned`，原工作树与未提交内容未改动；M4/M5 和 TASK-0012/0013/0014 仍按原计划，不因本地演示通过而改变其验收边界。

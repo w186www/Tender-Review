@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0020",
   "title": "工程化 Agent Demo 端到端闭环与演示交付",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0005",
@@ -181,5 +181,5 @@
     "$env:PARSER_VERIFY_IMAGE='sha256:2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c228b1ac00a41bb597'; ./.venv/Scripts/python.exe scripts/check_parser_sandbox.py",
     "$env:PARSER_VERIFY_IMAGE='sha256:2c440c708069a207cb08dde06bd6be35efe7c11c39dae5c228b1ac00a41bb597'; ./.venv/Scripts/python.exe scripts/check_ingestion_containers.py"
   ],
-  "handoff_notes": "TASK-0019 是此前已创建的离线能力评测任务，本分支不覆盖其目标或实现；其 task 定义保留为 planned，未提交的部分实现继续留在本机独立 work/TASK-0019 worktree，不纳入 TASK-0020 候选。TASK-0020 只交付可本地运行的离线确定性演示。DEC-002 真实模型调用和 DEC-001 外部部署均须先经用户审批；真实招标文件/法规原文不得外发。Demo 不等价于生产部署、M5完整验收或真实LLM语义质量验收。"
+  "handoff_notes": "TASK-0019 是此前已创建的离线能力评测任务，本分支不覆盖其目标或实现；其 task 定义保留为 planned，未提交的部分实现继续留在本机独立 work/TASK-0019 worktree，不纳入 TASK-0020 候选。TASK-0020 只交付可本地运行的离线确定性演示。经用户批准的 OCRRuntimeIdentity 严格 JSON 兼容修复保留原 provenance 哈希验证。实现提交 c85e9155949b1a1d961a1031949f003e1bfe0313 对应 GitHub Actions Run 38688174502 completed/success：baseline Full 545 passed/2 warnings、postgres/ingestion/verify-required success；quick 按 Full 模式合法 skipped。DEC-002 真实模型调用和 DEC-001 外部部署均须先经用户审批；真实招标文件/法规原文不得外发。Demo 不等价于生产部署、M5完整验收或真实LLM语义质量验收。"
 }
