@@ -43,7 +43,9 @@
     "CHANGELOG.md",
     "tasks/active/TASK-0026-server-deployment.yaml",
     ".gitignore",
-    ".gitattributes"
+    ".gitattributes",
+    "docs/development/TASK-0026-cloud-runbook.md",
+    "docs/decisions/DEC-007-demo-real-qwen-authorization.md"
   ],
   "must_not_change": [
     "src/bidding_compliance/**",
@@ -127,5 +129,5 @@
   "verify": [
     "./scripts/verify.ps1 -Mode Quick"
   ],
-  "handoff_notes": "部署实施任务。只增加编排与配置，不改业务代码；本地验收证据写入 docs/development/TASK-0026-validation.md。真实服务器部署需要用户提供 ECS 访问信息与模型授权后才能执行。"
+  "handoff_notes": "部署实施任务。只增加编排与配置，不改业务代码；本地验收证据写入 docs/development/TASK-0026-validation.md，上云步骤见 docs/development/TASK-0026-cloud-runbook.md。目标 ECS（阿里云 Ubuntu 22.04 / 2vCPU / 8GiB / 47.83.132.211）尚未部署，阻塞于 SSH 私钥或 Workbench CLI 凭据。真实 Qwen 需要 DEC-007 批准（草案见 docs/decisions/）。"
 }
