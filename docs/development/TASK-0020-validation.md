@@ -30,6 +30,7 @@
 | `--serve` 启停 | 通过 | `run_id=9a9478a6b4dc4d8b9c1fd0e34b40f09c`；真实启动页与账号提示后 Ctrl+C，manifest 状态 `stopped`；精确检查 `task0011-pg/minio/clam-9a9478a6b4dc` 均已移除。 |
 | npm / 锁文件 | 未变化 | 仅沿用独立 TASK-0020 工作树已经通过官方 `registry.npmjs.org` 安装的锁定依赖；未再次运行 `npm ci`；`package-lock.json` 仍为基线内容。 |
 | GitHub Actions | 通过 | [Run 38688174502](https://github.com/w186www/Tender-Review/actions/runs/38688174502)，push event，HEAD SHA `c85e9155949b1a1d961a1031949f003e1bfe0313`。`impact`、`baseline`、`postgres`、`ingestion`、`verify-required` 均 `completed/success`；baseline JUnit 为 545 passed/0 failed/0 errors/0 skipped，2 条既有警告，artifact ID `11952020781` 与同一 SHA 关联。`quick` `skipped` 是 Full 模式条件下的合法跳过；Full 的 baseline/postgres/ingestion 和汇总门禁均实际成功。 |
+| 归档记录 CI | 通过 | [Run 38689517542](https://github.com/w186www/Tender-Review/actions/runs/38689517542)，push event，HEAD SHA `f2b1b91e3bd6b08141414f0edd99dcfff0f8905e`。`impact`、`quick`、`verify-required` success；baseline/postgres/ingestion 在该纯文档 Quick 模式按条件合法 skipped。 |
 
 Checkpoint 首次单独使用尚未迁移的全新数据库时因 `tenant` 表不存在而失败；这是不符合仓库脚本顺序的测试环境编排错误，不是代码失败。随后在同一新 PostgreSQL 16 实例按 `check_postgres.py` → `check_legal_publications.py` 正确顺序重跑，两项均通过。正式结果使用正确顺序的记录。
 
