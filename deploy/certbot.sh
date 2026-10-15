@@ -167,10 +167,14 @@ case "${main}" in
       --non-interactive "${staging[@]}" "${force[@]}"
     renewal_conf="${CERTBOT_DIR}/renewal/${CERT_NAME}.conf"
     if [ -f "${renewal_conf}" ]; then
+      # The directive has to go directly under the section header. Appending it at the end
+      # of the file puts it after `webroot_path = /var/www/acme,` -- a comma-terminated
+      # list -- so certbot parses "2 days" as a second webroot and every renewal then dies
+      # with "Couldn't create root for ... challenge responses: '2 days/.well-known'".
       if grep -q '^renew_before_expiry' "${renewal_conf}"; then
         sed -i 's/^renew_before_expiry.*/renew_before_expiry = 2 days/' "${renewal_conf}"
       else
-        printf 'renew_before_expiry = 2 days\n' >> "${renewal_conf}"
+        sed -i '/^\[renewalparams\]/a renew_before_expiry = 2 days' "${renewal_conf}"
       fi
       log "renewal threshold set to 2 days in $(basename "${renewal_conf}")"
     fi
