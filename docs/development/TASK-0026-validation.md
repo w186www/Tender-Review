@@ -189,7 +189,37 @@ database: passed   volumes: passed
 - 模型账本**防整体回滚未实现**（需外部不可变存储）；演示期不应宣称生产级防回滚。
 - 42 个法规版本仍未核验，报告保持 `insufficient_evidence` 与"不计入已核验证据"的表述。
 
-## 六、结论
+## 六、提交与 CI
+
+分支 `work/TASK-0026`（自 `ca1c15d` 创建）：
+
+| 提交 | 内容 | CI |
+|---|---|---|
+| `5edf0df` | 部署文件与验证记录 | [Run 38778969436](https://github.com/w186www/Tender-Review/actions/runs/38778969436) `impact`✓ `postgres`✓ `ingestion`✓ `baseline`✗ |
+| `70515d0` | 上云运行手册与 DEC-007 申请草案 | [Run 38779172680](https://github.com/w186www/Tender-Review/actions/runs/38779172680) `baseline`✗（同一原因） |
+| `11bf78f` | 修复任务登记与证据路径 | [Run 38779974720](https://github.com/w186www/Tender-Review/actions/runs/38779974720) **全部适用作业 success** |
+
+**第一次 Full 的失败原因与修复**：`scripts/verify_contracts.py` 要求 `acceptance_checks.evidence`
+必须是**已存在的纯文件路径**（写入中文说明与 Markdown 锚点会被判为路径不存在），
+且每个任务必须登记到 `docs/development/roadmap.yaml` 的某个里程碑。两处均已修复，
+修复后本地 `verify_contracts.py` 与 `verify_repo.py` 均 PASS。
+
+> 说明：`11bf78f` 因只改文档与任务元数据，仓库自带的 `verification_impact.py` 将其判为 Quick，
+> 因此 `postgres`/`ingestion`/`baseline` 按文档条件合法 skipped。**Full 模式未在这三个提交上重跑**；
+> 唯一失败过的 baseline 作业其失败原因是上述契约问题，已修复并在本地复验。
+
+### 本地测试复核
+
+`ruff check src scripts tests` 全部通过；`mypy src` 104 个源文件无错误；
+`verify_contracts.py`、`verify_repo.py` PASS。
+
+`pytest` 全量在仓库约定的项目内临时目录下运行（`--basetemp=.verification/...`）：
+仅 `tests/test_verification_modes.py::test_quick_mode_preserves_existing_full_test_evidence` 失败。
+**该失败与本任务无关**：在基线提交 `ca1c15d` 上同样失败（并额外报出 4 个错误），
+根因是本机 Git Bash 下 PowerShell 子进程输出按 UTF-8 解码时的 `UnicodeDecodeError`
+（Windows 控制台代码页），属既有环境问题。CI 在 Linux 上不受影响。
+
+## 七、结论
 
 在本机 Docker Linux 引擎上，**完整 Tender-Review 系统已可容器化运行并完成端到端业务闭环**，
 包括隔离解析、ClamAV 扫描、LangGraph 审查、证据核验、人工复核与 Word/PDF 报告导出，
