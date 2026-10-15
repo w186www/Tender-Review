@@ -13,9 +13,11 @@ from typing import Any
 import httpx
 
 from bidding_compliance.domain.identity import Principal
+from bidding_compliance.graph.review import MAX_SEMANTIC_BATCHES
 from bidding_compliance.model_gateway.adapters.bailian_qwen_adapter import BailianQwenChatAdapter
 from bidding_compliance.model_gateway.authorization import AuthorizationPolicy
 from bidding_compliance.model_gateway.authorized_runtime import (
+    AUTHORIZATION_ID,
     Dec005BudgetLedger,
     MetadataAuditSink,
 )
@@ -72,6 +74,7 @@ class AuthorizedTenderMinimizer:
 
     def __call__(self, payload: Mapping[str, Any], policy: DataPolicy) -> Mapping[str, Any]:
         from bidding_compliance.services.llm_candidate_discovery import (
+            MAX_BATCH_SOURCE_BYTES,
             pii_preflight,
             redact_discovery_text,
         )
@@ -108,7 +111,11 @@ class AuthorizedTenderMinimizer:
                         "text": safe_text(section["text"]),
                     }
                 )
-            if sum(len(section["text"].encode()) for section in safe_sections) > 9000:
+            # The outbound ceiling must equal the discovery batch capacity, otherwise a
+            # planned batch could never be sent.
+            if sum(len(section["text"].encode()) for section in safe_sections) > (
+                MAX_BATCH_SOURCE_BYTES
+            ):
                 raise ValueError("discovery source byte budget exceeded")
             safe: dict[str, Any] = {"discovery_sections": safe_sections}
         else:
@@ -163,13 +170,14 @@ def create_dec005_gateway(
     ledger_path: Path,
     audit_path: Path,
     transport: httpx.AsyncBaseTransport | None = None,
+    authorization_id: str = AUTHORIZATION_ID,
 ) -> tuple[ModelGatewayService, AuthorizationPolicy, Dec005BudgetLedger]:
     if not api_key or not api_key.strip() or not workspace_id or not workspace_id.strip():
         raise ValueError("real AI requires server-side DASHSCOPE_API_KEY and BAILIAN_WORKSPACE_ID")
     scope = hashlib.sha256(
         json.dumps(
             {
-                "authorization": "DEC-005-2026-10-15",
+                "authorization": authorization_id,
                 "tenant": tenant_id,
                 "documents": sorted(allowed_document_sha256),
                 "provider": "bailian-cn-beijing",
@@ -180,7 +188,9 @@ def create_dec005_gateway(
         ).encode()
     ).hexdigest()
     minimizer = AuthorizedTenderMinimizer(allowed_document_sha256)
-    ledger = Dec005BudgetLedger(ledger_path, scope_sha256=scope)
+    ledger = Dec005BudgetLedger(
+        ledger_path, scope_sha256=scope, authorization_id=authorization_id
+    )
     authorization = AuthorizationPolicy(
         trusted_calls={},
         tenant_providers={tenant_id: frozenset({"bailian"})},
@@ -258,6 +268,16 @@ class AuthorizedRealReviewEngine(ReviewEngine):
             row.review_task_id,
             f"{row.run_id}:semantic:{row.snapshot_hash[:12]}",
         )
+        for semantic_index in range(MAX_SEMANTIC_BATCHES):
+            identifier = hashlib.sha256(
+                f"{principal.tenant_id}:{row.review_task_id}:{row.run_id}"
+                f":semantic:{semantic_index}".encode()
+            ).hexdigest()
+            self.authorization.trusted_calls[identifier] = (
+                principal.tenant_id,
+                row.review_task_id,
+                f"{row.run_id}:semantic:{semantic_index}:{row.snapshot_hash[:12]}",
+            )
         for index in range(28):
             identifier = hashlib.sha256(
                 f"{principal.tenant_id}:{row.review_task_id}:{row.run_id}:discovery:{index}".encode()

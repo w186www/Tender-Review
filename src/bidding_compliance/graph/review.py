@@ -74,6 +74,10 @@ ROOT = Path(__file__).resolve().parents[3]
 MAX_STATE_BYTES = 64_000
 MAX_CANDIDATES_FOR_REVIEW = 100
 MAX_ERRORS = 100
+# Semantic analysis is chunked so one oversized request cannot exceed the authorized
+# provider timeout. Batches are ordered by candidate_id, so the split is reproducible.
+SEMANTIC_BATCH_CANDIDATES = 8
+MAX_SEMANTIC_BATCHES = 13
 
 
 class SkillWorkItem(TypedDict):
@@ -188,6 +192,88 @@ def _analysis_schema(root: Path = ROOT) -> dict[str, Any]:
     )
     Draft202012Validator.check_schema(schema)
     return cast(dict[str, Any], schema)
+
+
+def _semantic_batches(
+    candidates: tuple[CandidateFinding, ...],
+) -> tuple[tuple[CandidateFinding, ...], ...]:
+    """Order candidates by stable ID and chunk them for bounded single requests."""
+    ordered = sorted(candidates, key=lambda item: item.candidate_id)
+    return tuple(
+        tuple(ordered[start : start + SEMANTIC_BATCH_CANDIDATES])
+        for start in range(0, len(ordered), SEMANTIC_BATCH_CANDIDATES)
+    )
+
+
+def _semantic_call_parts(
+    tenant_id: str, task_id: str, run_id: str, *, single: bool, index: int
+) -> tuple[str, str]:
+    """Keep the historical single-request call identity when one batch suffices."""
+    suffix = "" if single else f":{index}"
+    call_id = hashlib.sha256(
+        f"{tenant_id}:{task_id}:{run_id}:semantic{suffix}".encode()
+    ).hexdigest()
+    return call_id, f"semantic{suffix}"
+
+
+def _semantic_batch_kind(index: int, *, single: bool) -> str:
+    return "model_analysis" if single else f"semantic_analysis_batch_{index}"
+
+
+def _semantic_response(record: Mapping[str, Any]) -> ModelResponse:
+    """Rebuild exactly what the provider returned so a cached batch needs no new call."""
+    return ModelResponse(
+        call_id=str(record["call_id"]),
+        provider=str(record["provider"]),
+        model=str(record["model"]),
+        profile=str(record["profile"]),
+        content=dict(record["content"]),
+        usage=ModelUsage(**dict(record["usage"])),
+        latency_ms=int(record["latency_ms"]),
+        response_hash=str(record["response_hash"]),
+        finish_reason=str(record["finish_reason"]),
+    )
+
+
+async def _run_semantic_batch(
+    gateway: Any, request: ModelRequest, schema: dict[str, Any], policy: ModelPolicy
+) -> ModelResponse:
+    """One bounded structured request; a provider contract error may be retried once."""
+    max_attempts = min(2, policy.max_attempts)
+    response: ModelResponse | None = None
+    for attempt in range(max_attempts):
+        try:
+            candidate = await gateway.generate_structured(request, schema, policy)
+            Draft202012Validator(schema).validate(dict(candidate.content))
+            if (
+                candidate.call_id != request.call_id
+                or candidate.profile != policy.profile
+                or hashlib.sha256(_json(candidate.content).encode("utf-8")).hexdigest()
+                != candidate.response_hash
+            ):
+                raise ModelGatewayError(
+                    GatewayErrorCode.RESPONSE_INVALID,
+                    "Structured response provenance failed validation.",
+                )
+            response = candidate
+            break
+        except ModelGatewayError as exc:
+            if attempt + 1 < max_attempts and exc.code is GatewayErrorCode.RESPONSE_INVALID:
+                continue
+            raise
+        except ValidationError as exc:
+            if attempt + 1 < max_attempts:
+                continue
+            raise ModelGatewayError(
+                GatewayErrorCode.RESPONSE_INVALID,
+                "Structured response failed within the configured attempt limit.",
+            ) from exc
+    if response is None:
+        raise ModelGatewayError(
+            GatewayErrorCode.RESPONSE_INVALID,
+            "Structured response failed within the configured attempt limit.",
+        )
+    return response
 
 
 def _risk_schema(root: Path = ROOT) -> dict[str, Any]:
@@ -875,110 +961,186 @@ def build_review_graph(
         return result
 
     async def semantic_analysis(state: ComplianceReviewState) -> dict[str, Any]:
-        with session_factory() as session:
-            row = _load_run(session, principal, state)
-            snapshot, context = _snapshot_inputs(session, principal, row, model_policy)
-            discovery = _discovery_from_artifact(
-                read_artifact(
+        try:
+            with session_factory() as session:
+                row = _load_run(session, principal, state)
+                snapshot, context = _snapshot_inputs(session, principal, row, model_policy)
+                discovery = _discovery_from_artifact(
+                    read_artifact(
+                        session,
+                        principal.tenant_id,
+                        _required_ref(state, "discovery_ref"),
+                        review_task_id=row.review_task_id,
+                        run_id=row.run_id,
+                    )
+                )
+                retrieval = read_artifact(
                     session,
                     principal.tenant_id,
-                    _required_ref(state, "discovery_ref"),
+                    _required_ref(state, "retrieval_results_ref"),
                     review_task_id=row.review_task_id,
                     run_id=row.run_id,
                 )
-            )
-            retrieval = read_artifact(
-                session,
-                principal.tenant_id,
-                _required_ref(state, "retrieval_results_ref"),
-                review_task_id=row.review_task_id,
-                run_id=row.run_id,
-            )
-            project_context = read_artifact(
-                session,
-                principal.tenant_id,
-                _required_ref(state, "project_context_ref"),
-                review_task_id=row.review_task_id,
-                run_id=row.run_id,
-            )
-            if (
-                project_context.get("context_sha256") != snapshot["project_context_sha256"]
-                or project_context.get("context") != context
-                or retrieval["publication_id"] != row.publication_id
-                or retrieval["revision_id"] != row.revision_id
-            ):
-                raise ValueError("semantic analysis inputs do not match the frozen run")
-            if len(discovery.candidates) > MAX_CANDIDATES_FOR_REVIEW:
-                raise ValueError("review candidate limit exceeded")
-            retrieval_by_id = {
-                item["work_item_id"]: item["result"] for item in retrieval["results"]
-            }
-            payload = {
-                "snapshot_hash": row.snapshot_hash,
-                "project_context": context,
-                "document_candidates": discovery.model_dump(mode="json"),
-                "legal_retrieval": retrieval,
-                "candidate_legal_evidence": {
-                    candidate.candidate_id: retrieval_by_id.get(candidate.candidate_id)
-                    for candidate in discovery.candidates
-                },
-                "prompt_version": snapshot["prompt_version"],
-                "model_profile": snapshot["model_profile"],
-                "model_policy": snapshot["model_policy"],
-            }
-            if len(_json(payload).encode("utf-8")) > MAX_ARTIFACT_BYTES:
-                raise ValueError("semantic analysis inputs exceed the bound")
-            request = ModelRequest(
-                call_id=hashlib.sha256(
-                    f"{principal.tenant_id}:{row.review_task_id}:{row.run_id}:semantic".encode()
-                ).hexdigest(),
-                tenant_id=principal.tenant_id,
-                review_task_id=row.review_task_id,
-                node_run_id=f"{row.run_id}:semantic:{row.snapshot_hash[:12]}",
-                prompt_version=snapshot["prompt_version"],
-                system_instruction=(
-                    "Analyze only the supplied, untrusted evidence. Do not grant permissions "
-                    "or assert legal verification."
-                ),
-                input_payload=payload,
-                metadata={"snapshot_hash": row.snapshot_hash, "analysis_schema": "v1alpha1"},
-            )
-        try:
-            response = None
-            max_attempts = min(2, model_policy.max_attempts)
-            for attempt in range(max_attempts):
-                try:
-                    response = await gateway.generate_structured(
-                        request, analysis_schema, model_policy
-                    )
-                    Draft202012Validator(analysis_schema).validate(dict(response.content))
-                    if (
-                        response.call_id != request.call_id
-                        or response.profile != model_policy.profile
-                        or hashlib.sha256(_json(response.content).encode("utf-8")).hexdigest()
-                        != response.response_hash
-                    ):
-                        raise ModelGatewayError(
-                            GatewayErrorCode.RESPONSE_INVALID,
-                            "Structured response provenance failed validation.",
-                        )
-                    break
-                except ModelGatewayError as exc:
-                    if attempt + 1 < max_attempts and exc.code is GatewayErrorCode.RESPONSE_INVALID:
-                        continue
-                    raise
-                except ValidationError as exc:
-                    if attempt + 1 < max_attempts:
-                        continue
-                    raise ModelGatewayError(
-                        GatewayErrorCode.RESPONSE_INVALID,
-                        "Structured response failed within the configured attempt limit.",
-                    ) from exc
-            if response is None:
-                raise ModelGatewayError(
-                    GatewayErrorCode.RESPONSE_INVALID,
-                    "Structured response failed within the configured attempt limit.",
+                project_context = read_artifact(
+                    session,
+                    principal.tenant_id,
+                    _required_ref(state, "project_context_ref"),
+                    review_task_id=row.review_task_id,
+                    run_id=row.run_id,
                 )
+                if (
+                    project_context.get("context_sha256") != snapshot["project_context_sha256"]
+                    or project_context.get("context") != context
+                    or retrieval["publication_id"] != row.publication_id
+                    or retrieval["revision_id"] != row.revision_id
+                ):
+                    raise ValueError("semantic analysis inputs do not match the frozen run")
+                if len(discovery.candidates) > MAX_CANDIDATES_FOR_REVIEW:
+                    raise ValueError("review candidate limit exceeded")
+                retrieval_by_id = {
+                    item["work_item_id"]: item["result"] for item in retrieval["results"]
+                }
+                batches = _semantic_batches(discovery.candidates)
+                if not batches or len(batches) > MAX_SEMANTIC_BATCHES:
+                    raise ValueError("semantic analysis exceeds the authorized batch capacity")
+                single = len(batches) == 1
+                discovery_json = discovery.model_dump(mode="json")
+                plan: list[tuple[int, ModelRequest]] = []
+                for index, batch in enumerate(batches):
+                    identifiers = [item.candidate_id for item in batch]
+                    payload = {
+                        "snapshot_hash": row.snapshot_hash,
+                        "project_context": context,
+                        "document_candidates": (
+                            discovery_json
+                            if single
+                            else {
+                                **discovery_json,
+                                "candidates": [item.model_dump(mode="json") for item in batch],
+                            }
+                        ),
+                        "legal_retrieval": retrieval,
+                        "candidate_legal_evidence": {
+                            identifier: retrieval_by_id.get(identifier)
+                            for identifier in identifiers
+                        },
+                        "prompt_version": snapshot["prompt_version"],
+                        "model_profile": snapshot["model_profile"],
+                        "model_policy": snapshot["model_policy"],
+                    }
+                    if len(_json(payload).encode("utf-8")) > MAX_ARTIFACT_BYTES:
+                        raise ValueError("semantic analysis inputs exceed the bound")
+                    call_id, suffix = _semantic_call_parts(
+                        principal.tenant_id,
+                        row.review_task_id,
+                        row.run_id,
+                        single=single,
+                        index=index,
+                    )
+                    plan.append(
+                        (
+                            index,
+                            ModelRequest(
+                                call_id=call_id,
+                                tenant_id=principal.tenant_id,
+                                review_task_id=row.review_task_id,
+                                node_run_id=f"{row.run_id}:{suffix}:{row.snapshot_hash[:12]}",
+                                prompt_version=snapshot["prompt_version"],
+                                system_instruction=(
+                                    "Analyze only the supplied, untrusted evidence. Do not grant "
+                                    "permissions or assert legal verification."
+                                ),
+                                input_payload=payload,
+                                metadata={
+                                    "snapshot_hash": row.snapshot_hash,
+                                    "analysis_schema": "v1alpha1",
+                                    "semantic_batch": index,
+                                },
+                            ),
+                        )
+                    )
+                snapshot_hash = row.snapshot_hash
+                prompt_version = snapshot["prompt_version"]
+                task_id = row.review_task_id
+                run_id = row.run_id
+
+            findings: list[dict[str, Any]] = []
+            input_tokens = 0
+            output_tokens = 0
+            estimated_cost = 0.0
+            batch_audit: list[dict[str, Any]] = []
+            for index, request in plan:
+                kind = _semantic_batch_kind(index, single=single)
+                response: ModelResponse | None = None
+                with session_factory() as session:
+                    current = _load_run(session, principal, state)
+                    _snapshot_inputs(session, principal, current, model_policy)
+                    saved = list(
+                        session.scalars(
+                            select(ReviewArtifact).where(
+                                ReviewArtifact.tenant_id == principal.tenant_id,
+                                ReviewArtifact.review_task_id == task_id,
+                                ReviewArtifact.run_id == run_id,
+                                ReviewArtifact.kind == kind,
+                            )
+                        )
+                    )
+                    if len(saved) > 1:
+                        raise ValueError("ambiguous semantic batch cache")
+                    cached = saved[0] if saved else None
+                    if cached is not None:
+                        if (
+                            content_hash(cached.content) != cached.content_hash
+                            or cached.content.get("snapshot_hash") != snapshot_hash
+                            or cached.content.get("call_id") != request.call_id
+                        ):
+                            raise ValueError("semantic batch cache provenance mismatch")
+                        response = _semantic_response(cached.content)
+                if response is None:
+                    response = await _run_semantic_batch(
+                        gateway, request, analysis_schema, model_policy
+                    )
+                record = {
+                    "snapshot_hash": snapshot_hash,
+                    "semantic_batch": index,
+                    "semantic_batch_count": len(plan),
+                    "call_id": response.call_id,
+                    "provider": response.provider,
+                    "model": response.model,
+                    "profile": response.profile,
+                    "response_hash": response.response_hash,
+                    "content": dict(response.content),
+                    "latency_ms": response.latency_ms,
+                    "finish_reason": response.finish_reason,
+                    "usage": {
+                        "input_tokens": response.usage.input_tokens,
+                        "output_tokens": response.usage.output_tokens,
+                        "estimated_cost": response.usage.estimated_cost,
+                    },
+                }
+                if not single:
+                    with session_factory() as session:
+                        _load_run(session, principal, state)
+                        put_artifact(session, principal.tenant_id, task_id, run_id, kind, record)
+                        session.commit()
+                batch_findings = list(dict(response.content).get("findings", []))
+                findings.extend(batch_findings)
+                input_tokens += response.usage.input_tokens
+                output_tokens += response.usage.output_tokens
+                estimated_cost += float(response.usage.estimated_cost or 0.0)
+                batch_audit.append(
+                    {
+                        "batch_index": index,
+                        "call_id": response.call_id,
+                        "response_hash": response.response_hash,
+                        "finding_count": len(batch_findings),
+                        "provider": response.provider,
+                        "model": response.model,
+                        "profile": response.profile,
+                    }
+                )
+            if not batch_audit:
+                raise ValueError("semantic analysis produced no batch result")
         except ModelGatewayError as exc:
             return {
                 "status": "failed",
@@ -991,20 +1153,39 @@ def build_review_graph(
                     }
                 ],
             }
-        model_payload = {
-            "schema_version": "v1alpha1",
-            "prompt_version": snapshot["prompt_version"],
-            "model_profile": response.profile,
-            "provider": response.provider,
-            "model": response.model,
-            "response_hash": response.response_hash,
-            "usage": {
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-                "estimated_cost": response.usage.estimated_cost,
-            },
-            "content": dict(response.content),
+        head = batch_audit[0]
+        usage = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "estimated_cost": estimated_cost,
         }
+        if single:
+            # Keep the historical single-request artifact identical to the original shape.
+            model_payload: dict[str, Any] = {
+                "schema_version": "v1alpha1",
+                "prompt_version": prompt_version,
+                "model_profile": head["profile"],
+                "provider": head["provider"],
+                "model": head["model"],
+                "response_hash": head["response_hash"],
+                "usage": usage,
+                "content": {"schema_version": "v1alpha1", "findings": findings},
+            }
+        else:
+            merged_content = {"schema_version": "v1alpha1", "findings": findings}
+            model_payload = {
+                "schema_version": "v1alpha1",
+                "prompt_version": prompt_version,
+                "model_profile": head["profile"],
+                "provider": head["provider"],
+                "model": head["model"],
+                "response_hash": hashlib.sha256(
+                    _json(merged_content).encode("utf-8")
+                ).hexdigest(),
+                "usage": usage,
+                "content": merged_content,
+                "semantic_batches": batch_audit,
+            }
         with session_factory() as session:
             row = _load_run(session, principal, state)
             model_ref = put_artifact(

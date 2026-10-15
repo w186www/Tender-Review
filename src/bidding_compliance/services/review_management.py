@@ -109,9 +109,13 @@ def _runtime_projection(session: Session, row: ReviewEngineRun) -> dict[str, Any
     model_records = [
         item.content
         for item in artifacts
-        if item.kind == "model_analysis" or item.kind.startswith("llm_discovery_batch_")
+        if item.kind == "model_analysis"
+        or item.kind.startswith("llm_discovery_batch_")
+        or item.kind.startswith("semantic_analysis_batch_")
     ]
     model_records = [item for item in model_records if item.get("provider") and item.get("model")]
+    # The batched semantic aggregate repeats per-batch usage, so only batches are counted.
+    model_records = [item for item in model_records if not item.get("semantic_batches")]
     latest = next(
         (item for item in model_records if "model_profile" in item),
         model_records[0] if model_records else {},

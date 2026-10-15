@@ -15,10 +15,19 @@ from .budget import BudgetReservation
 from .errors import GatewayErrorCode, ModelGatewayError
 
 AUTHORIZATION_ID = "DEC-005-2026-10-15"
+SEMANTIC_AUTHORIZATION_ID = "DEC-006-2026-10-15"
 HARD_LLM_CALLS = 30
 HARD_EMBEDDING_BATCHES = 200
 HARD_TOTAL_CNY = Decimal("20")
 LLM_RESERVATION_CNY = Decimal("0.25")
+
+# Every entry is one explicit local authorization. A ledger bound to an entry can never
+# exceed that entry's ceiling, and earlier authorizations keep their own counters and
+# history; a new authorization never resets an exhausted one.
+AUTHORIZATION_LIMITS: dict[str, dict[str, Any]] = {
+    AUTHORIZATION_ID: {"llm": 30, "embedding": 200, "cny": Decimal("20")},
+    SEMANTIC_AUTHORIZATION_ID: {"llm": 15, "embedding": 0, "cny": Decimal("5")},
+}
 
 
 def _reject(message: str) -> ModelGatewayError:
@@ -37,23 +46,32 @@ class Dec005BudgetLedger:
         path: Path,
         *,
         scope_sha256: str,
-        llm_limit: int = HARD_LLM_CALLS,
-        embedding_limit: int = HARD_EMBEDDING_BATCHES,
-        total_cny: Decimal = HARD_TOTAL_CNY,
+        authorization_id: str = AUTHORIZATION_ID,
+        llm_limit: int | None = None,
+        embedding_limit: int | None = None,
+        total_cny: Decimal | None = None,
     ) -> None:
+        if authorization_id not in AUTHORIZATION_LIMITS:
+            raise ValueError("unknown local authorization")
+        # An omitted ceiling means "exactly what this authorization allows".
+        hard = AUTHORIZATION_LIMITS[authorization_id]
+        llm_limit = hard["llm"] if llm_limit is None else llm_limit
+        embedding_limit = hard["embedding"] if embedding_limit is None else embedding_limit
+        total_cny = hard["cny"] if total_cny is None else total_cny
         if (
             len(scope_sha256) != 64
             or any(c not in "0123456789abcdef" for c in scope_sha256)
             or type(llm_limit) is not int
-            or not 0 <= llm_limit <= HARD_LLM_CALLS
+            or not 0 <= llm_limit <= hard["llm"]
             or type(embedding_limit) is not int
-            or not 0 <= embedding_limit <= HARD_EMBEDDING_BATCHES
+            or not 0 <= embedding_limit <= hard["embedding"]
             or not total_cny.is_finite()
-            or not 0 <= total_cny <= HARD_TOTAL_CNY
+            or not 0 <= total_cny <= hard["cny"]
         ):
-            raise ValueError("DEC-005 scope and limits must be explicit and bounded")
+            raise ValueError("DEC authorization scope and limits must be explicit and bounded")
         self.path = path.resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.authorization_id = authorization_id
         self.llm_limit = llm_limit
         self.embedding_limit = embedding_limit
         self.total_cny = total_cny
@@ -69,15 +87,22 @@ class Dec005BudgetLedger:
                 "ceiling TEXT NOT NULL, charge TEXT NOT NULL, status TEXT NOT NULL, "
                 "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
             )
+            # Existing rows predate per-authorization accounting and stay with DEC-005.
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(requests)")}
+            if "authorization_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE requests ADD COLUMN authorization_id TEXT NOT NULL "
+                    f"DEFAULT '{AUTHORIZATION_ID}'"
+                )
             connection.execute(
                 "INSERT OR IGNORE INTO authorization VALUES (?, ?)",
-                (AUTHORIZATION_ID, scope_sha256),
+                (authorization_id, scope_sha256),
             )
             scope = connection.execute(
-                "SELECT scope_sha256 FROM authorization WHERE id=?", (AUTHORIZATION_ID,)
+                "SELECT scope_sha256 FROM authorization WHERE id=?", (authorization_id,)
             ).fetchone()
             if scope != (scope_sha256,):
-                raise ValueError("existing DEC-005 ledger has a different scope")
+                raise ValueError("existing DEC ledger has a different scope")
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=5)
@@ -96,18 +121,29 @@ class Dec005BudgetLedger:
             raise _reject("External reservation is outside DEC-005 bounds.")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            records = connection.execute("SELECT kind, charge FROM requests").fetchall()
+            records = connection.execute(
+                "SELECT kind, charge FROM requests WHERE authorization_id=?",
+                (self.authorization_id,),
+            ).fetchall()
             limit = self.llm_limit if kind == "llm" else self.embedding_limit
             if sum(item[0] == kind for item in records) >= limit:
-                raise _reject("DEC-005 external request count exhausted.")
+                raise _reject("DEC external request count exhausted.")
             spent = sum((Decimal(item[1]) for item in records), Decimal(0))
             if spent + ceiling > self.total_cny:
-                raise _reject("DEC-005 cumulative supplier budget exhausted.")
+                raise _reject("DEC cumulative supplier budget exhausted.")
             reservation = uuid.uuid4().hex
             connection.execute(
-                "INSERT INTO requests(id,kind,request_hash,ceiling,charge,status) "
-                "VALUES(?,?,?,?,?,?)",
-                (reservation, kind, request_hash, str(ceiling), str(ceiling), "reserved"),
+                "INSERT INTO requests(id,kind,request_hash,ceiling,charge,status,authorization_id) "
+                "VALUES(?,?,?,?,?,?,?)",
+                (
+                    reservation,
+                    kind,
+                    request_hash,
+                    str(ceiling),
+                    str(ceiling),
+                    "reserved",
+                    self.authorization_id,
+                ),
             )
         return reservation
 
@@ -115,7 +151,8 @@ class Dec005BudgetLedger:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             record = connection.execute(
-                "SELECT ceiling,status FROM requests WHERE id=?", (reservation,)
+                "SELECT ceiling,status FROM requests WHERE id=? AND authorization_id=?",
+                (reservation, self.authorization_id),
             ).fetchone()
             if (
                 record is None
@@ -147,9 +184,25 @@ class Dec005BudgetLedger:
 
     def summary(self) -> dict[str, Any]:
         with self._connect() as connection:
-            rows = connection.execute("SELECT kind,charge,status FROM requests").fetchall()
+            rows = connection.execute(
+                "SELECT kind,charge,status FROM requests WHERE authorization_id=?",
+                (self.authorization_id,),
+            ).fetchall()
+            history = connection.execute(
+                "SELECT authorization_id, kind, charge FROM requests"
+            ).fetchall()
+        ledger: dict[str, dict[str, Any]] = {}
+        for authorization, kind, charge in history:
+            entry = ledger.setdefault(
+                authorization, {"llm_calls": 0, "embedding_batches": 0, "charged_cny": Decimal(0)}
+            )
+            if kind == "llm":
+                entry["llm_calls"] += 1
+            elif kind == "embedding":
+                entry["embedding_batches"] += 1
+            entry["charged_cny"] += Decimal(charge)
         return {
-            "authorization_id": AUTHORIZATION_ID,
+            "authorization_id": self.authorization_id,
             "llm_calls": sum(row[0] == "llm" for row in rows),
             "embedding_batches": sum(row[0] == "embedding" for row in rows),
             "charged_or_reserved_cny": str(sum((Decimal(row[1]) for row in rows), Decimal(0))),
@@ -158,6 +211,14 @@ class Dec005BudgetLedger:
                 "llm_calls": self.llm_limit,
                 "embedding_batches": self.embedding_limit,
                 "total_cny": str(self.total_cny),
+            },
+            "ledger_history": {
+                authorization: {
+                    "llm_calls": entry["llm_calls"],
+                    "embedding_batches": entry["embedding_batches"],
+                    "charged_cny": str(entry["charged_cny"]),
+                }
+                for authorization, entry in sorted(ledger.items())
             },
         }
 

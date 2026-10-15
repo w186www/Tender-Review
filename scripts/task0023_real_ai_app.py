@@ -1,4 +1,4 @@
-"""DEC-005 app assembly: the ordinary authenticated review endpoints use real Qwen."""
+"""DEC-006 app assembly: the ordinary authenticated review endpoints use real Qwen."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bidding_compliance.api import create_app
 from bidding_compliance.core.config import Settings
+from bidding_compliance.model_gateway.authorized_runtime import SEMANTIC_AUTHORIZATION_ID
 from bidding_compliance.persistence.database import make_engine
 from bidding_compliance.services.real_ai_runtime import (
     SEMANTIC_PROMPT_VERSION,
@@ -21,7 +22,7 @@ from bidding_compliance.services.real_embedding_runtime import create_real_retri
 ROOT = Path(__file__).resolve().parents[1]
 PRIVATE = ROOT / ".verification/private/TASK-0023"
 if os.environ.get("DEC005_AUTHORIZATION_ID") != "DEC-005-2026-10-15":
-    raise RuntimeError("DEC-005 real AI is disabled without its explicit server authorization")
+    raise RuntimeError("real AI is disabled without an explicit server authorization")
 
 key = os.environ.get("DASHSCOPE_API_KEY", "")
 workspace = os.environ.get("BAILIAN_WORKSPACE_ID", "")
@@ -34,6 +35,7 @@ gateway, authorization, budget = create_dec005_gateway(
     allowed_document_sha256=allowed,
     ledger_path=PRIVATE / "dec005-budget.sqlite3",
     audit_path=PRIVATE / "model-audit.jsonl",
+    authorization_id=SEMANTIC_AUTHORIZATION_ID,
 )
 settings = Settings(_env_file=None)
 database = make_engine(settings)

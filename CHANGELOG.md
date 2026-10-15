@@ -6,7 +6,7 @@
 
 ### Added
 
-- TASK-0023 真实 AI 验证本轮实际执行：真实 `qwen3.8-flash` 完成 17 个发现批次、覆盖天津地铁 11 号线 DOCX 的 1209 个非空片段，确定性 Skill 候选 0 项而由模型独立发现 41 个原文绑定候选（候选 ID／去重键唯一、41/41 引用哈希与原文一致、含 11 个表格单元格定位）；真实 `text-embedding-v4` 取得 1024 维在线向量并完成 SQLite 索引与 BM25+向量 RRF 融合，缓存复用避免重复付费，覆盖度如实为 10/3120。真实调用共 LLM 30 次（达 DEC-005 上限）、Embedding 3 批，累计 ¥1.081571。端到端未完成：`semantic_analysis` 单请求处理 41 个候选两次超出授权 60 秒超时，LLM 预算用尽无法验证分批修复，因此未完成人工复核与 Word/PDF 报告；网页端仅完成登录、上传、正式校正、上下文确认与发起审查。同期修复 discovery 节点把网关错误码折叠为 `llm_discovery_failed` 的缺陷（该缺陷使有界重试不可达），并把 `response_invalid` 纳入前后端一致的有界重试；该修复已使修复前连续失败的批次在真实运行中重试成功。详见 `docs/development/TASK-0023-validation.md`。
+- TASK-0023 完整真实 AI 审查闭环已打通（独立授权 DEC-006）：`semantic_analysis` 改为按 `candidate_id` 稳定排序的确定性分批（每批 8 个候选、上限 13 批），每批独立调用身份/缓存件/契约校验并按批次累加 usage 与哈希，单批时保持历史 `call_id` 与 `model_analysis` 结构不变；同时修复脱敏最小化器外发上限与发现批次容量不一致的缺陷（该缺陷会在零调用下拒绝首批请求）。真实运行：7 批风险发现 + 3 批分批语义分析，LLM 10/15 次、费用 ¥0.062695；确定性 Skills 0 候选而模型独立发现 19 个候选，19/19 原文定位一致、0 条违法断言、全部标为 `insufficient_evidence` 待核验；网页完成上传、正式校正、上下文确认、审查、19 项人工复核、结果发布与 Word/PDF 生成下载，下载 SHA-256 与服务端 `content_hash` 一致。新增多授权账本（`AUTHORIZATION_LIMITS` 与 `requests.authorization_id`），DEC-005 历史计数与费用保留不重置。为在 15 次授权内完成闭环，发现批次容量按输入 token 预算上调（9,000→18,000 字节、80→200 片段），单次审查候选上限相应下降。详见 `docs/development/TASK-0023-validation.md`。
 
 - TASK-0022 零候选离线审查路径已修复：OfflineReviewGateway 对合法空候选返回 Schema 合法的空 findings，同时保留调用身份/响应哈希和非空候选的严格证据断言。Focused 新增 3 项回归通过。天津地铁 DOCX 在正式本地链路上得到 0 个 Skill 候选，RAG 5/5 `CONTEXT_INVALID`；离线 LangGraph、空结果复核及 Word/PDF API 导出成功。真实模型调用为 0，任务仍 in_progress。详细限制与本地结果见 TASK-0022 验证记录。
 

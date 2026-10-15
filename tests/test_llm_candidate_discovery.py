@@ -276,17 +276,25 @@ def test_all_fragments_have_exhaustive_bounded_coverage_and_overflow_fails_close
     )
     snapshot, mapping = freeze(items)
     batches = llm.plan_discovery(mapping)
-    assert len(batches) == 5
+    # The batch count follows from the authorized batch capacity, not a fixed number.
+    per_fragment = len(items[0].fragment.text.encode())
+    per_batch = llm.MAX_BATCH_SOURCE_BYTES // per_fragment
+    assert len(batches) == -(-5 // per_batch)
+    assert per_batch >= 1
     assert sum(len(batch.sections) for batch in batches) == snapshot.documents[0].fragment_count
     assert all(
-        sum(len(section.text.encode()) for section in batch.sections) <= 9000 for batch in batches
+        sum(len(section.text.encode()) for section in batch.sections)
+        <= llm.MAX_BATCH_SOURCE_BYTES
+        for batch in batches
     )
     records = [section.coverage() for batch in batches for section in batch.sections]
     assert all(record["source_sha256"] and record["locator"] for record in records)
+    # Overflow still fails closed: one fragment per batch exceeds the batch ceiling.
+    oversized = "。" * (llm.MAX_BATCH_SOURCE_BYTES // 3 - 100)
     _, overflowing = freeze(
         tuple(
-            located("采购说明" + str(index) + "。" * 2900, locator=f"paragraph:{index}")
-            for index in range(29)
+            located("采购说明" + str(index) + oversized, locator=f"paragraph:{index}")
+            for index in range(llm.MAX_DISCOVERY_BATCHES + 1)
         )
     )
     with pytest.raises(ValueError, match="authorized batch capacity"):

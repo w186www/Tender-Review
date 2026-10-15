@@ -31,8 +31,11 @@ from bidding_compliance.model_gateway.contracts import ModelRequest, ModelRespon
 
 TASK0023_DISCOVERY_PROMPT_VERSION = "task0023-discovery-v1"
 MAX_DISCOVERY_BATCHES = 28
-MAX_BATCH_SOURCE_BYTES = 9000
-MAX_BATCH_SECTIONS = 80
+# Batch capacity is deliberately set from the authorized input-token ceiling: the
+# gateway rejects any request above 65,536 input tokens, and the per-batch finding
+# limit is what bounds model output, so wider batches trade candidate count for calls.
+MAX_BATCH_SOURCE_BYTES = 18000
+MAX_BATCH_SECTIONS = 200
 ROOT = Path(__file__).resolve().parents[3]
 
 
