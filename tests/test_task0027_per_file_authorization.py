@@ -1,15 +1,18 @@
 """DEC-007 per-file authorization: registry, CLI, ledger continuity and the egress gate."""
 
+import asyncio
 import hashlib
 import importlib.util
 import json
 import os
 import re
 import stat
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy.orm import sessionmaker
 
@@ -24,11 +27,16 @@ from bidding_compliance.model_gateway.authorized_runtime import (
     SEMANTIC_AUTHORIZATION_ID,
     Dec005BudgetLedger,
 )
+from bidding_compliance.model_gateway.contracts import ModelRequest
+from bidding_compliance.model_gateway.errors import ModelGatewayError
 from bidding_compliance.persistence.database import make_engine
+from bidding_compliance.services.llm_candidate_discovery import discovery_schema
 from bidding_compliance.services.real_ai_runtime import (
+    DISCOVERY_PROMPT_VERSION,
     AuthorizedRealReviewEngine,
     AuthorizedTenderMinimizer,
     FileAuthorizationRegistry,
+    create_dec005_gateway,
     real_ai_policy,
     resolve_authorized_documents,
     resolve_real_runtime_authorization,
@@ -74,7 +82,10 @@ def review_request(document_sha256: str) -> ReviewRequest:
     )
 
 
-def review_engine(tmp_path: Path, allowed: frozenset[str]) -> AuthorizedRealReviewEngine:
+def review_engine(
+    tmp_path: Path,
+    allowed: frozenset[str] | Callable[[], frozenset[str]],
+) -> AuthorizedRealReviewEngine:
     settings = Settings(
         _env_file=None, app_env="test", database_url="sqlite:///" + str(tmp_path / "engine.db")
     )
@@ -114,7 +125,7 @@ def test_dec007_is_an_independent_authorization_with_its_own_ledger(tmp_path):
     }
     assert AUTHORIZATION_LIMITS[FULL_CAPABILITY_AUTHORIZATION_ID] == {
         "llm": 300,
-        "embedding": 400,
+        "embedding": 800,
         "cny": Decimal("30"),
     }
 
@@ -133,12 +144,12 @@ def test_dec007_is_an_independent_authorization_with_its_own_ledger(tmp_path):
     )
     summary = full.summary()
     assert summary["llm_calls"] == 0 and summary["embedding_batches"] == 0
-    assert summary["limits"] == {"llm_calls": 300, "embedding_batches": 400, "total_cny": "30"}
+    assert summary["limits"] == {"llm_calls": 300, "embedding_batches": 800, "total_cny": "30"}
     assert legacy.summary()["llm_calls"] == 1  # the earlier authorization is untouched
 
     for overrides in (
         {"llm_limit": 301},
-        {"embedding_limit": 401},
+        {"embedding_limit": 801},
         {"total_cny": Decimal("30.01")},
     ):
         with pytest.raises(ValueError):
@@ -339,6 +350,203 @@ def test_approving_a_file_never_resets_or_invalidates_the_ledger(tmp_path):
         authorization_id=second.authorization_id,
     )
     assert reopened.summary()["embedding_batches"] == 1
+
+
+def dec007_environment(tmp_path: Path, registry_path: Path) -> dict[str, str]:
+    return {
+        "DEC007_AUTHORIZATION_ID": FULL_CAPABILITY_AUTHORIZATION_ID,
+        "DEC007_AUTHORIZATION_REGISTRY": str(registry_path),
+        "DEC007_LEDGER_PATH": str(tmp_path / "dec007-budget.sqlite3"),
+    }
+
+
+def freeze_outcome(engine: AuthorizedRealReviewEngine, sha256: str) -> str:
+    """Separate the permission gate from the unrelated runtime state of a stub engine."""
+    try:
+        engine._freeze_run(principal(), review_request(sha256))
+    except PermissionError:
+        return "denied-before-egress"
+    except Exception:
+        return "runtime-state-unavailable"
+    return "frozen"
+
+
+def test_running_process_sees_approvals_and_revocations_without_a_restart(tmp_path):
+    path = tmp_path / "authorization-registry.jsonl"
+    running = FileAuthorizationRegistry(path)  # the process that is already serving
+    assert running.allowed_sha256() == frozenset()
+    operator = FileAuthorizationRegistry(path)  # a second process: the operator CLI
+    operator.approve(
+        sha256=REGISTERED, document_id="doc-1", reason="登记合成样本", approved_by="operator"
+    )
+    assert running.allowed_sha256() == frozenset({REGISTERED})
+    assert [record["action"] for record in running.records()] == ["approve"]
+
+    operator.revoke(
+        sha256=REGISTERED, document_id="doc-1", reason="收回授权", approved_by="operator"
+    )
+    assert running.allowed_sha256() == frozenset()
+    assert [record["action"] for record in running.records()] == ["approve", "revoke"]
+
+
+def test_engine_denies_egress_after_an_external_revocation_of_a_running_process(tmp_path):
+    registry_path = tmp_path / "authorization-registry.jsonl"
+    FileAuthorizationRegistry(registry_path).approve(
+        sha256=REGISTERED, document_id="doc-1", reason="登记合成样本", approved_by="operator"
+    )
+    resolution = resolve_real_runtime_authorization(
+        dec007_environment(tmp_path, registry_path), private_root=tmp_path
+    )
+    # The API process starts while the file is approved and freezes only the *source*.
+    engine = review_engine(tmp_path, resolution.allowed_document_source)
+    assert engine.allowed_document_sha256 == frozenset({REGISTERED})
+    engine._require_authorized_documents({REGISTERED})  # the gate _invoke shares: no raise
+    assert freeze_outcome(engine, REGISTERED) == "runtime-state-unavailable"
+    assert freeze_outcome(engine, UNREGISTERED) == "denied-before-egress"
+
+    # The operator revokes from outside the process: no restart, no cache to invalidate.
+    FileAuthorizationRegistry(registry_path).revoke(
+        sha256=REGISTERED, document_id="doc-1", reason="收回授权", approved_by="operator"
+    )
+    assert engine.allowed_document_sha256 == frozenset()
+    assert freeze_outcome(engine, REGISTERED) == "denied-before-egress"
+    with pytest.raises(PermissionError):
+        engine._require_authorized_documents({REGISTERED})
+
+    # The ledger scope is unaffected by approvals and revocations: nothing was reset.
+    reopened = Dec005BudgetLedger(
+        resolution.ledger_path,
+        scope_sha256=resolution.scope_sha256,
+        authorization_id=resolution.authorization_id,
+    )
+    assert reopened.summary()["limits"]["embedding_batches"] == 800
+
+
+def test_minimizer_refuses_a_revoked_document_at_the_next_egress_decision(tmp_path):
+    registry_path = tmp_path / "authorization-registry.jsonl"
+    FileAuthorizationRegistry(registry_path).approve(
+        sha256=REGISTERED, document_id="doc-1", reason="登记合成样本", approved_by="operator"
+    )
+    resolution = resolve_real_runtime_authorization(
+        dec007_environment(tmp_path, registry_path), private_root=tmp_path
+    )
+    minimizer = AuthorizedTenderMinimizer(resolution.allowed_document_source)
+    policy = real_ai_policy().data_policy
+    section = {
+        "section_key": "s000000c000",
+        "text": "合成片段内容。",
+        "document_sha256": REGISTERED,
+    }
+    assert minimizer({"discovery_sections": [section]}, policy) == {
+        "discovery_sections": [{"section_key": "s000000c000", "text": "合成片段内容。"}]
+    }
+
+    # A second approved file keeps the allowlist non-empty, so the next assertions exercise
+    # the per-file membership check itself and not only the fail-closed empty case.
+    other = "d" * 64
+    FileAuthorizationRegistry(registry_path).approve(
+        sha256=other, document_id="doc-2", reason="第二份合成样本", approved_by="operator"
+    )
+    FileAuthorizationRegistry(registry_path).revoke(
+        sha256=REGISTERED, document_id="doc-1", reason="收回授权", approved_by="operator"
+    )
+    with pytest.raises(ValueError, match="outside authorized scope"):
+        minimizer({"discovery_sections": [section]}, policy)
+    section["document_sha256"] = other
+    assert minimizer({"discovery_sections": [section]}, policy) == {
+        "discovery_sections": [{"section_key": "s000000c000", "text": "合成片段内容。"}]
+    }
+
+    # With every file revoked nothing may leave the host at all.
+    FileAuthorizationRegistry(registry_path).revoke(
+        sha256=other, document_id="doc-2", reason="全部收回", approved_by="operator"
+    )
+    with pytest.raises(ValueError, match="no document is currently authorized"):
+        _ = minimizer.allowed
+
+
+def test_gateway_sends_nothing_after_an_external_revocation(tmp_path):
+    registry_path = tmp_path / "authorization-registry.jsonl"
+    FileAuthorizationRegistry(registry_path).approve(
+        sha256=REGISTERED, document_id="doc-1", reason="登记合成样本", approved_by="operator"
+    )
+    resolution = resolve_real_runtime_authorization(
+        dec007_environment(tmp_path, registry_path), private_root=tmp_path
+    )
+    calls: list[dict[str, object]] = []
+
+    def handle(wire: httpx.Request) -> httpx.Response:
+        calls.append(json.loads(wire.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps({"schema_version": "v1alpha1", "findings": []})
+                        },
+                    }
+                ],
+                "usage": {"prompt_tokens": 100, "completion_tokens": 10},
+            },
+        )
+
+    gateway, authorization, budget = create_dec005_gateway(
+        api_key="example-synthetic-credential",
+        workspace_id="contract-workspace",
+        tenant_id="tenant-a",
+        allowed_document_sha256=resolution.allowed_document_source,
+        ledger_path=resolution.ledger_path,
+        audit_path=resolution.model_audit_path,
+        authorization_id=resolution.authorization_id,
+        scope_documents=resolution.environment_documents,
+        authorization_registry=resolution.registry_path,
+        transport=httpx.MockTransport(handle),
+    )
+    request = ModelRequest(
+        call_id="revocation-call",
+        tenant_id="tenant-a",
+        review_task_id="review-task",
+        node_run_id="bounded-node",
+        prompt_version=DISCOVERY_PROMPT_VERSION,
+        system_instruction="client-supplied instructions must be ignored",
+        input_payload={
+            "discovery_sections": [
+                {
+                    "section_key": "s000000c000",
+                    "document_sha256": REGISTERED,
+                    "text": "合成条款疑点，联系人：张三。",
+                }
+            ]
+        },
+    )
+    authorization.trusted_calls["revocation-call"] = (
+        "tenant-a",
+        "review-task",
+        "bounded-node",
+    )
+    assert (
+        asyncio.run(
+            gateway.generate_structured(request, discovery_schema(), real_ai_policy())
+        ).provider
+        == "bailian"
+    )
+    assert len(calls) == 1 and budget.summary()["llm_calls"] == 1
+
+    # The process keeps running; the operator withdraws the authorization from outside.
+    FileAuthorizationRegistry(registry_path).revoke(
+        sha256=REGISTERED, document_id="doc-1", reason="收回授权", approved_by="operator"
+    )
+    authorization.trusted_calls["revocation-call"] = (
+        "tenant-a",
+        "review-task",
+        "bounded-node",
+    )
+    with pytest.raises(ModelGatewayError):
+        asyncio.run(gateway.generate_structured(request, discovery_schema(), real_ai_policy()))
+    assert len(calls) == 1  # nothing left the host after the revocation
+    assert budget.summary()["llm_calls"] == 1
 
 
 def test_authorization_cli_approves_lists_and_revokes_with_audit_lines(

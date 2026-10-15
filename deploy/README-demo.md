@@ -101,7 +101,7 @@ $D run --rm --no-deps --entrypoint python api deploy/demo_init.py storage   # �
 | `-pgdata` | 业务数据、迁移版本、**LangGraph checkpoint** | 项目/文档/审查任务/复核结论全部丢失，未完成的审查无法恢复 |
 | `-miniodata` | 上传的原始文件对象 | 已入库文档的正文永久缺失，无法重新解析 |
 | `-clamdb` | ClamAV 病毒特征库 | 仅影响下次启动时间（需重新下载） |
-| `-modelstate` | 模型预算账本与审计（`model-audit.jsonl`） | 真实模型授权的额度记录丢失，属于审计缺口 |
+| `-modelstate` | 模型预算账本与审计（`dec005-budget.sqlite3`、`dec007-budget.sqlite3`、`*-audit.jsonl`）、逐文件授权注册表、预构建的法规向量索引 | 真实模型授权的额度记录、逐文件授权与预构建索引丢失，属于审计缺口；索引需重新付费预构建 |
 
 卷名在 `deploy/.env` 里由 `VOLUME_PREFIX` 决定，可用 `docker volume ls` 核对。
 
@@ -144,19 +144,91 @@ LangGraph 全流程、法规检索、证据核验、人工复核、Word/PDF 报�
 **但模型分析输出是协议一致性样本，不是语义审查结论**。工作台会显示
 「离线确定性演示」横幅说明这一点（`VITE_REVIEW_MODE=offline-deterministic` 编译期开关）。
 
+### 8.1 启用条件（DEC-007 完整能力）
+
 要换成真实 Qwen，需要**全部**满足下列条件，缺一不可：
 
-1. 阿里云百炼 API Key 与 Workspace ID（`DASHSCOPE_API_KEY`、`BAILIAN_WORKSPACE_ID`）。
-2. **新的独立授权**（仓库里的 `DEC-005` / `DEC-006` 已有各自额度账本，且已消耗；
-   不能复用，也不会被新文件重置）。
-3. 把要演示的标书 SHA-256 写进白名单（`DEC005_ALLOWED_DOCUMENT_SHA256`）。
-   网关只发送白名单内的文档分段，其余一律拒绝（`services/real_ai_runtime.py`）。
-4. 设置 `DEPLOY_REVIEW_MODE=authorized-real`，并用 `VITE_REVIEW_MODE=dec005-real-qwen`
-   重新构建前端，保证页面提示与实际执行一致。
-5. 额度与预算限制仍然生效：单次调用前**全额预留**，账本只增不减。
+1. 阿里云百炼 API Key 与 Workspace ID（`DASHSCOPE_API_KEY`、`BAILIAN_WORKSPACE_ID`），
+   只写入服务器 `deploy/.env`（600、已 gitignore），不进镜像与前端。
+2. **独立的 DEC-007 授权**：`DEC007_AUTHORIZATION_ID=DEC-007-2026-10-16`。
+   仓库里的 `DEC-005` / `DEC-006` 有各自额度账本且已消耗，不能复用，也不会被重置；
+   DEC-007 有独立账本 `dec007-budget.sqlite3`（LLM 300 次 / Embedding 800 批 / ¥30）。
+3. **预构建全量法规向量索引**（服务端不会临时建库）。在 api 容器内执行一次：
+   ```bash
+   $D exec api python scripts/prebuild_legal_vectors.py \
+       --dry-run                    # 先看计划：3120 条 → 3112 条可嵌入、8 条超长、312 批
+   $D exec api python scripts/prebuild_legal_vectors.py \
+       --publication-id <id> --revision-id <id>   # 真实构建（付费，支持断点续建）
+   ```
+   `publication_id` / `revision_id` 取当前法规发布版本（见第八节末尾的查询命令）。
+   索引文件、账本与注册表都在 `-modelstate` 持久卷里，`down && up -d` 不会丢。
+   **缺索引、索引未完成或校验失败时，API 会直接拒绝该次审查**（零供应商调用），
+   不会在面试官点击审查时同步跑几百批 Embedding。
+4. **逐文件外发授权**：未登记的文件一律拒绝（见 8.2）。
+5. 设置 `DEPLOY_REVIEW_MODE=authorized-real`，并用 `VITE_REVIEW_MODE=dec007-real-qwen`
+   重新构建前端（`$D build nginx`），保证页面提示与实际执行一致。
+6. 额度与预算限制仍然生效：单次调用前**全额预留**，账本只增不减。批次到 800 拒绝；
+   累计费用到 ¥30 拒绝（即使批次还有余额）；失败或用量未知的预留继续占用额度且不自动补发。
    本地账本**不是**生产级防回滚方案（审计与账本被整体回滚无法检测），演示期间不要宣称有防回滚能力。
 
 未满足上述条件时，真实审查入口保持关闭并如实报错，**不会**回退成 Mock 冒充成功。
+`docker-compose.demo.yml` 把上述真实模型变量（`DASHSCOPE_*`、`BAILIAN_*`、`DEC007_*`、
+`DEC005_*`）**只注入 api 服务**，worker 与其他服务不持有任何供应商凭据；全部留空时
+`DEPLOY_REVIEW_MODE=offline` 仍可正常启动。
+
+### 8.2 逐文件授权的运维步骤（approve / list / revoke）
+
+授权登记是**追加式 JSONL 审计文件**，只记录文件 SHA-256、文档标识、理由、时间与操作人，
+从不读写文件内容。它必须与 `DEC007_AUTHORIZATION_REGISTRY`、同一个 `-modelstate` 卷共用。
+
+```bash
+cd <repo>
+D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
+
+# 1) 看当前状态：有效白名单 + 全部审计行
+$D exec api python deploy/manage_authorization.py list
+$D exec api python deploy/manage_authorization.py list --json
+
+# 2) 登记一个文件（面试官上传的合成样本）；--actor 省略时取 DEC007_AUTHORIZATION_ACTOR
+$D exec api python deploy/manage_authorization.py approve \
+    --sha256 <64 位小写 hex> --document <document-id> --reason "面试演示合成样本"
+
+# 3) 收回授权（文件、法务或演示范围变化时）
+$D exec api python deploy/manage_authorization.py revoke \
+    --sha256 <64 位小写 hex> --reason "演示结束收回"
+```
+
+**生效语义**：
+
+- `approve` / `revoke` 立即对**正在运行的 API 生效**：注册表按文件 mtime/size 重读，
+  引擎的冻结/调用门禁与出站最小化器在**每次判定**时重新读取有效白名单，
+  撤销后**下一次外发即被拒绝**，无需重启容器。
+- 只有注册表**路径或授权身份**变化才需要重启 api（例如改 `DEC007_AUTHORIZATION_REGISTRY`）。
+- 审计行只增不改：某个哈希的**最后一条**记录（approve/revoke）决定它当前是否被授权。
+- 注册表损坏或不可读时**失败关闭**（不降级为"全部授权"或"全部拒绝后继续放行"）。
+
+**与账本 scope 的关系**：
+
+- 账本 scope（`scope_sha256`）只绑定**静态**部分：授权 ID、租户、环境变量白名单、
+  供应商/模型/embedding 身份，以及注册表**文件路径**。
+- 逐文件 approve/revoke **不改变** scope，因此**永远不会重置或作废**已有账本
+  （否则唯一的"修复"办法就是删账本，正好是 DEC-007 禁止的额度重置）。
+- 反过来，改环境变量白名单或换注册表路径会改变 scope，与旧账本冲突并报
+  `existing DEC ledger has a different scope`；这正是需要新授权 ID 的场景。
+
+### 8.3 供应商外发范围与不可宣称项
+
+- DEC-007 仅授权逐文件登记过的**合成**文件与脱敏分段外发；真实商业标书仍不外发。
+- 全量索引不等于"法规已核验"：可确认适用的法规依据依然来自确定性核验链，
+  向量相似度不能提升证据等级，未核验法条不能成为确认违法的依据。
+- 8 条超长条款（>8192 字节）无法嵌入，只能由 BM25 覆盖。
+
+查询当前法规发布版本（预构建参数）：
+
+```bash
+$D exec postgres psql -U postgres -d bidding_compliance -c \
+    "select publication_id, revision_id from legal_publication order by sequence desc limit 1"
+```
 
 ## 九、安全说明与已知限制
 

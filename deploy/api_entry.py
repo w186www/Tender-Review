@@ -71,7 +71,7 @@ def main() -> int:
         )
     uvicorn.run(
         app,
-        host=os.environ.get("APP_HOST", "0.0.0.0"),
+        host=os.environ.get("APP_HOST", "0.0.0.0"),  # noqa: S104 - container must listen on all interfaces
         port=int(os.environ.get("APP_PORT", "8000")),
         log_config=None,
         access_log=False,

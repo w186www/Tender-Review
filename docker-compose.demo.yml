@@ -43,6 +43,28 @@ x-api-build: &api-build
   context: .
   dockerfile: Dockerfile.api
 
+# Real-model variables, merged into the api service ****only****. The worker never calls a
+# model, so it must not hold supplier credentials or authorization identities. Every value
+# is the optional `${VAR:-}` form: an unset variable resolves to an empty string (no
+# warning, no error) and the stack still starts in DEPLOY_REVIEW_MODE=offline with no
+# supplier call possible. Real values come from deploy/.env (mode 600, gitignored) and
+# never enter images, the frontend or logs.
+#   DASHSCOPE_API_KEY / BAILIAN_WORKSPACE_ID  supplier credentials (task0023_real_ai_app.py)
+#   DEC007_*                                  DEC-007 identity, ledger, audit and per-file
+#                                             registry of resolve_real_runtime_authorization
+#   DEC005_*                                  legacy DEC-005/006 identity and static allowlist
+x-real-model-environment: &real-model-environment
+  DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+  BAILIAN_WORKSPACE_ID: ${BAILIAN_WORKSPACE_ID:-}
+  DEC007_AUTHORIZATION_ID: ${DEC007_AUTHORIZATION_ID:-}
+  DEC007_AUTHORIZATION_REGISTRY: ${DEC007_AUTHORIZATION_REGISTRY:-}
+  DEC007_LEDGER_PATH: ${DEC007_LEDGER_PATH:-}
+  DEC007_MODEL_AUDIT_PATH: ${DEC007_MODEL_AUDIT_PATH:-}
+  DEC007_AUTHORIZATION_ACTOR: ${DEC007_AUTHORIZATION_ACTOR:-}
+  DEC005_AUTHORIZATION_ID: ${DEC005_AUTHORIZATION_ID:-}
+  DEC005_ALLOWED_DOCUMENT_SHA256: ${DEC005_ALLOWED_DOCUMENT_SHA256:-}
+  DEC005_ALLOWED_SYNTHETIC_SHA256: ${DEC005_ALLOWED_SYNTHETIC_SHA256:-}
+
 services:
   postgres:
     image: postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
@@ -114,7 +136,7 @@ services:
     restart: unless-stopped
     command: ["python", "deploy/api_entry.py"]
     environment:
-      <<: *app-environment
+      <<: [*app-environment, *real-model-environment]
       DEPLOY_REVIEW_MODE: ${DEPLOY_REVIEW_MODE:-offline}
     volumes:
       # Model budget ledger and audit trail for authorized real-model mode.

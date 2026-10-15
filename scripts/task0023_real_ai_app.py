@@ -33,11 +33,15 @@ PRIVATE = ROOT / ".verification/private/TASK-0023"
 resolution = resolve_real_runtime_authorization(os.environ, private_root=PRIVATE)
 key = os.environ.get("DASHSCOPE_API_KEY", "")
 workspace = os.environ.get("BAILIAN_WORKSPACE_ID", "")
+# One live document-authorization source for every egress decision of this process: the
+# per-file registry is re-read when its file changes, so an operator revocation stops the
+# next outbound request without an API restart.
+document_source = resolution.allowed_document_source
 gateway, authorization, budget = create_dec005_gateway(
     api_key=key,
     workspace_id=workspace,
     tenant_id="tenant-a",
-    allowed_document_sha256=resolution.allowed_documents,
+    allowed_document_sha256=document_source,
     ledger_path=resolution.ledger_path,
     audit_path=resolution.model_audit_path,
     authorization_id=resolution.authorization_id,
@@ -53,12 +57,15 @@ review_engine = AuthorizedRealReviewEngine(
     model_policy=real_ai_policy(),
     legal_root=ROOT,
     authorization=authorization,
-    allowed_document_sha256=resolution.allowed_documents,
+    allowed_document_sha256=document_source,
     retriever_factory=create_real_retriever_factory(
         api_key=key,
         workspace_id=workspace,
         budget=budget,
         private_root=PRIVATE,
+        # Serving never builds: the full-corpus index must already exist in the same
+        # modelstate volume, written by scripts/prebuild_legal_vectors.py.
+        allow_build=False,
     ),
 )
 app = create_app(settings, review_engine=review_engine)

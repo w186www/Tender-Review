@@ -43,9 +43,10 @@ function OfflineDemoNotice() {
 }
 
 function OnlineQwenDemoNotice() {
-  const realTender = import.meta.env.VITE_REVIEW_MODE === "dec005-real-qwen";
-  if (import.meta.env.VITE_REVIEW_MODE !== "online-qwen" && !realTender)
-    return null;
+  const mode = import.meta.env.VITE_REVIEW_MODE;
+  const realTender = mode === "dec005-real-qwen";
+  const fullCapability = mode === "dec007-real-qwen";
+  if (mode !== "online-qwen" && !realTender && !fullCapability) return null;
   return (
     <aside
       className="online-qwen-demo-notice"
@@ -54,14 +55,16 @@ function OnlineQwenDemoNotice() {
       role="note"
     >
       <strong>
-        {realTender
+        {fullCapability || realTender
           ? "已配置真实模型路由：阿里云百炼 qwen3.8-flash"
           : "真实在线模型：阿里云百炼 qwen3.8-flash"}
       </strong>
       <span>
-        {realTender
-          ? "DEC-005 仅授权指定文件的脱敏分段；AI 独立发现疑点后进入法规检索与人工复核。实际供应商响应及用量见任务详情。缺少有效法规的疑点保持待核验。"
-          : "仅允许 TASK-0021 合成文件进入 semantic_analysis。法规正文留在本地核验。"}
+        {fullCapability
+          ? "DEC-007 仅授权逐文件登记过的合成文件与脱敏分段外发，并授权全量法规向量索引；未登记文件一律拒绝。AI 独立发现疑点后，法规检索与证据核验仍在本地执行并必须人工复核。缺少有效法规的疑点保持待核验，实际供应商用量见任务详情。"
+          : realTender
+            ? "DEC-005 仅授权指定文件的脱敏分段；AI 独立发现疑点后进入法规检索与人工复核。实际供应商响应及用量见任务详情。缺少有效法规的疑点保持待核验。"
+            : "仅允许 TASK-0021 合成文件进入 semantic_analysis。法规正文留在本地核验。"}
         请求失败会停止审查。
       </span>
     </aside>

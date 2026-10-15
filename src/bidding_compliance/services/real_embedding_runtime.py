@@ -1,4 +1,14 @@
-"""DEC-007 authorized embedding runtime: full-corpus index and batch-bound guard."""
+"""DEC-007 authorized embedding runtime: full-corpus index and batch-bound guard.
+
+Two operations share one durable store, one embedding identity and the single DEC-007
+budget ledger, and they are deliberately not interchangeable:
+
+* the operator prebuild (``scripts/prebuild_legal_vectors.py``) plans and builds/resumes
+  the full authorized index offline;
+* the serving API only ever reuses an index that prebuild already wrote
+  (:func:`require_prebuilt_vector_index`). A missing, partial or integrity-failed index
+  refuses the run instead of embedding hundreds of batches synchronously.
+"""
 
 from __future__ import annotations
 
@@ -182,8 +192,72 @@ def build_authorized_vector_index(
     return manifest, plan
 
 
+def require_prebuilt_vector_index(
+    *,
+    index: LegalIndex,
+    provider: DashScopeEmbeddingProvider,
+    store: SQLiteVectorIndex,
+    publication_id: str,
+    revision_id: str,
+) -> tuple[VectorIndexManifest, BatchPlan]:
+    """Refuse real retrieval unless the operator prebuilt this exact index.
+
+    The serving API runs this before a review is frozen: the planned build identity of the
+    current corpus, embedding identity, publication and revision must already exist as a
+    complete, integrity-verified index in the same durable store the maintenance command
+    (``scripts/prebuild_legal_vectors.py``) wrote. The check is purely local: it approves
+    nothing for egress, touches no budget reservation and can never start a provider call,
+    so a missing or damaged index fails the run instead of launching hundreds of paid
+    embedding batches on the interviewer's first click.
+
+    A mismatch in any part of the identity is a refusal, never a silent rebuild: the
+    embedding identity is bound into the build id, and publication/revision plus the full
+    clause coverage are re-verified against the manifest that was found.
+    """
+    settings = provider.settings
+    plan = authorized_vector_plan(
+        index,
+        max_items=provider.max_batch_items,
+        max_item_bytes=settings.max_text_utf8_bytes,
+        max_batch_bytes=settings.max_batch_utf8_bytes,
+    )
+    if not plan.clause_ids:
+        raise ValueError("legal snapshot has no authorized embeddable clause")
+    build_id = store.planned_build_id(
+        index,
+        provider,
+        publication_id=publication_id,
+        revision_id=revision_id,
+        clause_ids=plan.clause_ids,
+    )
+    try:
+        manifest = store.manifest(build_id)
+    except LookupError as exc:
+        raise RuntimeError(
+            "the authorized vector index for this embedding identity, publication and "
+            "revision is not prebuilt; run scripts/prebuild_legal_vectors.py before "
+            "serving real retrieval"
+        ) from exc
+    if manifest.embedding_identity.identity_sha256 != provider.identity.identity_sha256:
+        raise ValueError("prebuilt vector index uses a different embedding identity")
+    if (manifest.publication_id, manifest.revision_id) != (publication_id, revision_id):
+        raise ValueError("prebuilt vector index belongs to a different legal publication")
+    if manifest.embedding_identity.parameters.get("execution_mode") != "online":
+        raise ValueError("real retrieval cannot reuse contract-test vectors")
+    covered = store.indexed_clause_ids(build_id)
+    if covered != frozenset(plan.clause_ids) or manifest.item_count != len(plan.clause_ids):
+        raise ValueError("prebuilt vector index coverage is incomplete for the frozen corpus")
+    return manifest, plan
+
+
 class AuthorizedRetrieverFactory:
-    """Callable retriever factory owning one authorized embedding runtime and index."""
+    """Callable retriever factory owning one authorized embedding runtime and index.
+
+    ``allow_build`` is the explicit split between the two operations: the serving API
+    passes ``False`` and only ever reuses an index the operator prebuilt, while the
+    offline maintenance path (which builds and resumes the index directly through
+    ``build_authorized_vector_index``) is the only place that may spend build batches.
+    """
 
     def __init__(
         self,
@@ -193,8 +267,10 @@ class AuthorizedRetrieverFactory:
         budget: Dec005BudgetLedger,
         private_root: Path,
         client: httpx.Client | None = None,
+        allow_build: bool = False,
     ) -> None:
         self.private_root = private_root
+        self.allow_build = allow_build
         self.guard = ScopedEmbeddingGuard(budget)
         self.settings = real_embedding_settings(api_key=api_key, workspace_id=workspace_id)
         self.client = client or httpx.Client(trust_env=False, follow_redirects=False, timeout=20)
@@ -218,22 +294,32 @@ class AuthorizedRetrieverFactory:
     ) -> DenseHybridRetriever:
         identity = (publication_id, revision_id)
         if identity not in self.manifests:
-            manifest, plan = build_authorized_vector_index(
-                index=index,
-                provider=self.provider,
-                guard=self.guard,
-                store=self.store,
-                publication_id=publication_id,
-                revision_id=revision_id,
-            )
-            if manifest.embedding_identity.parameters.get("execution_mode") != "online":
-                raise ValueError("real retrieval cannot reuse contract-test vectors")
+            if self.allow_build:
+                manifest, plan = build_authorized_vector_index(
+                    index=index,
+                    provider=self.provider,
+                    guard=self.guard,
+                    store=self.store,
+                    publication_id=publication_id,
+                    revision_id=revision_id,
+                )
+                if manifest.embedding_identity.parameters.get("execution_mode") != "online":
+                    raise ValueError("real retrieval cannot reuse contract-test vectors")
+            else:
+                manifest, plan = require_prebuilt_vector_index(
+                    index=index,
+                    provider=self.provider,
+                    store=self.store,
+                    publication_id=publication_id,
+                    revision_id=revision_id,
+                )
             LOGGER.info(
                 "vector index ready",
                 extra={
                     "event": "vector_index_ready",
                     "batches": len(plan.batches),
                     "excluded_clause_count": len(plan.excluded),
+                    "prebuilt": not self.allow_build,
                 },
             )
             (self.private_root / "vector-manifest.json").write_text(
@@ -258,12 +344,18 @@ def create_real_retriever_factory(
     budget: Dec005BudgetLedger,
     private_root: Path,
     client: httpx.Client | None = None,
+    allow_build: bool = False,
 ) -> Callable[[LegalIndex, str, str], DenseHybridRetriever]:
-    """Authorized dense retriever factory for the server assembly."""
+    """Authorized dense retriever factory for the server assembly.
+
+    The default refuses to build anything: absent an explicitly prebuilt index the caller
+    gets an error, never a synchronous full-corpus embedding run.
+    """
     return AuthorizedRetrieverFactory(
         api_key=api_key,
         workspace_id=workspace_id,
         budget=budget,
         private_root=private_root,
         client=client,
+        allow_build=allow_build,
     )

@@ -43,7 +43,6 @@ from bidding_compliance.ingestion.scanner import ClamAVScanner  # noqa: E402
 from bidding_compliance.persistence.database import make_engine, migrate  # noqa: E402
 from bidding_compliance.persistence.models import (  # noqa: E402
     LegalOperatorGrant,
-    Tenant,
     User,
 )
 from bidding_compliance.services.identity import PASSWORDS  # noqa: E402

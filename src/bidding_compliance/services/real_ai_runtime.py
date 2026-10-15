@@ -7,7 +7,8 @@ import json
 import os
 import re
 import sqlite3
-from collections.abc import Iterable, Mapping
+import threading
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -74,6 +75,9 @@ REAL_RUNTIME_TENANT_ID = "tenant-a"
 REGISTRY_ACTIONS = frozenset({"approve", "revoke"})
 REGISTRY_FIELDS = ("action", "sha256", "document_id", "reason", "approved_at", "approved_by")
 MAX_REASON_CHARACTERS = 500
+# Identity sentinel for "no signature observed yet"; never equal to a real stat signature
+# (a tuple) nor to None (the file is absent).
+_UNSET = object()
 DEC007_LEDGER_FILE = "dec007-budget.sqlite3"
 DEC007_MODEL_AUDIT_FILE = "dec007-model-audit.jsonl"
 DEC007_REGISTRY_FILE = "authorization-registry.jsonl"
@@ -121,11 +125,39 @@ class FileAuthorizationRegistry:
     absent here and is therefore never authorized. Only metadata is stored: this class
     never reads or writes document content. An unreadable or malformed registry fails
     closed instead of degrading to "no approvals" or "all approvals".
+
+    The file is re-read whenever its size or modification time changes, so a long-running
+    API process observes an operator's approval or revocation at the next authorization
+    decision. A revocation therefore takes effect on the next outbound request instead of
+    requiring a restart.
     """
 
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
-        self._records = self._read()
+        self._lock = threading.Lock()
+        self._signature: object = _UNSET
+        self._records: tuple[dict[str, str], ...] = ()
+        self._reload(force=True)
+
+    def _stat_signature(self) -> tuple[int, int] | None:
+        try:
+            stat = self.path.stat()
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise ValueError("the authorization registry is unreadable") from exc
+        return (stat.st_mtime_ns, stat.st_size)
+
+    def _reload(self, *, force: bool = False) -> None:
+        """Re-read the file when it changed; a malformed registry keeps failing closed."""
+        with self._lock:
+            signature = self._stat_signature()
+            if not force and signature == self._signature:
+                return
+            # The pre-read signature is stored on purpose: an append that lands while the
+            # file is being parsed changes the signature again and forces another read.
+            self._records = self._read()
+            self._signature = signature
 
     def _read(self) -> tuple[dict[str, str], ...]:
         if not self.path.exists():
@@ -168,10 +200,12 @@ class FileAuthorizationRegistry:
         }
 
     def records(self) -> tuple[Mapping[str, str], ...]:
-        """The audit trail as loaded; a running process needs a restart to see new lines."""
+        """The audit trail as currently on disk; a changed file is re-read, not cached."""
+        self._reload()
         return self._records
 
     def allowed_sha256(self) -> frozenset[str]:
+        self._reload()
         effective: dict[str, bool] = {}
         for record in self._records:
             effective[record["sha256"]] = record["action"] == "approve"
@@ -209,7 +243,9 @@ class FileAuthorizationRegistry:
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-        self._records = (*self._records, record)
+        # Re-read instead of trusting the in-memory copy: another process may have appended
+        # between the last read and this write, and the audit trail must stay complete.
+        self._reload(force=True)
         return record
 
 
@@ -232,6 +268,19 @@ def resolve_authorized_documents(
     if registry is not None:
         documents |= registry.allowed_sha256()
     return frozenset(documents)
+
+
+# A document authorization is either a frozen allowlist or a callable returning the
+# allowlist as it stands now. The callable form is what lets a running API observe a
+# per-file revocation without a restart: every outbound decision re-resolves it.
+type DocumentAuthorizationSource = frozenset[str] | Callable[[], frozenset[str]]
+
+
+def resolve_document_authorization(
+    source: DocumentAuthorizationSource,
+) -> frozenset[str]:
+    """Current effective allowlist of a static or dynamic authorization source."""
+    return frozenset(source() if callable(source) else source)
 
 
 def real_runtime_scope_sha256(
@@ -275,10 +324,19 @@ class RealRuntimeAuthorization:
 
     @property
     def allowed_documents(self) -> frozenset[str]:
+        """Effective allowlist right now; the registry file is re-read when it changed."""
         registered = (
             self.registry.allowed_sha256() if self.registry is not None else frozenset()
         )
         return self.environment_documents | registered
+
+    def allowed_document_source(self) -> frozenset[str]:
+        """Live view for long-running assemblies: re-resolved at every egress decision.
+
+        Passing this bound method (instead of a snapshot of :attr:`allowed_documents`) is
+        what makes an operator revocation effective on the next outbound request.
+        """
+        return self.allowed_documents
 
     @property
     def registry_path(self) -> Path | None:
@@ -338,14 +396,30 @@ def resolve_real_runtime_authorization(
 
 
 class AuthorizedTenderMinimizer:
-    def __init__(self, allowed_document_sha256: frozenset[str]) -> None:
-        if not allowed_document_sha256 or any(
-            not re.fullmatch(r"[a-f0-9]{64}", item) for item in allowed_document_sha256
-        ):
+    """Last gate before a payload leaves the host.
+
+    The allowlist is resolved from the authorization source on every call, so a per-file
+    revocation recorded by an operator while this process is running is honoured by the
+    very next outbound request: a revoked document stops being minimized (and therefore
+    stops being sent) without a restart. Nothing is authorized implicitly, and an
+    authorization that resolves to the empty set refuses every document.
+    """
+
+    def __init__(self, allowed_document_sha256: DocumentAuthorizationSource) -> None:
+        current = resolve_document_authorization(allowed_document_sha256)
+        if not current or any(not re.fullmatch(r"[a-f0-9]{64}", item) for item in current):
             raise ValueError("explicit approved document hashes are required")
-        self.allowed = allowed_document_sha256
+        self.source = allowed_document_sha256
+
+    @property
+    def allowed(self) -> frozenset[str]:
+        allowed = resolve_document_authorization(self.source)
+        if not allowed or any(not re.fullmatch(r"[a-f0-9]{64}", item) for item in allowed):
+            raise ValueError("no document is currently authorized for external processing")
+        return allowed
 
     def __call__(self, payload: Mapping[str, Any], policy: DataPolicy) -> Mapping[str, Any]:
+        allowed = self.allowed
         from bidding_compliance.services.llm_candidate_discovery import (
             MAX_BATCH_SOURCE_BYTES,
             pii_preflight,
@@ -371,7 +445,7 @@ class AuthorizedTenderMinimizer:
                 if (
                     not isinstance(section, dict)
                     or set(section) != {"section_key", "text", "document_sha256"}
-                    or section["document_sha256"] not in self.allowed
+                    or section["document_sha256"] not in allowed
                     or not isinstance(section["text"], str)
                     or not section["text"].strip()
                     or not isinstance(section["section_key"], str)
@@ -405,7 +479,7 @@ class AuthorizedTenderMinimizer:
                 for excerpt in excerpts:
                     text = excerpt.get("quote")
                     if (
-                        excerpt.get("document_sha256") not in self.allowed
+                        excerpt.get("document_sha256") not in allowed
                         or not isinstance(text, str)
                         or hashlib.sha256(text.encode()).hexdigest() != excerpt.get("quote_sha256")
                     ):
@@ -468,7 +542,7 @@ def create_dec005_gateway(
     api_key: str,
     workspace_id: str,
     tenant_id: str,
-    allowed_document_sha256: frozenset[str],
+    allowed_document_sha256: DocumentAuthorizationSource,
     ledger_path: Path,
     audit_path: Path,
     transport: httpx.AsyncBaseTransport | None = None,
@@ -479,9 +553,12 @@ def create_dec005_gateway(
     if not api_key or not api_key.strip() or not workspace_id or not workspace_id.strip():
         raise ValueError("real AI requires server-side DASHSCOPE_API_KEY and BAILIAN_WORKSPACE_ID")
     # The ledger scope binds the static part of the authorization only; per-file registry
-    # approvals stay dynamic so recording one never invalidates (and never resets) it.
-    scope_source = allowed_document_sha256 if scope_documents is None else scope_documents
-    if not scope_source <= allowed_document_sha256:
+    # approvals stay dynamic so recording one never invalidates (and never resets) it. A
+    # dynamic source is resolved here once for the scope check and then handed to the
+    # minimizer unresolved, so every outbound request re-resolves it.
+    allowed_now = resolve_document_authorization(allowed_document_sha256)
+    scope_source = allowed_now if scope_documents is None else scope_documents
+    if not scope_source <= allowed_now:
         raise ValueError("ledger scope documents must be part of the authorized documents")
     scope = real_runtime_scope_sha256(
         authorization_id=authorization_id,
@@ -535,18 +612,30 @@ class AuthorizedRealReviewEngine(ReviewEngine):
         self,
         *,
         authorization: AuthorizationPolicy,
-        allowed_document_sha256: frozenset[str],
+        allowed_document_sha256: DocumentAuthorizationSource,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.authorization = authorization
-        self.allowed_document_sha256 = allowed_document_sha256
+        self.authorized_document_source = allowed_document_sha256
         self.enable_llm_discovery = True
+
+    @property
+    def allowed_document_sha256(self) -> frozenset[str]:
+        """Effective allowlist at this instant.
+
+        A dynamic source re-reads the per-file registry when its file changed, so an
+        operator revocation applies to a already-running process without a restart.
+        """
+        return resolve_document_authorization(self.authorized_document_source)
+
+    def _require_authorized_documents(self, hashes: set[str]) -> None:
+        if not hashes or not hashes.issubset(self.allowed_document_sha256):
+            raise PermissionError("DEC-005 does not authorize external processing of this document")
 
     def _freeze_run(self, principal: Principal, request: ReviewRequest) -> ReviewRunHandle:
         hashes = {item.raw_source_sha256 for item in request.document_requests}
-        if not hashes or not hashes.issubset(self.allowed_document_sha256):
-            raise PermissionError("DEC-005 does not authorize external processing of this document")
+        self._require_authorized_documents(hashes)
         return super()._freeze_run(principal, request)
 
     async def _invoke(
@@ -561,8 +650,7 @@ class AuthorizedRealReviewEngine(ReviewEngine):
     ) -> dict[str, Any]:
         # _invoke only receives a server-frozen, authorized run. Never trust model metadata.
         hashes = {item["raw_source_sha256"] for item in row.snapshot["document_requests"]}
-        if not hashes or not hashes.issubset(self.allowed_document_sha256):
-            raise PermissionError("DEC-005 does not authorize external processing of this document")
+        self._require_authorized_documents(hashes)
         semantic = hashlib.sha256(
             f"{principal.tenant_id}:{row.review_task_id}:{row.run_id}:semantic".encode()
         ).hexdigest()

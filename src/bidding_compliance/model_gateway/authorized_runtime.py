@@ -29,8 +29,10 @@ AUTHORIZATION_LIMITS: dict[str, dict[str, Any]] = {
     AUTHORIZATION_ID: {"llm": 30, "embedding": 200, "cny": Decimal("20")},
     SEMANTIC_AUTHORIZATION_ID: {"llm": 15, "embedding": 0, "cny": Decimal("5")},
     # DEC-007 is a separate authorization with its own ledger file and scope; it neither
-    # reuses nor resets the DEC-005/DEC-006 counters above.
-    FULL_CAPABILITY_AUTHORIZATION_ID: {"llm": 300, "embedding": 400, "cny": Decimal("30")},
+    # reuses nor resets the DEC-005/DEC-006 counters above. Building and querying share one
+    # ledger (no split build/query budgets) with 800 embedding batches: the full corpus
+    # needs about 312 of them, the rest is query headroom for the demo.
+    FULL_CAPABILITY_AUTHORIZATION_ID: {"llm": 300, "embedding": 800, "cny": Decimal("30")},
 }
 
 

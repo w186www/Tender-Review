@@ -36,6 +36,8 @@ TASK-0025 已完成证据分类加固、账本连续性防护与 CI 超时修复
 
 TASK-0026 已完成单机容器化部署的编排、持久化、反向代理与本地端到端验收（未改业务代码）；部署与运维见 [`deploy/README-demo.md`](../deploy/README-demo.md)，实测证据、资源数据与真实 Qwen 阻断见 [TASK-0026 验证记录](development/TASK-0026-validation.md)；上云前的审计与测算保留在[面试演示部署方案](development/DEPLOYMENT-DEMO.md)。目标 ECS 上尚未部署。
 
+TASK-0027（DEC-007 完整能力）进行中：验收前 9 项阻断问题已处置（compose 只向 api 注入真实模型变量、服务端强制复用预构建索引、预构建与 API 身份一致性校验、撤销授权即时生效、前端 `dec007-real-qwen` 说明、800 批/¥30 边界测试、文档补齐）；代码与测试未提交，首次真实调用仍待批准，线上保持离线模式。命令与真实数字见 [TASK-0027 验证记录](development/TASK-0027-validation.md)。
+
 - 功能：`FR-###`
 - 安全：`SEC-###`
 - 非功能：`NFR-###`

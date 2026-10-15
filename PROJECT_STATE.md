@@ -2,6 +2,40 @@
 
 更新时间：2026-10-16
 
+## 进行中：TASK-0027（DEC-007 完整能力）验收前阻断问题已处置，等待复核提交与首次真实调用批准
+
+- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `fced54b`
+  （DEC-007 方案 A 已实现）；**本轮改动未提交**，由用户复核后自行提交。
+- 本轮完成 9 项验收前阻断问题，逐条命令与真实数字见
+  [TASK-0027 验证记录](docs/development/TASK-0027-validation.md)：
+  1. `docker-compose.demo.yml` 新增 `x-real-model-environment` 锚点，真实模型变量**只注入 api**
+     （worker/init 零注入，由解析 compose YAML 的测试固定）；全部 `${VAR:-}` 可选，留空时
+     `DEPLOY_REVIEW_MODE=offline` 仍正常启动；`deploy/demo.env.example` 只留注释占位。
+  2. 服务端真实检索**必须复用预构建索引**：`AuthorizedRetrieverFactory.allow_build` 默认 False、
+     API 装配显式传 False；缺索引/未完成/校验失败直接拒绝，**零供应商调用**；维护命令
+     `scripts/prebuild_legal_vectors.py` 仍可独立建库与断点续建。
+  3. 预构建与 API 的 embedding 身份、发布版本、`modelstate` 卷与账本 scope 一致性在正式外发前
+     校验，四种不一致各自被拒（`planned_build_id` + manifest 身份校验）。
+  4. 逐文件授权注册表按文件 mtime/size 重读，**撤销对运行中的 API 立即生效**（`_freeze_run`/
+     `_invoke` 与出站 minimizer 每次判定重解析）；测试以"进程已启动 → 外部 revoke → 外发被拒"
+     证明（含 gateway 级：撤销后第二次请求 0 次供应商外发）。
+  5. 前端新增 `dec007-real-qwen` 模式说明（授权范围 + 逐文件白名单 + 本地检索/人工复核），
+     保留 `offline-deterministic`/`online-qwen`/`dec005-real-qwen` 既有模式；`Dockerfile.web` 与
+     env 模板注释同步。
+  6. DEC-007 Embedding 上限 400 → **800**（LLM 300、¥30、授权 ID `DEC-007-2026-10-16` 不变，
+     建库与查询共用同一账本、不重置 DEC-005/006），并补 800 允许/801 拒绝、¥30 耗尽即拒绝
+     （批次仍有余额）、失败与未知用量保留预留且不自动补发的边界测试。
+  7. 文档补齐：DEC-007 修订说明、`deploy/README-demo.md` 逐文件授权运维步骤（approve/list/
+     revoke、立即生效语义、与账本 scope 的关系）、`CHANGELOG.md`、任务 YAML 证据路径。
+  8. 已运行 Focused/Full/`scripts/verify_repo.py`、ruff、mypy 与前端四项检查；命令与数字见验证记录。
+  9. **线上保持离线**：未执行任何部署或容器操作，未访问任何付费供应商，`47.83.132.211` 未触碰。
+- 仍未完成/待批准：git 提交与远程 CI 观察；DEC-007 首次真实调用申请（批次、费用、文件哈希、
+  外发数据范围）；线上切换到 `authorized-real` 与预构建索引。
+- 不可宣称：任何风险的违法认定、任何条款已核验适用、生产级防回滚；本地账本只挡住"审计存在而
+  账本被删/空"的明显回滚形态。
+
+以下保留 TASK-0026 上线状态与更早的历史记录。
+
 ## 当前有效状态：TASK-0026 已在阿里云 ECS 上线并通过公网 HTTPS 验收
 
 - **线上地址：https://47.83.132.211**（阿里云 ECS 香港 B，Ubuntu 22.04，2 vCPU / 7.5 GiB / 40 GB，

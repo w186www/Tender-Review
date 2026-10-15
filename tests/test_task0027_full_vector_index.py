@@ -9,6 +9,7 @@ import json
 import logging
 import sqlite3
 import struct
+import sys
 from decimal import Decimal
 from pathlib import Path
 
@@ -452,6 +453,211 @@ def test_online_factory_reuses_a_prebuilt_index_without_a_supplier_request(tmp_p
     assert second.build_id == prebuilt.build_id and online_transport.calls == []
 
 
+def serving_factory(tmp_path, private_root, ledger):
+    """The API assembly: an explicitly empty-index-refusing factory plus its transport."""
+    transport = CountingTransport()
+    factory = create_real_retriever_factory(
+        api_key="example-synthetic-credential",
+        workspace_id="synthetic",
+        budget=ledger,
+        private_root=private_root,
+        client=httpx.Client(transport=transport, trust_env=False),
+    )
+    assert factory.allow_build is False  # serving never builds; the CLI path does
+    return factory, transport
+
+
+def test_serving_api_refuses_a_missing_index_without_any_provider_call(tmp_path):
+    index = make_snapshot(tmp_path, 4)
+    ledger, _guard, _transport, _provider = guarded_runtime(tmp_path)
+    factory, transport = serving_factory(tmp_path, tmp_path / "private", ledger)
+
+    with pytest.raises(RuntimeError, match="not prebuilt"):
+        factory(index, "pub-a", "rev-a")
+    assert transport.calls == []
+    assert ledger.summary()["embedding_batches"] == 0
+    assert not (tmp_path / "private" / "vector-manifest.json").exists()
+
+
+def test_serving_api_refuses_an_unfinished_or_damaged_index(tmp_path):
+    index = make_snapshot(tmp_path, 4)
+    private_root = tmp_path / "private"
+    ledger, guard, _transport, provider = guarded_runtime(tmp_path)
+    store_path = private_root / "legal-vectors.sqlite3"
+    built, _plan = build_authorized_vector_index(
+        index=index,
+        provider=provider,
+        guard=guard,
+        store=SQLiteVectorIndex(store_path),
+        publication_id="pub-a",
+        revision_id="rev-a",
+    )
+    first, first_transport = serving_factory(tmp_path, private_root, ledger)
+    assert first(index, "pub-a", "rev-a").build_id == built.build_id
+    assert first_transport.calls == []
+
+    def rewrite(statement: str, parameters: tuple[object, ...] = ()) -> None:
+        with sqlite3.connect(store_path) as db:
+            db.execute(statement, parameters)
+
+    # An index that is still being built is not what a serving API may reuse.
+    rewrite(
+        "UPDATE vector_build SET status='building' WHERE build_id = ?", (built.build_id,)
+    )
+    unfinished, unfinished_transport = serving_factory(tmp_path, private_root, ledger)
+    with pytest.raises(RuntimeError, match="not prebuilt"):
+        unfinished(index, "pub-a", "rev-a")
+    assert unfinished_transport.calls == []
+    rewrite(
+        "UPDATE vector_build SET status='complete' WHERE build_id = ?", (built.build_id,)
+    )
+
+    # A cached vector that no longer matches its recorded checksum fails the integrity
+    # check; the API refuses instead of repairing (or re-embedding) the damaged row.
+    with sqlite3.connect(store_path) as db:
+        (clause_id,) = db.execute("SELECT clause_id FROM vector_cache LIMIT 1").fetchone()
+    rewrite(
+        "UPDATE vector_cache SET vector_bytes = zeroblob(length(vector_bytes)) "
+        "WHERE clause_id = ?",
+        (clause_id,),
+    )
+    damaged, damaged_transport = serving_factory(tmp_path, private_root, ledger)
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        damaged(index, "pub-a", "rev-a")
+    assert damaged_transport.calls == []
+
+    # A cache entry that disappeared leaves the build incomplete.
+    rewrite("DELETE FROM vector_cache WHERE clause_id = ?", (clause_id,))
+    incomplete, incomplete_transport = serving_factory(tmp_path, private_root, ledger)
+    with pytest.raises(ValueError, match="missing for an index item|coverage"):
+        incomplete(index, "pub-a", "rev-a")
+    assert incomplete_transport.calls == []
+    assert ledger.summary()["embedding_batches"] == 1  # only the prebuild batch
+
+
+def test_serving_api_requires_the_prebuilt_publication_revision_identity_and_volume(tmp_path):
+    index = make_snapshot(tmp_path, 4)
+    private_root = tmp_path / "private"
+    ledger, guard, _transport, provider = guarded_runtime(tmp_path)
+    build_authorized_vector_index(
+        index=index,
+        provider=provider,
+        guard=guard,
+        store=SQLiteVectorIndex(private_root / "legal-vectors.sqlite3"),
+        publication_id="pub-a",
+        revision_id="rev-a",
+    )
+
+    # A different publication/revision is a different build identity: never a silent reuse.
+    publication, publication_transport = serving_factory(tmp_path, private_root, ledger)
+    for publication_id, revision_id in (("pub-b", "rev-a"), ("pub-a", "rev-b")):
+        with pytest.raises(RuntimeError, match="not prebuilt"):
+            publication(index, publication_id, revision_id)
+    assert publication_transport.calls == []
+
+    # A different modelstate volume holds no index at all.
+    other_volume, volume_transport = serving_factory(tmp_path, tmp_path / "other-volume", ledger)
+    with pytest.raises(RuntimeError, match="not prebuilt"):
+        other_volume(index, "pub-a", "rev-a")
+    assert volume_transport.calls == []
+
+    # The budget ledger is the same durable file, and only that scope may continue it.
+    reopened = Dec005BudgetLedger(
+        tmp_path / "budget.sqlite3", scope_sha256="a" * 64,
+        authorization_id=FULL_CAPABILITY_AUTHORIZATION_ID,
+    )
+    assert reopened.summary()["embedding_batches"] == 1
+    with pytest.raises(ValueError, match="different scope"):
+        Dec005BudgetLedger(
+            tmp_path / "budget.sqlite3", scope_sha256="e" * 64,
+            authorization_id=FULL_CAPABILITY_AUTHORIZATION_ID,
+        )
+
+
+def test_serving_api_refuses_an_index_built_by_a_different_embedding_identity(tmp_path):
+    """Any identity difference changes the build id, so the serving lookup finds nothing.
+
+    Here the stored index was produced by a contract-test (mock transport) provider while
+    the serving provider runs online: the two identities have different
+    ``identity_sha256`` values and the same publication may never be served from the other
+    identity's vectors.
+    """
+    index = make_snapshot(tmp_path, 4)
+    private_root = tmp_path / "private"
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "id": "synthetic-request",
+                "model": body["model"],
+                "object": "list",
+                "usage": {
+                    "total_tokens": len(body["input"]),
+                    "prompt_tokens": len(body["input"]),
+                },
+                "data": [
+                    {
+                        "index": position,
+                        "object": "embedding",
+                        "embedding": [0.0] * body["dimensions"],
+                    }
+                    for position in range(len(body["input"]))
+                ],
+            },
+        )
+
+    ledger, _guard, _transport, _provider = guarded_runtime(tmp_path)
+    contract_provider = DashScopeEmbeddingProvider(
+        real_embedding_settings(api_key="example-synthetic-credential", workspace_id="synthetic"),
+        client=httpx.Client(transport=httpx.MockTransport(mock_handler), trust_env=False),
+    )
+    assert contract_provider.execution_mode == "mock_contract"
+    store = SQLiteVectorIndex(private_root / "legal-vectors.sqlite3")
+    build_authorized_vector_index(
+        index=index,
+        provider=contract_provider,
+        guard=ScopedEmbeddingGuard(ledger),
+        store=store,
+        publication_id="pub-a",
+        revision_id="rev-a",
+    )
+    with sqlite3.connect(store.path) as db:
+        record = db.execute("SELECT identity_json FROM vector_build").fetchall()
+    assert len(record) == 1
+    assert json.loads(record[0][0])["parameters"]["execution_mode"] == "mock_contract"
+
+    factory, transport = serving_factory(tmp_path, private_root, ledger)
+    assert factory.provider.identity.dimensions == 1024
+    assert factory.provider.execution_mode == "online"
+    with pytest.raises(RuntimeError, match="not prebuilt"):
+        factory(index, "pub-a", "rev-a")
+    assert transport.calls == []
+
+
+def test_maintenance_command_plans_the_full_corpus_locally(tmp_path, capsys, monkeypatch):
+    """The CLI still owns the build: its local plan covers the frozen corpus."""
+    import prebuild_legal_vectors
+
+    monkeypatch.setattr(
+        sys, "argv", ["prebuild_legal_vectors.py", "--dry-run", "--private-root", str(tmp_path)]
+    )
+    assert prebuild_legal_vectors.main() == 0
+    counts = json.loads(capsys.readouterr().out)
+    # The versioned corpus (knowledge/legal, config/legal) is a frozen snapshot: 3120
+    # clauses, 3112 embeddable, 8 over the per-item ceiling. A change here is a corpus
+    # change and must be re-measured, not silently accepted.
+    assert counts["source_clause_count"] == 3120
+    assert counts["authorized_clause_count"] == 3112
+    assert counts["excluded_overlong_clause_count"] == 8
+    assert counts["planned_batch_count"] == 312
+    assert counts["max_items_per_batch"] == 10
+    assert counts["max_item_utf8_bytes"] == 8192
+    assert counts["max_batch_utf8_bytes"] == 32768
+    assert not (tmp_path / "legal-vectors.sqlite3").exists()
+
+
 def test_overlong_clause_is_reported_and_never_leaves_the_host(tmp_path):
     index = make_snapshot(tmp_path, 3, overlong_chars=2800)
     ledger, guard, transport, provider = guarded_runtime(tmp_path)
@@ -475,12 +681,14 @@ def test_overlong_clause_is_reported_and_never_leaves_the_host(tmp_path):
 def test_runtime_reports_the_excluded_overlong_clause_count(tmp_path, caplog):
     index = make_snapshot(tmp_path, 3, overlong_chars=2800)
     ledger, _guard, _transport, _provider = guarded_runtime(tmp_path)
+    # The maintenance path may build; the reporting of excluded clauses is the same.
     factory = create_real_retriever_factory(
         api_key="example-synthetic-credential",
         workspace_id="synthetic",
         budget=ledger,
         private_root=tmp_path / "private",
         client=httpx.Client(transport=CountingTransport(), trust_env=False),
+        allow_build=True,
     )
     name = "bidding_compliance.services.real_embedding_runtime"
     with caplog.at_level(logging.INFO, logger=name):
