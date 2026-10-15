@@ -198,6 +198,10 @@ services:
       # The http-01 challenge directory, shared with the certbot service. Serving this path
       # is the only thing that makes opening port 80 acceptable.
       - ./acme-webroot:/var/www/acme
+      # Mounted rather than only baked into the image: routing rules are deployment
+      # configuration, and a change to them must not require an image rebuild (the image
+      # still ships a copy as the default).
+      - ./deploy/nginx-locations.inc:/etc/nginx/includes/locations.inc:ro
     depends_on:
       - api
     networks: [edge]
