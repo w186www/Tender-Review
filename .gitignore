@@ -24,4 +24,9 @@ secrets/
 .verification/
 # Deployment backups contain the full database and uploaded objects.
 backups/
+# TLS material and the ACME account/archive must never be committed. The private key
+# lives here and nowhere else.
+certs/
+certbot/
+acme-webroot/
 

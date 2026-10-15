@@ -1,0 +1,17 @@
+[Unit]
+Description=Tender-Review ACME renewal check (short-lived IP certificate)
+Documentation=file:/opt/tender-review/docs/development/TASK-0026-cloud-runbook.md
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Must match the deployment directory; adjust if the repository lives elsewhere.
+WorkingDirectory=/opt/tender-review
+ExecStart=/opt/tender-review/deploy/certbot.sh renew
+# Renewal is threshold-gated inside certbot.sh: the timer fires twice a day, but a new
+# certificate is only requested when less than 2 days remain, keeping the issue rate near
+# 1.5 per week against Let's Encrypt's limit of 5 per 7 days for the same IP.
+TimeoutStartSec=600
+Nice=10

@@ -1,0 +1,14 @@
+[Unit]
+Description=Run the Tender-Review ACME renewal check twice daily
+Documentation=file:/opt/tender-review/docs/development/TASK-0026-cloud-runbook.md
+
+[Timer]
+# Twice a day, with a randomised delay so the ACME endpoint is not hit at a fixed instant.
+OnCalendar=*-*-* 00,12:00:00
+RandomizedDelaySec=1h
+# Catch up if the host was off when the timer should have fired.
+Persistent=true
+Unit=tender-certbot-renew.service
+
+[Install]
+WantedBy=timers.target

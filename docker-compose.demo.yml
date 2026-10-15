@@ -126,7 +126,6 @@ services:
         condition: service_healthy
     networks: [backend, edge]
     stop_grace_period: 30s
-
   worker:
     build: *api-build
     image: tender-review-api:${IMAGE_TAG:-demo}
@@ -195,10 +194,28 @@ services:
       # internet before TLS and access protection are in place. Set HTTP_BIND=0.0.0.0
       # only behind a TLS terminator.
       - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-80}:8080"
+    volumes:
+      # The http-01 challenge directory, shared with the certbot service. Serving this path
+      # is the only thing that makes opening port 80 acceptable.
+      - ./acme-webroot:/var/www/acme
     depends_on:
       - api
     networks: [edge]
     security_opt: ["no-new-privileges:true"]
+
+  # Official ACME client. One-shot, never part of a normal `up`:
+  #   docker compose --profile certbot run --rm certbot certonly --webroot -w /var/www/acme \
+  #     --ip-address <ip> --preferred-profile shortlived ...
+  # State lives in ./certbot on the host so a container rebuild cannot lose the account,
+  # the archive or the renewal configuration.
+  certbot:
+    image: certbot/certbot:v5.8.0
+    profiles: ["certbot"]
+    restart: "no"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./acme-webroot:/var/www/acme
+    networks: [edge]
 
 volumes:
   pgdata:

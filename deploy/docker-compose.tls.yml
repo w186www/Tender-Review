@@ -1,22 +1,23 @@
-# TLS overlay for the single-host demo.
+# Public-exposure overlay. Without it nginx stays on loopback and nothing is reachable
+# from the network.
 #
-#   docker compose --env-file deploy/.env \
-#     -f docker-compose.demo.yml -f deploy/docker-compose.tls.yml up -d nginx
+#   ACME bootstrap (before any certificate exists) — serves only the challenge path:
+#     NGINX_CONF=nginx-acme.conf docker compose -f docker-compose.demo.yml \
+#       -f deploy/docker-compose.tls.yml up -d nginx
 #
-# Requires TLS_CERT_DIR in deploy/.env, holding fullchain.pem and privkey.pem
-# (for example /etc/letsencrypt/live/demo.example.com).
+#   HTTPS service (after the certificate is deployed):
+#     NGINX_CONF=nginx-demo-tls.conf docker compose -f docker-compose.demo.yml \
+#       -f deploy/docker-compose.tls.yml up -d nginx
 #
-# Ports: 443 is published, and HTTP_PORT stays published so the redirect in
-# deploy/nginx-demo-tls.conf can bounce plain HTTP to HTTPS. Close HTTP in the cloud
-# security group once the certificate is in place.
+# TLS_CERT_DIR holds REAL files, never certbot's live/ symlinks: those point into
+# /etc/letsencrypt/archive and would dangle inside the container.
 services:
   nginx:
     volumes:
-      - ${TLS_CERT_DIR:?set TLS_CERT_DIR in deploy/.env}:/etc/nginx/tls:ro
-      - ./deploy/nginx-demo-tls.conf:/etc/nginx/conf.d/default.conf:ro
-    # With TLS terminating here both ports become public on purpose: 443 carries the
-    # encrypted session and 80 only redirects to it, so no credential ever travels in
-    # clear text. The base compose file keeps nginx on loopback until this overlay is used.
+      - ./deploy/${NGINX_CONF:-nginx-acme.conf}:/etc/nginx/conf.d/default.conf:ro
+      - ${TLS_CERT_DIR:-./certs}:/etc/nginx/tls:ro
+    # `!override` replaces the base list instead of appending to it, so the loopback-only
+    # mapping cannot survive into a public deployment.
     ports: !override
       - "${HTTP_PORT:-80}:8080"
       - "${HTTPS_PORT:-443}:8443"

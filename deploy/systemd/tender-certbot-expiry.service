@@ -1,0 +1,13 @@
+[Unit]
+Description=Tender-Review certificate expiry guard
+Documentation=file:/opt/tender-review/docs/development/TASK-0026-cloud-runbook.md
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tender-review
+ExecStart=/opt/tender-review/deploy/certbot.sh check-expiry
+# Exits non-zero when the deployed certificate has under 48 hours left, which surfaces as a
+# failed unit (`systemctl --failed`) and an ERROR line in `journalctl -u` plus a marker file
+# at certbot/EXPIRING. No external notification channel is configured for this deployment.
+TimeoutStartSec=120
