@@ -263,6 +263,22 @@ def render_docx(report: dict[str, Any]) -> bytes:
                 document.add_paragraph(f"“{law['quote']}”")
         else:
             document.add_paragraph("法规或规则证据：本条结果未包含可引用的法规条款，不补造条文。")
+        references = finding.get("legal_references", [])
+        if references:
+            document.add_paragraph(
+                "可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）："
+            )
+            for reference_item in references[:5]:
+                label = (
+                    f"{reference_item.get('title', '')} "
+                    f"{reference_item.get('article') or '条款未提供'}"
+                )
+                document.add_paragraph(
+                    f"参考法规：{label}；版本状态 "
+                    f"{reference_item.get('version_status')}；未确认原因 "
+                    f"{reference_item.get('confirmation_reason')}。"
+                )
+                document.add_paragraph(f"“{reference_item.get('quote', '')}”")
     scope_lines = _assessment_scope_lines(report)
     if scope_lines:
         document.add_heading("四、本次运行范围与限制", level=1)
@@ -462,6 +478,19 @@ def render_pdf(report: dict[str, Any]) -> bytes:
                 story.append(para(law["quote"]))
         else:
             story.append(para("法规或规则证据：未提供可引用条款，不补造条文。"))
+        references = item.get("legal_references", [])
+        if references:
+            story.append(para("可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）："))
+            for reference_item in references[:5]:
+                story.append(
+                    para(
+                        f"参考法规：{reference_item.get('title', '')} "
+                        f"{reference_item.get('article') or '条款未提供'}；版本状态 "
+                        f"{reference_item.get('version_status')}；未确认原因 "
+                        f"{reference_item.get('confirmation_reason')}。"
+                    )
+                )
+                story.append(para(f"“{reference_item.get('quote', '')}”"))
     scope_lines = _assessment_scope_lines(report)
     if scope_lines:
         story.append(para("四、本次运行范围与限制", "CJKHeading"))

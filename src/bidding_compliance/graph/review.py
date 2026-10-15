@@ -1355,6 +1355,32 @@ def build_review_graph(
                     }
                 )
                 legal_evidence = [hit.evidence.model_dump(mode="json") for hit in verified_laws]
+                # Retrieved clauses that are not confirmable stay visible as references, so the
+                # report never hides that law was found without verified applicability. They are
+                # revalidated against the frozen publication but never counted as evidence.
+                legal_references: list[dict[str, Any]] = []
+                if candidate_result is not None:
+                    for hit_payload in candidate_result["result"]["hits"]:
+                        if hit_payload["evidence_id"] in selected_laws:
+                            continue
+                        reference_hit, _ = verify_legal_hit(
+                            session,
+                            principal,
+                            publication_id=row.publication_id or "",
+                            revision_id=row.revision_id or "",
+                            result_payload=candidate_result["result"],
+                            hit_payload=hit_payload,
+                        )
+                        if reference_hit is None:
+                            continue
+                        legal_references.append(
+                            {
+                                **reference_hit.evidence.model_dump(mode="json"),
+                                "confirmation_reason": reference_hit.reason,
+                                "version_status": reference_hit.version_status,
+                                "applicable": False,
+                            }
+                        )
                 category = candidate.category
                 finding_id = hashlib.sha256(
                     f"{principal.tenant_id}:{row.review_task_id}:{row.run_id}:{candidate.candidate_id}".encode()
@@ -1395,6 +1421,7 @@ def build_review_graph(
                     if model
                     else "由审查员核对该候选及其证据后决定。",
                     "confidence": model.get("confidence") if model else None,
+                    "legal_references": legal_references,
                 }
                 if conflicts:
                     finding["conflicts"] = conflicts
