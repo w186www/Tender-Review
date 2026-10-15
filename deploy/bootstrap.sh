@@ -93,6 +93,26 @@ wait_for_init() {
   "${COMPOSE[@]}" --profile init run --rm init deploy/demo_init.py storage
 }
 
+verify_legal_checkout() {
+  # .gitattributes pins knowledge/legal/**/*.txt to CRLF because the hashes recorded in
+  # config/legal/manifest.json were captured from CRLF files. Switching branches does not
+  # re-smudge files that are already checked out (their normalised content still matches
+  # the index), so a clone that started on a branch without that rule keeps LF bytes and
+  # every corpus hash then mismatches. The corpus is baked into the API image, so catching
+  # it here is far cheaper than the opaque 422 the API returns later.
+  local bad
+  bad="$(git -C "${REPO_ROOT}" ls-files --eol knowledge/legal 2>/dev/null \
+    | awk '$1 == "i/lf" && $2 == "w/lf" && /eol=crlf/ {n++} END {print n + 0}')"
+  if [ "${bad}" != "0" ]; then
+    fail "legal corpus line endings are wrong: ${bad} files are LF but must be CRLF.
+       Fix with:
+         rm -rf ${REPO_ROOT}/knowledge/legal && git -C ${REPO_ROOT} checkout -- knowledge/legal
+       then re-run './deploy/bootstrap.sh init'. The API image bakes this corpus in, so it
+       must be rebuilt afterwards as well."
+  fi
+  printf '   legal corpus line endings verified\n'
+}
+
 detect_socket_gid() {
   # The ingestion worker runs as uid 65532 and talks to the Docker socket to start the
   # sandboxed parser. The socket's owning group differs per host (root on Docker Desktop,
@@ -114,6 +134,8 @@ detect_socket_gid() {
 bootstrap() {
   require_docker
   write_env
+  log "verifying the checked-out legal corpus before it gets baked into the images"
+  verify_legal_checkout
   build_parser_image
   log "building application and web images"
   "${COMPOSE[@]}" build api nginx

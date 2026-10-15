@@ -56,18 +56,34 @@ sudo usermod -aG docker "$USER"   # 重新登录后生效
 ## 四、部署
 
 ```bash
-git clone https://github.com/w186www/Tender-Review.git
-cd Tender-Review
-git checkout work/TASK-0026
+git clone --branch work/TASK-0026 --single-branch \
+  https://github.com/w186www/Tender-Review.git /opt/tender-review
+cd /opt/tender-review
 
 ./deploy/bootstrap.sh init
 ```
 
-`init` 会自动完成：生成 `deploy/.env` 随机密钥 → 构建隔离 parser 镜像并固化镜像 ID →
-构建 api/web 镜像 → 拉起 PostgreSQL/MinIO/ClamAV → 迁移与建号建桶 → 等待病毒库 → 拉起应用 →
-发布法规快照 → 打印演示账号。
+> **必须用 `--branch work/TASK-0026 --single-branch` 克隆。** 不要先克隆默认分支再
+> `git checkout work/TASK-0026`：分支切换**不会**重新按属性重写已检出的文件，
+> 而 `knowledge/legal/**/*.txt` 由 `.gitattributes` 固定为 CRLF（清单里的哈希是在 CRLF 文件上
+> 记录的）。先克隆 `main` 会留下 LF 字节，法规库 86 个制品的哈希全部不匹配，
+> 表现为部署后期一个难以定位的 `422`。`bootstrap.sh` 现在会在构建镜像前直接拦下这种情况
+> 并给出修复命令。
 
-首次执行时间较长（镜像构建 + ClamAV 首次下载约 250 MB 病毒库）。
+`init` 依次完成，每一步都可重复执行：
+
+1. 生成 `deploy/.env`（随机密码、签名密钥、MinIO 凭据；文件权限 600，且已在 `.gitignore` 里）。
+2. 校验法规库换行与清单一致。
+3. 构建**隔离 parser 镜像**，把 `docker image inspect` 得到的固定镜像 ID 写入 `PARSER_IMAGE`。
+4. 构建 api 与 web 镜像。
+5. 拉起 PostgreSQL、MinIO、ClamAV。
+6. 执行 `deploy/demo_init.py storage`：跑迁移 → 创建**非超级用户、NOBYPASSRLS** 的应用角色并授权 →
+   建租户与账号 → 建对象桶 → 等待 ClamAV 病毒库可用。
+7. 拉起 api、worker、nginx，再执行 `deploy/demo_init.py legal`：
+   通过真实鉴权 API 发布初始法规快照。
+8. 打印账号名与访问地址（**不打印密码**）。
+
+访问地址默认为 `http://127.0.0.1/`（`HTTP_BIND` + `HTTP_PORT`），**不对公网开放**。
 
 ## 五、安全组与访问
 
