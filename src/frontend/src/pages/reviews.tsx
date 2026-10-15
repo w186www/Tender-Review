@@ -850,6 +850,47 @@ function FindingCard({
           </ul>
         </div>
       )}
+      {finding.legal_references && finding.legal_references.length > 0 && (
+        <div className="evidence-refs">
+          <h4>可能相关法规（适用性未经确认，仅供参考，不计入已核验证据）</h4>
+          <ul>
+            {finding.legal_references.map((item) => {
+              const reference = item as {
+                evidence_id?: string;
+                title?: string;
+                article?: string | null;
+                quote?: string;
+                source_uri?: string;
+                version_status?: string;
+                confirmation_reason?: string;
+              };
+              const referenceKey = `${reference.evidence_id ?? reference.title ?? "reference"}:${
+                reference.article ?? "no-article"
+              }`;
+              return (
+                <li key={referenceKey}>
+                  <strong>
+                    {reference.title ?? "参考法规"}
+                    {reference.article ? ` · ${reference.article}` : ""}
+                  </strong>
+                  {reference.quote && <span>{reference.quote}</span>}
+                  {reference.source_uri && <code>{reference.source_uri}</code>}
+                  <small>
+                    版本核验：
+                    {apiEnumLabel(reference.version_status ?? "unverified")}
+                    {" · "}适用性：待确认
+                    {reference.confirmation_reason
+                      ? `（${apiEnumLabel(reference.confirmation_reason)}）`
+                      : ""}
+                    {" · "}
+                    仍需人工核验：该条文尚未完成版本与适用性核验，不能作为违反依据。
+                  </small>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       <div className="citation-actions">
         <Button onClick={onCitations}>查询服务端精确定位</Button>
         {citations && citations.length === 0 && (

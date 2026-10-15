@@ -252,3 +252,62 @@ def test_evidence_status_never_confirms_without_independent_binding(
         )
         == expected
     )
+
+
+@pytest.mark.parametrize("failure", ["tampered_quote", "other_publication", "unreadable_run"])
+def test_legal_reference_rejected_when_tampered_cross_run_or_unknown(
+    tmp_path, monkeypatch, failure
+):
+    """A reference must fail when its bytes, publication or saved run cannot be revalidated."""
+    index = ingest(tmp_path, LegalManifest(versions=(version(tmp_path),)))
+    retrieved = LegalRetriever(index).search(query(include_references=True))
+    hit = retrieved.hits[0]
+    snapshot = RunSnapshot(
+        run_id=str(uuid4()),
+        tenant_id="tenant-a",
+        project_id="project-a",
+        actor_id="reviewer-a",
+        context_version=1,
+        context_hash="d" * 64,
+        request_hash="e" * 64,
+        review_date=retrieved.query.review_date,
+        created_at=datetime.now(UTC),
+    )
+    frozen_result = RetrievalResult(**{**retrieved.model_dump(), "run_snapshot": snapshot})
+    publication_id = "publication-a"
+    revision_id = "revision-a"
+    if failure == "other_publication":
+        publication_id = "publication-b"
+
+    class SessionStub:
+        def get(self, model, _key):
+            assert model is LegalRetrievalRun
+            return SimpleNamespace(
+                request_snapshot={"publication_id": "publication-a", "revision_id": "revision-a"}
+            )
+
+    reread = frozen_result
+    if failure == "unreadable_run":
+        # The saved run no longer reads back identically: a cross-run reference.
+        reread = RetrievalResult(**{**retrieved.model_dump(), "run_snapshot": None})
+    monkeypatch.setattr(evidence_checker, "read_run", lambda *_: reread)
+    monkeypatch.setattr(
+        evidence_checker,
+        "resolve_published_evidence",
+        lambda *_: "与条文不符的文本" if failure == "tampered_quote" else hit.quote,
+    )
+
+    verified, quote = evidence_checker.verify_legal_hit(
+        SessionStub(),
+        _principal(),
+        publication_id=publication_id,
+        revision_id=revision_id,
+        result_payload=frozen_result.model_dump(mode="json"),
+        hit_payload=hit.model_dump(mode="json"),
+    )
+
+    assert verified is None
+    assert quote is None
+    assert not evidence_checker.has_confirmable_legal_support(
+        [item for item in [verified] if item is not None]
+    )

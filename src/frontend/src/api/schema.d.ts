@@ -976,6 +976,10 @@ export interface components {
             reasoning_summary?: string | null;
             recommendation: string;
             confidence?: number | null;
+            /** @description Retrieved clauses shown as references only. Revalidated against the frozen publication but never confirmable and never counted as legal evidence. */
+            legal_references?: {
+                [key: string]: unknown;
+            }[];
             human_review?: {
                 reviewer_id: string;
                 /** Format: date-time */

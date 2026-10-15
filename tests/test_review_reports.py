@@ -227,3 +227,58 @@ def test_task0010_human_projection_keeps_evidence_status_separate(
     assert projected["review_status"] == expected_status
     assert projected["evidence_status"] == "insufficient_evidence"
     assert projected["human_review"]["reason"] == "已阅读并接受记录。"
+
+
+def _reference(article: str, title: str, reason: str) -> dict:
+    return {
+        "evidence_id": "d" * 64,
+        "kind": "law",
+        "title": title,
+        "article": article,
+        "quote": "约定的违约金过分高于造成的损失的，可以根据当事人的请求予以适当减少。",
+        "source_uri": "https://www.gov.cn/example/article",
+        "source_hash": "e" * 64,
+        "locator": f"article:{article}",
+        "version_status": "unverified",
+        "confirmation_reason": reason,
+        "applicable": False,
+    }
+
+
+def test_reference_only_clauses_render_in_word_and_pdf_without_becoming_evidence() -> None:
+    """Unconfirmed clauses must be visible as references and must not raise any gate."""
+    report = _report()
+    finding = report["findings"][0]
+    finding["evidence"] = []
+    finding["evidence_status"] = "insufficient_evidence"
+    finding["sources"] = ["model"]
+    finding["legal_references"] = [
+        _reference("第五百八十五条", "中华人民共和国民法典", "unverified"),
+        _reference("第二十条", "中华人民共和国政府采购法实施条例", "applicability_unverified"),
+    ]
+
+    docx_bytes = render_docx(report)  # type: ignore[arg-type]
+    pdf_bytes = render_pdf(report)  # type: ignore[arg-type]
+    word_text = "".join(
+        paragraph.text for paragraph in Document(BytesIO(docx_bytes)).paragraphs
+    )
+    pdf_text = "".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf_bytes)).pages)
+
+    for label, text in (("docx", word_text), ("pdf", pdf_text)):
+        compact = "".join(text.split())
+        assert "可能相关依据" in compact, label
+        assert "不计入已核验证据" in compact, label
+        assert "第五百八十五条" in compact, label
+        assert "中华人民共和国民法典" in compact, label
+        assert "第二十条" in compact, label
+        assert "unverified" in compact, label
+        assert "applicability_unverified" in compact, label
+        # The reference section must never read as a violation finding.
+        tail = compact.split("可能相关依据", 1)[1]
+        assert "违反" not in tail, label
+        assert "违法依据" not in tail, label
+
+    # Finding-level isolation: references never enter the evidence or source collections.
+    assert finding["evidence"] == []
+    assert finding["sources"] == ["model"]
+    assert finding["evidence_status"] == "insufficient_evidence"

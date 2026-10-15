@@ -2590,6 +2590,15 @@ components:
         reasoning_summary: {type: [string, 'null'], maxLength: 4000}
         recommendation: {type: string, minLength: 1, maxLength: 4000}
         confidence: {type: [number, 'null'], minimum: 0, maximum: 1}
+        legal_references:
+          type: array
+          maxItems: 20
+          description: >-
+            Retrieved clauses shown as references only. Revalidated against the frozen
+            publication but never confirmable and never counted as legal evidence.
+          items:
+            type: object
+            additionalProperties: true
         human_review:
           type: object
           additionalProperties: false
