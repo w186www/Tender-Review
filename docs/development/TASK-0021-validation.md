@@ -67,7 +67,7 @@ tests/test_task0021_online_gateway.py
 ## TASK0021-005：GitHub 交付与归档收尾
 
 - 代码提交 `19a29fa0e62b6dc57d4493dc111f56194199e51c` 已推送至 `work/TASK-0021`。GitHub Actions [`verify` Run 38707492669](https://github.com/w186www/Tender-Review/actions/runs/38707492669) 对应的 `head_sha` 与提交完全一致，event 为 `push`，最终 `completed/success`：`impact`、`baseline`、`postgres`、`ingestion`、`verify-required` 全部 success；`quick` 在 Full 模式下按 workflow 条件合法 skipped。没有将运行中或跳过的 Job 计为通过。
-- 代码提交的远端 Full CI 已通过（见上）。先行归档证据提交 `cbac7fcab2c21a509b8612ffdfe75d63290754a5` 对应 GitHub Actions [`Quick Run 38709453239`](https://github.com/w186www/Tender-Review/actions/runs/38709453239) `completed/success`：`impact`、`quick`、`verify-required` success；`baseline`、`postgres`、`ingestion` 按文档 Quick 条件合法 skipped。当前完成态归档提交将任务文件移入 `tasks/completed/`；其自身 Quick/CI 待核验，M3B 在核验成功前暂保持 `in_progress`。
+- 代码提交的远端 Full CI 已通过（见上）。先行归档证据提交 `cbac7fcab2c21a509b8612ffdfe75d63290754a5` 对应 GitHub Actions [`Quick Run 38709453239`](https://github.com/w186www/Tender-Review/actions/runs/38709453239) `completed/success`：`impact`、`quick`、`verify-required` success；`baseline`、`postgres`、`ingestion` 按文档 Quick 条件合法 skipped。TASK-0021 完成态归档提交 `75bc559c609711dff7111da4545ca51a9d3f511c` 对应 GitHub Actions [`Quick Run 38709878505`](https://github.com/w186www/Tender-Review/actions/runs/38709878505) 亦为 `completed/success`：`impact`、`quick`、`verify-required` success；`baseline`、`postgres`、`ingestion` 按文档 Quick 条件合法 skipped。最终任务档案现位于 `tasks/completed/TASK-0021-qwen-online-demo.yaml`。M3B 与所有任务状态记录已据此更新。
 
 ## 可重复本地命令
 

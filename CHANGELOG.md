@@ -6,7 +6,7 @@
 
 ### Added
 
-- TASK-0021「真实 Qwen LLM 接入与在线审查 Demo」代码提交 `19a29fa0e62b6dc57d4493dc111f56194199e51c` 已推送，GitHub Actions Run 38707492669 对应 SHA 且 `impact`、`baseline`、`postgres`、`ingestion`、`verify-required` 全部成功；Full 模式 `quick` 合法 skipped。DEC-002 唯一授权的一次真实 `qwen3.8-flash` 北京 Workspace 请求已在本地隔离在线 Edge E2E 中完成：5/5 浏览器用例通过，provider 报告 424/420 输入/输出 tokens，按官方单价估算 ¥0.0014732；模型响应通过结构化校验并实际进入风险融合，完整上传/解析/复核/DOCX/PDF 流程成功。Focused 25、Full 570 及 PostgreSQL/Checkpoint 专项通过；归档证据提交 `cbac7fcab2c21a509b8612ffdfe75d63290754a5` 的 GitHub Actions Run 38709453239 Quick success。完成态归档提交的 Quick/CI 正在收尾。
+- TASK-0021「真实 Qwen LLM 接入与在线审查 Demo」已完成归档：代码提交 `19a29fa0e62b6dc57d4493dc111f56194199e51c` 的 GitHub Actions Run 38707492669 对应 SHA，Full 适用 Job 全部成功；完成态归档提交 `75bc559c609711dff7111da4545ca51a9d3f511c` 的 Run 38709878505 中 `impact`、`quick`、`verify-required` 成功，baseline/postgres/ingestion 按文档 Quick 条件合法 skipped。DEC-002 唯一授权的一次真实 `qwen3.8-flash` 北京 Workspace 请求已在本地隔离在线 Edge E2E 中完成：5/5 浏览器用例通过，provider 报告 424/420 输入/输出 tokens，按官方单价估算 ¥0.0014732；模型响应通过结构化校验并实际进入风险融合，上传/解析/人工复核/DOCX/PDF 流程成功。Focused 25、Full 570 及 PostgreSQL/Checkpoint 专项通过，授权已消耗。详见 `docs/development/TASK-0021-validation.md`。
 
 - TASK-0020 已完成：本机 loopback Demo 使用合成 DOCX 和显式离线 Gateway；修复 OCRRuntimeIdentity 对持久化 JSON 数组的严格 tuple 兼容，保留原身份/provenance 哈希校验。Focused 76、Full 545、真实 Edge 5/5、PostgreSQL/Checkpoint、解析隔离与安全摄取专项及 `--serve` Ctrl+C 清理均通过。提交 `c85e9155949b1a1d961a1031949f003e1bfe0313` 的 GitHub Actions Run 38688174502 全部适用门禁成功（baseline 545 passed，postgres/ingestion/verify-required success；Full 模式 quick 合法 skipped）；TASK-0020 已归档，M3 已完成。TASK-0019 仍为 planned，原本机部分实现保留在独立工作区。未调用真实模型、未外发真实业务数据；DEC-001/DEC-002 未获批准前不部署、不接入在线模型。详见 `docs/development/TASK-0020-validation.md`。
 

@@ -2,7 +2,7 @@
 
 更新时间：2026-10-15
 架构基线：ADR-0012本期法规生命周期/来源映射接受；ADR-0015历史决策保留、其TASK-0018 BGE/Paddle部署计划由已批准ADR-0016局部修订；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
-当前里程碑：M1、M2、M2A、M3 已按记录退出；M3 的上传至报告、复核与恢复退出条件已由 TASK-0020 真实 Edge/Checkpoint 证据满足，提交 SHA 的远端适用 CI 成功。M3A/TASK-0019 保留为 planned，其独立工作树与未提交成果不参与本任务。TASK-0021 的一次 DEC-002 授权已于 2026-10-15 消耗，合成数据在线 Edge E2E 本地 5/5 通过，硬预算上限 ¥0.10；代码提交 Full CI 与归档证据提交 Quick CI 均成功。当前 TASK-0021 完成态归档提交的 Quick CI 正在运行，M3B 在该最终闭环前仍标记 `in_progress`。M4/M5 及 TASK-0012/0013/0014 原验收范围不变，M4 依赖 M3B 退出。
+当前里程碑：M1、M2、M2A、M3、M3B 已按记录退出；M3B/TASK-0021 的合成数据真实 Qwen 在线演示、Edge E2E、源码 Full CI 与归档 Quick CI 均有记录。DEC-002 唯一请求授权于 2026-10-15 消耗，硬预算上限 ¥0.10；无真实业务数据或法规正文外发。M3A/TASK-0019 保持 planned，其独立工作树与未提交成果不参与本任务。M4/M5 及 TASK-0012/0013/0014 原验收范围不变。
 
 ## 已完成
 
@@ -31,21 +31,22 @@
 
 - TASK-0020已完成并归档：实现提交`c85e9155949b1a1d961a1031949f003e1bfe0313`对应GitHub Actions [Run 38688174502](https://github.com/w186www/Tender-Review/actions/runs/38688174502) completed/success；baseline 545 passed/2 warnings，PostgreSQL、ingestion、verify-required success，quick因Full模式合法skipped。归档记录提交`f2b1b91e3bd6b08141414f0edd99dcfff0f8905e`对应[Quick Run 38689517542](https://github.com/w186www/Tender-Review/actions/runs/38689517542) success。本地Focused 76、Full 545、Microsoft Edge E2E 5/5、PostgreSQL/Checkpoint、parser sandbox、安全摄取及`--serve`清理均通过。只在严格OCRRuntimeIdentity持久化JSON读取边界兼容数组/tuple，原字段、类型、身份与provenance哈希验证保留；仅合成数据、离线Gateway，无真实模型调用或外发。M3退出条件满足；M3A/TASK-0019仍planned。详见`docs/development/TASK-0020-validation.md`。
 
+- TASK-0021已完成并归档：代码提交`19a29fa0e62b6dc57d4493dc111f56194199e51c`对应 GitHub Actions [Full Run 38707492669](https://github.com/w186www/Tender-Review/actions/runs/38707492669) 全部适用门禁成功；归档提交`75bc559c609711dff7111da4545ca51a9d3f511c`对应[Quick Run 38709878505](https://github.com/w186www/Tender-Review/actions/runs/38709878505) 的 impact/quick/verify-required success，baseline/postgres/ingestion 按文档 Quick 条件合法 skipped。本地Focused 25、Full 570、PostgreSQL16/Checkpoint专项及 DEC-002 唯一真实 Qwen 合成数据 Edge E2E 5/5 通过，完成上传、解析、审查、人工复核与 DOCX/PDF 导出；供应商报告 424/420 tokens，按北京官方价格估算 ¥0.0014732。授权已消耗，不可额外调用。详见`docs/development/TASK-0021-validation.md`。
+
 ## 正在进行
 
-- TASK-0021 完成态归档提交已推送，正等待其对应的远端 Quick CI；只有该 Run 成功后才将 M3B 标记退出。已用尽的 DEC-002 唯一调用授权不允许额外请求。
-- TASK-0019 离线评测保持 `planned`；其部分未提交实现仍完整留在本机独立 `work/TASK-0019` 工作区，本轮未在该工作树执行或写入。
+- 当前没有正在执行的 TASK。TASK-0019 离线评测保持 `planned`；其部分未提交实现仍完整留在本机独立 `work/TASK-0019` 工作区，本轮未在该工作树执行或写入。
 - DEC-001 外部部署仍待决策。42 个法规版本仍未核验，演示必须保留证据状态，不得默认外发法规正文。
 
 ## 下一步
 
-1. 核验 TASK-0021 完成态归档提交的 GitHub Actions Quick；成功后补记其提交 SHA/Run，并将 M3B 标记为 completed。
-2. TASK-0019 继续保持 `planned`，其原工作树和未提交内容不得在本任务修改；42 个未核验法规版本与到期核验日期继续按既有边界处理，DEC-001 未获批准前不部署公网服务。
+1. TASK-0019 仍保持 `planned`，尚未启动；其原工作树和未提交内容不得在后续任务中误修改。
+2. 42 个未核验法规版本及到期核验日期继续按既有边界处理；DEC-001 未获批准前不部署公网服务。
 
 ## 最近验证
 
 - 2026-10-15 TASK-0021源码/测试证据：manifest SHA-256 `407a0564c2d8508bde52cee3626394f50a8a5a3c82c934c5d9a0e2204442fd1d`；Focused 25 passed，Full 570 passed/2条既有pypdf弃用警告，Ruff、Mypy98源文件、前端6项/build及HTTP/身份smoke通过；PostgreSQL16/Checkpoint 专项通过。官方北京价格按输入¥0.8/百万tokens、输出¥2.7/百万tokens核验；授权硬预算¥0.10且调用前全额预留，白名单规范化JSON发送前强制≤2,048 UTF-8字节。
-- 2026-10-15 TASK-0021唯一真实在线实证：run `30180d4e152040ccb9f805634617b456`，Microsoft Edge 5/5通过，0 failure/error/skip；合成DOCX SHA-256 `c770a3576555fc9225b2612c98966e809cc087194e3bb2d3d7c3bfb05ed65341`。恰好一条 `bailian/qwen3.8-flash` 请求，供应商报告424输入/420输出tokens，费用按北京官方单价估算¥0.0014732，延迟10,125ms，重试0/无回退；响应哈希`5f462b27fa9cf59015a14db08bb411d76da24f617c8ac17ea8b51f3241e47dcb`。结构化输出关联审计哈希并进入 merged finding；本地RAG、人工复核/Checkpoint恢复、DOCX/PDF生成及下载均由E2E断言通过。无源码/测试变化，复用Full 570；代码提交及归档证据提交CI成功，完成态归档提交CI待核验。详细证据见`docs/development/TASK-0021-validation.md`。
+- 2026-10-15 TASK-0021唯一真实在线实证：run `30180d4e152040ccb9f805634617b456`，Microsoft Edge 5/5通过，0 failure/error/skip；合成DOCX SHA-256 `c770a3576555fc9225b2612c98966e809cc087194e3bb2d3d7c3bfb05ed65341`。恰好一条 `bailian/qwen3.8-flash` 请求，供应商报告424输入/420输出tokens，费用按北京官方单价估算¥0.0014732，延迟10,125ms，重试0/无回退；响应哈希`5f462b27fa9cf59015a14db08bb411d76da24f617c8ac17ea8b51f3241e47dcb`。结构化输出关联审计哈希并进入 merged finding；本地RAG、人工复核/Checkpoint恢复、DOCX/PDF生成及下载均由E2E断言通过。无源码/测试变化，复用Full 570；代码提交、归档提交及对应 CI 均成功。详细证据见`docs/development/TASK-0021-validation.md`。
 - 2026-10-15 TASK-0020 本地及远端最终验收：Git index 源码/测试十文件 manifest SHA-256 `c5ec2a5a0e28d9c5317f6a9ae0d019131694b7d8673d7758991d469a1ff9cf7a`；Focused 76 passed，Full 545 passed/2 条既有 pypdf 弃用警告，Mypy97源文件；真实 Edge 5/5（run `86521e79591241c19b28aaecf0988323`，合成 DOCX→安全解析→离线ReviewEngine→人工复核/发布→Word/PDF下载）；PostgreSQL16、Checkpoint/ReviewEngine、parser sandbox、ClamAV/MinIO/S3安全摄取均通过；`--serve` run `9a9478a6b4dc4d8b9c1fd0e34b40f09c` Ctrl+C 后 manifest `stopped` 且三容器已移除。GitHub Actions Run 38688174502 对提交`c85e9155949b1a1d961a1031949f003e1bfe0313`全部适用门禁成功；baseline JUnit 545/0/0/0。TASK-0019工作树状态和12个变更文件哈希与本轮开始快照一致。详见`docs/development/TASK-0020-validation.md`。
 
 - 2026-10-15 TASK-0018检索基线：43版本/3120片段，法规索引SHA-256 `69d340d65f5e9114c8a2e76f8b3b524b67f47d0cbc0088c4e01d80b7db8729fd`；其中42版本未核验、仅1个已核验版本用于10条正式标签。CharacterEmbedding/BM25/RRF实际指标Recall@5/10=1.0/1.0、MRR@10=0.4867、nDCG@10=0.6141；平均查询延迟1,202ms，峰值进程工作集125,927,424字节。相同快照/标签的重复运行指标相同，平均查询延迟1,020ms。适用性过滤4例0错，效力/核验期限过滤1例0错；77个未核验候选单列，专家未确认风险样本数为0（不代表已证实无此风险）。

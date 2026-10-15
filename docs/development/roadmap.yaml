@@ -217,7 +217,7 @@
     {
       "id": "M3B",
       "name": "合成数据真实 Qwen 在线审查演示",
-      "status": "in_progress",
+      "status": "completed",
       "depends_on": [
         "M3"
       ],

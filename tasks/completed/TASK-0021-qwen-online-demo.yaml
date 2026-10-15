@@ -113,5 +113,5 @@
     "./scripts/verify.ps1",
     "One DEC-002-authorized real Qwen request inside scripts/run_task0021_online_e2e.py (one invocation only; no standalone smoke or retry)"
   ],
-  "handoff_notes": "TASK-0019 的独立工作树与所有未提交内容不得读取后写回、切换、清理或覆盖。DEC-002 授权的一次合成数据在线调用已消耗；不得额外请求或重跑。真实招标文件、个人/客户数据及法规正文始终不得进入模型请求。Focused、Full、PostgreSQL/Checkpoint、真实 Edge E2E、源码 Full CI 和先行归档 Quick CI 均已通过；当前完成态归档提交的对应 Quick CI 正在确认，只有其成功后才在 PROJECT_STATE/roadmap 中关闭 M3B。"
+  "handoff_notes": "TASK-0019 的独立工作树与所有未提交内容不得读取后写回、切换、清理或覆盖。DEC-002 授权的一次合成数据在线调用已消耗；不得额外请求或重跑。真实招标文件、个人/客户数据及法规正文始终不得进入模型请求。Focused、Full、PostgreSQL/Checkpoint、真实 Edge E2E、源码 Full CI 及完成态归档 Quick CI 均已通过，M3B 已按验证记录退出。"
 }
