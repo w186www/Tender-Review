@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0026",
   "title": "Linux 单机容器化部署：编排、持久化、反向代理与本地部署验收",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "ZCode",
   "depends_on": [
     "TASK-0025"
@@ -130,5 +130,5 @@
   "verify": [
     "./scripts/verify.ps1 -Mode Quick"
   ],
-  "handoff_notes": "部署实施任务。只增加编排与配置，不改业务代码；本地验收证据写入 docs/development/TASK-0026-validation.md，上云步骤见 docs/development/TASK-0026-cloud-runbook.md。目标 ECS（阿里云 Ubuntu 22.04 / 2vCPU / 8GiB / 47.83.132.211）尚未部署，阻塞于 SSH 私钥或 Workbench CLI 凭据。真实 Qwen 需要 DEC-007 批准（草案见 docs/decisions/）。"
+  "handoff_notes": "部署实施完成。本地与本机 Docker 验收见 docs/development/TASK-0026-validation.md；上线与运维步骤见 docs/development/TASK-0026-cloud-runbook.md；日常运维见 deploy/README-demo.md。线上地址 https://47.83.132.211（IP 证书，shortlived，160 小时，自动续期已就绪）。未解决问题：无外部告警渠道；限流仅覆盖登录接口；22 端口对公网开放；真实 Qwen 待 DEC-007 批准。"
 }

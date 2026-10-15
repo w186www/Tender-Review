@@ -237,7 +237,90 @@ database: passed   volumes: passed
 > 结论：本地 Full 的全部实质检查通过，唯一失败为**本机中文路径 + 控制台编码**的环境问题，
 > 且已在基线提交上复现，不构成本任务的回归。
 
-## 七、结论
+## 七、公网部署与 HTTPS 实况（2026-10-16 完成）
+
+目标：阿里云 ECS，中国香港 B，Ubuntu 22.04.5 LTS，2 vCPU / 7.5 GiB / 40 GB，
+公网 IP `47.83.132.211`，实例 `i-j6ccqpfriae57w0hkskn`。
+访问地址：**https://47.83.132.211**。
+
+### 7.1 服务器侧变更（均已获用户批准）
+
+| 项 | 结果 |
+|---|---|
+| swap | 新增 2 GB（fstab 查重后仅一条），实测未发生换页 |
+| Docker | **29.9.1**、Compose **v5.6.0**、buildx v0.38.0，来自 Docker 官方签名源；`arch` 由 `dpkg --print-architecture` 实测为 amd64 |
+| 代码 | `/opt/tender-review`，HEAD 与远端 `work/TASK-0026` 同步 |
+| 镜像 | api 772 MB、web 74.1 MB、parser 449 MB（ID 固化为 `sha256:99b25c73…`）、MinIO 由源码构建 416 MB |
+| 服务 | 六服务健康；公网仅监听 **22 / 80 / 443** |
+| 资源 | 容器空闲合计 **≈ 1.25 GiB**；宿主可用 5.4 GiB；磁盘 14 GB / 40 GB（36%） |
+
+### 7.2 公网 HTTPS 证书
+
+Let's Encrypt **IP 地址证书**（GA 2026-01-15），只能用 `shortlived` profile：
+
+| 项 | 实测 |
+|---|---|
+| 签发者 | `C=US, O=Let's Encrypt, CN=YE1`（正式 CA） |
+| 标识符 | `IP Address:47.83.132.211`（critical） |
+| 有效期 | 160 小时（2026-10-15 18:10:42 → 10-22 10:10:41 GMT） |
+| 链验证 | 外部 `openssl` 实测 `Verify return code: 0 (ok)`；`curl` 无 `-k` 得 `tls_verify=0` |
+| 协议 | TLS 1.3 / TLS_AES_256_GCM_SHA384 |
+| 密钥 | ECDSA，公私钥匹配，`privkey.pem` 权限 600，部署为**实体文件**（非 certbot `live/` 符号链接） |
+
+### 7.3 阶段验收
+
+| 阶段 | 结果 |
+|---|---|
+| 1 staging | 通过（staging 证书同样为 IP SAN + 160 小时，未消耗生产配额） |
+| 2 正式签发 | 通过，IP SAN 正确 |
+| 3 HTTPS | `nginx -t` 通过后 reload；HTTP→HTTPS 301；**ACME 挑战路径在 HTTP 上仍 200**（续期不被跳转打断） |
+| 4 续期 | `renew --dry-run` 全部成功；真实 `renew` 正确跳过未到期证书；两定时器 enabled；**并发锁**实测生效；**到期告警**实测（退出码 1 + `certbot/EXPIRING` 标记，恢复阈值后清除） |
+| 5 公网验收 | 外部可达；浏览器无证书警告；HTTP 自动跳 HTTPS；登录限流生效（7×401 后 429）；内部四类端口确认被安全组过滤 |
+| 6 后续续期 | 预期 2026-10-20 前后自动续期，已设只读定时核对（不重签、不消耗配额） |
+
+### 7.4 公网 HTTPS 业务 E2E（API 层）
+
+经 `https://47.83.132.211` 实测 `status: passed`：
+
+```
+登录 reviewer → 建项目 91823a51… → 上传 37088 字节（sha256 一致）
+→ ClamAV 扫描 + 隔离解析 → needs_confirmation → 上下文确认 ready
+→ LangGraph 审查 0e2e91b8… → 风险 1 项 → 人工复核 → 发布 82c08a5c…
+→ Word 40297 字节 / PDF 6780 字节，下载 SHA-256 与服务端 content_hash 一致
+```
+
+### 7.5 线上 GUI 逐屏验收（真实浏览器，已认证会话）
+
+| 项 | 结果 |
+|---|---|
+| 项目工作台与创建 | 表单字段完整；**经界面成功创建项目**"面试官演示项目 GUI 创建" |
+| 上传与解析状态 | 上传控件与"仅供可用于审查的文档"门禁正常显示；**内置浏览器不支持原生文件选择器，GUI 上传无法执行**（该路径由 7.4 的 API 层实测覆盖） |
+| 审查任务与运行记录 | 正常；"实际 AI 运行记录"如实标注 `offline-deterministic / offline-verification / synthetic-protocol-adapter`，估算费用 ¥0.000000 |
+| 风险详情与原文证据 | 风险条目、证据状态 `insufficient_evidence`、规则编号、原文摘录与 SHA-256 齐全 |
+| 服务端精确定位 | "查询服务端精确定位"返回文档 ID、源 SHA-256、解析版本 P1、坐标系统 `ooxml`、定位 `ooxml/body/3/paragraph`、摘录及其哈希，并提供"下载原文" |
+| 人工复核与历史 | 复核人、决定、理由、时间齐全 |
+| 报告列表与下载 | 列表内容哈希与 E2E 下载字节 SHA-256 一致；**浏览器内下载事件触发成功** |
+| 路由与错误提示 | 未知路由 → "页面不存在"（SPA 处理）；不存在的任务 ID → 带请求编号的受控错误，无内部信息泄露 |
+
+### 7.6 本轮修复的缺陷（均会真实出事）
+
+1. `deploy/*.sh` 在 Git 索引中为 100644 → Linux 克隆无法执行（缺可执行位）。
+2. `bootstrap.sh` 会打印演示账号口令 → 口令进入远程执行日志。
+3. `renew_before_expiry` 被追加到 `webroot_path`（**逗号结尾的列表**）之后 → certbot 把 `2 days` 当作第二个 webroot，**续期会以 `No such file or directory: '2 days/.well-known'` 静默失败**。由 `--dry-run` 发现。
+4. `certbot certonly` 对同一 lineage 未到期证书拒绝重签 → 正式签发实际未生效，且脚本把 **staging 证书**部署到服务目录。已加 `--force-renewal` 与**拒绝部署 staging 证书**的护栏。
+5. `nginx-locations.inc` 只烤进镜像、未挂载 → 登录限流静默失效。
+6. 分支切换不重新 smudge 已检出文件 → `knowledge/legal` 停留 LF，86 个法规制品哈希全部不匹配（表现为难定位的 422）。已加构建前换行预检。
+
+### 7.7 未解决 / 需运维关注
+
+- **6 天有效期是固有权运维风险**：续期自动化失效则数日内浏览器报警告。已用双定时器 + 2 天阈值 + 独立到期守护三重机制压低，未消除。
+- **无外部告警渠道**：无邮件/SMTP/短信/Webhook。当前仅 `systemctl --failed`、`journalctl -u` 与 `certbot/EXPIRING` 标记。
+- **限流仅覆盖登录接口**，其他 API 路径无限流，无账号锁定；依赖高熵随机口令（约 86–91 位熵）。
+- **22 端口对全公网开放**，建议收紧到运维出口 IP。
+- **Worker 持有 Docker Socket**（等价宿主 root）——为仓库既有解析设计所必需，公网可达的 API 容器不持有。
+- **口令已进入对话记录**（用户主动索取），建议演示结束后轮换或销毁账号。
+
+## 八、结论
 
 在本机 Docker Linux 引擎上，**完整 Tender-Review 系统已可容器化运行并完成端到端业务闭环**，
 包括隔离解析、ClamAV 扫描、LangGraph 审查、证据核验、人工复核与 Word/PDF 报告导出，
