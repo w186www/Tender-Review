@@ -78,6 +78,15 @@ install_certificate() {
       cp -L '${LIVE_DIR}/privkey.pem'   /out/.privkey.pem.tmp
       chmod 644 /out/.fullchain.pem.tmp
       chmod 600 /out/.privkey.pem.tmp
+      # Refuse to publish a rehearsal certificate. Installing one from the staging CA would
+      # look like a successful deployment while every browser rejects it.
+      if openssl x509 -in /out/.fullchain.pem.tmp -noout -issuer 2>/dev/null | grep -qi 'STAGING'; then
+        if [ \"${ALLOW_STAGING_CERT:-0}\" != '1' ]; then
+          rm -f /out/.fullchain.pem.tmp /out/.privkey.pem.tmp
+          echo 'refusing to deploy a staging certificate (set ALLOW_STAGING_CERT=1 to override)' >&2
+          exit 1
+        fi
+      fi
     "
   if [ -f "${CERTS_DIR}/fullchain.pem" ]; then
     cp -p "${CERTS_DIR}/fullchain.pem" "${CERTS_DIR}/.previous/fullchain.pem"
@@ -136,8 +145,14 @@ case "${main}" in
   issue-staging|issue)
     load_env
     staging=()
+    force=()
     if [ "${main}" = "issue-staging" ]; then
       staging=(--staging)
+    else
+      # `certbot certonly` declines to reissue while an existing certificate is "not yet due
+      # for renewal", which silently kept the staging certificate in place during the first
+      # attempt. An explicit issuance must actually issue.
+      force=(--force-renewal)
     fi
     email_args=(--register-unsafely-without-email)
     if [ -n "${ACME_EMAIL:-}" ]; then
@@ -149,7 +164,7 @@ case "${main}" in
       --ip-address "${PUBLIC_IP}" \
       --preferred-profile shortlived \
       --agree-tos --no-eff-email "${email_args[@]}" \
-      --non-interactive "${staging[@]}"
+      --non-interactive "${staging[@]}" "${force[@]}"
     renewal_conf="${CERTBOT_DIR}/renewal/${CERT_NAME}.conf"
     if [ -f "${renewal_conf}" ]; then
       if grep -q '^renew_before_expiry' "${renewal_conf}"; then
