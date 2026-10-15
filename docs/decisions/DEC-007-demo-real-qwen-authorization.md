@@ -96,13 +96,13 @@ Embedding `text-embedding-v4` ¥0.5/百万 tokens（`real_embedding_runtime.py:7
 
 **防失控机制（均已存在，无需新开发）**：调用前全额预留、账本只增不减、
 按授权 ID 分别计账、文件白名单写入 scope 摘要绑定账本、
-`AUTHORIZATION_LIMITS` 在构造期拒绝超限参数。
+`AUTHORIZATION_LIMITS`（`model_gateway/authorized_runtime.py:27`）在构造期拒绝超限参数。
 
 ## 三、需要改动的代码（最小、复用现有实现）
 
 | # | 位置 | 改动 | 性质 |
 |---|---|---|---|
-| 1 | `real_ai_runtime.py` `AUTHORIZATION_LIMITS` | 新增 `DEC-007-2026-10-16` 条目 | 加一条数据 |
+| 1 | `model_gateway/authorized_runtime.py` `AUTHORIZATION_LIMITS:27` | 新增 `DEC-007-2026-10-16` 条目 | 加一条数据 |
 | 2 | `real_embedding_runtime.py:91-95` | 去掉 `[:10]`，改为全部符合字节约束的条款 | 删一个切片 |
 | 3 | `real_embedding_runtime.py:99-101` `ScopedEmbeddingGuard` | 把"枚举 10 条的全部子集"改为"按已批准语料文本集合做成员校验" | 必要：3120 条无法枚举组合 |
 | 4 | `real_embedding_runtime.py:93` | 字节上限由 3000 提到 provider 允许的 8192，并按 32768 字节/批做字节感知分批 | 覆盖 +8 条 |
