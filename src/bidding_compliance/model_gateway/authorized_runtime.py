@@ -16,6 +16,7 @@ from .errors import GatewayErrorCode, ModelGatewayError
 
 AUTHORIZATION_ID = "DEC-005-2026-10-15"
 SEMANTIC_AUTHORIZATION_ID = "DEC-006-2026-10-15"
+FULL_CAPABILITY_AUTHORIZATION_ID = "DEC-007-2026-10-16"
 HARD_LLM_CALLS = 30
 HARD_EMBEDDING_BATCHES = 200
 HARD_TOTAL_CNY = Decimal("20")
@@ -27,6 +28,9 @@ LLM_RESERVATION_CNY = Decimal("0.25")
 AUTHORIZATION_LIMITS: dict[str, dict[str, Any]] = {
     AUTHORIZATION_ID: {"llm": 30, "embedding": 200, "cny": Decimal("20")},
     SEMANTIC_AUTHORIZATION_ID: {"llm": 15, "embedding": 0, "cny": Decimal("5")},
+    # DEC-007 is a separate authorization with its own ledger file and scope; it neither
+    # reuses nor resets the DEC-005/DEC-006 counters above.
+    FULL_CAPABILITY_AUTHORIZATION_ID: {"llm": 300, "embedding": 400, "cny": Decimal("30")},
 }
 
 

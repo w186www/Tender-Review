@@ -14,12 +14,17 @@ from typing import Any, Literal, Protocol, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .contracts import EmbeddingModelIdentity, LegalIndex, RetrievalQuery
+from .contracts import EmbeddingModelIdentity, LegalClause, LegalIndex, RetrievalQuery
 from .corpus import index_hash
 from .hashing import canonical_hash
 from .retrieval import clause_exclusions, confirmation_reason
 
 INDEXER_VERSION = "sqlite-exact-cosine-f32le-v1"
+
+# Defaults mirror the DashScope embedding request ceilings. A caller that pre-authorizes
+# planned batches must pass exactly the limits it approved.
+MAX_ITEM_UTF8_BYTES = 8192
+MAX_BATCH_UTF8_BYTES = 32768
 
 
 class DenseEmbeddingProvider(Protocol):
@@ -27,6 +32,63 @@ class DenseEmbeddingProvider(Protocol):
     max_batch_items: int
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class BatchPlan:
+    """A deterministic grouping of clauses into provider requests.
+
+    ``excluded`` holds clauses that cannot be sent at all because one clause alone exceeds
+    the per-item byte ceiling; they are reported instead of being silently truncated.
+    """
+
+    batches: tuple[tuple[LegalClause, ...], ...]
+    excluded: tuple[LegalClause, ...]
+
+    @property
+    def item_count(self) -> int:
+        return sum(len(batch) for batch in self.batches)
+
+    @property
+    def clause_ids(self) -> tuple[str, ...]:
+        return tuple(clause.clause_id for batch in self.batches for clause in batch)
+
+
+def plan_batches(
+    clauses: Sequence[LegalClause],
+    *,
+    max_items: int,
+    max_item_bytes: int,
+    max_batch_bytes: int,
+) -> BatchPlan:
+    """Group clauses in the given order under per-item and per-batch UTF-8 byte ceilings.
+
+    Pure and repeatable: the same clauses and limits always yield the same batches,
+    independent of what is already cached, so a caller can pre-authorize exactly the
+    requests a later build will send. A batch holds at most ``max_items`` clauses and at
+    most ``max_batch_bytes`` UTF-8 bytes. Clauses above ``max_item_bytes`` are excluded.
+    """
+    if max_items < 1 or max_item_bytes < 1 or max_batch_bytes < 1:
+        raise ValueError("batch plan bounds must be positive")
+    if max_batch_bytes < max_item_bytes:
+        raise ValueError("a batch ceiling below the item ceiling cannot hold one clause")
+    batches: list[tuple[LegalClause, ...]] = []
+    excluded: list[LegalClause] = []
+    current: list[LegalClause] = []
+    current_bytes = 0
+    for clause in clauses:
+        size = len(clause.quote.encode("utf-8"))
+        if size > max_item_bytes:
+            excluded.append(clause)
+            continue
+        if current and (len(current) >= max_items or current_bytes + size > max_batch_bytes):
+            batches.append(tuple(current))
+            current, current_bytes = [], 0
+        current.append(clause)
+        current_bytes += size
+    if current:
+        batches.append(tuple(current))
+    return BatchPlan(tuple(batches), tuple(excluded))
 
 
 class VectorIndexManifest(BaseModel):
@@ -221,6 +283,27 @@ class SQLiteVectorIndex:
             coverage_sha256,
         )
 
+    def planned_build_id(
+        self,
+        index: LegalIndex,
+        provider: DenseEmbeddingProvider,
+        *,
+        publication_id: str,
+        revision_id: str,
+        clause_ids: Sequence[str],
+    ) -> str:
+        """Build id of an explicit clause selection, computable without any provider call.
+
+        A caller can therefore decide whether an identical build already exists before it
+        pre-authorizes batches or spends an external request.
+        """
+        selected = set(clause_ids)
+        source_ids = {clause.clause_id for clause in index.clauses}
+        if not selected or not selected <= source_ids:
+            raise ValueError("vector subset must contain only frozen source clause ids")
+        coverage_sha = canonical_hash(sorted(selected))
+        return self._build_key(index, provider, publication_id, revision_id, coverage_sha)
+
     def build(
         self,
         index: LegalIndex,
@@ -230,8 +313,18 @@ class SQLiteVectorIndex:
         revision_id: str,
         batch_size: int | None = None,
         clause_ids: Sequence[str] | None = None,
+        send_full_batches: bool = False,
+        max_item_bytes: int = MAX_ITEM_UTF8_BYTES,
+        max_batch_bytes: int = MAX_BATCH_UTF8_BYTES,
     ) -> VectorIndexManifest:
-        """Build/reuse/resume an index, committing successful batches as checkpoints."""
+        """Build/reuse/resume an index, committing successful batches as checkpoints.
+
+        ``send_full_batches`` sends every planned batch as one request instead of only its
+        cache misses. Batch membership then follows from the clause order, the batch size and
+        the byte ceilings alone, so a caller can pre-authorize exactly the requests this
+        method will send (``plan_batches`` with the same limits). Only clauses missing from
+        the cache are written back; verified cached vectors are never overwritten.
+        """
         if provider.identity.provider == "character":
             raise ValueError("dense vector artifacts require a dense embedding provider")
         legal_sha = _legal_snapshot_hash(index)
@@ -239,9 +332,7 @@ class SQLiteVectorIndex:
         source_ids = {clause.clause_id for clause in index.clauses}
         if selected_ids is not None and (not selected_ids or not selected_ids <= source_ids):
             raise ValueError("vector subset must contain only frozen source clause ids")
-        coverage_sha = canonical_hash(sorted(selected_ids)) if selected_ids is not None else None
         source_count = len(index.clauses) if selected_ids is not None else None
-        build_id = self._build_key(index, provider, publication_id, revision_id, coverage_sha)
         dimensions = provider.identity.dimensions
         assert dimensions is not None
         size = min(batch_size or provider.max_batch_items, provider.max_batch_items)
@@ -260,6 +351,29 @@ class SQLiteVectorIndex:
             ),
             key=lambda item: (item.law_id, item.version, item.clause_id)
         )
+        if send_full_batches:
+            plan = plan_batches(
+                clauses,
+                max_items=size,
+                max_item_bytes=max_item_bytes,
+                max_batch_bytes=max_batch_bytes,
+            )
+            batch_groups: list[list[LegalClause]] = [list(batch) for batch in plan.batches]
+            planned_ids = {clause.clause_id for batch in batch_groups for clause in batch}
+            # Coverage is exactly what this build can index: clauses above the per-item
+            # ceiling are reported by the caller and never enter an authorized batch.
+            covered_ids = None if selected_ids is None else selected_ids & planned_ids
+            expected_items = len(planned_ids)
+            if selected_ids is not None and not covered_ids:
+                raise ValueError("vector selection has no clause within the per-item ceiling")
+        else:
+            batch_groups = [
+                list(clauses[offset : offset + size]) for offset in range(0, len(clauses), size)
+            ]
+            covered_ids = selected_ids
+            expected_items = len(clauses)
+        coverage_sha = canonical_hash(sorted(covered_ids)) if covered_ids is not None else None
+        build_id = self._build_key(index, provider, publication_id, revision_id, coverage_sha)
         with self._connect() as db:
             existing = db.execute(
                 "SELECT identity_sha256, identity_json, legal_snapshot_sha256, publication_id, "
@@ -294,12 +408,11 @@ class SQLiteVectorIndex:
                 raise ValueError("vector build coverage metadata conflicts")
             elif existing[7] == "complete":
                 manifest = self.manifest(build_id)
-                if manifest.item_count != len(clauses):
+                if manifest.item_count != expected_items:
                     raise ValueError("completed vector build item count differs from source")
                 return manifest
 
-        for offset in range(0, len(clauses), size):
-            batch = clauses[offset : offset + size]
+        for batch in batch_groups:
             missing = []
             with self._connect() as db:
                 for clause in batch:
@@ -326,16 +439,34 @@ class SQLiteVectorIndex:
                             raise ValueError("cached vector checksum mismatch")
             generated: dict[str, tuple[bytes, str, object]] = {}
             if missing:
-                vectors = provider.embed([clause.quote for clause in missing])
-                if len(vectors) != len(missing):
+                payload = (
+                    [clause.quote for clause in batch]
+                    if send_full_batches
+                    else [clause.quote for clause in missing]
+                )
+                vectors = provider.embed(payload)
+                if len(vectors) != len(payload):
                     raise ValueError("provider returned a different number of vectors")
-                for clause, vector in zip(missing, vectors, strict=True):
-                    encoded = _vector_bytes(vector, dimensions)
-                    generated[clause.clause_id] = (
-                        encoded,
-                        hashlib.sha256(encoded).hexdigest(),
-                        clause,
-                    )
+                if send_full_batches:
+                    # Strict positional binding over the approved batch; only cache misses
+                    # are accepted into the cache, so verified vectors are never replaced.
+                    missing_ids = {clause.clause_id for clause in missing}
+                    for clause, vector in zip(batch, vectors, strict=True):
+                        encoded = _vector_bytes(vector, dimensions)
+                        if clause.clause_id in missing_ids:
+                            generated[clause.clause_id] = (
+                                encoded,
+                                hashlib.sha256(encoded).hexdigest(),
+                                clause,
+                            )
+                else:
+                    for clause, vector in zip(missing, vectors, strict=True):
+                        encoded = _vector_bytes(vector, dimensions)
+                        generated[clause.clause_id] = (
+                            encoded,
+                            hashlib.sha256(encoded).hexdigest(),
+                            clause,
+                        )
             with self._connect() as db:
                 for clause in batch:
                     text_sha = hashlib.sha256(clause.quote.encode("utf-8")).hexdigest()

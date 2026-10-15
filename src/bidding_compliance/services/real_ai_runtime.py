@@ -1,12 +1,15 @@
-"""Server-only DEC-005 assembly for the actual ReviewEngine, without mock fallback."""
+"""Server-only DEC assembly for the actual ReviewEngine, without mock fallback."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -19,6 +22,8 @@ from bidding_compliance.model_gateway.adapters.bailian_qwen_adapter import Baili
 from bidding_compliance.model_gateway.authorization import AuthorizationPolicy
 from bidding_compliance.model_gateway.authorized_runtime import (
     AUTHORIZATION_ID,
+    FULL_CAPABILITY_AUTHORIZATION_ID,
+    SEMANTIC_AUTHORIZATION_ID,
     Dec005BudgetLedger,
     MetadataAuditSink,
 )
@@ -62,6 +67,273 @@ def real_ai_policy() -> ModelPolicy:
         max_output_tokens=16384,
         temperature=0,
         data_policy=DataPolicy.CONFIDENTIAL,
+    )
+
+
+REAL_RUNTIME_TENANT_ID = "tenant-a"
+REGISTRY_ACTIONS = frozenset({"approve", "revoke"})
+REGISTRY_FIELDS = ("action", "sha256", "document_id", "reason", "approved_at", "approved_by")
+MAX_REASON_CHARACTERS = 500
+DEC007_LEDGER_FILE = "dec007-budget.sqlite3"
+DEC007_MODEL_AUDIT_FILE = "dec007-model-audit.jsonl"
+DEC007_REGISTRY_FILE = "authorization-registry.jsonl"
+LEGACY_LEDGER_FILE = "dec005-budget.sqlite3"
+LEGACY_MODEL_AUDIT_FILE = "model-audit.jsonl"
+
+
+def _approved_sha256(value: object) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value):
+        raise ValueError("an authorized document hash must be 64 lowercase hex characters")
+    return value
+
+
+def _approved_document(value: object) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value):
+        raise ValueError("a document identity must be a bounded opaque identifier")
+    return value
+
+
+def _approval_reason(value: object) -> str:
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or len(value) > MAX_REASON_CHARACTERS
+        or any(character < " " for character in value)
+    ):
+        raise ValueError("an approval reason is required and must be a single bounded line")
+    return value
+
+
+def _approval_actor(value: object) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_.@:-]{1,64}", value):
+        raise ValueError("an operator identity must be a bounded opaque identifier")
+    return value
+
+
+class FileAuthorizationRegistry:
+    """Append-only per-file external-processing approvals for one local authorization.
+
+    The registry is the dynamic half of the DEC-007 authorization: the static environment
+    allowlist stays as it is, and any further file is approved one at a time, on purpose,
+    with the operator's reason recorded. Every operation appends exactly one JSON line
+    holding the file SHA-256, the document identity, the reason, the timestamp and the
+    operator; the last recorded action per hash decides. A hash that was never recorded is
+    absent here and is therefore never authorized. Only metadata is stored: this class
+    never reads or writes document content. An unreadable or malformed registry fails
+    closed instead of degrading to "no approvals" or "all approvals".
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        self._records = self._read()
+
+    def _read(self) -> tuple[dict[str, str], ...]:
+        if not self.path.exists():
+            return ()
+        records: list[dict[str, str]] = []
+        for number, line in enumerate(self.path.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip():
+                continue
+            try:
+                loaded = json.loads(line)
+            except ValueError as exc:
+                raise ValueError(
+                    f"authorization registry line {number} is not valid JSON"
+                ) from exc
+            if not isinstance(loaded, dict) or set(loaded) != set(REGISTRY_FIELDS):
+                raise ValueError(
+                    f"authorization registry line {number} does not hold exactly "
+                    f"{sorted(REGISTRY_FIELDS)}"
+                )
+            records.append(self._validated(loaded, number))
+        return tuple(records)
+
+    @staticmethod
+    def _validated(record: Mapping[str, Any], number: int) -> dict[str, str]:
+        action = record["action"]
+        if action not in REGISTRY_ACTIONS:
+            raise ValueError(f"authorization registry line {number} has an unknown action")
+        timestamp = record["approved_at"]
+        if not isinstance(timestamp, str) or not re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.+Z-]{1,32}", timestamp
+        ):
+            raise ValueError(f"authorization registry line {number} has an invalid timestamp")
+        return {
+            "action": action,
+            "sha256": _approved_sha256(record["sha256"]),
+            "document_id": _approved_document(record["document_id"]),
+            "reason": _approval_reason(record["reason"]),
+            "approved_at": timestamp,
+            "approved_by": _approval_actor(record["approved_by"]),
+        }
+
+    def records(self) -> tuple[Mapping[str, str], ...]:
+        """The audit trail as loaded; a running process needs a restart to see new lines."""
+        return self._records
+
+    def allowed_sha256(self) -> frozenset[str]:
+        effective: dict[str, bool] = {}
+        for record in self._records:
+            effective[record["sha256"]] = record["action"] == "approve"
+        return frozenset(item for item, allowed in effective.items() if allowed)
+
+    def approve(
+        self, *, sha256: str, document_id: str, reason: str, approved_by: str
+    ) -> Mapping[str, str]:
+        return self._append("approve", sha256, document_id, reason, approved_by)
+
+    def revoke(
+        self, *, sha256: str, document_id: str, reason: str, approved_by: str
+    ) -> Mapping[str, str]:
+        return self._append("revoke", sha256, document_id, reason, approved_by)
+
+    def _append(
+        self, action: str, sha256: str, document_id: str, reason: str, approved_by: str
+    ) -> dict[str, str]:
+        record = {
+            "action": action,
+            "sha256": _approved_sha256(sha256),
+            "document_id": _approved_document(document_id),
+            "reason": _approval_reason(reason),
+            "approved_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "approved_by": _approval_actor(approved_by),
+        }
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        payload = (
+            json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode("utf-8")
+        # 0600: the registry records operator decisions about files, never file content.
+        descriptor = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        try:
+            os.write(descriptor, payload)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        self._records = (*self._records, record)
+        return record
+
+
+def resolve_authorized_documents(
+    *,
+    registry: FileAuthorizationRegistry | None,
+    environment_hashes: Iterable[str],
+) -> frozenset[str]:
+    """Union of the per-file registry and the operator's static environment allowlist.
+
+    Nothing is authorized implicitly: a file that is neither registered in the audit trail
+    nor present in the environment allowlist is simply absent, and a malformed environment
+    entry fails closed instead of being skipped.
+    """
+    documents = {
+        _approved_sha256(item.strip())
+        for item in environment_hashes
+        if isinstance(item, str) and item.strip()
+    }
+    if registry is not None:
+        documents |= registry.allowed_sha256()
+    return frozenset(documents)
+
+
+def real_runtime_scope_sha256(
+    *,
+    authorization_id: str,
+    tenant_id: str,
+    allowed_document_sha256: frozenset[str],
+    authorization_registry: Path | None = None,
+) -> str:
+    """Ledger scope binding one authorization, tenant, provider/model and registry file.
+
+    Per-file approvals are deliberately not part of the scope: they are the dynamic record
+    this authorization exists for, and folding them in would make every new approval
+    invalidate the existing ledger ("existing DEC ledger has a different scope"), whose
+    operational workaround is deleting the ledger — exactly the quota reset DEC-007
+    forbids. The static environment allowlist and the registry file location stay bound,
+    so a different authorization regime needs a different ledger file.
+    """
+    payload: dict[str, Any] = {
+        "authorization": authorization_id,
+        "tenant": tenant_id,
+        "documents": sorted(allowed_document_sha256),
+        "provider": "bailian-cn-beijing",
+        "model": "qwen3.8-flash",
+        "embedding": "text-embedding-v4/1024",
+    }
+    if authorization_registry is not None:
+        payload["authorization_registry"] = str(authorization_registry.resolve())
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class RealRuntimeAuthorization:
+    """One explicit server authorization, resolved from the environment only."""
+
+    authorization_id: str
+    ledger_path: Path
+    model_audit_path: Path
+    registry: FileAuthorizationRegistry | None
+    environment_documents: frozenset[str]
+
+    @property
+    def allowed_documents(self) -> frozenset[str]:
+        registered = (
+            self.registry.allowed_sha256() if self.registry is not None else frozenset()
+        )
+        return self.environment_documents | registered
+
+    @property
+    def registry_path(self) -> Path | None:
+        return self.registry.path if self.registry is not None else None
+
+    @property
+    def scope_sha256(self) -> str:
+        return real_runtime_scope_sha256(
+            authorization_id=self.authorization_id,
+            tenant_id=REAL_RUNTIME_TENANT_ID,
+            allowed_document_sha256=self.environment_documents,
+            authorization_registry=self.registry_path,
+        )
+
+
+def resolve_real_runtime_authorization(
+    environment: Mapping[str, str], *, private_root: Path
+) -> RealRuntimeAuthorization:
+    """Resolve the operator's explicit server authorization; never invent one.
+
+    ``DEC007_AUTHORIZATION_ID`` selects the DEC-007 ledger file, audit trail and per-file
+    registry. Without it the legacy DEC-005/006 assembly identity is preserved exactly,
+    including the ledger file and audit trail it already uses.
+    """
+    explicit = environment.get("DEC007_AUTHORIZATION_ID", "").strip()
+    registry_default: Path | None
+    if explicit:
+        if explicit != FULL_CAPABILITY_AUTHORIZATION_ID:
+            raise ValueError("unknown real-AI authorization identity")
+        ledger_default = private_root / DEC007_LEDGER_FILE
+        audit_default = private_root / DEC007_MODEL_AUDIT_FILE
+        registry_default = private_root / DEC007_REGISTRY_FILE
+    elif environment.get("DEC005_AUTHORIZATION_ID", "").strip() == AUTHORIZATION_ID:
+        explicit = SEMANTIC_AUTHORIZATION_ID
+        ledger_default = private_root / LEGACY_LEDGER_FILE
+        audit_default = private_root / LEGACY_MODEL_AUDIT_FILE
+        registry_default = None
+    else:
+        raise ValueError("real AI is disabled without an explicit server authorization")
+    ledger_override = environment.get("DEC007_LEDGER_PATH", "").strip()
+    audit_override = environment.get("DEC007_MODEL_AUDIT_PATH", "").strip()
+    registry_override = environment.get("DEC007_AUTHORIZATION_REGISTRY", "").strip()
+    registry_path = Path(registry_override) if registry_override else registry_default
+    return RealRuntimeAuthorization(
+        authorization_id=explicit,
+        ledger_path=Path(ledger_override) if ledger_override else ledger_default,
+        model_audit_path=Path(audit_override) if audit_override else audit_default,
+        registry=FileAuthorizationRegistry(registry_path) if registry_path else None,
+        environment_documents=resolve_authorized_documents(
+            registry=None,
+            environment_hashes=(
+                environment.get("DEC005_ALLOWED_DOCUMENT_SHA256", ""),
+                environment.get("DEC005_ALLOWED_SYNTHETIC_SHA256", ""),
+            ),
+        ),
     )
 
 
@@ -201,22 +473,22 @@ def create_dec005_gateway(
     audit_path: Path,
     transport: httpx.AsyncBaseTransport | None = None,
     authorization_id: str = AUTHORIZATION_ID,
+    scope_documents: frozenset[str] | None = None,
+    authorization_registry: Path | None = None,
 ) -> tuple[ModelGatewayService, AuthorizationPolicy, Dec005BudgetLedger]:
     if not api_key or not api_key.strip() or not workspace_id or not workspace_id.strip():
         raise ValueError("real AI requires server-side DASHSCOPE_API_KEY and BAILIAN_WORKSPACE_ID")
-    scope = hashlib.sha256(
-        json.dumps(
-            {
-                "authorization": authorization_id,
-                "tenant": tenant_id,
-                "documents": sorted(allowed_document_sha256),
-                "provider": "bailian-cn-beijing",
-                "model": "qwen3.8-flash",
-                "embedding": "text-embedding-v4/1024",
-            },
-            sort_keys=True,
-        ).encode()
-    ).hexdigest()
+    # The ledger scope binds the static part of the authorization only; per-file registry
+    # approvals stay dynamic so recording one never invalidates (and never resets) it.
+    scope_source = allowed_document_sha256 if scope_documents is None else scope_documents
+    if not scope_source <= allowed_document_sha256:
+        raise ValueError("ledger scope documents must be part of the authorized documents")
+    scope = real_runtime_scope_sha256(
+        authorization_id=authorization_id,
+        tenant_id=tenant_id,
+        allowed_document_sha256=scope_source,
+        authorization_registry=authorization_registry,
+    )
     minimizer = AuthorizedTenderMinimizer(allowed_document_sha256)
     verify_ledger_continuity(ledger_path, audit_path)
     ledger = Dec005BudgetLedger(
