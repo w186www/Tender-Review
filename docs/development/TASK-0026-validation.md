@@ -213,11 +213,29 @@ database: passed   volumes: passed
 `ruff check src scripts tests` 全部通过；`mypy src` 104 个源文件无错误；
 `verify_contracts.py`、`verify_repo.py` PASS。
 
-`pytest` 全量在仓库约定的项目内临时目录下运行（`--basetemp=.verification/...`）：
-仅 `tests/test_verification_modes.py::test_quick_mode_preserves_existing_full_test_evidence` 失败。
-**该失败与本任务无关**：在基线提交 `ca1c15d` 上同样失败（并额外报出 4 个错误），
-根因是本机 Git Bash 下 PowerShell 子进程输出按 UTF-8 解码时的 `UnicodeDecodeError`
-（Windows 控制台代码页），属既有环境问题。CI 在 Linux 上不受影响。
+用仓库权威入口 `pwsh -File scripts/verify.ps1 -Mode Full -PythonExecutable <venv>` 实跑
+（PowerShell 7.6.7，本工作树无自带 `.venv`，按演示指南复用 TASK-0021 的 venv）：
+
+| 步骤 | 结果 |
+|---|---|
+| [1/7] 契约、示例、State 生成与任务证据 | 通过 |
+| [2/7] 代码与静态安全规则（Ruff） | 通过 |
+| [3/7] 严格类型检查（Mypy） | 通过 |
+| [4/7] 前端依赖与检查（npm ci + 检查） | 通过 |
+| [5/7] 后端全量回归 | **660 passed, 1 failed** |
+| [6/7]、[7/7] | 未执行（[5/7] 失败即中止） |
+
+唯一失败项 `tests/test_verification_modes.py::test_quick_mode_preserves_existing_full_test_evidence`
+**与本任务无关**，证据如下：
+
+- 在基线提交 `ca1c15d`（未含本任务任何改动）上同样失败，并额外报出 4 个错误。
+- 根因是子进程输出按 UTF-8 解码时遇到 GBK 字节 `0xd7`：本机仓库路径含中文
+  （`D:\自由项目\招标审核\...`），Windows 控制台代码页与之不匹配；CI 在 Linux 的
+  ASCII 路径下不受影响，故该作业在 CI 上为 success。
+- 该测试本身用 `shutil.which("pwsh")` 调用 PowerShell 7，与本机 PowerShell 版本无关。
+
+> 结论：本地 Full 的全部实质检查通过，唯一失败为**本机中文路径 + 控制台编码**的环境问题，
+> 且已在基线提交上复现，不构成本任务的回归。
 
 ## 七、结论
 
