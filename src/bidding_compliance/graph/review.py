@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -18,14 +19,29 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from bidding_compliance.domain.identity import Principal
 from bidding_compliance.domain.rules.engine import SKILLS, combine_discoveries, ruleset_sha256
-from bidding_compliance.domain.rules.models import DiscoveryDocumentRequest, DiscoveryResult
+from bidding_compliance.domain.rules.models import (
+    CandidateFinding,
+    DiscoveryDocumentRequest,
+    DiscoveryResult,
+)
 from bidding_compliance.graph.state import ComplianceReviewState
 from bidding_compliance.legal.corpus import index_hash
-from bidding_compliance.model_gateway.contracts import ModelPolicy, ModelRequest
+from bidding_compliance.model_gateway.contracts import (
+    ModelPolicy,
+    ModelRequest,
+    ModelResponse,
+    ModelUsage,
+)
 from bidding_compliance.model_gateway.errors import GatewayErrorCode, ModelGatewayError
 from bidding_compliance.model_gateway.protocol import ModelGateway
-from bidding_compliance.persistence.models import ReviewDecision, ReviewEngineRun, ReviewTask
+from bidding_compliance.persistence.models import (
+    ReviewArtifact,
+    ReviewDecision,
+    ReviewEngineRun,
+    ReviewTask,
+)
 from bidding_compliance.services import candidate_discovery as candidate_service
+from bidding_compliance.services import llm_candidate_discovery as llm_discovery
 from bidding_compliance.services.candidate_discovery import snapshot_for_project
 from bidding_compliance.services.documents import find_document, sections
 from bidding_compliance.services.evidence_checker import (
@@ -52,6 +68,7 @@ from bidding_compliance.services.review_persistence import (
 from bidding_compliance.services.review_persistence import (
     publish_result as persist_result,
 )
+from bidding_compliance.services.risk_language import unverified_risk_text
 
 ROOT = Path(__file__).resolve().parents[3]
 MAX_STATE_BYTES = 64_000
@@ -196,6 +213,8 @@ def build_review_graph(
     checkpointer: BaseCheckpointSaver[Any],
     skill_ids: tuple[str, ...] | None = None,
     legal_root: Path | None = None,
+    enable_llm_discovery: bool = False,
+    retriever_factory: Any = None,
 ) -> Any:
     """Compile the persisted review DAG. A per-invocation principal is rechecked per node."""
     schema_root = legal_root or ROOT
@@ -527,7 +546,7 @@ def build_review_graph(
                 principal.tenant_id,
                 row.review_task_id,
                 row.run_id,
-                "candidate_discovery",
+                "rule_candidate_discovery" if enable_llm_discovery else "candidate_discovery",
                 joined.model_dump(mode="json"),
             )
             session.commit()
@@ -538,6 +557,221 @@ def build_review_graph(
             }
 
         result = with_session(action)(state)
+        _assert_bounded({**state, **result})
+        return result
+
+    async def llm_candidate_discovery(state: ComplianceReviewState) -> dict[str, Any]:
+        schema = llm_discovery.discovery_schema(schema_root)
+        result: dict[str, Any]
+        try:
+            with session_factory() as session:
+                row = _load_run(session, principal, state)
+                snapshot, _ = _snapshot_inputs(session, principal, row, model_policy)
+                discovery = _discovery_from_artifact(
+                    read_artifact(
+                        session,
+                        principal.tenant_id,
+                        _required_ref(state, "discovery_ref"),
+                        review_task_id=row.review_task_id,
+                        run_id=row.run_id,
+                    )
+                )
+                requests = tuple(
+                    DiscoveryDocumentRequest.model_validate(item)
+                    for item in snapshot["document_requests"]
+                )
+                input_snapshot, located = snapshot_for_project(
+                    session,
+                    principal,
+                    row.project_id,
+                    requests,
+                )
+                if input_snapshot != discovery.input_snapshot:
+                    raise ValueError("discovery fragments no longer match the frozen input")
+                batches = llm_discovery.plan_discovery(located)
+                plan = {
+                    "snapshot_hash": row.snapshot_hash,
+                    "status": "planned",
+                    "prompt_version": llm_discovery.TASK0023_DISCOVERY_PROMPT_VERSION,
+                    "batch_count": len(batches),
+                    "sections": [
+                        section.coverage() for batch in batches for section in batch.sections
+                    ],
+                }
+                plan_ref = put_artifact(
+                    session,
+                    principal.tenant_id,
+                    row.review_task_id,
+                    row.run_id,
+                    "llm_discovery_plan",
+                    plan,
+                )
+                session.commit()
+            candidates: list[CandidateFinding] = []
+            batch_results = []
+            for batch in batches:
+                request = llm_discovery.make_discovery_request(
+                    batch,
+                    tenant_id=principal.tenant_id,
+                    task_id=row.review_task_id,
+                    run_id=row.run_id,
+                    snapshot_hash=row.snapshot_hash,
+                )
+                kind = f"llm_discovery_batch_{batch.index}"
+                with session_factory() as session:
+                    current = _load_run(session, principal, state)
+                    _snapshot_inputs(session, principal, current, model_policy)
+                    saved = list(
+                        session.scalars(
+                            select(ReviewArtifact).where(
+                                ReviewArtifact.tenant_id == principal.tenant_id,
+                                ReviewArtifact.review_task_id == row.review_task_id,
+                                ReviewArtifact.run_id == row.run_id,
+                                ReviewArtifact.kind == kind,
+                            )
+                        )
+                    )
+                    if len(saved) > 1:
+                        raise ValueError("ambiguous discovery batch cache")
+                    cached = saved[0] if saved else None
+                    if cached is not None:
+                        if (
+                            content_hash(cached.content) != cached.content_hash
+                            or cached.content.get("input_hash") != batch.input_hash
+                            or cached.content.get("snapshot_hash") != row.snapshot_hash
+                        ):
+                            raise ValueError("discovery batch cache provenance mismatch")
+                        record = cached.content
+                        response = ModelResponse(
+                            call_id=record["call_id"],
+                            provider=record["provider"],
+                            model=record["model"],
+                            profile=record["profile"],
+                            content=record["content"],
+                            usage=ModelUsage(**record["usage"]),
+                            latency_ms=record["latency_ms"],
+                            response_hash=record["response_hash"],
+                            finish_reason=record["finish_reason"],
+                        )
+                    else:
+                        response = None
+                if response is None:
+                    response = await gateway.generate_structured(
+                        request,
+                        schema,
+                        replace(model_policy, max_attempts=1, max_output_tokens=2048),
+                    )
+                accepted, rejected = llm_discovery.validate_response(
+                    batch,
+                    response,
+                    expected_call_id=request.call_id,
+                    profile=model_policy.profile,
+                    schema=schema,
+                )
+                record = {
+                    "snapshot_hash": row.snapshot_hash,
+                    "input_hash": batch.input_hash,
+                    "batch_index": batch.index,
+                    "call_id": response.call_id,
+                    "provider": response.provider,
+                    "model": response.model,
+                    "profile": response.profile,
+                    "response_hash": response.response_hash,
+                    "content": dict(response.content),
+                    "latency_ms": response.latency_ms,
+                    "finish_reason": response.finish_reason,
+                    "usage": {
+                        "input_tokens": response.usage.input_tokens,
+                        "output_tokens": response.usage.output_tokens,
+                        "estimated_cost": response.usage.estimated_cost,
+                    },
+                    "accepted_count": len(accepted),
+                    "rejections": list(rejected),
+                    "sections": [item.coverage() for item in batch.sections],
+                }
+                with session_factory() as session:
+                    _load_run(session, principal, state)
+                    ref = put_artifact(
+                        session,
+                        principal.tenant_id,
+                        row.review_task_id,
+                        row.run_id,
+                        kind,
+                        record,
+                    )
+                    session.commit()
+                candidates.extend(accepted)
+                batch_results.append(
+                    {
+                        "batch_index": batch.index,
+                        "status": "completed",
+                        "artifact_ref": ref,
+                        "accepted_count": len(accepted),
+                        "rejected_count": len(rejected),
+                        "response_hash": response.response_hash,
+                    }
+                )
+            joined = llm_discovery.merge_model_candidates(discovery, candidates)
+            if len(joined.candidates) > MAX_CANDIDATES_FOR_REVIEW:
+                raise ValueError("LLM discovery exceeds the bounded review candidate limit")
+            with session_factory() as session:
+                _load_run(session, principal, state)
+                coverage_ref = put_artifact(
+                    session,
+                    principal.tenant_id,
+                    row.review_task_id,
+                    row.run_id,
+                    "llm_candidate_discovery",
+                    {
+                        **plan,
+                        "status": "completed",
+                        "plan_ref": plan_ref,
+                        "batches": batch_results,
+                        "candidate_count": len(candidates),
+                    },
+                )
+                discovery_ref = put_artifact(
+                    session,
+                    principal.tenant_id,
+                    row.review_task_id,
+                    row.run_id,
+                    "candidate_discovery",
+                    joined.model_dump(mode="json"),
+                )
+                session.commit()
+            result = {
+                "llm_discovery_ref": coverage_ref,
+                "discovery_ref": discovery_ref,
+                "rule_findings_ref": discovery_ref,
+            }
+        except PermissionError:
+            raise
+        except ModelGatewayError as exc:
+            # Keep the provider error code so the bounded retry policy can see which
+            # failures are transient instead of collapsing them into one generic code.
+            result = {
+                "status": "failed",
+                "errors": [
+                    {
+                        "code": exc.code.value,
+                        "message": "Exhaustive model discovery failed under the authorized policy.",
+                        "node": "llm_candidate_discovery",
+                        "retryable": exc.retryable,
+                    }
+                ],
+            }
+        except (ValueError, ValidationError):
+            result = {
+                "status": "failed",
+                "errors": [
+                    {
+                        "code": "llm_discovery_failed",
+                        "message": "Exhaustive model discovery failed under the authorized policy.",
+                        "node": "llm_candidate_discovery",
+                        "retryable": False,
+                    }
+                ],
+            }
         _assert_bounded({**state, **result})
         return result
 
@@ -584,6 +818,8 @@ def build_review_graph(
                     review_date=date.fromisoformat(snapshot["review_date"]),
                     include_references=True,
                     limit=10,
+                    publication_id=row.publication_id,
+                    retriever_factory=retriever_factory,
                 )
                 if result.run_snapshot is None:
                     continue
@@ -942,12 +1178,12 @@ def build_review_graph(
                 finding_id = hashlib.sha256(
                     f"{principal.tenant_id}:{row.review_task_id}:{row.run_id}:{candidate.candidate_id}".encode()
                 ).hexdigest()
-                sources = ["rule"]
+                sources: list[str] = sorted({item.origin for item in candidate.provenance})
                 if model:
                     sources.append("model")
                 if legal_evidence:
                     sources.append("retrieval")
-                finding = {
+                finding: dict[str, Any] = {
                     "finding_id": finding_id,
                     "category": category,
                     "title": model.get("title", candidate.matched_reason[:300])
@@ -960,9 +1196,15 @@ def build_review_graph(
                     "evidence_status": evidence_status,
                     "review_status": "pending",
                     "source_excerpt": primary_evidence,
-                    "sources": sorted(sources),
+                    "sources": sorted(set(sources)),
                     "evidence": doc_evidence + legal_evidence,
-                    "rule_ids": sorted({item.rule_id for item in candidate.provenance}),
+                    "rule_ids": sorted(
+                        {
+                            item.rule_id
+                            for item in candidate.provenance
+                            if item.origin == "rule" and item.rule_id is not None
+                        }
+                    ),
                     "reasoning_summary": model.get("reasoning_summary")
                     if model
                     else "No semantic analysis was returned.",
@@ -975,6 +1217,15 @@ def build_review_graph(
                 }
                 if conflicts:
                     finding["conflicts"] = conflicts
+                if not legal_valid:
+                    for field in ("title", "description", "recommendation", "reasoning_summary"):
+                        value = finding.get(field)
+                        if isinstance(value, str):
+                            finding[field] = unverified_risk_text(value)
+                    finding["title"] = "待核验：" + finding["title"][:295]
+                    finding["description"] = (
+                        "本项为待核验风险，尚无法律违法认定依据。" + finding["description"]
+                    )[:4000]
                 risk_validator.validate(finding)
                 findings.append(finding)
             findings.sort(key=lambda item: item["finding_id"])
@@ -1178,6 +1429,11 @@ def build_review_graph(
         return {"status": "waiting_human"}
 
     def route_after_discovery(state: ComplianceReviewState) -> str:
+        if state["status"] == "failed":
+            return "failed"
+        return "llm_candidate_discovery" if enable_llm_discovery else "legal_retrieval"
+
+    def route_after_llm_discovery(state: ComplianceReviewState) -> str:
         return "failed" if state["status"] == "failed" else "legal_retrieval"
 
     def route_after_retrieval(state: ComplianceReviewState) -> str:
@@ -1195,6 +1451,8 @@ def build_review_graph(
     graph.add_node("candidate_discovery", candidate_discovery)
     graph.add_node("skill_work", cast(Any, skill_work), input_schema=SkillWorkItem)
     graph.add_node("candidate_join", candidate_join)
+    if enable_llm_discovery:
+        graph.add_node("llm_candidate_discovery", llm_candidate_discovery)
     graph.add_node("legal_retrieval", legal_retrieval)
     graph.add_node("semantic_analysis", semantic_analysis)
     graph.add_node("merge_findings", merge_findings)
@@ -1219,8 +1477,22 @@ def build_review_graph(
     graph.add_conditional_edges(
         "candidate_join",
         route_after_discovery,
-        {"legal_retrieval": "legal_retrieval", "failed": "failed"},
+        {
+            "legal_retrieval": "legal_retrieval",
+            "failed": "failed",
+            **(
+                {"llm_candidate_discovery": "llm_candidate_discovery"}
+                if enable_llm_discovery
+                else {}
+            ),
+        },
     )
+    if enable_llm_discovery:
+        graph.add_conditional_edges(
+            "llm_candidate_discovery",
+            route_after_llm_discovery,
+            {"legal_retrieval": "legal_retrieval", "failed": "failed"},
+        )
     graph.add_conditional_edges(
         "legal_retrieval",
         route_after_retrieval,

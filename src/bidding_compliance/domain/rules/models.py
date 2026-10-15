@@ -6,9 +6,16 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from bidding_compliance.ingestion.schemas import Fragment, OCRRuntimeIdentity
 
@@ -250,23 +257,86 @@ class SourceExcerpt(Closed):
         return self
 
 
+class ModelCandidateProvenance(Closed):
+    provider: str = Field(min_length=1, max_length=100)
+    model: str = Field(min_length=1, max_length=200)
+    prompt_version: str = Field(min_length=1, max_length=100)
+    response_hash: str = Field(pattern="^[a-f0-9]{64}$")
+
+
+def _origin_schema(*, source: bool) -> dict[str, Any]:
+    fields = ("skill_id", "skill_version", "rule_id", "rule_version")
+    model_properties: dict[str, object] = {name: {"type": "null"} for name in fields}
+    rule_properties: dict[str, object] = {name: {"type": "string"} for name in fields}
+    if source:
+        model_properties["model_provenance"] = {"type": "object"}
+        rule_properties["model_provenance"] = {"type": "null"}
+    return {
+        "allOf": [
+            {
+                "if": {"properties": {"origin": {"const": "model"}}, "required": ["origin"]},
+                "then": {
+                    "properties": model_properties,
+                    **({"required": ["model_provenance"]} if source else {}),
+                },
+                "else": {"required": list(fields), "properties": rule_properties},
+            }
+        ]
+    }
+
+
 class CandidateSource(Closed):
-    skill_id: SkillId
-    skill_version: str = Field(pattern=_SEMVER.pattern)
-    rule_id: str = Field(min_length=1, max_length=128)
-    rule_version: str = Field(pattern=_SEMVER.pattern)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        strict=True,
+        allow_inf_nan=False,
+        json_schema_extra=_origin_schema(source=True),
+    )
+    origin: Literal["rule", "model"] = "rule"
+    skill_id: SkillId | None = None
+    skill_version: str | None = Field(default=None, pattern=_SEMVER.pattern)
+    rule_id: str | None = Field(default=None, min_length=1, max_length=128)
+    rule_version: str | None = Field(default=None, pattern=_SEMVER.pattern)
+    model_provenance: ModelCandidateProvenance | None = None
     source_excerpts: tuple[SourceExcerpt, ...] = Field(min_length=1, max_length=20)
     matched_reason: str = Field(min_length=1, max_length=2000)
 
+    @model_validator(mode="after")
+    def truthful_origin(self) -> Self:
+        rule_fields = (self.skill_id, self.skill_version, self.rule_id, self.rule_version)
+        if self.origin == "rule":
+            if any(value is None for value in rule_fields) or self.model_provenance is not None:
+                raise ValueError("rule provenance requires a real rule and Skill identity")
+        elif any(value is not None for value in rule_fields) or self.model_provenance is None:
+            raise ValueError("model provenance cannot impersonate a rule or Skill")
+        return self
+
+    @model_serializer(mode="wrap")
+    def compatible_serialization(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        payload: dict[str, object] = handler(self)
+        if self.origin == "rule":
+            payload.pop("origin", None)
+            payload.pop("model_provenance", None)
+        return payload
+
 
 class CandidateFinding(Closed):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        strict=True,
+        allow_inf_nan=False,
+        json_schema_extra=_origin_schema(source=False),
+    )
     candidate_id: str = Field(pattern="^[a-f0-9]{64}$")
     category: Category
     status: Literal["candidate"] = "candidate"
-    skill_id: SkillId
-    skill_version: str = Field(pattern=_SEMVER.pattern)
-    rule_id: str = Field(min_length=1, max_length=128)
-    rule_version: str = Field(pattern=_SEMVER.pattern)
+    origin: Literal["rule", "model"] = "rule"
+    skill_id: SkillId | None = None
+    skill_version: str | None = Field(default=None, pattern=_SEMVER.pattern)
+    rule_id: str | None = Field(default=None, min_length=1, max_length=128)
+    rule_version: str | None = Field(default=None, pattern=_SEMVER.pattern)
     document_version_ref: str = Field(pattern="^doc-version:sha256:[a-f0-9]{64}$")
     problem_key: str = Field(min_length=1, max_length=128)
     deduplication_key: str = Field(pattern="^[a-f0-9]{64}$")
@@ -276,10 +346,17 @@ class CandidateFinding(Closed):
 
     @model_validator(mode="after")
     def primary_provenance(self) -> Self:
-        if _SKILL_CATEGORY[self.skill_id] != self.category:
-            raise ValueError("candidate category does not match its skill")
+        rule_fields = (self.skill_id, self.skill_version, self.rule_id, self.rule_version)
+        if self.origin == "rule":
+            if self.skill_id is None or any(value is None for value in rule_fields):
+                raise ValueError("rule candidate requires its real Skill and rule")
+            if _SKILL_CATEGORY[self.skill_id] != self.category:
+                raise ValueError("candidate category does not match its skill")
+        elif any(value is not None for value in rule_fields):
+            raise ValueError("model candidate cannot impersonate a rule or Skill")
         if not any(
-            item.skill_id == self.skill_id
+            item.origin == self.origin
+            and item.skill_id == self.skill_id
             and item.skill_version == self.skill_version
             and item.rule_id == self.rule_id
             and item.rule_version == self.rule_version
@@ -295,17 +372,33 @@ class CandidateFinding(Closed):
             raise ValueError("candidate excerpts do not match their provenance")
         identity = {
             "deduplication_key": self.deduplication_key,
-            "provenance": sorted(
-                {
-                    (item.skill_id, item.skill_version, item.rule_id, item.rule_version)
-                    for item in self.provenance
-                }
-            ),
+            "provenance": sorted({candidate_source_identity(item) for item in self.provenance}),
         }
         canonical = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         if hashlib.sha256(canonical.encode("utf-8")).hexdigest() != self.candidate_id:
             raise ValueError("candidate identity does not match its stable provenance")
         return self
+
+    @model_serializer(mode="wrap")
+    def compatible_serialization(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        payload: dict[str, object] = handler(self)
+        if self.origin == "rule":
+            payload.pop("origin", None)
+        return payload
+
+
+def candidate_source_identity(source: CandidateSource) -> tuple[str, ...]:
+    """Preserve historical rule IDs; model IDs bind the approved discovery configuration."""
+    if source.origin == "rule":
+        return (
+            str(source.skill_id),
+            str(source.skill_version),
+            str(source.rule_id),
+            str(source.rule_version),
+        )
+    assert source.model_provenance is not None
+    model = source.model_provenance
+    return ("model", model.provider, model.model, model.prompt_version)
 
 
 class SkillCoverage(Closed):
@@ -381,7 +474,7 @@ class DiscoveryResult(Closed):
         finding_counts = {skill: 0 for skill in skill_ids}
         refs_by_id = {doc.document_id: doc for doc in self.input_snapshot.documents}
         for finding in self.candidates:
-            for skill_id in {item.skill_id for item in finding.provenance}:
+            for skill_id in {item.skill_id for item in finding.provenance if item.origin == "rule"}:
                 if skill_id not in finding_counts:
                     raise ValueError(
                         "candidate provenance includes a skill that was not dispatched"

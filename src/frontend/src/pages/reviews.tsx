@@ -38,11 +38,14 @@ const severityClass: Record<string, string> = {
   high: "severity-high",
   critical: "severity-critical",
 };
+// Mirrors the server's bounded-retry policy: a provider can emit a non-conforming
+// structured response for one batch, and replaying it reuses every accepted batch.
 const retryableFailures = new Set([
   "timeout",
   "rate_limited",
   "provider_unavailable",
   "provider_error",
+  "response_invalid",
 ]);
 
 export function PendingReviewsPage() {
@@ -390,6 +393,31 @@ export function ReviewPage() {
       />
       {error && <Notice kind="error">{error}</Notice>}
       {notice && <Notice kind="success">{notice}</Notice>}
+      {task.model_runtime && (
+        <div className="panel" data-testid="actual-model-runtime">
+          <h2>实际 AI 运行记录</h2>
+          <p>
+            模式：{task.model_runtime.execution_mode} · 供应商：
+            {task.model_runtime.provider || "尚无已验证响应"} · 模型：
+            {task.model_runtime.model || "尚无已验证响应"}
+          </p>
+          <p>
+            已验证调用 {task.model_runtime.model_calls} 次 · 输入/输出 tokens：
+            {task.model_runtime.input_tokens}/{task.model_runtime.output_tokens}{" "}
+            · 估算费用 ¥{task.model_runtime.estimated_cost_cny.toFixed(6)}
+          </p>
+          <p>
+            Skills 候选 {task.model_runtime.skill_candidate_count} 项 · AI
+            独立候选 {task.model_runtime.model_candidate_count}{" "}
+            项。疑点须结合原文和适用法规人工核验。
+          </p>
+          <p>
+            检索向量模型：{task.model_runtime.embedding_model || "未记录"} ·
+            向量索引：
+            {task.model_runtime.vector_index_build_id || "未启用神经向量索引"}
+          </p>
+        </div>
+      )}
       <div className="panel review-overview">
         <div>
           <span className="muted">任务状态</span>

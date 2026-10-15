@@ -234,8 +234,11 @@
           "type": "string"
         },
         "algorithm": {
-          "const": "bm25-char-cosine-rrf-5",
           "default": "bm25-char-cosine-rrf-5",
+          "enum": [
+            "bm25-char-cosine-rrf-5",
+            "bm25-dense-cosine-rrf-1"
+          ],
           "title": "Algorithm",
           "type": "string"
         },
@@ -299,6 +302,32 @@
           ],
           "default": null,
           "title": "Vector Index Build Id"
+        },
+        "vector_index_item_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Index Item Count"
+        },
+        "vector_source_item_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Source Item Count"
         }
       },
       "required": [

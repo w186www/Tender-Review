@@ -9,13 +9,13 @@
 | M2 检索与审查能力 | 0006、0007、0008 | 法规版本库、五类Skill、两个模型适配器 |
 | M2A 离线能力与评测补充 | 0018 | Character检索基线、Mock-only百炼Embedding接口、SQLite向量断点续建、真实隔离Tesseract合成扫描基线、运行版本追溯；不部署BGE/PaddleOCR；独立于M4/M5任务 |
 | M3 审查业务闭环 | 0009、0010、0011、0020 | 可恢复审查、人工复核、报告和可操作的离线演示 |
-| M3A 离线能力诊断 | 0019 | 合成样本分层评测；不替代 M5 黄金集、安全或性能验收 |
+| M3A 离线能力诊断 | 0019、0022 | 合成样本分层评测；TASK-0022 独立诊断一个授权本地 DOCX；不替代 M5 黄金集、安全或性能验收 |
 | M3B 合成数据真实 Qwen 在线审查演示 | 0021 | DEC-002 明确授权后的 Qwen 在线调用、受限外发、审计/预算及真实浏览器闭环；不构成生产接入 |
 | M4 部署与运维 | 0012 | 环境、配额、监控、备份、回滚和发布门禁 |
 | M5 完整验收 | 0013 | 黄金集、安全、性能与恢复验收证据 |
 | M6 正式交付 | 0014 | 对齐的文档、可部署制品与独立接手演练 |
 
-M0至M3按仓库验收记录完成。TASK-0009源码、验收记录和归档提交的远端CI均已核实成功（Runs 38546165564、38547021471、38547822892）；TASK-0010/0011 的源码与归档CI证据见各自验证记录。TASK-0019 作为 M3A 离线评测计划保持 planned，本轮不启动且其独立工作树不参与 TASK-0021。TASK-0020 已通过 Focused 76、Full 545、真实 Edge 5/5、PostgreSQL/Checkpoint、parser sandbox、安全摄取、`--serve` 启停清理及推送 SHA `c85e9155949b1a1d961a1031949f003e1bfe0313` 的 GitHub Actions Run 38688174502（baseline/postgres/ingestion/verify-required success），M3 上传至报告并含复核/恢复的退出条件有本地实证。`OCRRuntimeIdentity` 修复仅在严格可信读取边界兼容 JSON 数组与 tuple，原内容/身份/provenance 哈希校验保持；修复前 E2E 422（run `5484f1c5d8564fd7aa40eb7204fae9ba`）保留为历史根因证据。M3A/TASK-0019 与 M4 保持 planned；M3B/TASK-0021 已完成：本地真实在线 Edge E2E 5/5 通过；源码 SHA `19a29fa0e62b6dc57d4493dc111f56194199e51c` 对应 Run 38707492669 全部适用 Full Job success；归档提交 `75bc559c609711dff7111da4545ca51a9d3f511c` 对应 Run 38709878505 Quick success。M4/M5 与 TASK-0012/0013/0014 原有任务验收范围不变；M4 依赖在线演示里程碑。详见`TASK-0020-validation.md`及`TASK-0021-validation.md`。
+M0至M3按仓库验收记录完成。TASK-0009源码、验收记录和归档提交的远端CI均已核实成功（Runs 38546165564、38547021471、38547822892）；TASK-0010/0011 的源码与归档CI证据见各自验证记录。TASK-0019 原独立工作树未提交内容保持不变，并按用户要求在 TASK-0022 治理分支记为 `blocked`（Schema 不支持 `paused`）；TASK-0022 在 `work/TASK-0022` 独立工作树执行单个本地真实 DOCX 离线诊断。DEC-002 唯一请求已消耗；真实文件 Qwen 调用须待独立 DEC-005 明确批准。TASK-0020 已通过 Focused 76、Full 545、真实 Edge 5/5、PostgreSQL/Checkpoint、parser sandbox、安全摄取、`--serve` 启停清理及推送 SHA `c85e9155949b1a1d961a1031949f003e1bfe0313` 的 GitHub Actions Run 38688174502（baseline/postgres/ingestion/verify-required success），M3 上传至报告并含复核/恢复的退出条件有本地实证。`OCRRuntimeIdentity` 修复仅在严格可信读取边界兼容 JSON 数组与 tuple，原内容/身份/provenance 哈希校验保持；修复前 E2E 422（run `5484f1c5d8564fd7aa40eb7204fae9ba`）保留为历史根因证据。M3B/TASK-0021 已完成：本地真实在线 Edge E2E 5/5 通过；源码 SHA `19a29fa0e62b6dc57d4493dc111f56194199e51c` 对应 Run 38707492669 全部适用 Full Job success；归档提交 `75bc559c609711dff7111da4545ca51a9d3f511c` 对应 Run 38709878505 Quick success。M4/M5 与 TASK-0012/0013/0014 原有任务验收范围不变；M4 依赖在线演示里程碑。详见`TASK-0020-validation.md`及`TASK-0021-validation.md`。
 
 ## 任务与全局验收的区别
 

@@ -43,7 +43,9 @@ function OfflineDemoNotice() {
 }
 
 function OnlineQwenDemoNotice() {
-  if (import.meta.env.VITE_REVIEW_MODE !== "online-qwen") return null;
+  const realTender = import.meta.env.VITE_REVIEW_MODE === "dec005-real-qwen";
+  if (import.meta.env.VITE_REVIEW_MODE !== "online-qwen" && !realTender)
+    return null;
   return (
     <aside
       className="online-qwen-demo-notice"
@@ -51,10 +53,16 @@ function OnlineQwenDemoNotice() {
       aria-label="在线执行模式说明"
       role="note"
     >
-      <strong>真实在线模型：阿里云百炼 qwen3.8-flash</strong>
+      <strong>
+        {realTender
+          ? "已配置真实模型路由：阿里云百炼 qwen3.8-flash"
+          : "真实在线模型：阿里云百炼 qwen3.8-flash"}
+      </strong>
       <span>
-        仅允许 TASK-0021 合成文件进入 semantic_analysis。法规正文留在本地由
-        Evidence Checker 核验；请求失败会停止，不会切换为 Mock。
+        {realTender
+          ? "DEC-005 仅授权指定文件的脱敏分段；AI 独立发现疑点后进入法规检索与人工复核。实际供应商响应及用量见任务详情。缺少有效法规的疑点保持待核验。"
+          : "仅允许 TASK-0021 合成文件进入 semantic_analysis。法规正文留在本地核验。"}
+        请求失败会停止审查。
       </span>
     </aside>
   );

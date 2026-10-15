@@ -1,5 +1,6 @@
 """Authorized, idempotent, atomic revision/publication lifecycle; no mutable snapshot lookups."""
 
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Literal
@@ -13,6 +14,7 @@ from bidding_compliance.domain.identity import Principal
 from bidding_compliance.legal.bundles import artifact_bytes, capture_bundle, validate_bundle
 from bidding_compliance.legal.contracts import (
     LegalHit,
+    LegalIndex,
     LegalManifest,
     RetrievalQuery,
     RetrievalResult,
@@ -35,6 +37,7 @@ from bidding_compliance.persistence.models import (
 from bidding_compliance.services.identity import audit
 from bidding_compliance.services.legal import require_identity, retrieve_for_project
 from bidding_compliance.services.legal_authorization import require_legal_operation
+from bidding_compliance.services.projects import find_project
 
 
 def read_state(session: Session, principal: Principal) -> LegalCorpusState:
@@ -304,9 +307,17 @@ def retrieve_published_for_project(
     review_date: date,
     include_references: bool = False,
     limit: int = 10,
+    publication_id: str | None = None,
+    retriever_factory: Callable[[LegalIndex, str, str], LegalRetriever] | None = None,
 ) -> RetrievalResult:
-    publication, bundle = read_publication(session, principal)
-    retriever = LegalRetriever(bundle.index)
+    publication, bundle = read_publication(session, principal, publication_id)
+    find_project(session, principal, project_id)
+    if publication.revision_id is None:
+        raise ValueError("retrieval requires a published revision")
+    retriever = (
+        retriever_factory(bundle.index, publication.publication_id, publication.revision_id)
+        if retriever_factory is not None else LegalRetriever(bundle.index)
+    )
     return retrieve_for_project(
         session,
         principal,

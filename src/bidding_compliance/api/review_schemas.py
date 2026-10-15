@@ -86,18 +86,32 @@ class CreateReviewRequest(Closed):
         return value
 
 
+class ModelRuntime(Closed):
+    execution_mode: Literal["real-qwen", "offline-deterministic", "unknown"]
+    provider: str | None
+    model: str | None
+    response_received: bool
+    model_calls: int
+    input_tokens: int
+    output_tokens: int
+    estimated_cost_cny: float
+    skill_candidate_count: int
+    model_candidate_count: int
+    embedding_model: str | None
+    vector_index_build_id: str | None
+
+
 class ReviewTaskResponse(Closed):
     review_task_id: str
     project_id: str
     run_id: str
-    status: Literal[
-        "queued", "running", "waiting_human", "result_published", "failed", "cancelled"
-    ]
+    status: Literal["queued", "running", "waiting_human", "result_published", "failed", "cancelled"]
     snapshot_hash: str
     retry_count: int
     failure_code: str | None
     result_id: str | None
     created_at: str
+    model_runtime: ModelRuntime | None = None
 
 
 class ReviewTaskList(Closed):

@@ -536,7 +536,9 @@ class RetrievalRuntimeSnapshot(Closed):
     """Algorithm settings frozen with a retrieval run; this is not call-level audit."""
 
     schema_version: Literal["v1alpha1"] = "v1alpha1"
-    algorithm: Literal["bm25-char-cosine-rrf-5"] = "bm25-char-cosine-rrf-5"
+    algorithm: Literal["bm25-char-cosine-rrf-5", "bm25-dense-cosine-rrf-1"] = (
+        "bm25-char-cosine-rrf-5"
+    )
     top_k: int = Field(ge=1, le=100)
     rrf_k: int = Field(default=60, ge=1, le=1000)
     bm25_weight: float = Field(default=1.0, gt=0, le=100)
@@ -545,14 +547,39 @@ class RetrievalRuntimeSnapshot(Closed):
     reranker_version: str | None = Field(default=None, max_length=200)
     embedding_identity: EmbeddingModelIdentity
     vector_index_build_id: Digest | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    vector_index_item_count: int | None = Field(default=None, ge=0)
+    vector_source_item_count: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def supported_runtime(self) -> Self:
         if self.reranker_enabled != (self.reranker_version is not None):
             raise ValueError("reranker state and version mismatch")
-        if self.embedding_identity.provider != "character" or self.vector_index_build_id:
-            raise ValueError("this retrieval result contract only accepts the measured baseline")
+        if self.algorithm == "bm25-char-cosine-rrf-5":
+            if self.embedding_identity.provider != "character" or any(
+                value is not None for value in (
+                    self.vector_index_build_id, self.vector_index_item_count,
+                    self.vector_source_item_count,
+                )
+            ):
+                raise ValueError("baseline retrieval cannot activate a dense vector index")
+        elif (
+            self.embedding_identity.provider == "character"
+            or self.vector_index_build_id is None
+            or self.vector_index_item_count is None
+            or self.vector_source_item_count is None
+            or self.vector_index_item_count > self.vector_source_item_count
+        ):
+            raise ValueError("dense retrieval requires bound vector identity and explicit coverage")
         return self
+
+
+class RetrievalRankingTrace(Closed):
+    clause_id: Digest = Field(pattern=r"^[a-f0-9]{64}$")
+    bm25_rank: int | None = Field(default=None, ge=1)
+    bm25_score: float | None = None
+    vector_rank: int | None = Field(default=None, ge=1)
+    vector_score: float | None = None
+    fused_score: float = Field(ge=0)
 
 
 class RunSnapshot(Closed):
@@ -602,7 +629,9 @@ class RetrievalResult(Closed):
     )
     schema_version: Literal["v1alpha5"] = "v1alpha5"
     snapshot_hash: Digest = Field(pattern=r"^[a-f0-9]{64}$")
-    retrieval_version: Literal["bm25-char-cosine-rrf-5"] = "bm25-char-cosine-rrf-5"
+    retrieval_version: Literal["bm25-char-cosine-rrf-5", "bm25-dense-cosine-rrf-1"] = (
+        "bm25-char-cosine-rrf-5"
+    )
     normalization_version: Literal["cn-regions-1"] = "cn-regions-1"
     status: Literal["complete", "context_incomplete"] = "complete"
     context_error: Literal["REGION_UNMAPPED", "CONTEXT_INVALID"] | None = None
@@ -611,12 +640,21 @@ class RetrievalResult(Closed):
     citable_evidence: tuple[str, ...] = Field(json_schema_extra={"uniqueItems": True})
     excluded: tuple[Excluded, ...] = ()
     run_snapshot: RunSnapshot | None = None
+    ranking_trace: tuple[RetrievalRankingTrace, ...] = ()
 
     @model_validator(mode="after")
     def consistent_status(self) -> Self:
         identities = [hit.evidence_id for hit in self.hits]
         if len(identities) != len(set(identities)):
             raise ValueError("duplicate evidence identity")
+        if self.ranking_trace and (
+            tuple(item.clause_id for item in self.ranking_trace) != tuple(identities)
+            or any(
+                item.fused_score != hit.score
+                for item, hit in zip(self.ranking_trace, self.hits, strict=True)
+            )
+        ):
+            raise ValueError("retrieval ranking trace does not match returned evidence")
         expected = tuple(hit.evidence_id for hit in self.hits if hit.eligible_for_confirmation)
         if self.citable_evidence != expected:
             raise ValueError("citable evidence association mismatch")

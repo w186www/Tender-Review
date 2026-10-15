@@ -6,6 +6,12 @@
 
 ### Added
 
+- TASK-0023 真实 AI 验证本轮实际执行：真实 `qwen3.8-flash` 完成 17 个发现批次、覆盖天津地铁 11 号线 DOCX 的 1209 个非空片段，确定性 Skill 候选 0 项而由模型独立发现 41 个原文绑定候选（候选 ID／去重键唯一、41/41 引用哈希与原文一致、含 11 个表格单元格定位）；真实 `text-embedding-v4` 取得 1024 维在线向量并完成 SQLite 索引与 BM25+向量 RRF 融合，缓存复用避免重复付费，覆盖度如实为 10/3120。真实调用共 LLM 30 次（达 DEC-005 上限）、Embedding 3 批，累计 ¥1.081571。端到端未完成：`semantic_analysis` 单请求处理 41 个候选两次超出授权 60 秒超时，LLM 预算用尽无法验证分批修复，因此未完成人工复核与 Word/PDF 报告；网页端仅完成登录、上传、正式校正、上下文确认与发起审查。同期修复 discovery 节点把网关错误码折叠为 `llm_discovery_failed` 的缺陷（该缺陷使有界重试不可达），并把 `response_invalid` 纳入前后端一致的有界重试；该修复已使修复前连续失败的批次在真实运行中重试成功。详见 `docs/development/TASK-0023-validation.md`。
+
+- TASK-0022 零候选离线审查路径已修复：OfflineReviewGateway 对合法空候选返回 Schema 合法的空 findings，同时保留调用身份/响应哈希和非空候选的严格证据断言。Focused 新增 3 项回归通过。天津地铁 DOCX 在正式本地链路上得到 0 个 Skill 候选，RAG 5/5 `CONTEXT_INVALID`；离线 LangGraph、空结果复核及 Word/PDF API 导出成功。真实模型调用为 0，任务仍 in_progress。详细限制与本地结果见 TASK-0022 验证记录。
+
+- TASK-0022「真实招标文件离线基线与受控 Qwen 评测」已在 `work/TASK-0022` 独立工作树启动。TASK-0019 原工作树和未提交成果按 SHA-256 快照保留；因任务 Schema 不支持 `paused`，仅在新治理分支将其标记为 `blocked` 并记录用户要求的临时暂停。DEC-003/004 已占用，真实文件 Qwen 外发方案登记为待批准的 DEC-005。当前仅本地离线诊断；无真实文件或法规内容外发。
+
 - TASK-0021「真实 Qwen LLM 接入与在线审查 Demo」已完成归档：代码提交 `19a29fa0e62b6dc57d4493dc111f56194199e51c` 的 GitHub Actions Run 38707492669 对应 SHA，Full 适用 Job 全部成功；完成态归档提交 `75bc559c609711dff7111da4545ca51a9d3f511c` 的 Run 38709878505 中 `impact`、`quick`、`verify-required` 成功，baseline/postgres/ingestion 按文档 Quick 条件合法 skipped。DEC-002 唯一授权的一次真实 `qwen3.8-flash` 北京 Workspace 请求已在本地隔离在线 Edge E2E 中完成：5/5 浏览器用例通过，provider 报告 424/420 输入/输出 tokens，按官方单价估算 ¥0.0014732；模型响应通过结构化校验并实际进入风险融合，上传/解析/人工复核/DOCX/PDF 流程成功。Focused 25、Full 570 及 PostgreSQL/Checkpoint 专项通过，授权已消耗。详见 `docs/development/TASK-0021-validation.md`。
 
 - TASK-0020 已完成：本机 loopback Demo 使用合成 DOCX 和显式离线 Gateway；修复 OCRRuntimeIdentity 对持久化 JSON 数组的严格 tuple 兼容，保留原身份/provenance 哈希校验。Focused 76、Full 545、真实 Edge 5/5、PostgreSQL/Checkpoint、解析隔离与安全摄取专项及 `--serve` Ctrl+C 清理均通过。提交 `c85e9155949b1a1d961a1031949f003e1bfe0313` 的 GitHub Actions Run 38688174502 全部适用门禁成功（baseline 545 passed，postgres/ingestion/verify-required success；Full 模式 quick 合法 skipped）；TASK-0020 已归档，M3 已完成。TASK-0019 仍为 planned，原本机部分实现保留在独立工作区。未调用真实模型、未外发真实业务数据；DEC-001/DEC-002 未获批准前不部署、不接入在线模型。详见 `docs/development/TASK-0020-validation.md`。

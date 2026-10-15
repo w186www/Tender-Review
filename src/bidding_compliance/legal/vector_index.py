@@ -42,6 +42,8 @@ class VectorIndexManifest(BaseModel):
     revision_id: str = Field(min_length=1, max_length=36)
     embedding_identity: EmbeddingModelIdentity
     item_count: int = Field(ge=0)
+    source_item_count: int | None = Field(default=None, ge=0)
+    coverage_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     items_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     manifest_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
@@ -51,22 +53,27 @@ class VectorIndexManifest(BaseModel):
         legal_snapshot_sha256: str,
         publication_id: str | None,
         revision_id: str | None,
+        coverage_sha256: str | None = None,
     ) -> str:
-        return canonical_hash(
-            {
+        payload = {
                 "build_version": INDEXER_VERSION,
                 "legal_snapshot_sha256": legal_snapshot_sha256,
                 "publication_id": publication_id,
                 "revision_id": revision_id,
                 "embedding_identity_sha256": identity.identity_sha256,
             }
-        )
+        if coverage_sha256 is not None:
+            payload["coverage_sha256"] = coverage_sha256
+        return canonical_hash(payload)
 
     @classmethod
     def create(cls, **values: object) -> VectorIndexManifest:
         body = {**values, "manifest_sha256": "0" * 64}
         provisional = cls.model_construct(**cast(Any, body))
         payload = provisional.model_dump(mode="json", exclude={"manifest_sha256"})
+        if payload.get("coverage_sha256") is None:
+            payload.pop("coverage_sha256", None)
+            payload.pop("source_item_count", None)
         return cls.model_validate({**payload, "manifest_sha256": canonical_hash(payload)})
 
     @model_validator(mode="after")
@@ -76,14 +83,22 @@ class VectorIndexManifest(BaseModel):
             self.legal_snapshot_sha256,
             self.publication_id,
             self.revision_id,
+            self.coverage_sha256,
         )
         if self.build_id != expected_build:
             raise ValueError("vector build identity mismatch")
         payload = self.model_dump(mode="json", exclude={"manifest_sha256"})
+        if self.coverage_sha256 is None:
+            payload.pop("coverage_sha256", None)
+            payload.pop("source_item_count", None)
         if self.manifest_sha256 != canonical_hash(payload):
             raise ValueError("vector manifest hash mismatch")
         if self.embedding_identity.dimensions is None:
             raise ValueError("dense vector identity must declare dimensions")
+        if (self.coverage_sha256 is None) != (self.source_item_count is None):
+            raise ValueError("partial vector coverage requires source count and coverage hash")
+        if self.source_item_count is not None and self.item_count > self.source_item_count:
+            raise ValueError("vector coverage exceeds the frozen source")
         return self
 
 
@@ -168,8 +183,21 @@ class SQLiteVectorIndex:
                     vector_sha256 TEXT NOT NULL CHECK(length(vector_sha256) = 64),
                     PRIMARY KEY(build_id, clause_id)
                 ) WITHOUT ROWID;
+                CREATE TABLE IF NOT EXISTS vector_query_cache (
+                    identity_sha256 TEXT NOT NULL,
+                    text_sha256 TEXT NOT NULL,
+                    dimensions INTEGER NOT NULL,
+                    vector_bytes BLOB NOT NULL,
+                    vector_sha256 TEXT NOT NULL,
+                    PRIMARY KEY(identity_sha256, text_sha256)
+                ) WITHOUT ROWID;
                 """
             )
+            columns = {row[1] for row in db.execute("PRAGMA table_info(vector_build)")}
+            if "source_item_count" not in columns:
+                db.execute("ALTER TABLE vector_build ADD COLUMN source_item_count INTEGER")
+            if "coverage_sha256" not in columns:
+                db.execute("ALTER TABLE vector_build ADD COLUMN coverage_sha256 TEXT")
 
     def _build_key(
         self,
@@ -177,6 +205,7 @@ class SQLiteVectorIndex:
         provider: DenseEmbeddingProvider,
         publication_id: str | None,
         revision_id: str | None,
+        coverage_sha256: str | None = None,
     ) -> str:
         if not publication_id or not revision_id:
             raise ValueError("published legal publication and revision identities are required")
@@ -189,6 +218,7 @@ class SQLiteVectorIndex:
             _legal_snapshot_hash(index),
             publication_id,
             revision_id,
+            coverage_sha256,
         )
 
     def build(
@@ -199,12 +229,19 @@ class SQLiteVectorIndex:
         publication_id: str,
         revision_id: str,
         batch_size: int | None = None,
+        clause_ids: Sequence[str] | None = None,
     ) -> VectorIndexManifest:
         """Build/reuse/resume an index, committing successful batches as checkpoints."""
         if provider.identity.provider == "character":
             raise ValueError("dense vector artifacts require a dense embedding provider")
         legal_sha = _legal_snapshot_hash(index)
-        build_id = self._build_key(index, provider, publication_id, revision_id)
+        selected_ids = set(clause_ids) if clause_ids is not None else None
+        source_ids = {clause.clause_id for clause in index.clauses}
+        if selected_ids is not None and (not selected_ids or not selected_ids <= source_ids):
+            raise ValueError("vector subset must contain only frozen source clause ids")
+        coverage_sha = canonical_hash(sorted(selected_ids)) if selected_ids is not None else None
+        source_count = len(index.clauses) if selected_ids is not None else None
+        build_id = self._build_key(index, provider, publication_id, revision_id, coverage_sha)
         dimensions = provider.identity.dimensions
         assert dimensions is not None
         size = min(batch_size or provider.max_batch_items, provider.max_batch_items)
@@ -217,13 +254,18 @@ class SQLiteVectorIndex:
             separators=(",", ":"),
         )
         clauses = sorted(
-            index.clauses, key=lambda item: (item.law_id, item.version, item.clause_id)
+            (
+                clause for clause in index.clauses
+                if selected_ids is None or clause.clause_id in selected_ids
+            ),
+            key=lambda item: (item.law_id, item.version, item.clause_id)
         )
         with self._connect() as db:
             existing = db.execute(
                 "SELECT identity_sha256, identity_json, legal_snapshot_sha256, publication_id, "
                 "revision_id, build_version, dimensions, status, item_count, items_sha256, "
-                "manifest_sha256 FROM vector_build WHERE build_id = ?",
+                "manifest_sha256, source_item_count, coverage_sha256 "
+                "FROM vector_build WHERE build_id = ?",
                 (build_id,),
             ).fetchone()
             expected = (
@@ -242,8 +284,14 @@ class SQLiteVectorIndex:
                     "dimensions, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'building')",
                     (build_id, *expected),
                 )
+                db.execute(
+                    "UPDATE vector_build SET source_item_count=?, coverage_sha256=? "
+                    "WHERE build_id=?", (source_count, coverage_sha, build_id)
+                )
             elif tuple(existing[:7]) != expected:
                 raise ValueError("vector build id is bound to conflicting metadata")
+            elif existing[11:] != (source_count, coverage_sha):
+                raise ValueError("vector build coverage metadata conflicts")
             elif existing[7] == "complete":
                 manifest = self.manifest(build_id)
                 if manifest.item_count != len(clauses):
@@ -371,7 +419,8 @@ class SQLiteVectorIndex:
     def _create_manifest(self, build_id: str) -> VectorIndexManifest:
         with self._connect() as db:
             build = db.execute(
-                "SELECT identity_json, legal_snapshot_sha256, publication_id, revision_id "
+                "SELECT identity_json, legal_snapshot_sha256, publication_id, revision_id, "
+                "source_item_count, coverage_sha256 "
                 "FROM vector_build WHERE build_id=?",
                 (build_id,),
             ).fetchone()
@@ -389,6 +438,8 @@ class SQLiteVectorIndex:
             revision_id=build[3],
             embedding_identity=identity,
             item_count=len(validated_rows),
+            source_item_count=build[4],
+            coverage_sha256=build[5],
             items_sha256=items_sha,
         )
 
@@ -453,6 +504,50 @@ class SQLiteVectorIndex:
         if (manifest.item_count, manifest.items_sha256, manifest.manifest_sha256) != row[1:]:
             raise ValueError("vector index manifest integrity mismatch")
         return manifest
+
+    def indexed_clause_ids(self, build_id: str) -> frozenset[str]:
+        """Validated complete coverage; a partial build is never reported as complete."""
+        manifest = self.manifest(build_id)
+        rows = self._validated_index_items(build_id)
+        ids = frozenset(row[0] for row in rows)
+        if manifest.coverage_sha256 is not None and (
+            canonical_hash(sorted(ids)) != manifest.coverage_sha256
+        ):
+            raise ValueError("vector index coverage integrity mismatch")
+        return ids
+
+    def embed_query(self, provider: DenseEmbeddingProvider, text: str) -> tuple[float, ...]:
+        """Durable query cache stores hashes and vectors, never request text."""
+        dimensions = provider.identity.dimensions
+        if dimensions is None or not text.strip():
+            raise ValueError("dense query text and declared dimensions are required")
+        text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        key = (provider.identity.identity_sha256, text_hash)
+        with self._connect() as db:
+            cached = db.execute(
+                "SELECT dimensions, vector_bytes, vector_sha256 FROM vector_query_cache "
+                "WHERE identity_sha256=? AND text_sha256=?", key
+            ).fetchone()
+        if cached is None:
+            vectors = provider.embed([text])
+            if len(vectors) != 1:
+                raise ValueError("query provider returned invalid vector cardinality")
+            raw = _vector_bytes(vectors[0], dimensions)
+            checksum = hashlib.sha256(raw).hexdigest()
+            with self._connect() as db:
+                db.execute(
+                    "INSERT OR IGNORE INTO vector_query_cache VALUES (?, ?, ?, ?, ?)",
+                    (*key, dimensions, raw, checksum),
+                )
+                cached = db.execute(
+                    "SELECT dimensions, vector_bytes, vector_sha256 FROM vector_query_cache "
+                    "WHERE identity_sha256=? AND text_sha256=?", key
+                ).fetchone()
+        if cached is None or cached[0] != dimensions:
+            raise ValueError("query vector cache dimension mismatch")
+        if hashlib.sha256(cached[1]).hexdigest() != cached[2]:
+            raise ValueError("query vector cache checksum mismatch")
+        return _unpack_vector(cached[1], dimensions)
 
     def search_candidates(
         self,

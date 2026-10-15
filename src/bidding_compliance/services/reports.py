@@ -17,6 +17,7 @@ from bidding_compliance.persistence.models import (
     Document,
     DocumentSection,
     ReviewArtifact,
+    ReviewDecision,
     ReviewEngineRun,
     ReviewReport,
     ReviewReportContent,
@@ -27,6 +28,7 @@ from bidding_compliance.services.identity import audit
 from bidding_compliance.services.legal import require_identity
 from bidding_compliance.services.projects import find_project
 from bidding_compliance.services.reporting import render_docx, render_pdf
+from bidding_compliance.services.review_management import _runtime_projection
 from bidding_compliance.services.review_persistence import (
     RESULT_PENDING_ID,
     authorized_run,
@@ -34,7 +36,7 @@ from bidding_compliance.services.review_persistence import (
     content_hash,
 )
 
-TEMPLATE_VERSION = "task0010-v1"
+TEMPLATE_VERSION = "task0010-v2"
 MAX_REPORT_BYTES = 20_000_000
 
 
@@ -171,6 +173,130 @@ def _resolve_source_locations(
     return result_locations
 
 
+def _verified_run_artifact(
+    session: Session,
+    principal: Principal,
+    result: ReviewResult,
+    kind: str,
+) -> ReviewArtifact:
+    artifact = session.scalar(
+        select(ReviewArtifact).where(
+            ReviewArtifact.tenant_id == principal.tenant_id,
+            ReviewArtifact.review_task_id == result.review_task_id,
+            ReviewArtifact.run_id == result.run_id,
+            ReviewArtifact.kind == kind,
+        )
+    )
+    if artifact is None or content_hash(artifact.content) != artifact.content_hash:
+        raise ValueError(f"verified {kind} artifact is unavailable or changed")
+    return artifact
+
+
+def _assessment_scope(
+    session: Session,
+    principal: Principal,
+    result: ReviewResult,
+    *,
+    project_context: ReviewArtifact,
+) -> dict[str, Any]:
+    discovery = _verified_run_artifact(session, principal, result, "candidate_discovery")
+    retrieval = _verified_run_artifact(session, principal, result, "legal_retrieval")
+    model = _verified_run_artifact(session, principal, result, "model_analysis")
+    if content_hash(project_context.content) != project_context.content_hash:
+        raise ValueError("frozen project context hash mismatch")
+
+    discovery_content = discovery.content
+    skill_coverage = [
+        {
+            "skill_id": item.get("skill_id", "unknown"),
+            "status": item.get("status", "unknown"),
+            "candidate_count": item.get("candidates_found", 0),
+            "evaluated_rule_count": len(item.get("evaluated_rules", [])),
+            "reason": item.get("reason"),
+        }
+        for item in discovery_content.get("skill_coverages", [])
+    ]
+    retrieval_status_counts: dict[str, int] = {}
+    context_error_counts: dict[str, int] = {}
+    retrieval_hit_count = 0
+    citable_count = 0
+    algorithms: set[str] = set()
+    for item in retrieval.content.get("results", []):
+        payload = item.get("result", {})
+        status = payload.get("status", "unknown")
+        retrieval_status_counts[status] = retrieval_status_counts.get(status, 0) + 1
+        context_error = payload.get("context_error")
+        if context_error:
+            context_error_counts[context_error] = context_error_counts.get(context_error, 0) + 1
+        retrieval_hit_count += len(payload.get("hits", []))
+        citable_count += len(payload.get("citable_evidence", []))
+        runtime = (payload.get("run_snapshot") or {}).get("runtime") or {}
+        algorithm = runtime.get("algorithm")
+        if isinstance(algorithm, str):
+            algorithms.add(algorithm)
+
+    context = project_context.content.get("context", {})
+    frameworks = context.get("legal_frameworks", []) if isinstance(context, dict) else []
+    framework_confirmed = isinstance(frameworks, list) and bool(frameworks)
+    no_findings_decision = session.scalar(
+        select(ReviewDecision).where(
+            ReviewDecision.tenant_id == principal.tenant_id,
+            ReviewDecision.review_task_id == result.review_task_id,
+            ReviewDecision.run_id == result.run_id,
+            ReviewDecision.finding_id == RESULT_PENDING_ID,
+        )
+    )
+    if (
+        no_findings_decision is not None
+        and no_findings_decision.snapshot_hash != result.snapshot_hash
+    ):
+        raise ValueError("human confirmation does not match the published result snapshot")
+    model_content = model.content
+    run = session.get(
+        ReviewEngineRun,
+        (
+            principal.tenant_id,
+            result.review_task_id,
+            result.run_id,
+        ),
+    )
+    if run is None or content_hash(run.snapshot) != result.snapshot_hash:
+        raise ValueError("report runtime does not match its frozen result")
+    runtime = _runtime_projection(session, run)
+    retrieval_runtime = run.snapshot.get("runtime_provenance", {}).get("retrieval", {})
+    return {
+        "candidate_discovery_status": discovery_content.get("status", "unknown"),
+        "candidate_count": len(discovery_content.get("candidates", [])),
+        "skill_candidate_count": runtime["skill_candidate_count"],
+        "model_candidate_count": runtime["model_candidate_count"],
+        "model_execution_mode": runtime["execution_mode"],
+        "model_calls": runtime["model_calls"],
+        "model_input_tokens": runtime["input_tokens"],
+        "model_output_tokens": runtime["output_tokens"],
+        "model_cost_cny": runtime["estimated_cost_cny"],
+        "vector_index_item_count": retrieval_runtime.get("vector_index_item_count", 0) or 0,
+        "vector_source_item_count": retrieval_runtime.get("vector_source_item_count", 0) or 0,
+        "skill_coverage": skill_coverage,
+        "legal_framework_confirmed": framework_confirmed,
+        "retrieval_status_counts": retrieval_status_counts,
+        "retrieval_context_errors": context_error_counts,
+        "retrieval_hit_count": retrieval_hit_count,
+        "citable_legal_evidence_count": citable_count,
+        "retrieval_algorithms": sorted(algorithms),
+        "model_provider": model_content.get("provider", "unknown"),
+        "model_name": model_content.get("model", "unknown"),
+        "no_findings_confirmation": (
+            no_findings_decision.decision if no_findings_decision is not None else None
+        ),
+        "source_artifact_hashes": {
+            "candidate_discovery": discovery.content_hash,
+            "legal_retrieval": retrieval.content_hash,
+            "model_analysis": model.content_hash,
+            "project_context": project_context.content_hash,
+        },
+    }
+
+
 def resolve_review_finding_citations(
     session: Session,
     principal: Principal,
@@ -250,25 +376,13 @@ def report_payload(
         if item["finding_id"] != RESULT_PENDING_ID:
             item["citations"] = _source_locations(session, principal, result, run, item)
         findings.append(item)
-    project_context = session.scalar(
-        select(ReviewArtifact).where(
-            ReviewArtifact.tenant_id == principal.tenant_id,
-            ReviewArtifact.review_task_id == result.review_task_id,
-            ReviewArtifact.run_id == result.run_id,
-            ReviewArtifact.kind == "project_context",
-        )
-    )
-    frozen_project_name = None
-    if project_context is not None:
-        if content_hash(project_context.content) != project_context.content_hash:
-            raise ValueError("frozen project context hash mismatch")
-        if project_context.content.get("context_sha256") != run.snapshot.get(
-            "project_context_sha256"
-        ):
-            raise ValueError("frozen project context does not match the review input snapshot")
-        frozen_project_name = project_context.content.get("context", {}).get("name")
+    project_context = _verified_run_artifact(session, principal, result, "project_context")
+    if project_context.content.get("context_sha256") != run.snapshot.get("project_context_sha256"):
+        raise ValueError("frozen project context does not match the review input snapshot")
+    frozen_project_name = project_context.content.get("context", {}).get("name")
+    scope = _assessment_scope(session, principal, result, project_context=project_context)
     return {
-        "schema_version": "task0010-report.v1",
+        "schema_version": "task0010-report.v2",
         "tenant_id": principal.tenant_id,
         "project_id": result.content["project_id"],
         "project_name": frozen_project_name,
@@ -281,6 +395,7 @@ def report_payload(
         "generated_at": (generated_at or datetime.now(UTC)).isoformat(),
         "input_snapshot": run.snapshot["input_snapshot"],
         "findings": findings,
+        "assessment_scope": scope,
     }
 
 
@@ -454,9 +569,7 @@ def export_report(session: Session, principal: Principal, report_id: str) -> Rev
     return row
 
 
-def list_reports(
-    session: Session, principal: Principal, result_id: str
-) -> list[ReviewReport]:
+def list_reports(session: Session, principal: Principal, result_id: str) -> list[ReviewReport]:
     require_identity(session, principal)
     if principal.role not in {Role.REVIEWER, Role.AUDITOR}:
         audit(session, principal.tenant_id, principal.user_id, "report.list_denied", result_id)

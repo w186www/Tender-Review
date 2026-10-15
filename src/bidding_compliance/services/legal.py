@@ -123,6 +123,7 @@ def retrieve_for_project(
             else "CONTEXT_INVALID"
         )
         result = RetrievalResult(
+            retrieval_version=runtime.algorithm,
             snapshot_hash=retriever.snapshot_hash,
             query=None,
             hits=(),

@@ -25,9 +25,12 @@
 | 前端工作台 | `development/frontend-workbench.md`、`development/TASK-0011-validation.md` | 前端启动、契约客户端和 TASK-0011 验收状态变化时 |
 | 面试演示 Demo | `development/TASK-0020-demo-gap-assessment.md`、`development/TASK-0020-validation.md` | 本地离线演示启动、前端状态标识或完整浏览器流程验收变化时 |
 | 合成数据真实 Qwen 在线演示 | `development/model-gateway-online-demo.md`、`decisions/DEC-002-qwen-demo-authorization.md`、`decisions/ADR-0017-bailian-qwen-chat-adapter.md` | 百炼 Chat 适配、在线路由、合成数据外发授权、模型预算与审计发生变化时 |
+| 真实文件离线诊断与待批 Qwen 外发提案 | `development/TASK-0022-validation.md`、`decisions/DEC-005-real-tender-qwen-evaluation-authorization.md` | 单个经授权本地招标文件的安全解析、离线规则/法规/证据检查及其独立在线授权时 |
 | 离线检索评测、Mock-only云Embedding与Tesseract OCR | `development/TASK-0018-validation.md`、`decisions/ADR-0015-offline-retrieval-ocr-provenance.md`、`decisions/ADR-0016-task-0018-cloud-embedding-contract.md` | 法规召回、云Provider接口、隔离OCR基线或运行版本追溯变化时 |
 
 ## 需求追踪规则
+
+本轮TASK-0023已按用户要求停止；当前完成、未完成与验证边界见[2026-10-15汇总](development/TASK-0023-status-summary-20261015.md)。DEC-005本轮已批准，但真实LLM/Embedding调用均0，尚未通过真实AI业务验收；TASK-0022中的未批准叙述属于历史。
 
 - 功能：`FR-###`
 - 安全：`SEC-###`

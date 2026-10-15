@@ -2,6 +2,58 @@
   "$defs": {
     "CandidateFinding": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "skill_id": {
+                "type": "string"
+              },
+              "skill_version": {
+                "type": "string"
+              },
+              "rule_id": {
+                "type": "string"
+              },
+              "rule_version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "skill_id",
+              "skill_version",
+              "rule_id",
+              "rule_version"
+            ]
+          },
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "model"
+              }
+            },
+            "required": [
+              "origin"
+            ]
+          },
+          "then": {
+            "properties": {
+              "skill_id": {
+                "type": "null"
+              },
+              "skill_version": {
+                "type": "null"
+              },
+              "rule_id": {
+                "type": "null"
+              },
+              "rule_version": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "candidate_id": {
           "pattern": "^[a-f0-9]{64}$",
@@ -25,32 +77,73 @@
           "title": "Status",
           "type": "string"
         },
-        "skill_id": {
+        "origin": {
+          "default": "rule",
           "enum": [
-            "qualification_review",
-            "technical_review",
-            "evaluation_review",
-            "contract_review",
-            "procedure_review"
+            "rule",
+            "model"
           ],
-          "title": "Skill Id",
+          "title": "Origin",
           "type": "string"
+        },
+        "skill_id": {
+          "anyOf": [
+            {
+              "enum": [
+                "qualification_review",
+                "technical_review",
+                "evaluation_review",
+                "contract_review",
+                "procedure_review"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skill Id"
         },
         "skill_version": {
-          "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
-          "title": "Skill Version",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skill Version"
         },
         "rule_id": {
-          "maxLength": 128,
-          "minLength": 1,
-          "title": "Rule Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
         },
         "rule_version": {
-          "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
-          "title": "Rule Version",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Version"
         },
         "document_version_ref": {
           "pattern": "^doc-version:sha256:[a-f0-9]{64}$",
@@ -96,10 +189,6 @@
       "required": [
         "candidate_id",
         "category",
-        "skill_id",
-        "skill_version",
-        "rule_id",
-        "rule_version",
         "document_version_ref",
         "problem_key",
         "deduplication_key",
@@ -112,33 +201,146 @@
     },
     "CandidateSource": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "skill_id": {
+                "type": "string"
+              },
+              "skill_version": {
+                "type": "string"
+              },
+              "rule_id": {
+                "type": "string"
+              },
+              "rule_version": {
+                "type": "string"
+              },
+              "model_provenance": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "skill_id",
+              "skill_version",
+              "rule_id",
+              "rule_version"
+            ]
+          },
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "model"
+              }
+            },
+            "required": [
+              "origin"
+            ]
+          },
+          "then": {
+            "properties": {
+              "skill_id": {
+                "type": "null"
+              },
+              "skill_version": {
+                "type": "null"
+              },
+              "rule_id": {
+                "type": "null"
+              },
+              "rule_version": {
+                "type": "null"
+              },
+              "model_provenance": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "model_provenance"
+            ]
+          }
+        }
+      ],
       "properties": {
-        "skill_id": {
+        "origin": {
+          "default": "rule",
           "enum": [
-            "qualification_review",
-            "technical_review",
-            "evaluation_review",
-            "contract_review",
-            "procedure_review"
+            "rule",
+            "model"
           ],
-          "title": "Skill Id",
+          "title": "Origin",
           "type": "string"
+        },
+        "skill_id": {
+          "anyOf": [
+            {
+              "enum": [
+                "qualification_review",
+                "technical_review",
+                "evaluation_review",
+                "contract_review",
+                "procedure_review"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skill Id"
         },
         "skill_version": {
-          "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
-          "title": "Skill Version",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skill Version"
         },
         "rule_id": {
-          "maxLength": 128,
-          "minLength": 1,
-          "title": "Rule Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
         },
         "rule_version": {
-          "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
-          "title": "Rule Version",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Version"
+        },
+        "model_provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelCandidateProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "source_excerpts": {
           "items": {
@@ -157,10 +359,6 @@
         }
       },
       "required": [
-        "skill_id",
-        "skill_version",
-        "rule_id",
-        "rule_version",
         "source_excerpts",
         "matched_reason"
       ],
@@ -295,6 +493,42 @@
       "type": "object"
     },
     "JsonValue": {},
+    "ModelCandidateProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "response_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Response Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "prompt_version",
+        "response_hash"
+      ],
+      "title": "ModelCandidateProvenance",
+      "type": "object"
+    },
     "OCRRuntimeIdentity": {
       "additionalProperties": false,
       "properties": {

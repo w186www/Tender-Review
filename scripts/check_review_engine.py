@@ -126,12 +126,12 @@ class OfflineReviewGateway(ModelGateway):
         candidates = payload["document_candidates"]["candidates"]
         retrieval = payload["legal_retrieval"]
         candidate_evidence = payload["candidate_legal_evidence"]
-        if not candidates or not retrieval["results"]:
+        if candidates and not retrieval["results"]:
             raise AssertionError("gateway did not receive document and published-law results")
         if set(candidate_evidence) != {item["candidate_id"] for item in candidates}:
             raise AssertionError("gateway did not receive candidate-specific legal results")
-        self.saw_candidates = True
-        self.saw_legal_results = True
+        self.saw_candidates = self.saw_candidates or bool(candidates)
+        self.saw_legal_results = self.saw_legal_results or bool(retrieval["results"])
         if self.fail_first:
             self.fail_first = False
             raise ModelGatewayError(

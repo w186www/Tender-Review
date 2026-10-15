@@ -559,6 +559,77 @@
       "title": "RetrievalQuery",
       "type": "object"
     },
+    "RetrievalRankingTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "clause_id": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Clause Id",
+          "type": "string"
+        },
+        "bm25_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bm25 Rank"
+        },
+        "bm25_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bm25 Score"
+        },
+        "vector_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Rank"
+        },
+        "vector_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Score"
+        },
+        "fused_score": {
+          "minimum": 0,
+          "title": "Fused Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "clause_id",
+        "fused_score"
+      ],
+      "title": "RetrievalRankingTrace",
+      "type": "object"
+    },
     "RetrievalRuntimeSnapshot": {
       "additionalProperties": false,
       "description": "Algorithm settings frozen with a retrieval run; this is not call-level audit.",
@@ -570,8 +641,11 @@
           "type": "string"
         },
         "algorithm": {
-          "const": "bm25-char-cosine-rrf-5",
           "default": "bm25-char-cosine-rrf-5",
+          "enum": [
+            "bm25-char-cosine-rrf-5",
+            "bm25-dense-cosine-rrf-1"
+          ],
           "title": "Algorithm",
           "type": "string"
         },
@@ -635,6 +709,32 @@
           ],
           "default": null,
           "title": "Vector Index Build Id"
+        },
+        "vector_index_item_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Index Item Count"
+        },
+        "vector_source_item_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Source Item Count"
         }
       },
       "required": [
@@ -799,8 +899,11 @@
       "type": "string"
     },
     "retrieval_version": {
-      "const": "bm25-char-cosine-rrf-5",
       "default": "bm25-char-cosine-rrf-5",
+      "enum": [
+        "bm25-char-cosine-rrf-5",
+        "bm25-dense-cosine-rrf-1"
+      ],
       "title": "Retrieval Version",
       "type": "string"
     },
@@ -878,6 +981,14 @@
         }
       ],
       "default": null
+    },
+    "ranking_trace": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RetrievalRankingTrace"
+      },
+      "title": "Ranking Trace",
+      "type": "array"
     }
   },
   "required": [

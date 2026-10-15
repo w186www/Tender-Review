@@ -257,7 +257,7 @@ def discover(
         sources = tuple(
             sorted(
                 {entry[0] for entry in entries},
-                key=lambda item: (item.skill_id, item.rule_id, item.rule_version),
+                key=lambda item: (str(item.skill_id), str(item.rule_id), str(item.rule_version)),
             )
         )
         primary = sources[0]
@@ -347,6 +347,8 @@ def combine_discoveries(results: Sequence[DiscoveryResult]) -> DiscoveryResult:
         )
         exemplar = min(members, key=lambda item: item.candidate_id)
         primary = provenance[0]
+        if primary.origin != "rule" or primary.skill_id is None:
+            raise ValueError("Skill fanout can only combine deterministic rule candidates")
         candidate_id = _sha(
             {
                 "deduplication_key": key,
@@ -377,6 +379,7 @@ def combine_discoveries(results: Sequence[DiscoveryResult]) -> DiscoveryResult:
     candidate_counts = {skill_id: 0 for skill_id in skill_ids}
     for candidate in candidates:
         for skill_id in {source.skill_id for source in candidate.provenance}:
+            assert skill_id is not None
             candidate_counts[skill_id] += 1
     coverages = [
         coverage.model_copy(update={"candidates_found": candidate_counts[coverage.skill_id]})

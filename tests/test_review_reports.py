@@ -1,11 +1,14 @@
 """TASK0010 report rendering must preserve published evidence and Chinese text."""
 
+import json
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
 from docx import Document
+from jsonschema import Draft202012Validator
 from pypdf import PdfReader
 
 from bidding_compliance.domain.identity import Principal, Role
@@ -97,6 +100,104 @@ def test_task0010_word_and_pdf_are_real_parseable_chinese_reports() -> None:
     assert "招标文件合规审查报告" in pdf_text
     assert "suspected" in pdf_text
     assert "confirmed" not in pdf_text
+
+
+def test_task0022_zero_candidate_reports_disclose_actual_run_limits() -> None:
+    report = _report()
+    report.update(
+        {
+            "schema_version": "task0010-report.v2",
+            "template_version": "task0010-v2",
+            "findings": [],
+            "assessment_scope": {
+                "candidate_discovery_status": "completed_with_incomplete_skill",
+                "candidate_count": 0,
+                "skill_coverage": [
+                    {
+                        "skill_id": "qualification_review",
+                        "status": "completed_no_candidates",
+                        "candidate_count": 0,
+                        "evaluated_rule_count": 1,
+                        "reason": None,
+                    },
+                    {
+                        "skill_id": "technical_review",
+                        "status": "completed_no_candidates",
+                        "candidate_count": 0,
+                        "evaluated_rule_count": 1,
+                        "reason": None,
+                    },
+                    {
+                        "skill_id": "evaluation_review",
+                        "status": "incomplete",
+                        "candidate_count": 0,
+                        "evaluated_rule_count": 1,
+                        "reason": "ambiguous_score_table",
+                    },
+                    {
+                        "skill_id": "procedure_review",
+                        "status": "incomplete",
+                        "candidate_count": 0,
+                        "evaluated_rule_count": 1,
+                        "reason": "ambiguous_tender_times",
+                    },
+                    {
+                        "skill_id": "contract_review",
+                        "status": "not_applicable",
+                        "candidate_count": 0,
+                        "evaluated_rule_count": 1,
+                        "reason": None,
+                    },
+                ],
+                "legal_framework_confirmed": False,
+                "retrieval_status_counts": {"context_incomplete": 5},
+                "retrieval_context_errors": {"CONTEXT_INVALID": 5},
+                "retrieval_hit_count": 0,
+                "citable_legal_evidence_count": 0,
+                "retrieval_algorithms": ["bm25-char-cosine-rrf-5"],
+                "model_provider": "offline-verification",
+                "model_name": "synthetic-protocol-adapter",
+                "no_findings_confirmation": "confirm_no_findings",
+                "source_artifact_hashes": {
+                    "candidate_discovery": "d" * 64,
+                    "legal_retrieval": "e" * 64,
+                    "model_analysis": "f" * 64,
+                    "project_context": "a" * 64,
+                },
+            },
+        }
+    )
+    schema = json.loads(
+        (Path(__file__).resolve().parents[1] / "contracts/schemas/review-report.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    Draft202012Validator(schema).validate(report)
+
+    parsed_word = Document(BytesIO(render_docx(report)))
+    word_text = "\n".join(paragraph.text for paragraph in parsed_word.paragraphs)
+    pdf_text = "\n".join(
+        page.extract_text() or "" for page in PdfReader(BytesIO(render_pdf(report))).pages
+    )
+    expected_parts = (
+        "评审办法",
+        "未完成判断",
+        "评分表存在歧义",
+        "采购程序",
+        "采购时间存在歧义",
+        "0候选仅表示已运行规则范围内未产生候选",
+        "法律适用框架尚未确认",
+        "CONTEXT_INVALID",
+        "未取得可确认、可引用的法规依据",
+        "OfflineReviewGateway",
+        "本次未调用真实LLM",
+        "confirm_no_findings",
+        "不构成专业法律审查确认",
+        "全部合规",
+    )
+    for output_index, output in enumerate((word_text, pdf_text)):
+        normalized = "".join(output.split())
+        missing = [part for part in expected_parts if part not in normalized]
+        assert not missing, f"output {output_index} omitted required scope statements: {missing}"
 
 
 @pytest.mark.parametrize(

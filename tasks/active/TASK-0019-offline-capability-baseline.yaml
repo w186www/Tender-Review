@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0019",
   "title": "招标文件审查能力离线基线评测",
-  "status": "planned",
+  "status": "blocked",
   "owner": "Codex",
   "depends_on": [
     "TASK-0005",
@@ -45,6 +45,10 @@
     "docs/development/TASK-0011-validation.md",
     "docs/development/TASK-0018-validation.md",
     "evals/golden_cases/GC-0001-region-restriction.json",
+    "evals/golden_cases/GC-0002-exclusive-brand.json",
+    "evals/golden_cases/GC-0003-score-total-mismatch.json",
+    "evals/golden_cases/GC-0004-key-contract-placeholder.json",
+    "evals/golden_cases/GC-0005-tender-time-order.json",
     "evals/thresholds.yaml"
   ],
   "allowed_paths": [
@@ -118,5 +122,5 @@
     "./.venv/Scripts/python.exe scripts/check_legal_publications.py",
     "./.venv/Scripts/python.exe scripts/check_ingestion_containers.py"
   ],
-  "handoff_notes": "任务定义保留，不覆盖离线能力评测目标。TASK-0020 面试演示交付优先；此前部分未提交实现和结果仍保存在本机 work/TASK-0019 独立工作区，本分支不携带、不验收该实现。TASK-0019 需在 TASK-0020 完成后重新排期并按原验收执行。真实样本授权仍未确认。"
+  "handoff_notes": "TASK-0019 is temporarily blocked at the user direction while independent TASK-0022 runs the real-file offline diagnostic. The original TASK-0019 worktree, branch, HEAD, uncommitted code, reports, tests, and task file are preserved unchanged; see tasks/handoffs/TASK-0019-paused-20261015.md for the pre-pause SHA-256 manifest. TASK-0019 remains synthetic-only and is not expanded by the local source authorization granted exclusively to TASK-0022. No external model request is allowed until DEC-005 receives explicit approval."
 }

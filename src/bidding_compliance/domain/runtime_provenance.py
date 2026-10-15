@@ -48,8 +48,10 @@ class ReviewRuntimeProvenance(BaseModel):
             != self.embedding_identity.identity_sha256
         ):
             raise ValueError("retrieval embedding identity differs from the run identity")
-        if self.vector_index_build_id is not None:
-            raise ValueError("TASK-0018 does not activate a vector index in review runs")
+        if self.vector_index_build_id != self.retrieval.vector_index_build_id:
+            raise ValueError(
+                "review does not activate a vector index without matching retrieval identity"
+            )
         if len({item.document_id for item in self.parser_documents}) != len(self.parser_documents):
             raise ValueError("duplicate parser provenance document")
         return self

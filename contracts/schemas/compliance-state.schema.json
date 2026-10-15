@@ -19,6 +19,7 @@
     "parse_quality_ref": {"type": ["string", "null"], "maxLength": 2048},
     "review_plan_ref": {"type": ["string", "null"], "maxLength": 2048},
     "discovery_ref": {"type": ["string", "null"], "maxLength": 2048},
+    "llm_discovery_ref": {"type": ["string", "null"], "maxLength": 2048},
     "rule_findings_ref": {"type": ["string", "null"], "maxLength": 2048},
     "retrieval_results_ref": {"type": ["string", "null"], "maxLength": 2048},
     "model_findings_ref": {"type": ["string", "null"], "maxLength": 2048},

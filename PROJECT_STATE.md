@@ -1,8 +1,24 @@
 # PROJECT_STATE
 
 更新时间：2026-10-15
+
+## 当前有效状态：TASK-0023按用户要求停止
+
+用户最新要求“不用做了，总结已完成和未完成文档”。已停止实施，不自动继续或恢复。TASK-0023用Schema支持的`blocked`表达用户要求停止，不表示等待重新授权；DEC-005本轮明确获批，DEC-002保持已消耗。
+
+- 工作树：`bidding-compliance-agent-TASK-0023` / `work/TASK-0023`，以TASK-0022未提交成果为基线；改动未提交、未推送、未部署。
+- 已实现开发候选：持久授权/费用拦截、正式真实模型装配、LangGraph独立候选发现、脱敏/原文校验、受控Embedding及子集向量检索、页面/报告运行来源字段。
+- 本轮真实LLM 0次、真实Embedding 0批、供应商费用¥0；未启动真实审查app，未完成网页或真实AI报告验收。
+- 验证：主树中间候选直接定向68项通过；最近正式Focused的契约/生成/秘密、Ruff、Mypy104文件及前端OpenAPI一致性通过，前端lint因Biome依赖缺失失败。依赖重装完成但未复验，最终Full/专项/真实网页/远端CI未完成。
+- TASK-0019原树HEAD和12项文件SHA与暂停记录完全一致；TASK-0022原树未写入。
+- 真实样本法律框架未确认、法规证据未匹配；不能强设政府采购框架。新开发候选不能宣称已具备真实AI审查交付能力。
+
+详细完成/未完成、验证边界与接续位置见[本轮汇总](docs/development/TASK-0023-status-summary-20261015.md)。只有用户明确恢复后才继续，先补齐最终验证及真实发送前预检。
+
+以下保留TASK-0022阶段的历史记录，包括当时DEC-005未获批准的叙述；本轮状态以上述记录和汇总文档为准。
+
 架构基线：ADR-0012本期法规生命周期/来源映射接受；ADR-0015历史决策保留、其TASK-0018 BGE/Paddle部署计划由已批准ADR-0016局部修订；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
-当前里程碑：M1、M2、M2A、M3、M3B 已按记录退出；M3B/TASK-0021 的合成数据真实 Qwen 在线演示、Edge E2E、源码 Full CI 与归档 Quick CI 均有记录。DEC-002 唯一请求授权于 2026-10-15 消耗，硬预算上限 ¥0.10；无真实业务数据或法规正文外发。M3A/TASK-0019 保持 planned，其独立工作树与未提交成果不参与本任务。M4/M5 及 TASK-0012/0013/0014 原验收范围不变。
+当前里程碑：M1、M2、M2A、M3、M3B 已按记录退出；M3A/TASK-0022 继续进行本地离线诊断。当前天津地铁 DOCX 经正式上传、安全扫描、隔离解析和上下文确认后完成离线 LangGraph；五类 Skills 产生0候选，RAG 5/5 `CONTEXT_INVALID`，空候选合并、人工确认和 Word/PDF 报告路径已验证。该结果不表示全部合规；适用法律框架未确认、法规证据未匹配，且没有真实 Qwen 调用。TASK-0019 按用户要求临时暂停，在本分支以 Schema 支持的 `blocked` 表示，其原工作树/未提交成果不参与本任务。DEC-002 唯一合成数据请求已消耗；DEC-005 仍未批准，真实文件和法规正文尚未外发。M4/M5 及 TASK-0012/0013/0014 原验收范围不变。
 
 ## 已完成
 
@@ -35,16 +51,21 @@
 
 ## 正在进行
 
-- 当前没有正在执行的 TASK。TASK-0019 离线评测保持 `planned`；其部分未提交实现仍完整留在本机独立 `work/TASK-0019` 工作区，本轮未在该工作树执行或写入。
+- TASK-0019 暂停：由于任务 Schema 没有 `paused`，新治理分支中的状态为 `blocked`，语义是用户要求先执行 TASK-0022；其原分支 `work/TASK-0019`、HEAD `00829851018612a275faca9ad6609e10fa38305d` 和 12 项未提交文件均按 SHA-256 清单记录，原工作树未写入。详见 `tasks/handoffs/TASK-0019-paused-20261015.md`。
+- TASK-0022 正在执行：独立分支 `work/TASK-0022`，基线 `work/TASK-0021` / `2624e14b39c25baca939ebede552527481c8ea53`。当前文件为天津地铁11号线 DOCX。真实文件经正式上传、ClamAV、隔离 parser、人工校正 API 与正式上下文确认后达到 ready；空候选阻断已在离线测试 Gateway 修复。实际离线运行得到0个候选、RAG 5/5 `CONTEXT_INVALID`、LangGraph `result_published`；测试审核账号确认空结果，Word/PDF API 生成和下载均 HTTP 200。Focused 3项通过；Full未重跑。DEC-005未批准、真实模型调用0；本次审查不构成合规结论，且未用 Edge 浏览器验证真实文件流程。详见 `docs/development/TASK-0022-validation.md`。
+- DEC-005 单次 Qwen 评测授权仍为 proposed；用户明确批准前不得调用。即使获批，也须先解决解析质量和上下文确认；TASK-0021 的 DEC-002 合成样本授权不得复用。
 - DEC-001 外部部署仍待决策。42 个法规版本仍未核验，演示必须保留证据状态，不得默认外发法规正文。
 
 ## 下一步
 
-1. TASK-0019 仍保持 `planned`，尚未启动；其原工作树和未提交内容不得在后续任务中误修改。
-2. 42 个未核验法规版本及到期核验日期继续按既有边界处理；DEC-001 未获批准前不部署公网服务。
+1. TASK-0022 保持 in_progress：离线工作流与报告路径可演示，但法规框架/法条匹配未完成，Skills 覆盖有限；不可把0候选称为无风险或合规。当前不得调用真实 Qwen。
+2. 真实文件演示与 TASK-0021 合成样本真实 Qwen 演示须分开标注。DEC-005 如需执行真实文件评测，需按独立授权继续；DEC-002 不可复用。
+3. TASK-0022 收尾后由用户决定是否恢复 TASK-0019；其工作树和 12 项文件哈希需与暂停清单一致。
+4. 42 个未核验法规版本及到期核验日期继续按既有边界处理；DEC-001 未获批准前不部署公网服务。
 
 ## 最近验证
 
+- 2026-10-15 TASK-0022 零候选离线工作流：`scripts/check_review_engine.py` 仅放宽合法空 candidates 时对 RAG 结果非空的测试夹具断言；candidate evidence 键仍须精确匹配，非空候选仍须有法规检索结果。Focused `tests/test_task0022_zero_candidate_review.py` 3 passed；Ruff、Mypy 98文件、前端6项及 build 通过；未重复 Full。真实文件 run `ef621b8a-a7b8-56fd-ba22-05955b5b02bd` 到达 `result_published`，0 findings；RAG 5/5 `CONTEXT_INVALID`、可引用命中0。正式测试审核账号记录 `confirm_no_findings`，其原因明确否定合规推断。Word/PDF 报告 API 下载均 HTTP 200；详细私有诊断留在 `.verification/private/TASK-0022/`。外部模型请求0，DEC-005未批准。
 - 2026-10-15 TASK-0021源码/测试证据：manifest SHA-256 `407a0564c2d8508bde52cee3626394f50a8a5a3c82c934c5d9a0e2204442fd1d`；Focused 25 passed，Full 570 passed/2条既有pypdf弃用警告，Ruff、Mypy98源文件、前端6项/build及HTTP/身份smoke通过；PostgreSQL16/Checkpoint 专项通过。官方北京价格按输入¥0.8/百万tokens、输出¥2.7/百万tokens核验；授权硬预算¥0.10且调用前全额预留，白名单规范化JSON发送前强制≤2,048 UTF-8字节。
 - 2026-10-15 TASK-0021唯一真实在线实证：run `30180d4e152040ccb9f805634617b456`，Microsoft Edge 5/5通过，0 failure/error/skip；合成DOCX SHA-256 `c770a3576555fc9225b2612c98966e809cc087194e3bb2d3d7c3bfb05ed65341`。恰好一条 `bailian/qwen3.8-flash` 请求，供应商报告424输入/420输出tokens，费用按北京官方单价估算¥0.0014732，延迟10,125ms，重试0/无回退；响应哈希`5f462b27fa9cf59015a14db08bb411d76da24f617c8ac17ea8b51f3241e47dcb`。结构化输出关联审计哈希并进入 merged finding；本地RAG、人工复核/Checkpoint恢复、DOCX/PDF生成及下载均由E2E断言通过。无源码/测试变化，复用Full 570；代码提交、归档提交及对应 CI 均成功。详细证据见`docs/development/TASK-0021-validation.md`。
 - 2026-10-15 TASK-0020 本地及远端最终验收：Git index 源码/测试十文件 manifest SHA-256 `c5ec2a5a0e28d9c5317f6a9ae0d019131694b7d8673d7758991d469a1ff9cf7a`；Focused 76 passed，Full 545 passed/2 条既有 pypdf 弃用警告，Mypy97源文件；真实 Edge 5/5（run `86521e79591241c19b28aaecf0988323`，合成 DOCX→安全解析→离线ReviewEngine→人工复核/发布→Word/PDF下载）；PostgreSQL16、Checkpoint/ReviewEngine、parser sandbox、ClamAV/MinIO/S3安全摄取均通过；`--serve` run `9a9478a6b4dc4d8b9c1fd0e34b40f09c` Ctrl+C 后 manifest `stopped` 且三容器已移除。GitHub Actions Run 38688174502 对提交`c85e9155949b1a1d961a1031949f003e1bfe0313`全部适用门禁成功；baseline JUnit 545/0/0/0。TASK-0019工作树状态和12个变更文件哈希与本轮开始快照一致。详见`docs/development/TASK-0020-validation.md`。
@@ -90,7 +111,7 @@
 - 法规元数据已固定43个版本：42份旧文本仍未逐项核实，1份司法部2019修订《实施条例》核验到2026-10-14且仅启用工程范围。本期全局管理服务/鉴权CLI已实现；完整生产法规效力验收、pgvector、神经语义召回及管理前端仍待实施。
 - 《建设工程施工合同（示范文本）》等 3 项资料未收录，详见 `knowledge/legal/索引.md`。
 - 默认OCR已按ADR-0008采用中英文Tesseract端口、存储提供S3和本地开发适配；首选模型、生产服务和部署环境仍待确定。
-- 当前方案不安装或下载BGE/PaddleOCR。百炼模型为供应商托管且权重/Tokenizer修订无可固定身份；DEC-002 的一次本地合成数据授权已消耗，任何后续真实模型调用、真实数据处理或部署均未授权。跨进程预算账本、生产级模型审计、云端质量评测及真实样本验证需后续独立TASK和授权。
+- 当前方案不安装或下载BGE/PaddleOCR。百炼模型为供应商托管且权重/Tokenizer修订无可固定身份；DEC-002 的一次本地合成数据授权已消耗，任何后续真实模型调用、外发真实数据或公网部署均未授权。TASK-0022 只获准对用户指定的真实文件进行本机离线处理；真实 Qwen 外发仍须 DEC-005 批准。跨进程预算账本、生产级模型审计及云端质量评测需后续独立决策。
 
 ## 待决策
 
@@ -98,6 +119,7 @@
 - DEC-002：已批准 TASK-0021 一次合成数据演示；生产模型、真实业务数据处理与部署约束仍待决策。
 - DEC-003：Tesseract为首期实现；生产扫描件性能预算与复杂中文版面效果待评估。
 - DEC-004：前端技术栈与企业OIDC集成；首期本地认证已按ADR-0007落地。
+- DEC-005：单份真实招标文件受控 Qwen 评测外发授权；当前仅为 proposed，待用户明确批准。
 
 ## 数据与迁移
 

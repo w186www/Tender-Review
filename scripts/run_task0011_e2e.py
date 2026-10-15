@@ -228,6 +228,7 @@ def _create_runtime_role(admin_url: str, password: str) -> None:
                 "GRANT UPDATE ON review_task TO task0011_runtime",
                 "GRANT SELECT, INSERT ON document_section, section_revision, "
                 "document_context_version TO task0011_runtime",
+                "GRANT UPDATE (revision) ON document_section TO task0011_runtime",
                 "GRANT SELECT, INSERT, UPDATE ON review_engine_run TO task0011_runtime",
                 "GRANT SELECT, INSERT ON review_artifact, review_decision, review_result, "
                 "review_report_content, review_report TO task0011_runtime",
@@ -357,6 +358,16 @@ def _junit_summary(path: Path) -> dict[str, int]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--dec005-real-ai",
+        action="store_true",
+        help="serve the DEC-005 document-allowlisted actual Qwen ReviewEngine",
+    )
+    parser.add_argument(
+        "--allowed-document",
+        type=Path,
+        help="exact user-authorized local tender, used only to freeze its SHA",
+    )
+    parser.add_argument(
         "--online-qwen",
         action="store_true",
         help="run the separately gated TASK-0021 synthetic-data Qwen browser flow",
@@ -377,13 +388,20 @@ def main() -> int:
         help="keep isolated API, Vite, PostgreSQL, MinIO, and ClamAV alive for local preview",
     )
     args = parser.parse_args()
+    real_ai = args.dec005_real_ai
+    if real_ai and (args.online_qwen or args.dec_002_approved or not args.serve):
+        parser.error("DEC-005 uses its independent --serve route, without DEC-002 flags")
+    if real_ai and (args.allowed_document is None or not args.allowed_document.is_file()):
+        parser.error("DEC-005 requires the exact authorized document")
+    if not real_ai and args.allowed_document is not None:
+        parser.error("document allowlist is only supported by DEC-005")
     if args.online_qwen != args.dec_002_approved:
         parser.error("online Qwen requires --online-qwen and --dec-002-approved together")
     if args.serve and args.keep_services:
         parser.error("--serve owns service lifetime and cannot be combined with --keep-services")
     if args.online_qwen and (args.serve or args.keep_services):
         parser.error("online Qwen credentials and services may not be kept after the isolated run")
-    if args.online_qwen and (
+    if (args.online_qwen or real_ai) and (
         not os.environ.get("DASHSCOPE_API_KEY") or not os.environ.get("BAILIAN_WORKSPACE_ID")
     ):
         parser.error(
@@ -392,7 +410,11 @@ def main() -> int:
     run_id = uuid4().hex
     online_qwen = args.online_qwen
     folder_prefix = "task0021-qwen-e2e" if online_qwen else "task0011-e2e"
-    folder = ROOT / ".verification" / f"{folder_prefix}-{run_id}"
+    folder = (
+        ROOT / ".verification/private/TASK-0023" / f"run-{run_id}"
+        if real_ai
+        else ROOT / ".verification" / f"{folder_prefix}-{run_id}"
+    )
     folder.mkdir(parents=True)
     logs: dict[str, Any] = {"folder": folder, "streams": [], "processes": []}
     containers: list[str] = []
@@ -421,6 +443,14 @@ def main() -> int:
         "artifacts": str(folder),
         "status": "running",
     }
+    if real_ai:
+        state.update(
+            {
+                "execution_mode": "DEC-005 real tender Qwen discovery",
+                "review_adapter": "ModelGatewayService::BailianQwenChatAdapter",
+                "network_policy": "loopback plus bounded Beijing Bailian HTTPS only",
+            }
+        )
     try:
         if shutil.which("docker") is None:
             raise RuntimeError("Docker CLI is required for TASK-0011 real browser E2E")
@@ -537,14 +567,27 @@ def main() -> int:
             "PostgreSQL 16 migration + runtime RLS role, S3 object storage and ClamAV ready"
         )
         fixture = folder / "synthetic-tender.docx"
-        _run(
-            [
-                python,
-                str(ROOT / "scripts/generate_demo_fixture.py"),
-                "--output",
-                str(fixture),
-            ]
-        )
+        if real_ai:
+            from scripts.task0023_real_ai_acceptance import synthetic_docx_bytes
+
+            approved_fixture = ROOT / ".verification/private/TASK-0023/approved-synthetic.docx"
+            approved_fixture.parent.mkdir(parents=True, exist_ok=True)
+            payload = synthetic_docx_bytes()
+            if approved_fixture.exists() and approved_fixture.read_bytes() != payload:
+                raise RuntimeError(
+                    "approved synthetic fixture differs from the DEC-005 deterministic identity"
+                )
+            approved_fixture.write_bytes(payload)
+            shutil.copyfile(approved_fixture, fixture)
+        else:
+            _run(
+                [
+                    python,
+                    str(ROOT / "scripts/generate_demo_fixture.py"),
+                    "--output",
+                    str(fixture),
+                ]
+            )
         fixture_sha256 = hashlib.sha256(fixture.read_bytes()).hexdigest()
         state["synthetic_fixture"] = str(fixture)
         state["synthetic_fixture_sha256"] = fixture_sha256
@@ -583,6 +626,20 @@ def main() -> int:
                 "CLAMD_PORT": str(clam_port),
             }
         )
+        if real_ai:
+            server_env.update(
+                {
+                    "MODEL_PROFILE": "dec005-real-qwen",
+                    "DEC005_AUTHORIZATION_ID": "DEC-005-2026-10-15",
+                    "DEC005_ALLOWED_DOCUMENT_SHA256": hashlib.sha256(
+                        args.allowed_document.read_bytes()
+                    ).hexdigest(),
+                    "DEC005_ALLOWED_SYNTHETIC_SHA256": fixture_sha256,
+                    "DEC005_MODEL_AUDIT_PATH": str(
+                        ROOT / ".verification/private/TASK-0023/model-audit.jsonl"
+                    ),
+                }
+            )
         if online_qwen:
             server_env.update(
                 {
@@ -597,9 +654,13 @@ def main() -> int:
                 python,
                 str(ROOT / "scripts/task0011_e2e_server.py"),
                 "--app",
-                "scripts.task0021_online_e2e_app:app"
-                if online_qwen
-                else "scripts.task0011_e2e_app:app",
+                (
+                    "scripts.task0023_real_ai_app:app"
+                    if real_ai
+                    else "scripts.task0021_online_e2e_app:app"
+                    if online_qwen
+                    else "scripts.task0011_e2e_app:app"
+                ),
                 "--port",
                 str(api_port),
             ],
@@ -614,6 +675,10 @@ def main() -> int:
             "TASK0021_ONLINE_APPROVED",
             "TASK0021_ALLOWED_SYNTHETIC_DOC_SHA256",
             "TASK0021_MODEL_AUDIT_PATH",
+            "DEC005_AUTHORIZATION_ID",
+            "DEC005_ALLOWED_DOCUMENT_SHA256",
+            "DEC005_MODEL_AUDIT_PATH",
+            "DEC005_ALLOWED_SYNTHETIC_SHA256",
         ):
             no_review_env.pop(secret_name, None)
         no_review_env["APP_PORT"] = str(no_review_api_port)
@@ -649,6 +714,10 @@ def main() -> int:
             "TASK0021_ONLINE_APPROVED",
             "TASK0021_ALLOWED_SYNTHETIC_DOC_SHA256",
             "TASK0021_MODEL_AUDIT_PATH",
+            "DEC005_AUTHORIZATION_ID",
+            "DEC005_ALLOWED_DOCUMENT_SHA256",
+            "DEC005_MODEL_AUDIT_PATH",
+            "DEC005_ALLOWED_SYNTHETIC_SHA256",
         ):
             safe_service_env.pop(secret_name, None)
         _start_process(
@@ -671,6 +740,8 @@ def main() -> int:
         main_ui_env = safe_service_env.copy()
         main_ui_env["BIDDING_API_TARGET"] = f"http://127.0.0.1:{api_port}"
         main_ui_env["VITE_REVIEW_MODE"] = "online-qwen" if online_qwen else "offline-deterministic"
+        if real_ai:
+            main_ui_env["VITE_REVIEW_MODE"] = "dec005-real-qwen"
         main_ui = _start_process(
             "vite-review-engine",
             [node, vite, "--host", "127.0.0.1", "--port", str(ui_port), "--strictPort"],
@@ -700,6 +771,32 @@ def main() -> int:
             state["preview_urls"] = {"web": f"http://127.0.0.1:{ui_port}/login"}
             reviewer = credentials["tenant-a:reviewer"]
             admin = credentials["tenant-a:admin"]
+            if real_ai:
+                access_path = folder / "demo-access.json"
+                access_path.write_text(
+                    json.dumps(
+                        {
+                            "web": f"http://127.0.0.1:{ui_port}",
+                            "api": f"http://127.0.0.1:{api_port}",
+                            "reviewer": reviewer,
+                            "admin": admin,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+                state["status"] = "serving"
+                (folder / "run.json").write_text(
+                    json.dumps(state, ensure_ascii=False), encoding="utf-8"
+                )
+                print(f"DEC-005真实审查服务已启动： http://127.0.0.1:{ui_port}/login", flush=True)
+                print(f"本机私有运行目录：{folder}", flush=True)
+                try:
+                    while True:
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    state["status"] = "stopped"
+                return 0
             print("离线确定性演示已启动，所有服务仅监听本机 loopback。")
             print(f"网页：http://127.0.0.1:{ui_port}/login")
             print(f"合成 DOCX：{fixture}")

@@ -156,6 +156,32 @@
       "title": "Item Count",
       "type": "integer"
     },
+    "source_item_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Item Count"
+    },
+    "coverage_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Coverage Sha256"
+    },
     "items_sha256": {
       "pattern": "^[a-f0-9]{64}$",
       "title": "Items Sha256",

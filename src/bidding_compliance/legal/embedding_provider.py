@@ -1,10 +1,15 @@
-"""Provider-neutral embedding port and a MockTransport-only Bailian contract adapter."""
+"""Provider-neutral embeddings, with explicitly guarded live Bailian requests."""
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import re
-from collections.abc import Sequence
+import threading
+import time
+from collections.abc import Callable, Sequence
+from decimal import Decimal
 from typing import Protocol
 
 import httpx
@@ -53,6 +58,18 @@ class EmbeddingProvider(Protocol):
     def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
+class EmbeddingCallGuard(Protocol):
+    """Trusted authorization/budget scope shared with the chat runtime.
+
+    Reservation validates the exact, pre-authorized request hash and charges an
+    attempt before transport. Unsettled reservations retain their full ceiling.
+    """
+
+    def reserve_external(self, *, kind: str, request_hash: str, ceiling: Decimal) -> str: ...
+
+    def settle_external(self, reservation: str, actual: Decimal) -> None: ...
+
+
 MODEL_DIMENSIONS: dict[str, frozenset[int]] = {
     "qwen3.7-text-embedding": frozenset({256, 512, 768, 1024, 1536, 2048, 2560}),
     "text-embedding-v4": frozenset({64, 128, 256, 512, 768, 1024, 1536, 2048}),
@@ -85,7 +102,7 @@ def character_embedding_identity() -> EmbeddingModelIdentity:
 
 
 class DashScopeEmbeddingSettings(BaseModel):
-    """Non-secret provider settings; enabled remains false for this task."""
+    """Credentials are explicit backend injections; nothing reads the environment."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -95,6 +112,8 @@ class DashScopeEmbeddingSettings(BaseModel):
     model_id: str = Field(pattern=r"^(qwen3\.7-text-embedding|text-embedding-v4)$")
     dimensions: int = Field(ge=1, le=8192)
     timeout_seconds: float = Field(default=10, gt=0, le=60)
+    max_text_utf8_bytes: int = Field(default=8192, ge=1, le=8192)
+    max_batch_utf8_bytes: int = Field(default=32768, ge=1, le=81920)
     api_key: SecretStr | None = Field(default=None, repr=False, exclude=True)
 
     @model_validator(mode="after")
@@ -124,23 +143,53 @@ class DashScopeEmbeddingSettings(BaseModel):
 
 
 class DashScopeEmbeddingProvider:
-    """Contract-tested adapter; this release accepts only an injected MockTransport."""
+    """One bounded attempt; real transport requires authorization, budget and audit."""
+
+    @staticmethod
+    def _mock_client_only(client: httpx.Client) -> bool:
+        return isinstance(getattr(client, "_transport", None), httpx.MockTransport) and all(
+            mounted is None or isinstance(mounted, httpx.MockTransport)
+            for mounted in getattr(client, "_mounts", {}).values()
+        )
 
     def __init__(
         self,
         settings: DashScopeEmbeddingSettings,
         *,
         client: httpx.Client | None = None,
+        guard: EmbeddingCallGuard | None = None,
+        audit_sink: Callable[[dict[str, object]], None] | None = None,
+        input_price_per_million: Decimal | None = None,
     ) -> None:
         self.settings = settings
         self.identity = settings.identity()
         self.max_batch_items = MODEL_MAX_BATCH_ITEMS[settings.model_id]
         self._client = client
+        self._guard = guard
+        self._audit_sink = audit_sink
+        self._input_price = input_price_per_million
+        self._semaphore = threading.BoundedSemaphore(1)
+        self._live = client is not None and not self._mock_client_only(client)
+        self.execution_mode = "online" if self._live else "mock_contract"
+        identity_values = self.identity.model_dump(exclude={"identity_sha256"})
+        identity_values["parameters"] = {
+            **self.identity.parameters, "execution_mode": self.execution_mode
+        }
+        self.identity = EmbeddingModelIdentity.create(**identity_values)
         if settings.enabled:
             if client is None:
                 raise ValueError("an explicitly injected HTTP client is required")
-            if not isinstance(getattr(client, "_transport", None), httpx.MockTransport):
-                raise ValueError("TASK-0018 permits MockTransport only; live HTTP is disabled")
+            if self._live and (guard is None or audit_sink is None):
+                raise ValueError("MockTransport only unless a trusted guard and audit are injected")
+            if self._live and (
+                settings.region != "beijing"
+                or input_price_per_million is None
+                or not input_price_per_million.is_finite()
+                or input_price_per_million <= 0
+            ):
+                raise ValueError("live embedding requires Beijing and explicit positive pricing")
+            if self._live and getattr(client, "_trust_env", True):
+                raise ValueError("live embedding client must disable environment proxy injection")
 
     @staticmethod
     def _request_id(payload: object) -> str | None:
@@ -154,15 +203,85 @@ class DashScopeEmbeddingProvider:
         )
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        if not self._semaphore.acquire(timeout=self.settings.timeout_seconds):
+            raise EmbeddingTimeout()
+        attempt: dict[str, object] = {}
+        try:
+            return self._embed(texts, attempt)
+        except Exception as exc:
+            if attempt and self._audit_sink is not None:
+                self._audit_sink({
+                    "event": "embedding.request_failed",
+                    **attempt,
+                    "failure_category": (
+                        exc.code if isinstance(exc, EmbeddingProviderError) else "EMBEDDING_FAILED"
+                    ),
+                    "reserved_cost_cny": "0.10",
+                    "retries": 0,
+                })
+            raise
+        finally:
+            self._semaphore.release()
+
+    def _embed(self, texts: Sequence[str], attempt: dict[str, object]) -> list[list[float]]:
         if not self.settings.enabled:
             raise EmbeddingProviderError("EMBEDDING_PROVIDER_DISABLED")
-        if self._client is None or self.settings.api_key is None:
+        if (
+            self._client is None
+            or self.settings.api_key is None
+            or not self.settings.api_key.get_secret_value().strip()
+        ):
+            raise EmbeddingAuthorizationError()
+        if self._live == self._mock_client_only(self._client):
             raise EmbeddingAuthorizationError()
         values = list(texts)
         if not values:
             return []
-        if len(values) > self.max_batch_items or any(not text.strip() for text in values):
+        if len(values) > self.max_batch_items or any(
+            not isinstance(text, str)
+            or not text.strip()
+            or len(text.encode("utf-8")) > self.settings.max_text_utf8_bytes
+            for text in values
+        ):
             raise EmbeddingProtocolError()
+        if sum(len(text.encode("utf-8")) for text in values) > self.settings.max_batch_utf8_bytes:
+            raise EmbeddingProtocolError()
+        request_payload = {
+            "model": self.settings.model_id,
+            "input": values,
+            "dimensions": self.settings.dimensions,
+            "encoding_format": "float",
+        }
+        canonical_request = json.dumps(
+            request_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        request_hash = hashlib.sha256(canonical_request).hexdigest()
+        reservation = None
+        started = time.monotonic()
+        if self._live:
+            assert self._guard is not None and self._audit_sink is not None
+            assert self._input_price is not None
+            token_ceiling = sum(len(text.encode("utf-8")) for text in values)
+            if Decimal(token_ceiling) * self._input_price / Decimal(1_000_000) > Decimal("0.10"):
+                raise EmbeddingProviderError("EMBEDDING_BUDGET_EXCEEDED")
+            reservation = self._guard.reserve_external(
+                kind="embedding", request_hash=request_hash, ceiling=Decimal("0.10")
+            )
+            attempt.update(request_hash=request_hash, reservation_id=reservation)
+            self._audit_sink(
+                {
+                    "event": "embedding.request_reserved",
+                    "request_hash": request_hash,
+                    "reservation_id": reservation,
+                    "identity_sha256": self.identity.identity_sha256,
+                    "provider": "dashscope",
+                    "model": self.settings.model_id,
+                    "mode": "online",
+                    "items": len(values),
+                    "input_utf8_bytes": sum(len(text.encode("utf-8")) for text in values),
+                    "reserved_cost_cny": "0.10",
+                }
+            )
         try:
             response = self._client.post(
                 self.settings.endpoint,
@@ -170,20 +289,18 @@ class DashScopeEmbeddingProvider:
                     "Authorization": "Bearer " + self.settings.api_key.get_secret_value(),
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": self.settings.model_id,
-                    "input": values,
-                    "dimensions": self.settings.dimensions,
-                    "encoding_format": "float",
-                },
+                json=request_payload,
                 timeout=self.settings.timeout_seconds,
+                follow_redirects=False,
             )
-        except httpx.TimeoutException as exc:
-            raise EmbeddingTimeout() from exc
-        except httpx.TransportError as exc:
-            raise EmbeddingProviderUnavailable() from exc
+        except httpx.TimeoutException:
+            raise EmbeddingTimeout() from None
+        except httpx.TransportError:
+            raise EmbeddingProviderUnavailable() from None
 
         if 300 <= response.status_code < 400:
+            raise EmbeddingProtocolError()
+        if len(response.content) > self.max_batch_items * self.settings.dimensions * 32 + 65536:
             raise EmbeddingProtocolError()
         try:
             payload = response.json()
@@ -253,6 +370,34 @@ class DashScopeEmbeddingProvider:
             result[index] = [float(item) for item in vector]
         if any(item is None for item in result):
             raise EmbeddingProtocolError(request_id)
+        if self._live:
+            assert self._input_price is not None and self._audit_sink is not None
+            assert self._guard is not None and reservation is not None
+            # UTF-8 bytes are the conservative input token ceiling used before
+            # transport. Unexpected usage fails closed and retains the reservation.
+            if total_tokens > sum(len(text.encode("utf-8")) for text in values):
+                raise EmbeddingProtocolError(request_id)
+            actual = Decimal(total_tokens) * self._input_price / Decimal(1_000_000)
+            if actual > Decimal("0.10"):
+                raise EmbeddingProtocolError(request_id)
+            self._audit_sink(
+                {
+                    "event": "embedding.response_validated",
+                    "request_hash": request_hash,
+                    "reservation_id": reservation,
+                    "identity_sha256": self.identity.identity_sha256,
+                    "provider": "dashscope",
+                    "model": self.settings.model_id,
+                    "mode": "online",
+                    "request_id": request_id,
+                    "response_hash": hashlib.sha256(response.content).hexdigest(),
+                    "total_tokens": total_tokens,
+                    "estimated_cost_cny": str(actual),
+                    "latency_ms": int((time.monotonic() - started) * 1000),
+                    "retries": 0,
+                }
+            )
+            self._guard.settle_external(reservation, actual)
         return [item for item in result if item is not None]
 
     @staticmethod

@@ -120,6 +120,8 @@ class ReviewEngine:
         gateway: ModelGateway,
         model_policy: ModelPolicy,
         legal_root: Path | None = None,
+        enable_llm_discovery: bool = False,
+        retriever_factory: Any = None,
     ) -> None:
         if settings.database_url is None:
             raise RuntimeError("PostgreSQL database configuration is required")
@@ -128,6 +130,8 @@ class ReviewEngine:
         self.gateway = gateway
         self.model_policy = model_policy
         self.legal_root = legal_root or Path(".")
+        self.enable_llm_discovery = enable_llm_discovery
+        self.retriever_factory = retriever_factory
 
     def _request_hash(self, request: ReviewRequest, prompt_sha256: str) -> str:
         return content_hash(
@@ -216,7 +220,16 @@ class ReviewEngine:
             )
             skill_ids = list(config_snapshot["skill_ids"])
             context_hash = content_hash(project.context)
-            embedding_identity = character_embedding_identity()
+            retrieval_runtime = (
+                self.retriever_factory(
+                    bundle.index, publication.publication_id, publication.revision_id
+                ).runtime_snapshot(10)
+                if self.retriever_factory is not None
+                else RetrievalRuntimeSnapshot(
+                    top_k=10, embedding_identity=character_embedding_identity()
+                )
+            )
+            embedding_identity = retrieval_runtime.embedding_identity
             runtime_provenance = ReviewRuntimeProvenance(
                 parser_documents=tuple(
                     FrozenParserIdentity(
@@ -227,10 +240,8 @@ class ReviewEngine:
                     for document in input_snapshot.documents
                 ),
                 embedding_identity=embedding_identity,
-                retrieval=RetrievalRuntimeSnapshot(
-                    top_k=10,
-                    embedding_identity=embedding_identity,
-                ),
+                retrieval=retrieval_runtime,
+                vector_index_build_id=retrieval_runtime.vector_index_build_id,
                 prompt_version=request.prompt_version,
                 prompt_sha256=prompt_sha256,
                 model_profile=request.model_profile,
@@ -394,6 +405,10 @@ class ReviewEngine:
             GatewayErrorCode.RATE_LIMITED.value,
             GatewayErrorCode.PROVIDER_UNAVAILABLE.value,
             GatewayErrorCode.PROVIDER_ERROR.value,
+            # A provider can emit a non-conforming structured response for a single batch.
+            # Replaying the frozen input stays bounded by retry_count, and every accepted
+            # batch is reused from its recorded artifact instead of being paid for again.
+            GatewayErrorCode.RESPONSE_INVALID.value,
         }
         with self.session_factory() as session:
             mutable_row = authorized_run(session, principal, review_task_id, run_id)
@@ -498,6 +513,8 @@ class ReviewEngine:
                 checkpointer=saver,
                 legal_root=self.legal_root,
                 skill_ids=tuple(row.snapshot.get("skill_ids", SKILLS.keys())),
+                enable_llm_discovery=self.enable_llm_discovery,
+                retriever_factory=self.retriever_factory,
             )
             saved = await graph.aget_state(config)
             values = dict(saved.values) if saved and saved.values else {}

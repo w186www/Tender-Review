@@ -2873,6 +2873,23 @@ components:
           maxItems: 100
           uniqueItems: true
           items: {type: string, minLength: 1, maxLength: 128}
+    ModelRuntime:
+      type: object
+      additionalProperties: false
+      required: [execution_mode, provider, model, response_received, model_calls, input_tokens, output_tokens, estimated_cost_cny, skill_candidate_count, model_candidate_count, embedding_model, vector_index_build_id]
+      properties:
+        execution_mode: {type: string, enum: [real-qwen, offline-deterministic, unknown]}
+        provider: {type: [string, 'null']}
+        model: {type: [string, 'null']}
+        response_received: {type: boolean}
+        model_calls: {type: integer, minimum: 0}
+        input_tokens: {type: integer, minimum: 0}
+        output_tokens: {type: integer, minimum: 0}
+        estimated_cost_cny: {type: number, minimum: 0}
+        skill_candidate_count: {type: integer, minimum: 0}
+        model_candidate_count: {type: integer, minimum: 0}
+        embedding_model: {type: [string, 'null']}
+        vector_index_build_id: {type: [string, 'null']}
     ReviewTask:
       type: object
       additionalProperties: false
@@ -2907,6 +2924,10 @@ components:
         failure_code: {type: [string, 'null']}
         result_id: {type: [string, 'null'], format: uuid}
         created_at: {type: string, format: date-time}
+        model_runtime:
+          anyOf:
+            - {$ref: '#/components/schemas/ModelRuntime'}
+            - {type: 'null'}
     ReviewList:
       type: object
       additionalProperties: false

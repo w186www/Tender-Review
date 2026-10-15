@@ -89,9 +89,63 @@ def _run_projection(session: Session, row: ReviewEngineRun) -> dict[str, Any]:
         "failure_code": row.failure_code,
         "result_id": result.result_id if result else None,
         "created_at": isoformat_utc(row.created_at),
-        "document_ids": [
-            item["document_id"] for item in row.snapshot.get("document_requests", [])
-        ],
+        "document_ids": [item["document_id"] for item in row.snapshot.get("document_requests", [])],
+        "model_runtime": _runtime_projection(session, row),
+    }
+
+
+def _runtime_projection(session: Session, row: ReviewEngineRun) -> dict[str, Any]:
+    artifacts = list(
+        session.scalars(
+            select(ReviewArtifact).where(
+                ReviewArtifact.tenant_id == row.tenant_id,
+                ReviewArtifact.review_task_id == row.review_task_id,
+                ReviewArtifact.run_id == row.run_id,
+            )
+        )
+    )
+    if any(content_hash(item.content) != item.content_hash for item in artifacts):
+        raise ValueError("runtime artifact hash verification failed")
+    model_records = [
+        item.content
+        for item in artifacts
+        if item.kind == "model_analysis" or item.kind.startswith("llm_discovery_batch_")
+    ]
+    model_records = [item for item in model_records if item.get("provider") and item.get("model")]
+    latest = next(
+        (item for item in model_records if "model_profile" in item),
+        model_records[0] if model_records else {},
+    )
+    candidates: list[dict[str, Any]] = next(
+        (
+            item.content.get("candidates", [])
+            for item in artifacts
+            if item.kind == "candidate_discovery"
+        ),
+        [],
+    )
+    usages = [item.get("usage", {}) for item in model_records]
+    provenance = row.snapshot.get("runtime_provenance", {})
+    embedding = provenance.get("embedding_identity", {})
+    profile = row.snapshot.get("model_profile", "")
+    mode = (
+        "real-qwen"
+        if profile == "dec005-real-qwen"
+        else ("offline-deterministic" if "offline" in profile else "unknown")
+    )
+    return {
+        "execution_mode": mode,
+        "provider": latest.get("provider"),
+        "model": latest.get("model"),
+        "response_received": bool(model_records),
+        "model_calls": len(model_records),
+        "input_tokens": sum(item.get("input_tokens", 0) for item in usages),
+        "output_tokens": sum(item.get("output_tokens", 0) for item in usages),
+        "estimated_cost_cny": sum(item.get("estimated_cost", 0) or 0 for item in usages),
+        "skill_candidate_count": sum(item.get("origin", "rule") == "rule" for item in candidates),
+        "model_candidate_count": sum(item.get("origin", "rule") == "model" for item in candidates),
+        "embedding_model": embedding.get("model_id"),
+        "vector_index_build_id": provenance.get("vector_index_build_id"),
     }
 
 
@@ -154,13 +208,10 @@ def list_project_reviews(
 ) -> tuple[list[dict[str, Any]], int]:
     _require_reader(session, principal)
     find_project(session, principal, project_id)
-    condition = (
-        (ReviewEngineRun.tenant_id == principal.tenant_id)
-        & (ReviewEngineRun.project_id == project_id)
+    condition = (ReviewEngineRun.tenant_id == principal.tenant_id) & (
+        ReviewEngineRun.project_id == project_id
     )
-    total = session.scalar(
-        select(func.count()).select_from(ReviewEngineRun).where(condition)
-    ) or 0
+    total = session.scalar(select(func.count()).select_from(ReviewEngineRun).where(condition)) or 0
     rows = session.scalars(
         select(ReviewEngineRun)
         .where(condition)

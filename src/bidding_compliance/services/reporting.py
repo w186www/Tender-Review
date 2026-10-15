@@ -10,6 +10,113 @@ def _text(value: object, default: str = "未提供") -> str:
     return value if isinstance(value, str) and value.strip() else default
 
 
+def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
+    scope = report.get("assessment_scope")
+    if not isinstance(scope, dict):
+        return []
+    lines: list[str] = []
+    candidate_count = scope.get("candidate_count")
+    if isinstance(candidate_count, int):
+        if "model_candidate_count" in scope:
+            lines.append(
+                f"本次候选共 {candidate_count} 项；"
+                f"确定性 Skills {scope.get('skill_candidate_count', 0)} 项，"
+                f"AI 独立发现 {scope['model_candidate_count']} 项。"
+            )
+        else:
+            lines.append(f"本次确定性 Skills 实际产生候选 {candidate_count} 项。")
+        if candidate_count == 0:
+            lines.append(
+                "0 候选仅表示已运行规则范围内未产生候选，不代表标书合规、无风险或未发现违法。"
+            )
+
+    skill_names = {
+        "qualification_review": "资格审查",
+        "technical_review": "技术要求",
+        "evaluation_review": "评审办法",
+        "procedure_review": "采购程序",
+        "contract_review": "合同条款",
+    }
+    status_names = {
+        "completed_no_candidates": "已完成规则评估，未产生候选",
+        "incomplete": "未完成判断",
+        "not_applicable": "不适用",
+        "completed": "已完成",
+        "failed": "执行失败",
+    }
+    coverage = scope.get("skill_coverage", [])
+    if isinstance(coverage, list) and coverage:
+        lines.append(f"Skill 覆盖状态（{len(coverage)} 类）：")
+        for item in coverage:
+            if not isinstance(item, dict):
+                continue
+            skill_id = item.get("skill_id", "unknown")
+            status = item.get("status", "unknown")
+            name = skill_names.get(skill_id, str(skill_id))
+            state = status_names.get(status, str(status))
+            reason = item.get("reason")
+            if isinstance(reason, str) and reason:
+                reason_names = {
+                    "ambiguous_score_table": "评分表存在歧义",
+                    "ambiguous_tender_times": "采购时间存在歧义",
+                }
+                state += f"（{reason_names.get(reason, reason)}）"
+            lines.append(f"{name}：{state}。")
+
+    framework_confirmed = scope.get("legal_framework_confirmed")
+    if framework_confirmed is False:
+        lines.append("法律适用框架尚未确认。")
+    elif framework_confirmed is True:
+        lines.append("运行上下文记录了法律适用框架；本报告不据此扩大法规有效性结论。")
+
+    errors = scope.get("retrieval_context_errors", {})
+    status_counts = scope.get("retrieval_status_counts", {})
+    hits = scope.get("retrieval_hit_count")
+    citable = scope.get("citable_legal_evidence_count")
+    if isinstance(errors, dict) and errors.get("CONTEXT_INVALID"):
+        lines.append(
+            "法规检索因 CONTEXT_INVALID 未能完成适用性匹配；未取得可确认、可引用的法规依据。"
+        )
+    elif isinstance(status_counts, dict) and status_counts.get("context_incomplete"):
+        lines.append("法规检索上下文不完整，未完成有效适用性匹配。")
+    if isinstance(hits, int) and isinstance(citable, int):
+        lines.append(f"法规检索命中 {hits} 项，可引用依据 {citable} 项。")
+
+    provider = scope.get("model_provider")
+    model_name = scope.get("model_name")
+    if provider == "offline-verification":
+        lines.append(
+            f"语义分析使用 OfflineReviewGateway（{provider} / {model_name}）；本次未调用真实 LLM。"
+        )
+    elif isinstance(provider, str):
+        lines.append(f"语义分析提供方：{provider}；模型：{_text(model_name)}。")
+    if scope.get("model_execution_mode") == "real-qwen":
+        lines.append(
+            f"真实模型已验证调用 {scope.get('model_calls', 0)} 次；"
+            f"输入/输出 tokens {scope.get('model_input_tokens', 0)}/"
+            f"{scope.get('model_output_tokens', 0)}；"
+            f"按官方价格估算 ¥{scope.get('model_cost_cny', 0):.6f}。"
+        )
+    indexed, total = (
+        scope.get("vector_index_item_count", 0),
+        scope.get("vector_source_item_count", 0),
+    )
+    if total:
+        lines.append(
+            f"真实神经向量索引覆盖法规片段 {indexed}/{total}；其余保留 BM25。相似度不是法律证据。"
+        )
+
+    confirmation = scope.get("no_findings_confirmation")
+    if confirmation == "confirm_no_findings":
+        lines.append(
+            "confirm_no_findings 属于演示流程的人工作业记录，不构成专业法律审查确认，"
+            "也不表示全部合规。"
+        )
+    elif confirmation is None and candidate_count == 0:
+        lines.append("未找到零候选人工确认记录；不得将本结果解释为专业法律审查结论。")
+    return lines
+
+
 def render_docx(report: dict[str, Any]) -> bytes:
     from docx import Document as WordDocument
     from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
@@ -156,7 +263,12 @@ def render_docx(report: dict[str, Any]) -> bytes:
                 document.add_paragraph(f"“{law['quote']}”")
         else:
             document.add_paragraph("法规或规则证据：本条结果未包含可引用的法规条款，不补造条文。")
-    document.add_heading("四、限制与免责声明", level=1)
+    scope_lines = _assessment_scope_lines(report)
+    if scope_lines:
+        document.add_heading("四、本次运行范围与限制", level=1)
+        for line in scope_lines:
+            document.add_paragraph(line, style="List Bullet")
+    document.add_heading("五、限制与免责声明" if scope_lines else "四、限制与免责声明", level=1)
     document.add_paragraph(
         "报告只呈现指定不可变结果版本。证据不足或规则关联未批准时，不得据此认定确定性法律违规；"
         "原文页码仅在解析数据提供且已校验时显示。报告不含伪造签名或审批效力。"
@@ -350,9 +462,13 @@ def render_pdf(report: dict[str, Any]) -> bytes:
                 story.append(para(law["quote"]))
         else:
             story.append(para("法规或规则证据：未提供可引用条款，不补造条文。"))
+    scope_lines = _assessment_scope_lines(report)
+    if scope_lines:
+        story.append(para("四、本次运行范围与限制", "CJKHeading"))
+        story.extend(para(line) for line in scope_lines)
     story.extend(
         [
-            para("四、限制与免责声明", "CJKHeading"),
+            para("五、限制与免责声明" if scope_lines else "四、限制与免责声明", "CJKHeading"),
             para(
                 "本报告仅呈现指定结果版本。证据不足或规则关联未批准时，不得据此认定确定性法律违规。报告不含伪造签名或审批效力。"
             ),

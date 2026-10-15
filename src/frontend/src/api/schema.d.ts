@@ -1131,6 +1131,21 @@ export interface components {
         CreateReview: {
             document_ids: string[];
         };
+        ModelRuntime: {
+            /** @enum {string} */
+            execution_mode: "real-qwen" | "offline-deterministic" | "unknown";
+            provider: string | null;
+            model: string | null;
+            response_received: boolean;
+            model_calls: number;
+            input_tokens: number;
+            output_tokens: number;
+            estimated_cost_cny: number;
+            skill_candidate_count: number;
+            model_candidate_count: number;
+            embedding_model: string | null;
+            vector_index_build_id: string | null;
+        };
         ReviewTask: {
             review_task_id: string;
             project_id: string;
@@ -1144,6 +1159,7 @@ export interface components {
             result_id: string | null;
             /** Format: date-time */
             created_at: string;
+            model_runtime?: components["schemas"]["ModelRuntime"] | null;
         };
         ReviewList: {
             items: components["schemas"]["ReviewTask"][];

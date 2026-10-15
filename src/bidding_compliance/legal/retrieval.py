@@ -5,7 +5,7 @@ import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import date
-from typing import Protocol
+from typing import Any, Literal, Protocol
 
 from .contracts import (
     Applicability,
@@ -13,11 +13,13 @@ from .contracts import (
     Excluded,
     ExclusionReason,
     Framework,
+    LegalClause,
     LegalHit,
     LegalIndex,
     LegalVersion,
     Reason,
     RetrievalQuery,
+    RetrievalRankingTrace,
     RetrievalResult,
     RetrievalRuntimeSnapshot,
     VersionStatus,
@@ -202,6 +204,9 @@ def confirmation_reason(
 
 
 class LegalRetriever:
+    retrieval_version: Literal["bm25-char-cosine-rrf-5", "bm25-dense-cosine-rrf-1"] = (
+        "bm25-char-cosine-rrf-5"
+    )
     def __init__(self, index: LegalIndex, embedding: Embedding | None = None) -> None:
         self.index = index
         self.embedding = embedding or CharacterEmbedding()
@@ -215,6 +220,19 @@ class LegalRetriever:
             top_k=top_k,
             embedding_identity=character_embedding_identity(),
         )
+
+    def _vector_ranking(
+        self, query: RetrievalQuery, eligible: list[tuple[LegalClause, LegalVersion, Reason]]
+    ) -> list[tuple[str, float]]:
+        if not eligible:
+            return []
+        embeddings = self.embedding.encode([query.text] + [c.quote for c, _, _ in eligible])
+        if len(embeddings) != len(eligible) + 1:
+            raise ValueError("embedding cardinality mismatch")
+        return [
+            (clause.clause_id, cosine(embeddings[0], value))
+            for (clause, _, _), value in zip(eligible, embeddings[1:], strict=True)
+        ]
 
     def search(self, query: RetrievalQuery) -> RetrievalResult:
         query = RetrievalQuery.model_validate(query.model_dump())
@@ -292,20 +310,17 @@ class LegalRetriever:
                 denominator = frequency + 1.2 * (0.25 + 0.75 * length / (average or 1))
                 score += idf * frequency * 2.2 / denominator
             lexical.append((clause.clause_id, score))
-        vector: list[tuple[str, float]] = []
-        if eligible:
-            embeddings = self.embedding.encode([query.text] + [c.quote for c, _, _ in eligible])
-            if len(embeddings) != len(eligible) + 1:
-                raise ValueError("embedding cardinality mismatch")
-            vector = [
-                (clause.clause_id, cosine(embeddings[0], value))
-                for (clause, _, _), value in zip(eligible, embeddings[1:], strict=True)
-            ]
-        for ranking in (lexical, vector):
+        vector = self._vector_ranking(query, eligible)
+        traces: dict[str, dict[str, Any]] = {}
+        for label, ranking in (("bm25", lexical), ("vector", vector)):
+            raw_scores = dict(ranking)
             for rank, (key, _) in enumerate(
                 sorted((x for x in ranking if x[1] > 0), key=lambda x: (-x[1], x[0])), 1
             ):
                 scores[key] = scores.get(key, 0.0) + 1 / (60 + rank)
+                traces.setdefault(key, {}).update(
+                    {f"{label}_rank": rank, f"{label}_score": raw_scores[key]}
+                )
         lookup = {c.clause_id: (c, v, reason) for c, v, reason in eligible}
         hits = []
         for key, score in sorted(scores.items(), key=lambda x: (-x[1], x[0]))[: query.limit]:
@@ -373,11 +388,22 @@ class LegalRetriever:
                     )
                 )
         return RetrievalResult(
+            retrieval_version=self.retrieval_version,
             snapshot_hash=self.snapshot_hash,
             query=query,
             hits=tuple(hits),
             excluded=tuple(excluded),
             citable_evidence=tuple(
                 hit.evidence_id for hit in hits if hit.eligible_for_confirmation
+            ),
+            ranking_trace=(
+                tuple(
+                    RetrievalRankingTrace(
+                        clause_id=hit.evidence_id, fused_score=hit.score,
+                        **traces[hit.evidence_id],
+                    )
+                    for hit in hits
+                )
+                if self.retrieval_version == "bm25-dense-cosine-rrf-1" else ()
             ),
         )

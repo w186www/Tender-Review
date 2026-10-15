@@ -37,6 +37,7 @@ class ComplianceReviewState(TypedDict):
     parse_quality_ref: NotRequired[str | None]
     review_plan_ref: NotRequired[str | None]
     discovery_ref: NotRequired[str | None]
+    llm_discovery_ref: NotRequired[str | None]
     rule_findings_ref: NotRequired[str | None]
     retrieval_results_ref: NotRequired[str | None]
     model_findings_ref: NotRequired[str | None]

@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "tenant_id", "project_id", "review_task_id", "run_id", "result_id", "snapshot_hash", "report_id", "template_version", "generated_at", "input_snapshot", "findings"],
   "properties": {
-    "schema_version": {"const": "task0010-report.v1"},
+    "schema_version": {"enum": ["task0010-report.v1", "task0010-report.v2"]},
     "tenant_id": {"type": "string", "minLength": 1, "maxLength": 64},
     "project_id": {"type": "string", "minLength": 1, "maxLength": 64},
     "project_name": {"type": ["string", "null"], "maxLength": 300},
@@ -59,6 +59,66 @@
           }
         }
       }
+    },
+    "assessment_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_discovery_status", "candidate_count", "skill_coverage", "legal_framework_confirmed", "retrieval_status_counts", "retrieval_context_errors", "retrieval_hit_count", "citable_legal_evidence_count", "retrieval_algorithms", "model_provider", "model_name", "no_findings_confirmation", "source_artifact_hashes"],
+      "properties": {
+        "candidate_discovery_status": {"type": "string", "maxLength": 64},
+        "candidate_count": {"type": "integer", "minimum": 0},
+        "skill_candidate_count": {"type": "integer", "minimum": 0},
+        "model_candidate_count": {"type": "integer", "minimum": 0},
+        "model_execution_mode": {"type": "string", "maxLength": 100},
+        "model_calls": {"type": "integer", "minimum": 0},
+        "model_input_tokens": {"type": "integer", "minimum": 0},
+        "model_output_tokens": {"type": "integer", "minimum": 0},
+        "model_cost_cny": {"type": "number", "minimum": 0},
+        "vector_index_item_count": {"type": "integer", "minimum": 0},
+        "vector_source_item_count": {"type": "integer", "minimum": 0},
+        "skill_coverage": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["skill_id", "status", "candidate_count", "evaluated_rule_count", "reason"],
+            "properties": {
+              "skill_id": {"type": "string", "maxLength": 64},
+              "status": {"type": "string", "maxLength": 64},
+              "candidate_count": {"type": "integer", "minimum": 0},
+              "evaluated_rule_count": {"type": "integer", "minimum": 0},
+              "reason": {"type": ["string", "null"], "maxLength": 128}
+            }
+          }
+        },
+        "legal_framework_confirmed": {"type": "boolean"},
+        "retrieval_status_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "retrieval_context_errors": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "retrieval_hit_count": {"type": "integer", "minimum": 0},
+        "citable_legal_evidence_count": {"type": "integer", "minimum": 0},
+        "retrieval_algorithms": {"type": "array", "uniqueItems": true, "items": {"type": "string", "maxLength": 100}},
+        "model_provider": {"type": "string", "maxLength": 100},
+        "model_name": {"type": "string", "maxLength": 100},
+        "no_findings_confirmation": {"type": ["string", "null"], "enum": ["accept", "modify", "reject", "confirm_no_findings", null]},
+        "source_artifact_hashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["candidate_discovery", "legal_retrieval", "model_analysis", "project_context"],
+          "properties": {
+            "candidate_discovery": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "legal_retrieval": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "model_analysis": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "project_context": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          }
+        }
+      }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "task0010-report.v2"}}, "required": ["schema_version"]},
+      "then": {"required": ["assessment_scope"]}
+    }
+  ]
 }
