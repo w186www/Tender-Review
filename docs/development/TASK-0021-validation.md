@@ -64,10 +64,10 @@ tests/test_task0021_online_gateway.py
 - 结构化结果与流程证据：Qwen 响应通过供应商结构化输出及本地完整 Schema 校验；只读断言确认 `model_analysis` artifact 的响应哈希与该次审计一致，存在非空模型 findings，且至少一条已并入 merged findings；模型没有输出法律证据 ID。本地法规 RAG 仍执行且其结果保留在本地。Edge 流程的持久化断言确认运行状态 `result_published`、报告格式包含 DOCX/PDF；人工复核后恢复 Checkpoint，没有再次调用模型。
 - 证据文件保存调用元数据和运行状态，不保存原始模型请求/响应内容。正式源码 Full 的 570 项证据继续有效：在线运行前后 14 个源码/测试文件 manifest 指纹不变；本次只需对之后的任务证据与状态文档执行 Quick。
 
-## TASK0021-005：GitHub 交付待完成
+## TASK0021-005：GitHub 交付与归档收尾
 
-- `TASK0021-001` 至 `TASK0021-004` 的本地与供应商验收证据已记录。代码/文档提交、推送、目标 SHA 的 GitHub Actions 适用门禁及最终归档尚未完成，任务和 M3B 必须继续 `in_progress`。
-- 最终归档须记录代码提交 SHA、对应远端 workflow run 链接/状态，并为归档文档提交再次核验 Quick/远端 CI；不得将启动、排队或跳过的工作流记为通过。
+- 代码提交 `19a29fa0e62b6dc57d4493dc111f56194199e51c` 已推送至 `work/TASK-0021`。GitHub Actions [`verify` Run 38707492669](https://github.com/w186www/Tender-Review/actions/runs/38707492669) 对应的 `head_sha` 与提交完全一致，event 为 `push`，最终 `completed/success`：`impact`、`baseline`、`postgres`、`ingestion`、`verify-required` 全部 success；`quick` 在 Full 模式下按 workflow 条件合法 skipped。没有将运行中或跳过的 Job 计为通过。
+- 代码提交的远端 Full CI 已通过（见上）。归档与状态证据目前仍是未提交的文档/任务文件变更，任务档案仍位于 `tasks/active/`，M3B 保持 `in_progress`。下一步先对该候选运行 Quick，再提交、推送并核验对应 SHA 的远端 Quick；成功后更新任务目录、M3B 和本记录，完成最终归档闭环。
 
 ## 可重复本地命令
 

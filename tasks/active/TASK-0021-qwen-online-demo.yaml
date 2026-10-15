@@ -104,7 +104,7 @@
     {
       "id": "TASK0021-005",
       "description": "TASK-0021 源码及归档提交 SHA 的适用 GitHub CI 成功；最终任务档案、DEC-002 状态、M3B、README、演示指南与 PROJECT_STATE 以实际证据一致。",
-      "evidence": []
+      "evidence": ["docs/development/TASK-0021-validation.md"]
     }
   ],
   "verify": [
@@ -113,5 +113,5 @@
     "./scripts/verify.ps1",
     "One DEC-002-authorized real Qwen request inside scripts/run_task0021_online_e2e.py (one invocation only; no standalone smoke or retry)"
   ],
-  "handoff_notes": "TASK-0019 的独立工作树与所有未提交内容不得读取后写回、切换、清理或覆盖。在线模型与外发数据只在 DEC-002 具体授权后运行；真实招标文件、个人/客户数据及法规正文始终不得进入模型请求。当前任务保持 in_progress，直到真实供应商端到端、适用门禁、远端 CI 和归档证据均闭环。"
+  "handoff_notes": "TASK-0019 的独立工作树与所有未提交内容不得读取后写回、切换、清理或覆盖。在线模型与外发数据只在 DEC-002 具体授权后运行；本任务唯一调用授权已消耗。真实招标文件、个人/客户数据及法规正文始终不得进入模型请求。TASK-0021 本地验收和代码提交 Full CI 已完成；当前仅记录代码 CI 的归档证据变更待本地 Quick、提交、推送及远端 Quick，之后再将任务移入 completed 并退出 M3B。"
 }

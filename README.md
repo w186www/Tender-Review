@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**TASK-0021 真实 Qwen 在线审查演示已完成本地验收，GitHub 交付仍在进行。** TASK-0020 离线演示基线保持不变；TASK-0021 在独立工作树通过 DEC-002 授权的一次百炼 Qwen 合成数据在线 Edge E2E（5/5 浏览器用例，含上传、解析、审查、人工复核及 Word/PDF 导出）。唯一请求授权已消耗，不授权额外调用、重试或重跑；本地 Focused、Full、PostgreSQL/Checkpoint 证据复用并通过。当前待提交、推送、远端 CI 和归档；TASK-0019 保持 planned，原工作树不参与本任务。状态见 [PROJECT_STATE.md](PROJECT_STATE.md)、[在线演示安全配置说明](docs/development/model-gateway-online-demo.md) 和 [TASK-0021 验证记录](docs/development/TASK-0021-validation.md)。
+**TASK-0021 真实 Qwen 在线审查演示已完成本地验收，代码提交的远端 Full CI 已通过，归档 CI 正在收尾。** TASK-0020 离线演示基线保持不变；TASK-0021 在独立工作树通过 DEC-002 授权的一次百炼 Qwen 合成数据在线 Edge E2E（5/5 浏览器用例，含上传、解析、审查、人工复核及 Word/PDF 导出）。唯一请求授权已消耗，不授权额外调用、重试或重跑；本地 Focused、Full、PostgreSQL/Checkpoint 证据复用并通过。代码提交 SHA `19a29fa0e62b6dc57d4493dc111f56194199e51c` 已推送，GitHub Actions Run 38707492669 所有适用 Full Job 成功。当前仅待归档状态提交的 Quick/CI 复核；TASK-0019 保持 planned，原工作树不参与本任务。状态见 [PROJECT_STATE.md](PROJECT_STATE.md)、[在线演示安全配置说明](docs/development/model-gateway-online-demo.md) 和 [TASK-0021 验证记录](docs/development/TASK-0021-validation.md)。
 
 ## 新开发者或 AI 的入口
 
