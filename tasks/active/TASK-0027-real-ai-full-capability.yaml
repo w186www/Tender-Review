@@ -1,0 +1,118 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0027",
+  "title": "DEC-007 完整能力：真实 Qwen 语义分析、全量法规向量索引与逐文件授权",
+  "status": "in_progress",
+  "owner": "ZCode",
+  "depends_on": [
+    "TASK-0026"
+  ],
+  "related_requirements": [
+    "FR-007",
+    "FR-009",
+    "FR-013",
+    "SEC-005",
+    "SEC-009",
+    "SEC-011",
+    "NFR-007",
+    "NFR-008",
+    "NFR-011",
+    "NFR-012"
+  ],
+  "related_acceptance": [
+    "AC-003",
+    "AC-004",
+    "AC-005",
+    "AC-006",
+    "AC-007"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/decisions/DEC-007-demo-real-qwen-authorization.md",
+    "docs/development/TASK-0023-validation.md",
+    "docs/development/TASK-0026-validation.md"
+  ],
+  "allowed_paths": [
+    "src/bidding_compliance/services/real_embedding_runtime.py",
+    "src/bidding_compliance/services/real_ai_runtime.py",
+    "src/bidding_compliance/model_gateway/authorized_runtime.py",
+    "src/bidding_compliance/legal/vector_index.py",
+    "scripts/**",
+    "deploy/manage_authorization.py",
+    "deploy/demo.env.example",
+    "tests/**",
+    "docs/decisions/DEC-007-demo-real-qwen-authorization.md",
+    "docs/development/TASK-0027-validation.md",
+    "docs/index.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "tasks/active/TASK-0027-real-ai-full-capability.yaml",
+    ".gitignore"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "config/legal/**",
+    "contracts/**",
+    "src/frontend/**",
+    "docs/reference/**",
+    "requirements-dev.lock",
+    "requirements-parser.lock",
+    "tasks/completed/**",
+    "src/bidding_compliance/legal/retrieval.py",
+    "src/bidding_compliance/services/evidence_checker.py"
+  ],
+  "steps": [
+    "新增 DEC-007-2026-10-16 授权条目（LLM 300 / Embedding 400 / ¥30），独立账本路径，不重置 DEC-005/006 计数。",
+    "去掉全量向量索引的 [:10] 硬编码切片，改为覆盖全部符合字节约束的条款，并报告无法嵌入的超长条款数量。",
+    "将 ScopedEmbeddingGuard 从枚举组合改为按已批准语料文本集合的线性成员校验，保持只允许批准语料与脱敏查询文本外发的语义。",
+    "分批改为同时受每批最大条数与 UTF-8 字节上限约束，并验证断点续建、缓存命中与索引完整性。",
+    "实现 DEC-007 主授权范围加独立逐文件批准记录：授权记录持久化、可审计、演示账号不可修改，且不得通过修改白名单重置账本。",
+    "新增逐文件授权 CLI，登记文件 SHA-256 与理由并写审计；未登记文件一律拒绝外发并给出明确提示。",
+    "以 MockTransport 与离线 provider 完成单元测试、集成测试；确认失败路径不产生任何合成结论、无静默回退。",
+    "运行 Focused 与 Full 及必需专项检查，提交并观察远程 CI；开发期间不切换线上 API。",
+    "离线实测建库批数与查询消耗，据此提交首次真实调用申请（批次、费用、文件哈希、外发数据范围），等待批准。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0027-001",
+      "description": "DEC-007 为独立授权条目与独立账本，DEC-005/006 历史计数与费用不被重置或合并。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0027-002",
+      "description": "全量索引覆盖全部可嵌入条款，明确报告未能嵌入的超长条款数量；不再使用任意 10 条切片。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0027-003",
+      "description": "分批同时受最大条数与 UTF-8 字节上限约束；断点续建、缓存命中与索引完整性均有测试证据。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0027-004",
+      "description": "未授权文件在任何情况下都不外发；真实模型失败进入 failed 且不产生合成结论。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0027-005",
+      "description": "逐文件授权记录持久化、可审计，且不能通过修改白名单重置账本。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0027-006",
+      "description": "法规现行有效性与适用性校验规则未改变；未核验法条仍不能成为确认违法的依据。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0027-007",
+      "description": "Focused、Full 与必需专项检查通过，远程 CI 全绿；开发期间线上 API 未被切换。",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Full"
+  ],
+  "handoff_notes": "DEC-007 全能力实施的代码与离线测试任务。首次真实调用需在离线测试与 CI 完成后单独提交申请并等待批准；批准前不得产生任何付费调用。线上仍运行 TASK-0026 的离线确定性模式。\n\n【ScopedEmbeddingGuard 线性化的设计结论，实现前必须按此进行】\n现状：approve(texts) 对整批 payload 取摘要存入 allowed_hashes；reserve_external 只做摘要成员校验。工厂原本为 10 条预批准其全部子集（1023 个摘要）以兼容断点续建时批次构成可变。\n\n冲突：provider 调 reserve_external 时只传 request_hash，看不到文本，因此 guard 无法按条校验。若把 3120 条照搬旧办法枚举子集，摘要数约 312 批 × 1023 ≈ 32 万，不可接受。\n\n采用的方案（二选一，倾向前者，实现时择一并写测试）：\n  A. 让 build() 以「整片发送」代替「只发缺失子集」：批的构成只由 clause_ids 的顺序与批大小决定，因此摘要确定且只有 ceil(N/10) ≈ 312 个；已缓存整片的批直接跳过。代价是某一整片部分命中时会重发少量已缓存条目（费用可忽略，因为总量不足 1 元）。guard 侧只需把「枚举子集」换成「按当前 clause_ids 依序切片并逐片 approve」，保持逐摘要校验语义不变。\n  B. 若不想改 build() 的发送粒度，则在 guard 上增加按条目的批准集合，并让 provider 在 reserve 前把本批文本交给 guard 校验成员资格；这需要改动 legal/embedding_provider.py 的调用签名，改动面更大。\n\n两种方案都不得退化为「批准任意文本」——按条或按片校验必须保留，否则等于删除外发门禁。实现后必须有不通过批准即 PermissionError 的反例测试。"
+}
