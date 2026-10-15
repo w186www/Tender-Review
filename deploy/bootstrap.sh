@@ -163,21 +163,23 @@ up() {
 }
 
 credentials() {
+  # Never print secrets. Bootstrap output is routinely captured by remote-execution
+  # tooling and CI logs, so the account passwords stay in deploy/.env (mode 600) and are
+  # only read by an operator on the host itself.
   [ -f "${ENV_FILE}" ] || fail "run './deploy/bootstrap.sh init' first"
-  # shellcheck disable=SC1090
-  local reviewer admin auditor port
-  reviewer="$(grep '^DEMO_REVIEWER_PASSWORD=' "${ENV_FILE}" | cut -d= -f2-)"
-  admin="$(grep '^DEMO_ADMIN_PASSWORD=' "${ENV_FILE}" | cut -d= -f2-)"
-  auditor="$(grep '^DEMO_AUDITOR_PASSWORD=' "${ENV_FILE}" | cut -d= -f2-)"
+  local port
   port="$(grep '^HTTP_PORT=' "${ENV_FILE}" | cut -d= -f2-)"
+  local bind
+  bind="$(grep '^HTTP_BIND=' "${ENV_FILE}" | cut -d= -f2-)"
   cat <<EOF
 
-Demo accounts (tenant tenant-a)
-  reviewer  reviewer  ${reviewer}     <- main demo account
-  admin     admin     ${admin}
-  auditor   auditor   ${auditor}
+Demo accounts (tenant tenant-a): reviewer, admin, auditor
+Passwords are only in ${ENV_FILE} (mode 600). To read them on this host yourself:
 
-Open http://localhost:${port:-80}/
+  grep '^DEMO_.*_PASSWORD=' ${ENV_FILE}
+
+The workbench is bound to ${bind:-127.0.0.1}:${port:-80} and is not reachable from the
+network until TLS and access protection are enabled (see deploy/README-demo.md).
 EOF
 }
 
