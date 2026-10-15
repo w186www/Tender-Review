@@ -2,21 +2,41 @@
 
 更新时间：2026-10-16
 
-## 当前有效状态：TASK-0023/0024/0025 完成，进入部署准备
+## 当前有效状态：TASK-0026 完成本地部署验收，等待真实服务器凭据
 
-- 工作树：`bidding-compliance-agent-TASK-0023` / 分支 `work/TASK-0023`（已推送，Full CI 全绿）。
+- 工作树：`bidding-compliance-agent-TASK-0026` / 分支 `work/TASK-0026`（自 `work/TASK-0023`
+  的 `ca1c15d76150bc64c9ca8a3425fc65e7d416dcf1` 创建）。
+- **TASK-0026 完成本地部署验收**（详见 [TASK-0026 验证记录](docs/development/TASK-0026-validation.md)）：
+  只新增编排与配置，未改 `src/`、`contracts/`、`tests/`、`scripts/`、`knowledge/` 与两份锁文件。
+  - 新增 `docker-compose.demo.yml`（六服务、四个显式命名卷、两个内部网络，只有 nginx 发布端口）、
+    `Dockerfile.api`、`Dockerfile.web`、`deploy/` 下的容器入口/幂等初始化/反向代理/备份恢复/验收脚本与说明。
+  - 本机 Docker Linux 引擎实测：六服务健康；经反向代理完成合成标书全链路（上传 → ClamAV 扫描 →
+    隔离解析 → 上下文确认 → LangGraph 审查 → 风险证据 → 人工复核 → 发布 → Word/PDF 下载，
+    下载 SHA-256 与服务端 `content_hash` 一致）；真实浏览器验证前端页面与「离线确定性演示」如实标注；
+    `docker compose down` 删除全部容器后重建，项目/文档/任务/报告字节一致；备份恢复演练逐表一致
+    且未修改线上数据。
+  - 空闲稳态内存实测约 **1.64 GiB**（ClamAV 964.7 MiB、API 417.8 MiB、PostgreSQL 94.9 MiB、
+    MinIO 89.3 MiB、worker 59.9 MiB、nginx 13.8 MiB）；**未下调**装配中审查过的 `--memory=3g`。
+  - 实测结论：受限 Docker API 代理无法转发 `docker run -i` 的交互式 attach（解析 `PARSE_TIMEOUT`），
+    故未交付该加固层；worker 持有 Docker Socket 是本方案剩余的主要风险面，已如实记录。
+- **当前阶段：等待真实服务器凭据后上云**。已确认目标为阿里云 ECS（Ubuntu 22.04、2 vCPU / 8 GiB、
+  公网 IP 47.83.132.211、磁盘待登录后检测）。**尚未在目标主机执行任何部署**，HTTPS 未签发、
+  真实 Qwen 未启用。
+- **真实 Qwen 仍被阻断**：模型网关仅有 `DEC-005`（30 次/¥20）与 `DEC-006`（15 次/¥5）两条已消耗的
+  本地授权，且外发受文档 SHA-256 白名单约束；新上传的演示文件要获得真实 Qwen 审查，必须新增独立授权
+  并登记文件哈希，均需用户单独批准。本轮零供应商调用、零密钥入库。
+- 不可宣称：任何风险的违法认定、任何条款已核验适用、生产级防回滚、在目标主机上已完成实测。
+- TASK-0019/TASK-0021/TASK-0022 工作树未被写入。
+
+以下保留 TASK-0023/0024/0025 阶段的历史记录。
+
 - **TASK-0023 完成**：真实 Qwen 业务验收闭环（DEC-006，10/15 次、¥0.062695，19 个模型候选，
   19 项人工复核，Word/PDF 下载哈希与服务端 `content_hash` 一致）。
 - **TASK-0024 完成**：法规检索解阻、参考候选展示（页面与 Word/PDF）、三案例排名评测。
 - **TASK-0025 完成**：证据分类修复（未核验法规不得进入正式法律证据）、账本连续性防护、
   Windows baseline 超时 10→20 分钟；Full CI 全绿。
-- **当前阶段：部署准备**。方案见 [面试演示部署方案](docs/development/DEPLOYMENT-DEMO.md)：
-  仅完成审计与设计，未购买服务器、未开放公网、未调用供应商 API。
-- **主要阻断**：容器无数据卷（重启丢数据）、ClamAV 病毒库时效、账本**防整体回滚**未实现
-  （需外部不可变存储，列为部署阻断，不宣称生产级）、前端缺生产托管与 Linux 启动脚本。
-- 演示默认**不启用**真实 Qwen／Embedding；如启用须遵循既有授权与账本约束。
-- 不可宣称：任何风险的违法认定、任何条款已核验适用、生产级防回滚或 SLA。
-- TASK-0019/TASK-0022 原树 HEAD 未变，未新建 Worktree，未删除既有成果。
+- 部署前审计方案见 [面试演示部署方案](docs/development/DEPLOYMENT-DEMO.md)；实际落地与实测见
+  [TASK-0026 验证记录](docs/development/TASK-0026-validation.md) 与 `deploy/README-demo.md`。
 
 以下保留TASK-0022阶段的历史记录，包括当时DEC-005未获批准的叙述；本轮状态以上述记录和汇总文档为准。
 

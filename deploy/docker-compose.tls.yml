@@ -1,0 +1,19 @@
+# TLS overlay for the single-host demo.
+#
+#   docker compose --env-file deploy/.env \
+#     -f docker-compose.demo.yml -f deploy/docker-compose.tls.yml up -d nginx
+#
+# Requires TLS_CERT_DIR in deploy/.env, holding fullchain.pem and privkey.pem
+# (for example /etc/letsencrypt/live/demo.example.com).
+#
+# Ports: 443 is published, and HTTP_PORT stays published so the redirect in
+# deploy/nginx-demo-tls.conf can bounce plain HTTP to HTTPS. Close HTTP in the cloud
+# security group once the certificate is in place.
+services:
+  nginx:
+    volumes:
+      - ${TLS_CERT_DIR:?set TLS_CERT_DIR in deploy/.env}:/etc/nginx/tls:ro
+      - ./deploy/nginx-demo-tls.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${HTTP_PORT:-80}:8080"
+      - "${HTTPS_PORT:-443}:8443"

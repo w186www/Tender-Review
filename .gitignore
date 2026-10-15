@@ -22,4 +22,6 @@ data/uploads/
 data/reports/
 secrets/
 .verification/
+# Deployment backups contain the full database and uploaded objects.
+backups/
 

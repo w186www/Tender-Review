@@ -32,7 +32,9 @@
 
 TASK-0023 真实 Qwen 业务验收已完成（DEC-006 在正式网页完成审查→复核→发布→Word/PDF 闭环），TASK-0024 已完成法规检索解阻、参考候选展示与三案例排名评测；详情见 [TASK-0023 验证记录](development/TASK-0023-validation.md)、[TASK-0024 验证记录](development/TASK-0024-validation.md) 与 [三案例检索证据摘要](development/TASK-0024-case-evidence.md)，公开/私有演示入口见 [演示指南](DEMO.md)。
 
-TASK-0025 已完成证据分类加固、账本连续性防护与 CI 超时修复，Full CI 全绿；当前进入部署准备阶段，资源测算、数据卷缺口与阻断项见[面试演示部署方案](development/DEPLOYMENT-DEMO.md)。
+TASK-0025 已完成证据分类加固、账本连续性防护与 CI 超时修复，Full CI 全绿。
+
+TASK-0026 已完成单机容器化部署的编排、持久化、反向代理与本地端到端验收（未改业务代码）；部署与运维见 [`deploy/README-demo.md`](../deploy/README-demo.md)，实测证据、资源数据与真实 Qwen 阻断见 [TASK-0026 验证记录](development/TASK-0026-validation.md)；上云前的审计与测算保留在[面试演示部署方案](development/DEPLOYMENT-DEMO.md)。目标 ECS 上尚未部署。
 
 - 功能：`FR-###`
 - 安全：`SEC-###`

@@ -6,3 +6,6 @@ knowledge/legal/versions/** -text
 
 # Biome enforces LF formatting; keep all checked-in frontend files deterministic across platforms.
 src/frontend/** text eol=lf
+
+# Deployment shell scripts run on Linux hosts and inside containers; CRLF breaks bash parsing.
+deploy/*.sh text eol=lf
