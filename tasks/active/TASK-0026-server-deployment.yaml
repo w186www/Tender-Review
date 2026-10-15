@@ -78,51 +78,52 @@
       "id": "TASK0026-001",
       "description": "部署文件不修改业务代码：src/、contracts/、tests/、scripts/、锁文件保持基线一致。",
       "evidence": [
-        "docs/development/TASK-0026-validation.md（交付文件清单与未改业务代码说明）"
+        "docs/development/TASK-0026-validation.md"
       ]
     },
     {
       "id": "TASK0026-002",
       "description": "本地 Docker 环境全部服务健康，前端可打开，API 经反向代理可达且登录鉴权正常。",
       "evidence": [
-        "docs/development/TASK-0026-validation.md#22-服务启动",
-        "docs/development/TASK-0026-validation.md#24-浏览器验收真实前端"
+        "docs/development/TASK-0026-validation.md",
+        "docs/development/TASK-0026-cloud-runbook.md"
       ]
     },
     {
       "id": "TASK0026-003",
       "description": "合成标书完成上传、ClamAV 扫描、隔离解析、审查任务、人工复核与 Word/PDF 下载全链路。",
       "evidence": [
-        "docs/development/TASK-0026-validation.md#23-合成标书全链路经反向代理真实-api"
+        "docs/development/TASK-0026-validation.md"
       ]
     },
     {
       "id": "TASK0026-004",
       "description": "显式数据卷覆盖 PostgreSQL/Checkpoint、MinIO、ClamAV 病毒库与运行账本；容器重建后数据仍在。",
       "evidence": [
-        "docs/development/TASK-0026-validation.md#25-数据持久化"
+        "docs/development/TASK-0026-validation.md"
       ]
     },
     {
       "id": "TASK0026-005",
       "description": "备份与恢复脚本可实际执行并验证恢复结果，不通过删除现有数据完成验证。",
       "evidence": [
-        "docs/development/TASK-0026-validation.md#26-备份与恢复演练"
+        "docs/development/TASK-0026-validation.md"
       ]
     },
     {
       "id": "TASK0026-006",
       "description": "PostgreSQL、MinIO、ClamAV 与解析执行能力不对公网暴露；仅反向代理端口对外。",
       "evidence": [
-        "docker-compose.demo.yml（仅 nginx 发布端口；API 不挂载 Docker Socket）",
-        "docs/development/TASK-0026-validation.md#五已知限制与风险"
+        "docker-compose.demo.yml",
+        "docs/development/TASK-0026-validation.md"
       ]
     },
     {
       "id": "TASK0026-007",
       "description": "真实 Qwen 在线审查的授权、白名单、预算与数据策略阻断被如实核查并记录，不发生未授权外发。",
       "evidence": [
-        "docs/development/TASK-0026-validation.md#四真实-qwen-的阻断与所需条件"
+        "docs/decisions/DEC-007-demo-real-qwen-authorization.md",
+        "docs/development/TASK-0026-validation.md"
       ]
     }
   ],
