@@ -1272,6 +1272,25 @@ blockquote {
   }
 }
 
+.online-qwen-demo-notice {
+  align-items: center;
+  background: #fff4df;
+  border-bottom: 1px solid #e6c987;
+  color: #5e4611;
+  display: flex;
+  gap: 0.85rem;
+  justify-content: center;
+  padding: 0.55rem 1rem;
+}
+
+.online-qwen-demo-notice strong {
+  white-space: nowrap;
+}
+
+.online-qwen-demo-notice span {
+  font-size: 0.875rem;
+}
+
 .candidate-list li span,
 .candidate-list li small {
   color: var(--muted);

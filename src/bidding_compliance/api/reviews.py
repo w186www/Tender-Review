@@ -110,7 +110,7 @@ async def create_review(
             run_id=str(uuid5(NAMESPACE_URL, f"{task_id}:run")),
             document_requests=doc_requests,
             review_date=datetime.now(UTC).date(),
-            prompt_version="task0011-ui-v1",
+            prompt_version=getattr(request.app.state, "review_prompt_version", "task0011-ui-v1"),
             model_profile=engine.model_policy.profile,
         )
         await engine.start(principal, review)

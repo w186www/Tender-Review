@@ -2,7 +2,7 @@
 
 更新时间：2026-10-15
 架构基线：ADR-0012本期法规生命周期/来源映射接受；ADR-0015历史决策保留、其TASK-0018 BGE/Paddle部署计划由已批准ADR-0016局部修订；Word V2.0 + ADR-0011开发验证替代ADR-0009，ADR-0010法规方案proposed；业务ADR-0001至0008保留 / 开发契约v1alpha3
-当前里程碑：M1、M2、M2A、M3 已按记录退出；M3 的上传至报告、复核与恢复退出条件已由 TASK-0020 真实 Edge/Checkpoint 证据满足，提交 SHA 的远端适用 CI 成功。M3A/TASK-0019 保留为 planned，当前没有 in_progress TASK。M4/M5 及 TASK-0012/0013/0014 的原有验收范围不变。
+当前里程碑：M1、M2、M2A、M3 已按记录退出；M3 的上传至报告、复核与恢复退出条件已由 TASK-0020 真实 Edge/Checkpoint 证据满足，提交 SHA 的远端适用 CI 成功。M3A/TASK-0019 保留为 planned，其独立工作树与未提交成果不参与本任务。TASK-0021 在独立 `work/TASK-0021` 工作树中进行，新增 M3B 合成数据真实 Qwen 演示里程碑；DEC-002 唯一请求授权已于 2026-10-15 消耗，在线 Edge E2E 本地 5/5 通过，硬预算上限 ¥0.10。当前待完成提交、推送、远端 CI 和归档。M4/M5 及 TASK-0012/0013/0014 原验收范围不变，M4 依赖 M3B 退出。
 
 ## 已完成
 
@@ -33,16 +33,20 @@
 
 ## 正在进行
 
-- 当前没有 `in_progress` TASK。TASK-0019 离线评测保持 `planned`；其部分未提交实现仍完整留在本机独立 `work/TASK-0019` 工作区，本轮未在该工作树执行或写入。
-- DEC-002 真实模型接入及 DEC-001 外部部署待用户审批；42 个法规版本仍未核验，演示必须保留证据状态。
+- TASK-0021「真实 Qwen LLM 接入与在线审查 Demo」处于 `in_progress`；DEC-002 已批准的唯一一次、最多 ¥0.10 的合成数据在线 Edge E2E 已成功，恰好一条真实请求、无重试/回退；该授权现已消耗，不得额外调用。代码提交、推送、远端 CI 和最终归档待完成。
+- TASK-0019 离线评测保持 `planned`；其部分未提交实现仍完整留在本机独立 `work/TASK-0019` 工作区，本轮未在该工作树执行或写入。
+- DEC-001 外部部署仍待决策。42 个法规版本仍未核验，演示必须保留证据状态，不得默认外发法规正文。
 
 ## 下一步
 
-1. TASK-0019 继续保持 `planned`，仅在正式排期后启动其离线评测。
-2. 42 个未核验法规版本与到期核验日期继续按既有证据边界处理；DEC-001/DEC-002 未获批准前不部署或调用在线模型。
+1. 逐项审查 TASK-0021 暂存清单并按项目规范提交代码和真实在线验收证据，然后推送 `work/TASK-0021` 并核验本次提交 SHA 对应的 GitHub Actions 适用门禁。
+2. 远端门禁成功后更新归档、M3B、README/指南及 PROJECT_STATE，执行文档 Quick，独立提交归档证据并再核验该提交的远端 CI。
+3. TASK-0019 继续保持 `planned`，其原工作树和未提交内容不得在本任务修改；42 个未核验法规版本与到期核验日期继续按既有边界处理，DEC-001 未获批准前不部署公网服务。
 
 ## 最近验证
 
+- 2026-10-15 TASK-0021源码/测试证据：manifest SHA-256 `407a0564c2d8508bde52cee3626394f50a8a5a3c82c934c5d9a0e2204442fd1d`；Focused 25 passed，Full 570 passed/2条既有pypdf弃用警告，Ruff、Mypy98源文件、前端6项/build及HTTP/身份smoke通过；PostgreSQL16/Checkpoint 专项通过。官方北京价格按输入¥0.8/百万tokens、输出¥2.7/百万tokens核验；授权硬预算¥0.10且调用前全额预留，白名单规范化JSON发送前强制≤2,048 UTF-8字节。
+- 2026-10-15 TASK-0021唯一真实在线实证：run `30180d4e152040ccb9f805634617b456`，Microsoft Edge 5/5通过，0 failure/error/skip；合成DOCX SHA-256 `c770a3576555fc9225b2612c98966e809cc087194e3bb2d3d7c3bfb05ed65341`。恰好一条 `bailian/qwen3.8-flash` 请求，供应商报告424输入/420输出tokens，费用按北京官方单价估算¥0.0014732，延迟10,125ms，重试0/无回退；响应哈希`5f462b27fa9cf59015a14db08bb411d76da24f617c8ac17ea8b51f3241e47dcb`。结构化输出关联审计哈希并进入 merged finding；本地RAG、人工复核/Checkpoint恢复、DOCX/PDF生成及下载均由E2E断言通过。无源码/测试变化，复用Full 570；源代码提交、远端CI和归档未完成，任务继续in_progress。详细证据见`docs/development/TASK-0021-validation.md`。
 - 2026-10-15 TASK-0020 本地及远端最终验收：Git index 源码/测试十文件 manifest SHA-256 `c5ec2a5a0e28d9c5317f6a9ae0d019131694b7d8673d7758991d469a1ff9cf7a`；Focused 76 passed，Full 545 passed/2 条既有 pypdf 弃用警告，Mypy97源文件；真实 Edge 5/5（run `86521e79591241c19b28aaecf0988323`，合成 DOCX→安全解析→离线ReviewEngine→人工复核/发布→Word/PDF下载）；PostgreSQL16、Checkpoint/ReviewEngine、parser sandbox、ClamAV/MinIO/S3安全摄取均通过；`--serve` run `9a9478a6b4dc4d8b9c1fd0e34b40f09c` Ctrl+C 后 manifest `stopped` 且三容器已移除。GitHub Actions Run 38688174502 对提交`c85e9155949b1a1d961a1031949f003e1bfe0313`全部适用门禁成功；baseline JUnit 545/0/0/0。TASK-0019工作树状态和12个变更文件哈希与本轮开始快照一致。详见`docs/development/TASK-0020-validation.md`。
 
 - 2026-10-15 TASK-0018检索基线：43版本/3120片段，法规索引SHA-256 `69d340d65f5e9114c8a2e76f8b3b524b67f47d0cbc0088c4e01d80b7db8729fd`；其中42版本未核验、仅1个已核验版本用于10条正式标签。CharacterEmbedding/BM25/RRF实际指标Recall@5/10=1.0/1.0、MRR@10=0.4867、nDCG@10=0.6141；平均查询延迟1,202ms，峰值进程工作集125,927,424字节。相同快照/标签的重复运行指标相同，平均查询延迟1,020ms。适用性过滤4例0错，效力/核验期限过滤1例0错；77个未核验候选单列，专家未确认风险样本数为0（不代表已证实无此风险）。
@@ -86,12 +90,12 @@
 - 法规元数据已固定43个版本：42份旧文本仍未逐项核实，1份司法部2019修订《实施条例》核验到2026-10-14且仅启用工程范围。本期全局管理服务/鉴权CLI已实现；完整生产法规效力验收、pgvector、神经语义召回及管理前端仍待实施。
 - 《建设工程施工合同（示范文本）》等 3 项资料未收录，详见 `knowledge/legal/索引.md`。
 - 默认OCR已按ADR-0008采用中英文Tesseract端口、存储提供S3和本地开发适配；首选模型、生产服务和部署环境仍待确定。
-- 当前方案不安装或下载BGE/PaddleOCR。百炼模型为供应商托管且权重/Tokenizer修订无可固定身份；在线真实调用、数据处理授权、DEC-002仍未获批。跨进程预算账本、逐调用模型审计、云端质量评测及真实样本验证需后续独立TASK和授权。
+- 当前方案不安装或下载BGE/PaddleOCR。百炼模型为供应商托管且权重/Tokenizer修订无可固定身份；DEC-002 的一次本地合成数据授权已消耗，任何后续真实模型调用、真实数据处理或部署均未授权。跨进程预算账本、生产级模型审计、云端质量评测及真实样本验证需后续独立TASK和授权。
 
 ## 待决策
 
 - DEC-001：首个部署目标（本地 Docker Compose、云主机或 Kubernetes）。
-- DEC-002：首选 LLM 与数据出境约束。
+- DEC-002：已批准 TASK-0021 一次合成数据演示；生产模型、真实业务数据处理与部署约束仍待决策。
 - DEC-003：Tesseract为首期实现；生产扫描件性能预算与复杂中文版面效果待评估。
 - DEC-004：前端技术栈与企业OIDC集成；首期本地认证已按ADR-0007落地。
 

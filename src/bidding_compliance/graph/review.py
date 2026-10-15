@@ -709,7 +709,8 @@ def build_review_graph(
             )
         try:
             response = None
-            for attempt in range(2):
+            max_attempts = min(2, model_policy.max_attempts)
+            for attempt in range(max_attempts):
                 try:
                     response = await gateway.generate_structured(
                         request, analysis_schema, model_policy
@@ -727,20 +728,20 @@ def build_review_graph(
                         )
                     break
                 except ModelGatewayError as exc:
-                    if attempt == 0 and exc.code is GatewayErrorCode.RESPONSE_INVALID:
+                    if attempt + 1 < max_attempts and exc.code is GatewayErrorCode.RESPONSE_INVALID:
                         continue
                     raise
                 except ValidationError as exc:
-                    if attempt == 0:
+                    if attempt + 1 < max_attempts:
                         continue
                     raise ModelGatewayError(
                         GatewayErrorCode.RESPONSE_INVALID,
-                        "Structured response failed validation after two attempts.",
+                        "Structured response failed within the configured attempt limit.",
                     ) from exc
             if response is None:
                 raise ModelGatewayError(
                     GatewayErrorCode.RESPONSE_INVALID,
-                    "Structured response failed validation after two attempts.",
+                    "Structured response failed within the configured attempt limit.",
                 )
         except ModelGatewayError as exc:
             return {

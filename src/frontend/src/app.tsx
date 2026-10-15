@@ -42,6 +42,24 @@ function OfflineDemoNotice() {
   );
 }
 
+function OnlineQwenDemoNotice() {
+  if (import.meta.env.VITE_REVIEW_MODE !== "online-qwen") return null;
+  return (
+    <aside
+      className="online-qwen-demo-notice"
+      data-testid="online-qwen-demo-notice"
+      aria-label="在线执行模式说明"
+      role="note"
+    >
+      <strong>真实在线模型：阿里云百炼 qwen3.8-flash</strong>
+      <span>
+        仅允许 TASK-0021 合成文件进入 semantic_analysis。法规正文留在本地由
+        Evidence Checker 核验；请求失败会停止，不会切换为 Mock。
+      </span>
+    </aside>
+  );
+}
+
 function AuthRequired() {
   const auth = useAuth();
   const location = useLocation();
@@ -166,6 +184,7 @@ export function App() {
   return (
     <>
       <OfflineDemoNotice />
+      <OnlineQwenDemoNotice />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<AuthRequired />}>

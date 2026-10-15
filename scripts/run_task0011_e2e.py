@@ -118,7 +118,10 @@ def _start_container(
         args.extend(("--env", key))
     args.append(image)
     args.extend(command)
-    _docker(*args, env=os.environ.copy() | (environment or {}))
+    docker_env = os.environ.copy()
+    for secret_name in ("DASHSCOPE_API_KEY", "BAILIAN_WORKSPACE_ID"):
+        docker_env.pop(secret_name, None)
+    _docker(*args, env=docker_env | (environment or {}))
     return _container_port(name, port)
 
 
@@ -354,6 +357,16 @@ def _junit_summary(path: Path) -> dict[str, int]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--online-qwen",
+        action="store_true",
+        help="run the separately gated TASK-0021 synthetic-data Qwen browser flow",
+    )
+    parser.add_argument(
+        "--dec-002-approved",
+        action="store_true",
+        help="operator attests the exact DEC-002 proposal was approved before this run",
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help="serve an interactive loopback-only offline demo until Ctrl+C, then clean up",
@@ -364,10 +377,22 @@ def main() -> int:
         help="keep isolated API, Vite, PostgreSQL, MinIO, and ClamAV alive for local preview",
     )
     args = parser.parse_args()
+    if args.online_qwen != args.dec_002_approved:
+        parser.error("online Qwen requires --online-qwen and --dec-002-approved together")
     if args.serve and args.keep_services:
         parser.error("--serve owns service lifetime and cannot be combined with --keep-services")
+    if args.online_qwen and (args.serve or args.keep_services):
+        parser.error("online Qwen credentials and services may not be kept after the isolated run")
+    if args.online_qwen and (
+        not os.environ.get("DASHSCOPE_API_KEY") or not os.environ.get("BAILIAN_WORKSPACE_ID")
+    ):
+        parser.error(
+            "approved online mode requires local DASHSCOPE_API_KEY and BAILIAN_WORKSPACE_ID"
+        )
     run_id = uuid4().hex
-    folder = ROOT / ".verification" / f"task0011-e2e-{run_id}"
+    online_qwen = args.online_qwen
+    folder_prefix = "task0021-qwen-e2e" if online_qwen else "task0011-e2e"
+    folder = ROOT / ".verification" / f"{folder_prefix}-{run_id}"
     folder.mkdir(parents=True)
     logs: dict[str, Any] = {"folder": folder, "streams": [], "processes": []}
     containers: list[str] = []
@@ -378,9 +403,21 @@ def main() -> int:
         "started_at": datetime.now(UTC).isoformat(),
         "repository_head": _run(["git", "rev-parse", "HEAD"]),
         "browser": "Microsoft Edge via Playwright channel msedge",
-        "review_adapter": "scripts/check_review_engine.py::OfflineReviewGateway",
-        "execution_mode": "offline-deterministic synthetic demo",
-        "network_policy": "loopback-only services; no online model route",
+        "review_adapter": (
+            "ModelGatewayService::BailianQwenChatAdapter"
+            if online_qwen
+            else "scripts/check_review_engine.py::OfflineReviewGateway"
+        ),
+        "execution_mode": (
+            "online Qwen synthetic-only TASK-0021 demo"
+            if online_qwen
+            else "offline-deterministic synthetic demo"
+        ),
+        "network_policy": (
+            "loopback services plus one fixed Beijing Bailian HTTPS call"
+            if online_qwen
+            else "loopback-only services; no online model route"
+        ),
         "artifacts": str(folder),
         "status": "running",
     }
@@ -511,6 +548,8 @@ def main() -> int:
         fixture_sha256 = hashlib.sha256(fixture.read_bytes()).hexdigest()
         state["synthetic_fixture"] = str(fixture)
         state["synthetic_fixture_sha256"] = fixture_sha256
+        if online_qwen:
+            state["model_audit"] = str(folder / "qwen-model-audit.jsonl")
 
         api_port, no_review_api_port = _port(), _port()
         ui_port, no_review_ui_port = _port(), _port()
@@ -533,7 +572,7 @@ def main() -> int:
                 "APP_LOG_LEVEL": "WARNING",
                 "DATABASE_URL": runtime_url,
                 "AUTH_SIGNING_KEY": signing_key,
-                "MODEL_PROFILE": PROFILE,
+                "MODEL_PROFILE": "task0021-online-qwen" if online_qwen else PROFILE,
                 "OBJECT_STORAGE_MODE": "s3",
                 "OBJECT_STORAGE_ENDPOINT": f"http://127.0.0.1:{minio_port}",
                 "OBJECT_STORAGE_BUCKET": admin_settings.object_storage_bucket,
@@ -544,13 +583,23 @@ def main() -> int:
                 "CLAMD_PORT": str(clam_port),
             }
         )
+        if online_qwen:
+            server_env.update(
+                {
+                    "TASK0021_ONLINE_APPROVED": "1",
+                    "TASK0021_ALLOWED_SYNTHETIC_DOC_SHA256": fixture_sha256,
+                    "TASK0021_MODEL_AUDIT_PATH": str(folder / "qwen-model-audit.jsonl"),
+                }
+            )
         api_process = _start_process(
             "api-review-engine",
             [
                 python,
                 str(ROOT / "scripts/task0011_e2e_server.py"),
                 "--app",
-                "scripts.task0011_e2e_app:app",
+                "scripts.task0021_online_e2e_app:app"
+                if online_qwen
+                else "scripts.task0011_e2e_app:app",
                 "--port",
                 str(api_port),
             ],
@@ -559,6 +608,14 @@ def main() -> int:
             logs,
         )
         no_review_env = server_env.copy()
+        for secret_name in (
+            "DASHSCOPE_API_KEY",
+            "BAILIAN_WORKSPACE_ID",
+            "TASK0021_ONLINE_APPROVED",
+            "TASK0021_ALLOWED_SYNTHETIC_DOC_SHA256",
+            "TASK0021_MODEL_AUDIT_PATH",
+        ):
+            no_review_env.pop(secret_name, None)
         no_review_env["APP_PORT"] = str(no_review_api_port)
         no_review_env["APP_BASE_URL"] = f"http://127.0.0.1:{no_review_api_port}"
         no_review_process = _start_process(
@@ -585,6 +642,15 @@ def main() -> int:
             no_review_process,
             folder / "api-no-review-executor.log",
         )
+        safe_service_env = server_env.copy()
+        for secret_name in (
+            "DASHSCOPE_API_KEY",
+            "BAILIAN_WORKSPACE_ID",
+            "TASK0021_ONLINE_APPROVED",
+            "TASK0021_ALLOWED_SYNTHETIC_DOC_SHA256",
+            "TASK0021_MODEL_AUDIT_PATH",
+        ):
+            safe_service_env.pop(secret_name, None)
         _start_process(
             "offline-demo-ingestion-worker",
             [
@@ -593,7 +659,7 @@ def main() -> int:
                 "--tenant",
                 "tenant-a",
             ],
-            server_env,
+            safe_service_env,
             ROOT,
             logs,
         )
@@ -602,9 +668,9 @@ def main() -> int:
         )
 
         vite = str(FRONTEND / "node_modules/vite/bin/vite.js")
-        main_ui_env = server_env.copy()
+        main_ui_env = safe_service_env.copy()
         main_ui_env["BIDDING_API_TARGET"] = f"http://127.0.0.1:{api_port}"
-        main_ui_env["VITE_REVIEW_MODE"] = "offline-deterministic"
+        main_ui_env["VITE_REVIEW_MODE"] = "online-qwen" if online_qwen else "offline-deterministic"
         main_ui = _start_process(
             "vite-review-engine",
             [node, vite, "--host", "127.0.0.1", "--port", str(ui_port), "--strictPort"],
@@ -612,7 +678,7 @@ def main() -> int:
             FRONTEND,
             logs,
         )
-        no_review_ui_env = server_env.copy()
+        no_review_ui_env = safe_service_env.copy()
         no_review_ui_env["BIDDING_API_TARGET"] = f"http://127.0.0.1:{no_review_api_port}"
         no_review_ui = _start_process(
             "vite-no-review-executor",
@@ -654,7 +720,7 @@ def main() -> int:
 
         junit = folder / "playwright-junit.xml"
         browser_output = folder / "playwright-artifacts"
-        e2e_env = server_env.copy()
+        e2e_env = safe_service_env.copy()
         e2e_env.update(
             {
                 "E2E_BASE_URL": f"http://127.0.0.1:{ui_port}",
@@ -666,6 +732,9 @@ def main() -> int:
                 "E2E_OUTPUT_DIR": str(browser_output),
             }
         )
+        if online_qwen:
+            e2e_env["E2E_EXPECT_PROVIDER"] = "bailian"
+            e2e_env["E2E_MODEL_AUDIT_PATH"] = str(folder / "qwen-model-audit.jsonl")
         role_env = {
             "ADMIN": "tenant-a:admin",
             "REVIEWER": "tenant-a:reviewer",

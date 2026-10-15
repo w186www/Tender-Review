@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**TASK-0011 前端工作台开发中。** React/TypeScript 工作台已连接项目、文件接入、审查、人工复核、结果发布、报告及审计 API；按任务验收标准，隔离后端浏览器 E2E 和法规/规则/Skill/模型配置的版本管理页面仍未验收。项目阶段与证据见 [PROJECT_STATE.md](PROJECT_STATE.md) 和 [TASK-0011 验证记录](docs/development/TASK-0011-validation.md)。
+**TASK-0021 真实 Qwen 在线审查演示已完成本地验收，GitHub 交付仍在进行。** TASK-0020 离线演示基线保持不变；TASK-0021 在独立工作树通过 DEC-002 授权的一次百炼 Qwen 合成数据在线 Edge E2E（5/5 浏览器用例，含上传、解析、审查、人工复核及 Word/PDF 导出）。唯一请求授权已消耗，不授权额外调用、重试或重跑；本地 Focused、Full、PostgreSQL/Checkpoint 证据复用并通过。当前待提交、推送、远端 CI 和归档；TASK-0019 保持 planned，原工作树不参与本任务。状态见 [PROJECT_STATE.md](PROJECT_STATE.md)、[在线演示安全配置说明](docs/development/model-gateway-online-demo.md) 和 [TASK-0021 验证记录](docs/development/TASK-0021-validation.md)。
 
 ## 新开发者或 AI 的入口
 
@@ -41,6 +41,8 @@ python -m venv .venv
 统一验证现已包含真实后端启动与本机HTTP烟雾检查，检查后自动清理自己的测试服务。
 
 实际文件上传与 Worker 操作见 [安全文件接入启动说明](docs/development/secure-ingestion-start.md)。需要 Docker Linux Engine、受控解析镜像和 ClamAV；CI 另强制验证真实 S3、杀毒、OCR 与解析隔离。开发本地存储不适用于生产。
+
+离线与在线审查模式及 DEC-002 批准前置条件见[在线 Qwen 演示指南](docs/development/model-gateway-online-demo.md)。在线演示只面向生成的合成 DOCX，不包含法规原文外发，不具备生产预算账本或公网部署能力。
 
 前端工作台的 API 代理、Node/npm 版本、构建和浏览器 E2E 前置条件见[前端工作台说明](docs/development/frontend-workbench.md)。
 

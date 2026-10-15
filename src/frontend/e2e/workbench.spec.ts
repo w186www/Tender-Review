@@ -47,7 +47,11 @@ async function signIn(
   const loginResponse = await loginResponsePromise;
   expect(loginResponse.status(), await loginResponse.text()).toBe(200);
   await expect(page).toHaveURL(/\/projects$/);
-  if (expectOfflineDemoNotice) {
+  if (expectOfflineDemoNotice && process.env.E2E_EXPECT_PROVIDER === "bailian") {
+    await expect(page.getByTestId("online-qwen-demo-notice")).toContainText(
+      "阿里云百炼 qwen3.8-flash",
+    );
+  } else if (expectOfflineDemoNotice) {
     await expect(page.getByTestId("offline-demo-notice")).toContainText(
       "不代表 Qwen、DeepSeek",
     );
@@ -63,7 +67,16 @@ function persisted(command: string, ...args: string[]) {
   const python = process.env.E2E_PYTHON || (existsSync(localPython) ? localPython : "python");
   const raw = execFileSync(
     python,
-    [resolve(root, "scripts/assert_task0011_e2e.py"), command, ...args],
+    [
+      resolve(
+        root,
+        command === "assert-qwen"
+          ? "scripts/assert_task0021_qwen_e2e.py"
+          : "scripts/assert_task0011_e2e.py",
+      ),
+      command,
+      ...args,
+    ],
     { cwd: root, env: process.env, encoding: "utf8", maxBuffer: 2_000_000 },
   );
   return JSON.parse(raw) as Record<string, unknown>;
@@ -341,6 +354,23 @@ test("审核员通过真实服务完成项目、上传、复核、发布与报�
   expect(evidence.review_run_status).toBe("result_published");
   expect(evidence.review_task_record_status).toBe("running");
   expect(evidence.report_formats).toEqual(["docx", "pdf"]);
+
+  if (process.env.E2E_EXPECT_PROVIDER === "bailian") {
+    const qwen = persisted(
+      "assert-qwen",
+      "--tenant",
+      "tenant-a",
+      "--task",
+      reviewTaskId,
+      "--run-id",
+      runId,
+      "--audit-path",
+      process.env.E2E_MODEL_AUDIT_PATH!,
+    );
+    expect(qwen.provider).toBe("bailian");
+    expect(qwen.model).toBe("qwen3.8-flash");
+    expect(qwen.model_finding_count).toBeGreaterThan(0);
+  }
   expect(evidence.configuration_revision_id).toBeTruthy();
 });
 

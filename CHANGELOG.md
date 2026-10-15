@@ -6,6 +6,8 @@
 
 ### Added
 
+- TASK-0021「真实 Qwen LLM 接入与在线审查 Demo」已按治理创建并置于 `work/TASK-0021` 独立工作树；新增 M3B，TASK-0019 仍保持 planned。DEC-002 授权的一次真实 `qwen3.8-flash` 北京 Workspace 请求已在本地隔离在线 Edge E2E 中完成：5/5 浏览器用例通过，provider 报告 424/420 输入/输出 tokens，按官方单价估算 ¥0.0014732；模型响应通过结构化校验并实际进入风险融合，完整上传/解析/复核/DOCX/PDF流程成功。Focused 25、Full 570 及 PostgreSQL/Checkpoint 专项通过；TASK-0021 仍待提交、推送、远端 CI 和归档。
+
 - TASK-0020 已完成：本机 loopback Demo 使用合成 DOCX 和显式离线 Gateway；修复 OCRRuntimeIdentity 对持久化 JSON 数组的严格 tuple 兼容，保留原身份/provenance 哈希校验。Focused 76、Full 545、真实 Edge 5/5、PostgreSQL/Checkpoint、解析隔离与安全摄取专项及 `--serve` Ctrl+C 清理均通过。提交 `c85e9155949b1a1d961a1031949f003e1bfe0313` 的 GitHub Actions Run 38688174502 全部适用门禁成功（baseline 545 passed，postgres/ingestion/verify-required success；Full 模式 quick 合法 skipped）；TASK-0020 已归档，M3 已完成。TASK-0019 仍为 planned，原本机部分实现保留在独立工作区。未调用真实模型、未外发真实业务数据；DEC-001/DEC-002 未获批准前不部署、不接入在线模型。详见 `docs/development/TASK-0020-validation.md`。
 
 - TASK-0018 本地与远端交付验收完成：法规检索评测、Mock-only 百炼 Embedding Provider、SQLite 向量持久化与断点续建、Tesseract 合成扫描基线、运行版本追溯。补齐向量缓存损坏/缺失/续建完整性检查与 ReviewRuntimeProvenance JSON 持久化测试。本地正式 Focused 144 项、Full 537 项及 PostgreSQL16/RLS/ReviewEngine 专项通过；源码提交 da7325bb95a10a10fcca82151c22c6272980d091 的 GitHub Actions Run 38641374412 completed/success（mode=full，baseline 537 passed/2 warnings，postgres/ingestion/verify-required success）；官方 npm registry 安装184包，`package-lock.json` SHA-256 未变。交付前审计的61条状态路径与隔离副本逐路径、逐文件SHA-256一致。无真实 API Key、供应商调用或真实文件外发；DEC-002 待批准。详见 `docs/development/TASK-0018-validation.md`。

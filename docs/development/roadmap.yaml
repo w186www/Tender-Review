@@ -215,12 +215,52 @@
       ]
     },
     {
+      "id": "M3B",
+      "name": "合成数据真实 Qwen 在线审查演示",
+      "status": "in_progress",
+      "depends_on": [
+        "M3"
+      ],
+      "tasks": [
+        "TASK-0021"
+      ],
+      "related_requirements": [
+        "FR-007",
+        "FR-013",
+        "FR-015",
+        "SEC-005",
+        "SEC-007",
+        "SEC-008",
+        "SEC-009",
+        "SEC-011",
+        "NFR-006",
+        "NFR-007",
+        "NFR-008",
+        "NFR-011"
+      ],
+      "related_acceptance": [
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "AC-007",
+        "AC-009"
+      ],
+      "deliverables": [
+        "经 DEC-002 明确授权的合成数据真实 Qwen 审查演示及审计、预算、浏览器端到端证据；不构成生产接入或 M5 正式验收"
+      ],
+      "exit_checks": [
+        "Mock、Focused、Full 和适用专项通过；经授权的真实 Qwen 响应实际参与 LangGraph 风险分析；隔离 Edge 流程完成上传至 Word/PDF 导出；提交 SHA 远端适用 CI 成功"
+      ]
+    },
+    {
       "id": "M4",
       "name": "部署与运维",
       "status": "planned",
       "depends_on": [
         "M3",
-        "M3A"
+        "M3A",
+        "M3B"
       ],
       "tasks": [
         "TASK-0012"
