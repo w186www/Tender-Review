@@ -86,7 +86,7 @@
       "description": "三个真实风险完成可追溯的检索与核验流程，法规原文、来源、版本与适用性状态齐备。",
       "evidence": [
         "docs/development/TASK-0024-validation.md::三案例验收",
-        ".verification/private/TASK-0024/offline-case-retrieval.json"
+        "docs/development/TASK-0024-case-evidence.md::三案例检索结果"
       ]
     },
     {

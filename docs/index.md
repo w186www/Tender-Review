@@ -30,7 +30,7 @@
 
 ## 需求追踪规则
 
-本轮TASK-0023已按用户要求停止；当前完成、未完成与验证边界见[2026-10-15汇总](development/TASK-0023-status-summary-20261015.md)。DEC-005本轮已批准，但真实LLM/Embedding调用均0，尚未通过真实AI业务验收；TASK-0022中的未批准叙述属于历史。
+TASK-0023 真实 Qwen 业务验收已完成（DEC-006 在正式网页完成审查→复核→发布→Word/PDF 闭环），TASK-0024 已完成法规检索解阻、参考候选展示与三案例排名评测；详情见 [TASK-0023 验证记录](development/TASK-0023-validation.md)、[TASK-0024 验证记录](development/TASK-0024-validation.md) 与 [三案例检索证据摘要](development/TASK-0024-case-evidence.md)，公开/私有演示入口见 [演示指南](DEMO.md)。
 
 - 功能：`FR-###`
 - 安全：`SEC-###`
