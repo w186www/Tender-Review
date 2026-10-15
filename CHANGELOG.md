@@ -6,6 +6,8 @@
 
 ### Added
 
+- TASK-0024 AI 风险与法规自动对应：查明 CONTEXT_INVALID 根因——`RetrievalQuery.consistent_context` 对企业非招标采购推导出空法律框架并抛错，检索在构造查询阶段即终止，且 `applicability_exclusions` 把空框架判为 `framework_mismatch` 二次阻断。修复为「未知框架不等同于不匹配」：不推断框架、允许检索参考候选，但 `confirmation_reason` 在无可确认框架或法规未声明适用范围时返回 `applicability_unverified`，永不返回 `valid`；新增四级适用状态投影（applicable_verified／potentially_relevant／applicability_unknown／not_applicable）。离线验收：三个真实风险（逾期违约金、集团黑名单资格条件、报价得分不明确）各召回 8 条参考候选，全部标为 applicability_unknown、可引用依据 0，未为凑命中降低校验标准。法规快照 42/43 版本未核验、唯一已核验版本已超核验期，因此当前不存在可用于确认的法规依据。详见 docs/development/TASK-0024-validation.md。
+
 - TASK-0023 完整真实 AI 审查闭环已打通（独立授权 DEC-006）：`semantic_analysis` 改为按 `candidate_id` 稳定排序的确定性分批（每批 8 个候选、上限 13 批），每批独立调用身份/缓存件/契约校验并按批次累加 usage 与哈希，单批时保持历史 `call_id` 与 `model_analysis` 结构不变；同时修复脱敏最小化器外发上限与发现批次容量不一致的缺陷（该缺陷会在零调用下拒绝首批请求）。真实运行：7 批风险发现 + 3 批分批语义分析，LLM 10/15 次、费用 ¥0.062695；确定性 Skills 0 候选而模型独立发现 19 个候选，19/19 原文定位一致、0 条违法断言、全部标为 `insufficient_evidence` 待核验；网页完成上传、正式校正、上下文确认、审查、19 项人工复核、结果发布与 Word/PDF 生成下载，下载 SHA-256 与服务端 `content_hash` 一致。新增多授权账本（`AUTHORIZATION_LIMITS` 与 `requests.authorization_id`），DEC-005 历史计数与费用保留不重置。为在 15 次授权内完成闭环，发现批次容量按输入 token 预算上调（9,000→18,000 字节、80→200 片段），单次审查候选上限相应下降。详见 `docs/development/TASK-0023-validation.md`。
 
 - TASK-0022 零候选离线审查路径已修复：OfflineReviewGateway 对合法空候选返回 Schema 合法的空 findings，同时保留调用身份/响应哈希和非空候选的严格证据断言。Focused 新增 3 项回归通过。天津地铁 DOCX 在正式本地链路上得到 0 个 Skill 候选，RAG 5/5 `CONTEXT_INVALID`；离线 LangGraph、空结果复核及 Word/PDF API 导出成功。真实模型调用为 0，任务仍 in_progress。详细限制与本地结果见 TASK-0022 验证记录。

@@ -52,14 +52,28 @@ def test_confirmed_context_framework_mapping(change, frameworks):
         {"project_type": "goods", "subject_type": "works"},
         {"procurement_type": "government", "buyer_type": "enterprise"},
         {"procurement_method": "non_tender", "legal_frameworks": ["tendering"]},
-        {"procurement_type": "enterprise", "procurement_method": "non_tender"},
-        {"procurement_type": "other"},
         {"procurement_type": "other", "legal_frameworks": ["tendering", "tendering"]},
     ],
 )
 def test_unknown_or_conflicting_context_cannot_be_inferred(changes):
     with pytest.raises(ValidationError):
         query(**changes)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"procurement_type": "enterprise", "procurement_method": "non_tender"},
+        {"procurement_type": "other"},
+    ],
+)
+def test_unconfirmed_framework_stays_empty_without_blocking_retrieval(changes):
+    """A procurement with no confirmable statutory framework keeps it empty.
+
+    The system must not invent a framework, and it must also not abort retrieval: hits
+    stay retrievable as potentially relevant references and never become confirmable.
+    """
+    assert query(**changes).legal_frameworks == ()
 
 
 @pytest.mark.parametrize("field", ["procurement_method", "buyer_type", "subject_type"])

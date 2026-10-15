@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0023",
   "title": "DEC-005 真实 Qwen 独立风险发现与受控神经检索网页审查",
-  "status": "blocked",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0021"
@@ -116,5 +116,5 @@
     "./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_authorized_runtime.py",
     "./scripts/verify.ps1 -Mode Full"
   ],
-  "handoff_notes": "2026-10-15 完成：semantic_analysis 已改为确定性分批（每批 8 个候选、上限 13 批，单批保持历史契约），并修复最小化器外发上限与批次容量不一致的缺陷；新增独立授权 DEC-006（LLM 15 次/¥5）与多授权账本，DEC-005 历史保留不重置。真实运行 10/15 次、¥0.062695：7 批发现覆盖 1207 片段、模型独立发现 19 个候选、19/19 原文定位一致、0 违法断言、全部 insufficient_evidence；网页完成 19 项人工复核、结果发布、Word/PDF 生成与下载（SHA 与服务端 content_hash 一致）。已知限制：为在 15 次内完成闭环，发现批次容量由 9000 字节/80 片段上调到 18000 字节/200 片段，单次审查候选上限下降（19 项，上一轮 41 项）；上一轮容器删除导致 41 候选无法复用。未提交/推送/远端 CI。详见 docs/development/TASK-0023-validation.md。TASK-0019/TASK-0022 原树未写入。"
+  "handoff_notes": "2026-10-15 完成。DEC-006 真实运行于正式网页完成完整闭环：7 批风险发现覆盖 1207 个非空片段，确定性 Skills 候选 0 项而模型独立发现 19 个候选，19/19 原文定位一致、0 条违法断言、全部 insufficient_evidence；19 项人工复核提交、结果发布、Word/PDF 生成与下载（下载 SHA-256 与服务端 content_hash 一致）。semantic_analysis 已改为确定性分批并修复最小化器外发上限与批次容量不一致的缺陷；新增多授权账本，DEC-005 历史（30 次/¥1.081571）保留不重置。已知限制：为在 15 次授权内完成闭环，发现批次容量由 9000 字节/80 片段上调到 18000 字节/200 片段，单次审查候选上限下降（19 项 vs 41 项）；上一轮容器删除导致 41 候选无法复用。后续法规对应工作由 TASK-0024 承接。详见 docs/development/TASK-0023-validation.md。"
 }

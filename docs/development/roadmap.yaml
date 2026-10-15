@@ -186,7 +186,8 @@
       "tasks": [
         "TASK-0019",
         "TASK-0022",
-        "TASK-0023"
+        "TASK-0023",
+        "TASK-0024"
       ],
       "related_requirements": [
         "FR-002",

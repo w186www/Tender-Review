@@ -349,7 +349,12 @@ class RetrievalQuery(RetrievalInput):
             frameworks = ("tendering",) if self.procurement_method == "tender" else ()
         else:
             frameworks = self.legal_frameworks
-        if not frameworks or (self.legal_frameworks and self.legal_frameworks != frameworks):
+        # An enterprise non-tender procurement has no confirmable statutory framework. That
+        # is an unknown framework, not a mismatching one: retrieval may still propose
+        # potentially relevant law, but every hit stays applicability_unverified because
+        # confirmation_reason refuses to return "valid" without a confirmed framework.
+        # An explicitly supplied framework that contradicts the derived one is still refused.
+        if self.legal_frameworks and self.legal_frameworks != frameworks:
             raise ValueError("CONTEXT_INVALID: confirmed consistent legal frameworks required")
         if len(set(frameworks)) != len(frameworks):
             raise ValueError("CONTEXT_INVALID: duplicate framework")

@@ -85,6 +85,36 @@ def scope_matches(version: LegalVersion, query: RetrievalQuery) -> bool:
     return not scope_exclusions(version, query)
 
 
+APPLICABILITY_STATES = (
+    "applicable_verified",
+    "potentially_relevant",
+    "applicability_unknown",
+    "not_applicable",
+)
+
+
+def applicability_state(
+    reason: Reason, *, excluded: bool = False, applicability_declared: bool = True
+) -> str:
+    """Project a confirmation reason onto the four reported applicability states.
+
+    Only a fully verified chain (version, horizon, clause, applicability and a confirmed
+    project framework) yields ``applicable_verified``. A retrieved clause whose verification
+    is incomplete stays ``potentially_relevant``, and one whose source declares no
+    applicability scope at all is reported as ``applicability_unknown`` because the system
+    cannot even decide whether it governs this procurement. Nothing here claims applicability.
+    """
+    if excluded:
+        return "not_applicable"
+    if reason == "valid":
+        return "applicable_verified"
+    if not applicability_declared or reason == "applicability_unverified":
+        return "applicability_unknown"
+    if reason in {"unverified", "outside_verification_horizon", "unknown_end", "clause_unverified"}:
+        return "potentially_relevant"
+    return "not_applicable"
+
+
 def clause_window(
     version: LegalVersion,
     article: str | None,
@@ -130,7 +160,9 @@ def clause_exclusions(
         if scope is not None:
             reasons.extend(x for x in applicability_exclusions(scope, query) if x not in reasons)
     if version.applicability is not None and not applicable_frameworks(version, article, query):
-        if "framework_mismatch" not in reasons:
+        # An unconfirmed framework is unknown, not mismatching: the clause stays retrievable
+        # as a potentially relevant candidate, but confirmation_reason keeps it out of "valid".
+        if query.legal_frameworks:
             reasons.append("framework_mismatch")
     return reasons
 
@@ -141,7 +173,13 @@ def applicability_exclusions(scope: Applicability, query: RetrievalQuery) -> lis
         ("method_mismatch", query.procurement_method in scope.procurement_methods),
         ("buyer_mismatch", query.buyer_type in scope.buyer_types),
         ("subject_mismatch", query.subject_type in scope.subject_types),
-        ("framework_mismatch", bool(set(query.legal_frameworks) & set(scope.legal_frameworks))),
+        # Without a confirmed project framework there is nothing to compare against, so the
+        # clause is kept as a potentially relevant reference instead of being excluded.
+        (
+            "framework_mismatch",
+            not query.legal_frameworks
+            or bool(set(query.legal_frameworks) & set(scope.legal_frameworks)),
+        ),
         (
             "procurement_mismatch",
             scope.procurement_types is None or query.procurement_type in scope.procurement_types,
@@ -198,7 +236,9 @@ def confirmation_reason(
         else "extraction_unverified"
         if version.expected_articles is None
         else "applicability_unverified"
-        if version.applicability is None
+        # Either the version declares no applicability, or the project has no confirmed
+        # framework intersecting it. Both mean the applicability itself is unverified.
+        if (version.applicability is None or not applicable_frameworks(version, article, query))
         else "valid"
     )
 
