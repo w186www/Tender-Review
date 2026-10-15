@@ -11,6 +11,7 @@ from bidding_compliance.model_gateway.authorized_runtime import (
     MetadataAuditSink,
 )
 from bidding_compliance.model_gateway.errors import ModelGatewayError
+from bidding_compliance.services.real_ai_runtime import verify_ledger_continuity
 
 
 def ledger(tmp_path: Path, **kwargs: object) -> Dec005BudgetLedger:
@@ -95,3 +96,38 @@ def test_audit_rejects_document_and_credentials(tmp_path: Path) -> None:
     assert (tmp_path / "audit.jsonl").read_bytes() == b""
     audit({"provider": "bailian", "model": "qwen3.8-flash", "input_tokens": 12})
     assert '"input_tokens": 12' in (tmp_path / "audit.jsonl").read_text()
+
+
+def test_missing_ledger_beside_an_audit_trail_fails_closed(tmp_path: Path) -> None:
+    """A deleted ledger must not be mistaken for a first initialization."""
+    ledger = tmp_path / "budget.sqlite"
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text('{"call_id": "earlier"}\n', encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="refusing to restore"):
+        verify_ledger_continuity(ledger, audit)
+
+
+def test_unreadable_ledger_fails_closed(tmp_path: Path) -> None:
+    """A corrupted ledger must not silently start from zero."""
+    ledger = tmp_path / "budget.sqlite"
+    ledger.write_bytes(b"this is not a sqlite database")
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text('{"call_id": "earlier"}\n', encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="unreadable|refusing"):
+        verify_ledger_continuity(ledger, audit)
+
+
+def test_first_initialization_and_normal_restart_stay_allowed(tmp_path: Path) -> None:
+    """Without any audit trail the first run is legitimate; with records a restart is fine."""
+    ledger = tmp_path / "budget.sqlite"
+    audit = tmp_path / "audit.jsonl"
+
+    verify_ledger_continuity(ledger, audit)  # nothing recorded yet
+
+    budget = Dec005BudgetLedger(ledger, scope_sha256="a" * 64)
+    budget.reserve("tenant", "task", Decimal("0.01"))
+    audit.write_text('{"call_id": "earlier"}\n', encoding="utf-8")
+
+    verify_ledger_continuity(ledger, audit)  # audit exists and the ledger has rows

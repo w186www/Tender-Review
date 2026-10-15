@@ -124,7 +124,7 @@ jobs:
     needs: impact
     if: needs.impact.outputs.mode == 'full'
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

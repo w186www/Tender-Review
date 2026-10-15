@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0024",
   "title": "AI 风险与法律法规自动对应",
-  "status": "in_progress",
+  "status": "completed",
   "owner": "Codex",
   "depends_on": [
     "TASK-0023"
@@ -102,5 +102,5 @@
     "./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_legal_applicability.py",
     "./scripts/verify.ps1 -Mode Quick"
   ],
-  "handoff_notes": "根因：RetrievalQuery.consistent_context 对企业非招标推导出空框架并抛 CONTEXT_INVALID，检索在构造查询阶段即终止（连 BM25 都不执行）；同时 applicability_exclusions 把空框架当作 framework_mismatch，clause_exclusions 也会排除，导致即使放行查询也无候选。修复：空框架视为『未知』而非『不匹配』——不推断框架、仍可检索参考候选，但 confirmation_reason 在无可确认框架时拒绝返回 valid。四案例离线验收见 docs/development/TASK-0024-validation.md。未完成：LLM 法规关联分析（需新增预算授权）、报告页面端到端（需真实运行）。既有环境限制：tests/test_verification_modes.py 的 Quick 测试在本机因 PowerShell 输出编码失败，与本次变更无关（移除变更后仍失败）。"
+  "handoff_notes": "2026-10-16 完成。CONTEXT_INVALID 根因（企业非招标推导空框架即抛错 + 空框架被判 framework_mismatch）已修复；未核验法规可作为参考候选检索与展示（applicability_state 四级），但永不返回 valid。参考候选已进入 finding.legal_references 并在页面与 Word/PDF 渲染（计入声明：不计入已核验证据）。三案例生产查询排名已评测（《民法典》585 条在生产候选级查询排第 7）。交付期间经 CI 发现并修复任务证据引用未跟踪私有文件的问题（改用已提交的脱敏摘要）。后续证据分类加固由 TASK-0025 承接。详见 docs/development/TASK-0024-validation.md。"
 }

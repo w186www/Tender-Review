@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sqlite3
 from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
@@ -161,6 +162,35 @@ class AuthorizedTenderMinimizer:
         return safe
 
 
+def verify_ledger_continuity(ledger_path: Path, audit_path: Path) -> None:
+    """Refuse a fresh quota when the audit trail proves that earlier calls happened.
+
+    The durable ledger is a single local SQLite file, so deleting or replacing it looks
+    exactly like a first initialization and would silently restore the whole quota. This
+    guard fails closed when an existing audit trail is next to an absent, empty or
+    unreadable ledger. It cannot detect a coordinated rollback of both files: that needs
+    deployment-level immutable storage and is reported as a deployment blocker rather than
+    claimed as solved here.
+    """
+    if not audit_path.exists() or audit_path.stat().st_size == 0:
+        return  # nothing proves earlier usage, so a first initialization is legitimate
+    recorded = 0
+    if ledger_path.exists() and ledger_path.stat().st_size > 0:
+        try:
+            with sqlite3.connect(f"file:{ledger_path}?mode=ro", uri=True) as connection:
+                row = connection.execute("SELECT COUNT(*) FROM requests").fetchone()
+            recorded = int(row[0]) if row is not None else 0
+        except sqlite3.Error as exc:
+            raise RuntimeError(
+                "budget ledger is unreadable; refusing to restore supplier quota"
+            ) from exc
+    if recorded == 0:
+        raise RuntimeError(
+            "budget ledger carries no recorded requests while an audit trail exists; "
+            "refusing to restore supplier quota"
+        )
+
+
 def create_dec005_gateway(
     *,
     api_key: str,
@@ -188,6 +218,7 @@ def create_dec005_gateway(
         ).encode()
     ).hexdigest()
     minimizer = AuthorizedTenderMinimizer(allowed_document_sha256)
+    verify_ledger_continuity(ledger_path, audit_path)
     ledger = Dec005BudgetLedger(
         ledger_path, scope_sha256=scope, authorization_id=authorization_id
     )

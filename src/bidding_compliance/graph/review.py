@@ -1288,7 +1288,13 @@ def build_review_graph(
                 ):
                     document_valid = False
                 selected_laws = set(model.get("legal_evidence_ids", [])) if model else set()
-                verified_laws = []
+                # verify_legal_hit proves a citation is genuine (the clause exists in the frozen
+                # publication, the retrieval run reads back identically and the bytes match). It
+                # says nothing about whether the clause is in force or applicable. Only clauses
+                # that also satisfy the confirmation chain may act as formal legal evidence; the
+                # rest stay reference-only even when the model selected them.
+                confirmable_laws: list[Any] = []
+                unconfirmed_laws: list[Any] = []
                 law_invalid = False
                 if selected_laws and candidate_result is not None:
                     for hit_payload in candidate_result["result"]["hits"]:
@@ -1305,8 +1311,14 @@ def build_review_graph(
                         if hit is None or quote != hit.quote:
                             law_invalid = True
                             continue
-                        verified_laws.append(hit)
-                    if len({hit.evidence_id for hit in verified_laws}) != len(selected_laws):
+                        if hit.eligible_for_confirmation:
+                            confirmable_laws.append(hit)
+                        else:
+                            unconfirmed_laws.append(hit)
+                    verified_ids = {
+                        item.evidence_id for item in (*confirmable_laws, *unconfirmed_laws)
+                    }
+                    if len(verified_ids) != len(selected_laws):
                         law_invalid = True
                 elif selected_laws:
                     law_invalid = True
@@ -1330,7 +1342,9 @@ def build_review_graph(
                             "summary": "Unknown or duplicate model candidate reference.",
                         }
                     )
-                legal_valid = has_confirmable_legal_support(verified_laws, invalid=law_invalid)
+                # Only clauses that passed the full confirmation chain can support legal
+                # validity; unconfirmed references never count here.
+                legal_valid = has_confirmable_legal_support(confirmable_laws, invalid=law_invalid)
                 evidence_status = evidence_status_for_support(
                     document_valid=document_valid, legal_valid=legal_valid
                 )
@@ -1354,11 +1368,21 @@ def build_review_graph(
                         "jurisdiction": None,
                     }
                 )
-                legal_evidence = [hit.evidence.model_dump(mode="json") for hit in verified_laws]
-                # Retrieved clauses that are not confirmable stay visible as references, so the
-                # report never hides that law was found without verified applicability. They are
-                # revalidated against the frozen publication but never counted as evidence.
-                legal_references: list[dict[str, Any]] = []
+                # Formal legal evidence holds only clauses that passed the confirmation chain.
+                legal_evidence = [hit.evidence.model_dump(mode="json") for hit in confirmable_laws]
+                # Genuine but unconfirmed clauses stay visible as references, so the report never
+                # hides that law was found without verified applicability. Clauses the model
+                # selected are included here too when they are not confirmable, which keeps the
+                # classification truthful even when the model asks for an unverified clause.
+                legal_references: list[dict[str, Any]] = [
+                    {
+                        **hit.evidence.model_dump(mode="json"),
+                        "confirmation_reason": hit.reason,
+                        "version_status": hit.version_status,
+                        "applicable": False,
+                    }
+                    for hit in unconfirmed_laws
+                ]
                 if candidate_result is not None:
                     for hit_payload in candidate_result["result"]["hits"]:
                         if hit_payload["evidence_id"] in selected_laws:
