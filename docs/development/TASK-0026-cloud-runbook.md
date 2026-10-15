@@ -98,7 +98,81 @@ cd /opt/tender-review
 | 443 | HTTPS | 对面试官开放（由 TLS 覆盖层发布） |
 | 5432 / 9000 / 3310 / 8000 | 数据库、对象存储、杀毒、API | **一律不放行**；compose 也未发布这些端口 |
 
-## 六、HTTPS
+## 六、HTTPS（Let's Encrypt 公网 IP 证书）
+
+本部署用 **IP 地址证书**对外提供服务（无域名）。与域名证书的关键差别：
+
+| 事项 | IP 证书的事实 |
+|---|---|
+| Profile | 只能用 **`shortlived`**（唯一接受 IP 标识符的 profile） |
+| 有效期 | **160 小时（约 6 天）** |
+| 验证 | 仅 `http-01` / `tls-alpn-01`；**无 DNS、无 CAA 检查** |
+| 配额 | 同一 IP **每 7 天 5 张**；每 IP 每小时 5 次验证失败 |
+| 客户端 | 系统 apt 的 certbot 1.21 **不支持**，用官方镜像 `certbot/certbot:v5.8.0` |
+
+因为证书只有 6 天，**自动化续期是必需项**。续期阈值设为 2 天 → 约 1.5 张/周，
+低于 5 张/周的配额；每天无条件续期则会直接耗尽配额。
+
+### 日常操作
+
+```bash
+cd /opt/tender-review
+./deploy/certbot.sh status         # 有效期、剩余小时、告警状态
+./deploy/certbot.sh renew          # 检查并在到期前续期（定时器执行的就是它）
+./deploy/certbot.sh check-expiry   # 剩余不足 48 小时则退出码非零并写标记
+```
+
+**定时器**（已安装并启用）：
+
+| 单元 | 频率 | 作用 |
+|---|---|---|
+| `tender-certbot-renew.timer` | 每天 00:00 / 12:00（±1 小时） | 阈值门控的续期检查 |
+| `tender-certbot-expiry.timer` | 每天 09:30 | 独立到期守护 |
+
+告警途径：**没有配置任何外部通知渠道**（无邮件/短信/Webhook）。当前落地为
+`systemctl --failed`、`journalctl -u tender-certbot-renew -u tender-certbot-expiry`，
+以及 `certbot/EXPIRING` 标记文件（剩余不足 48 小时时生成）。
+需要邮件或群机器人通知，请提供发信方式后再接。
+
+### 证书存放与部署
+
+- ACME 状态（账户、archive、续期配置）：`./certbot/`（宿主持久化，容器重建不丢）
+- **对外服务的证书**：`./certs/`，由脚本用 `cp -L` 解引用复制成**实体文件**
+  （certbot 的 `live/` 是符号链接，直接挂载会在容器内悬空）
+- 私钥权限 600，且 `certs/`、`certbot/`、`acme-webroot/` 均已在 `.gitignore` 中
+
+### 首次签发与切换（已完成，供重建时参考）
+
+```bash
+# 1) 引导：仅 ACME 的 HTTP 配置（80 端口只提供挑战路径，其余 503）
+sed -i 's|^NGINX_CONF=.*|NGINX_CONF=nginx-acme.conf|' deploy/.env
+docker compose --env-file deploy/.env -f docker-compose.demo.yml \
+  -f deploy/docker-compose.tls.yml up -d nginx
+
+# 2) staging 演练 → 正式签发（staging 必须先通过，避免消耗生产配额）
+./deploy/certbot.sh issue-staging
+./deploy/certbot.sh issue
+
+# 3) 切到 HTTPS 配置（80 端口保留挑战路径 + 301 跳转，443 提供受信任 HTTPS）
+sed -i 's|^NGINX_CONF=.*|NGINX_CONF=nginx-demo-tls.conf|' deploy/.env
+docker compose --env-file deploy/.env -f docker-compose.demo.yml \
+  -f deploy/docker-compose.tls.yml up -d nginx
+```
+
+> **不要**手写 `renew_before_expiry` 到续期配置文件末尾：`webroot_path` 是逗号结尾的列表，
+> 追加的行会被解析成第二个 webroot，续期会以 `No such file or directory: '2 days/.well-known'` 失败。
+> 脚本已改为插入到 `[renewalparams]` 标题正下方。
+
+### 安全组
+
+| 端口 | 用途 | 状态 |
+|---|---|---|
+| 22 | SSH | 建议收紧到你的出口 IP |
+| 80 | ACME `http-01`，续期**长期需要**；仅提供挑战路径与 301 跳转 | 已放行 |
+| 443 | HTTPS 服务 | 需放行 |
+| 5432/9000/3310/8000 | 数据库、对象存储、杀毒、API | **禁止放行** |
+
+
 
 未启用 HTTPS 前不要把地址发给面试官：登录口令会明文传输。
 
