@@ -15,9 +15,32 @@ ps``, ``docker ps`` and ``docker inspect`` -- and writes one JSON evidence docum
 * the api container's **effective** ``DEPLOY_REVIEW_MODE`` (read from the container's own
   environment in ``docker inspect``, not from the compose file),
 * its entrypoint, command, state/running flag and health status,
-* whether a second execution instance (another container whose effective
-  ``DEPLOY_REVIEW_MODE`` is ``authorized-real``) is running,
+* whether a second real-model execution instance is running,
 * the verdict: ``ok``, ``untrusted`` or ``unknown``.
+
+Second-instance detection does not rely on the effective ``DEPLOY_REVIEW_MODE`` alone. The
+isolated validation container started by ``scripts/task0027_real_ai_validation_app.py`` may
+still declare ``DEPLOY_REVIEW_MODE=offline`` (its ceilings live in its own code), so the
+actual start command and the image reference are inspected as well. Every running container
+on the host other than the expected api container counts as a real-model execution instance
+when any of these holds:
+
+* its effective ``DEPLOY_REVIEW_MODE`` is ``authorized-real``,
+* its entrypoint/command runs ``task0023_real_ai_app`` (the authorized-real assembly),
+* its entrypoint/command runs ``task0027_real_ai_validation_app`` (the isolated entry),
+* its entrypoint/command is ``deploy/api_entry.py`` and its ``DEPLOY_REVIEW_MODE`` is
+  ``authorized-real``,
+* its image reference carries the validation image tag (``task0027-validation``).
+
+When the execution identity of a running container cannot be read at all (failed ``docker
+inspect``, missing container id/image/command, unreadable running state, or the deployment
+entry without a readable mode), the verdict is ``unknown``: this script never claims "no
+second real-model instance exists" on incomplete information. A container that is
+demonstrably not running is out of scope -- it cannot place a supplier call.
+
+The evidence document is versioned (``SCHEMA_VERSION``); the preflight accepts exactly this
+version, so an evidence file written by an older release of this script is rejected instead
+of being read with a different meaning.
 
 What it never does
 ------------------
@@ -31,12 +54,13 @@ standard output or a log, so no credential and no full environment list is ever 
 Verdicts and exit codes
 -----------------------
 ``ok`` (exit 0)         mode is ``offline``, the api container runs, image/entrypoint are
-                        the expected ones and no second authorized-real instance runs.
+                        the expected ones and no second real-model execution instance runs.
 ``untrusted`` (exit 3)  a definite contradiction: the api serves ``authorized-real``, is not
                         running, does not run the expected image/entrypoint, or another
-                        container runs in ``authorized-real`` mode.
+                        running container is a real-model execution instance (see above).
 ``unknown`` (exit 2)    the mode cannot be established at all (missing container, failed
-                        ``docker inspect``, absent ``DEPLOY_REVIEW_MODE``). Stop immediately;
+                        ``docker inspect``, absent ``DEPLOY_REVIEW_MODE``) or the execution
+                        identity of a running container could not be read. Stop immediately;
                         do not launch supplier calls.
 
 Both non-``ok`` verdicts are fail-closed and the evidence file is written either way, so the
@@ -63,7 +87,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-SCHEMA_VERSION = "v1alpha1"
+# v1alpha2: second-instance detection covers the start command and the image reference
+# (``execution_instances.second_real_model_instances``, per-instance ``reason``), adds the
+# ``all_running_containers_identified`` check, and fails closed as ``unknown`` when a running
+# container's execution identity cannot be read.
+SCHEMA_VERSION = "v1alpha2"
 SCRIPT_NAME = "deploy/verify_api_offline_mode.sh"
 
 VERDICT_OK = "ok"
@@ -82,6 +110,16 @@ API_IMAGE_PREFIX = "tender-review-api"
 MODE_VARIABLE = "DEPLOY_REVIEW_MODE"
 APP_ENV_VARIABLE = "APP_ENV"
 HEALTH_ABSENT = "none"
+
+# Second-instance detection beyond the effective DEPLOY_REVIEW_MODE. The isolated validation
+# container of scripts/task0027_real_ai_validation_app.py may run with
+# DEPLOY_REVIEW_MODE=offline, so the start command and the image reference are checked too.
+# The assembly tokens are matched as substrings, which covers both the ``<name>.py`` script
+# form and the ``<name>:app`` module form of a uvicorn command.
+AUTHORIZED_REAL_ASSEMBLY_MODULE = "task0023_real_ai_app"
+VALIDATION_ENTRY_MODULE = "task0027_real_ai_validation_app"
+DEPLOYMENT_ENTRY_SCRIPT = "api_entry.py"
+VALIDATION_IMAGE_TAG = "task0027-validation"
 
 # The only environment values this script may ever read, record or print. Everything else in
 # the container environment is dropped while iterating and never leaves that loop.
@@ -115,14 +153,15 @@ API_KEYS = (
     "running",
     "health_status",
 )
-EXECUTION_KEYS = ("scanned_container_count", "authorized_real_instances")
+EXECUTION_KEYS = ("scanned_container_count", "second_real_model_instances")
 CHECK_KEYS = (
     "review_mode_offline",
     "container_running",
     "health_acceptable",
     "image_expected",
     "entrypoint_expected",
-    "no_second_authorized_real_instance",
+    "all_running_containers_identified",
+    "no_second_real_model_instance",
 )
 
 MAX_EVIDENCE_BYTES = 1_000_000
@@ -263,13 +302,16 @@ def container_facts(document: Mapping[str, Any]) -> tuple[dict[str, Any], list[s
     config = document.get("Config") or {}
     state = document.get("State") or {}
     environment = whitelisted_environment(config.get("Env"))
+    running = state.get("Running")
     values: dict[str, Any] = {
         "container_id": document.get("Id"),
         "container_name": str(document.get("Name", "")).lstrip("/"),
         "image_reference": config.get("Image"),
         "image_id": document.get("Image"),
         "state": state.get("Status"),
-        "running": bool(state.get("Running")),
+        # ``None`` means the flag itself could not be read: the container's running state is
+        # then unknown and must be reported as such, never silently treated as "stopped".
+        "running": running if isinstance(running, bool) else None,
         "health_status": (state.get("Health") or {}).get("Status", HEALTH_ABSENT),
         "entrypoint": [str(item) for item in (config.get("Entrypoint") or [])],
         "command": [str(item) for item in (config.get("Cmd") or [])],
@@ -279,9 +321,75 @@ def container_facts(document: Mapping[str, Any]) -> tuple[dict[str, Any], list[s
     for field in ("container_id", "container_name", "image_reference", "image_id", "state"):
         if not values[field]:
             missing.append(field)
+    if values["running"] is None:
+        missing.append("running")
     if values["deploy_review_mode"] is None:
         missing.append(MODE_VARIABLE)
     return values, missing
+
+
+def command_line(facts: Mapping[str, Any]) -> str:
+    """The container's entrypoint and main process joined for rule matching."""
+    parts = [*(facts.get("entrypoint") or []), *(facts.get("command") or [])]
+    return " ".join(str(part) for part in parts)
+
+
+def real_model_instance_reason(facts: Mapping[str, Any]) -> str | None:
+    """Why this container is a real-model execution instance (``None`` if it is not one).
+
+    The effective ``DEPLOY_REVIEW_MODE`` is the historical rule, but it misses the isolated
+    validation container, which may declare ``offline`` while its command runs
+    ``scripts/task0027_real_ai_validation_app.py``. The actual start command and the image
+    reference are therefore checked as well.
+    """
+    mode = facts.get("deploy_review_mode")
+    text = command_line(facts)
+    image = str(facts.get("image_reference") or "")
+    if AUTHORIZED_REAL_ASSEMBLY_MODULE in text:
+        return (
+            "the start command runs the authorized-real assembly "
+            f"({AUTHORIZED_REAL_ASSEMBLY_MODULE})"
+        )
+    if VALIDATION_ENTRY_MODULE in text:
+        return f"the start command runs the isolated validation entry ({VALIDATION_ENTRY_MODULE})"
+    if DEPLOYMENT_ENTRY_SCRIPT in text and mode == AUTHORIZED_REAL_MODE:
+        return (
+            f"the start command runs {DEPLOYMENT_ENTRY_SCRIPT} with "
+            f"{MODE_VARIABLE}={AUTHORIZED_REAL_MODE}"
+        )
+    if VALIDATION_IMAGE_TAG in image:
+        return f"the image reference carries the validation image tag ({VALIDATION_IMAGE_TAG})"
+    if mode == AUTHORIZED_REAL_MODE:
+        return f"the effective {MODE_VARIABLE} is {AUTHORIZED_REAL_MODE}"
+    return None
+
+
+def identity_gap(facts: Mapping[str, Any]) -> str | None:
+    """Why the execution identity of a container cannot be read (``None`` = it was read).
+
+    A container that is demonstrably not running is out of scope: it cannot place a supplier
+    call. Everything else fails closed. Whenever this returns a reason, the caller reports
+    ``unknown`` -- it may never conclude that no second real-model instance exists.
+    """
+    running = facts.get("running")
+    if running is False:
+        return None
+    if running is not True:
+        return "the running state could not be read"
+    missing = [
+        name
+        for name, readable in (
+            ("container id", bool(str(facts.get("container_id") or "").strip())),
+            ("image reference", bool(str(facts.get("image_reference") or "").strip())),
+            ("entrypoint/command", bool(facts.get("entrypoint") or facts.get("command"))),
+        )
+        if not readable
+    ]
+    if missing:
+        return f"the {', '.join(missing)} could not be read"
+    if DEPLOYMENT_ENTRY_SCRIPT in command_line(facts) and facts.get("deploy_review_mode") is None:
+        return f"the start command is the deployment entry but {MODE_VARIABLE} could not be read"
+    return None
 
 
 def image_tag_from_env_file(path: Path) -> str:
@@ -318,6 +426,10 @@ def inspect_deployment(
     """Read-only inspection of the api container and of every other container on the host."""
     unknown: list[str] = []
     failures: list[str] = []
+    # Every container whose execution identity could not be read. It drives the
+    # ``all_running_containers_identified`` check: as long as one container is unreadable this
+    # script may not claim that no second real-model instance exists.
+    unidentified: list[str] = []
     compose_result = runner(
         [
             "compose",
@@ -334,12 +446,14 @@ def inspect_deployment(
     )
     if compose_result.returncode != 0:
         unknown.append("docker compose ps failed")
+        unidentified.append("docker compose ps failed")
         entries: list[dict[str, Any]] = []
     else:
         try:
             entries = json_objects(compose_result.stdout)
         except ValueError:
             unknown.append("docker compose ps did not return JSON")
+            unidentified.append("docker compose ps did not return JSON")
             entries = []
     api_entry = choose_api_entry(entries, expected_service)
     project = ""
@@ -349,6 +463,8 @@ def inspect_deployment(
     first_result = runner(["ps", "-aq", "--no-trunc"])
     if first_result.returncode != 0:
         unknown.append("docker ps failed")
+        # The namespace of host containers itself could not be enumerated.
+        unidentified.append("docker ps failed")
         host_ids: list[str] = []
     else:
         host_ids = [line.strip() for line in first_result.stdout.splitlines() if line.strip()]
@@ -367,22 +483,36 @@ def inspect_deployment(
 
     api_facts: dict[str, Any] = {}
     inspected: list[tuple[str, Mapping[str, Any] | None, dict[str, Any], list[str]]] = []
-    for container_id, entry in candidates:
+    for container_id, compose_record in candidates:
         result = runner(["inspect", "--type", "container", container_id])
         if result.returncode != 0:
-            if api_entry is not None and str(api_entry.get("ID", "")).strip() == container_id:
-                unknown.append(f"docker inspect failed for the api container {container_id}")
+            reason = (
+                f"docker inspect failed for the container {container_id}; its execution "
+                "identity could not be read"
+            )
+            unknown.append(reason)
+            unidentified.append(reason)
             continue
         try:
             documents = json_objects(result.stdout)
         except ValueError:
-            if api_entry is not None and str(api_entry.get("ID", "")).strip() == container_id:
-                unknown.append(f"docker inspect returned no JSON for {container_id}")
+            reason = (
+                f"docker inspect returned no JSON for the container {container_id}; its "
+                "execution identity could not be read"
+            )
+            unknown.append(reason)
+            unidentified.append(reason)
             continue
         if not documents:
+            reason = (
+                f"docker inspect returned no document for the container {container_id}; its "
+                "execution identity could not be read"
+            )
+            unknown.append(reason)
+            unidentified.append(reason)
             continue
         facts, missing = container_facts(documents[0])
-        inspected.append((container_id, entry, facts, missing))
+        inspected.append((container_id, compose_record, facts, missing))
         if api_entry is not None and str(api_entry.get("ID", "")).strip() == container_id:
             api_facts = facts
             if missing:
@@ -398,17 +528,41 @@ def inspect_deployment(
     elif not api_facts:
         unknown.append("the api container could not be inspected")
 
+    # The expected api container is excluded by container id: it is the deployment that must
+    # stay offline, not a "second" instance. Both the id docker reported for the api service
+    # and the id read from its own inspection are excluded.
+    excluded_ids = {
+        str(value).strip()
+        for value in (
+            (api_entry or {}).get("ID", ""),
+            api_facts.get("container_id", ""),
+        )
+        if str(value).strip()
+    }
     second_instances: list[dict[str, str]] = []
     for container_id, _entry, facts, _missing in inspected:
-        if facts.get("deploy_review_mode") != AUTHORIZED_REAL_MODE:
+        if container_id in excluded_ids or str(facts.get("container_id") or "") in excluded_ids:
             continue
-        if not facts.get("running"):
+        gap = identity_gap(facts)
+        if gap is not None:
+            name = str(facts.get("container_name") or container_id)
+            unidentified.append(f"{name} ({container_id})")
+            unknown.append(
+                f"the execution identity of a running container could not be read: {name} "
+                f"({container_id}): {gap}"
+            )
             continue
-        if api_facts and facts.get("container_id") == api_facts.get("container_id"):
+        if facts.get("running") is not True:
             continue
-        second_instances.append(
-            {"container_name": str(facts.get("container_name", "")), "container_id": container_id}
-        )
+        instance_reason = real_model_instance_reason(facts)
+        if instance_reason:
+            second_instances.append(
+                {
+                    "container_name": str(facts.get("container_name", "")),
+                    "container_id": container_id,
+                    "reason": instance_reason,
+                }
+            )
 
     checks = {
         "review_mode_offline": api_facts.get("deploy_review_mode") == OFFLINE_MODE,
@@ -421,7 +575,8 @@ def inspect_deployment(
             tuple(api_facts.get("entrypoint") or []) == EXPECTED_API_ENTRYPOINT
             and tuple(api_facts.get("command") or []) == EXPECTED_API_COMMAND
         ),
-        "no_second_authorized_real_instance": not second_instances,
+        "all_running_containers_identified": not unidentified,
+        "no_second_real_model_instance": not second_instances,
     }
     if api_facts:
         mode = api_facts.get("deploy_review_mode")
@@ -431,7 +586,7 @@ def inspect_deployment(
             failures.append(
                 f"the api container's effective {MODE_VARIABLE} is {mode!r}, not {OFFLINE_MODE!r}"
             )
-        if not api_facts.get("running"):
+        if api_facts.get("running") is False:
             failures.append("the api container is not running")
         if api_facts.get("image_reference") != expected_image:
             failures.append(
@@ -446,8 +601,8 @@ def inspect_deployment(
             )
     for instance in second_instances:
         failures.append(
-            "another container runs in authorized-real mode: "
-            f"{instance['container_name']} ({instance['container_id']})"
+            "another real-model execution instance is running: "
+            f"{instance['container_name']} ({instance['container_id']}): {instance['reason']}"
         )
 
     verdict = VERDICT_OK
@@ -480,7 +635,7 @@ def inspect_deployment(
         "api": api_payload,
         "execution_instances": {
             "scanned_container_count": len(inspected),
-            "authorized_real_instances": second_instances,
+            "second_real_model_instances": second_instances,
         },
         "checks": checks,
         "failures": [*unknown, *failures],
@@ -507,7 +662,7 @@ class HostOfflineEvidence:
     deploy_review_mode: str
     docker_binary: str
     health_status: str
-    second_authorized_real_instances: tuple[str, ...]
+    second_real_model_instances: tuple[str, ...]
 
     def as_payload(self) -> dict[str, Any]:
         return {
@@ -525,7 +680,7 @@ class HostOfflineEvidence:
             "deploy_review_mode": self.deploy_review_mode,
             "docker_binary": self.docker_binary,
             "health_status": self.health_status,
-            "second_authorized_real_instances": list(self.second_authorized_real_instances),
+            "second_real_model_instances": list(self.second_real_model_instances),
         }
 
 
@@ -632,9 +787,12 @@ def load_evidence(
         )
     if api["running"] is not True:
         raise EvidenceRejected("the evidence reports the api container is not running")
-    instances = execution["authorized_real_instances"]
+    instances = execution["second_real_model_instances"]
     if not isinstance(instances, list) or instances:
-        raise EvidenceRejected("the evidence reports another authorized-real instance")
+        raise EvidenceRejected(
+            "the evidence reports another real-model execution instance (or the field was "
+            "tampered with)"
+        )
     checked_at = parse_checked_at(payload["checked_at"])
     moment = now or datetime.now(UTC)
     if moment.tzinfo is None:
@@ -676,8 +834,10 @@ def load_evidence(
         deploy_review_mode=str(api["deploy_review_mode"]),
         docker_binary=str(payload["docker_binary"]),
         health_status=str(api["health_status"]),
-        second_authorized_real_instances=tuple(
-            str(item) for item in execution["authorized_real_instances"]
+        # ``instances`` is empty here (a non-empty list is rejected above): an accepted
+        # evidence document only ever records "no second instance", never one that was found.
+        second_real_model_instances=tuple(
+            str(item.get("container_name", "")) for item in instances if isinstance(item, dict)
         ),
     )
 
@@ -768,13 +928,13 @@ def main(
         print(json.dumps(evidence, ensure_ascii=False, sort_keys=True))
     if verdict == VERDICT_OK:
         print(
-            "PASS: the public API runs in offline mode and no second authorized-real "
+            "PASS: the public API runs in offline mode and no second real-model execution "
             "instance runs."
         )
     elif verdict == VERDICT_UNKNOWN:
         print(
-            "STOP: the review mode could not be established. Stop immediately; do not launch "
-            "supplier calls.",
+            "STOP: the review mode or the execution identity of a running container could not "
+            "be established. Stop immediately; do not launch supplier calls.",
             file=sys.stderr,
         )
     else:

@@ -15,6 +15,14 @@
 # container (DEPLOY_REVIEW_MODE, APP_ENV) are ever recorded; no other variable and no
 # credential is read, printed or stored.
 #
+# It checks every container on the host, not only the api one: a running container counts as
+# a second real-model execution instance when its effective DEPLOY_REVIEW_MODE is
+# authorized-real, when its start command runs task0023_real_ai_app (authorized-real assembly)
+# or task0027_real_ai_validation_app (isolated validation entry), when it runs
+# deploy/api_entry.py with DEPLOY_REVIEW_MODE=authorized-real, or when its image carries the
+# task0027-validation tag. When the execution identity of a running container cannot be read
+# (failed inspect, missing fields, unreadable command), the verdict is unknown -- never ok.
+#
 # Exit codes: 0 = verdict ok, 2 = verdict unknown (stop immediately, do not launch supplier
 # calls), 3 = verdict untrusted (same). The evidence file is written for every verdict.
 set -euo pipefail

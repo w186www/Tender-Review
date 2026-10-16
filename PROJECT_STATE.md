@@ -2,11 +2,62 @@
 
 更新时间：2026-10-16
 
-## 进行中：TASK-0027（DEC-007 完整能力）第三轮最小修正完成，等待复核提交与首次真实调用批准
+## 进行中：TASK-0027（DEC-007 完整能力）第四轮最小修正完成，等待复核提交与首次真实调用批准
 
-- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，当前 HEAD `2cd6a71`
-  （`feat(TASK-0027): wire the round cap the phase-one validation must obey`）；
-  **第三轮（验证入口强制索引身份 + 宿主机侧离线证据）改动未提交**，由用户复核后自行提交。
+- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，当前 HEAD `972ef54`
+  （`feat(TASK-0027): pin the index identity and prove offline mode from the host`，即第三轮改动已提交）；
+  **第四轮（用户 2026-10-16 指定的两处最小修正）改动未提交**，由用户复核后自行提交。
+- 本轮两处修正（全部本机合成测试与 fixture 回放；**零付费调用、未触碰线上服务器 47.83.132.211、
+  未挂 Docker Socket、未给任何容器 Docker 权限、未扩展其他功能**）：
+  1. **第二个真实模型实例的检测覆盖实际启动命令与镜像**（消除已确认盲区）：`deploy/verify_api_offline_mode.py`
+     （`.sh` 调用同一逻辑）原来主要靠容器环境里的 `DEPLOY_REVIEW_MODE=authorized-real` 判定，而隔离验证
+     容器由 `scripts/task0027_real_ai_validation_app.py` 启动、其 `DEPLOY_REVIEW_MODE` **可能仍是 `offline`**，
+     因此旧判定会漏掉它。现在检查对象是宿主上由只读 `docker ps -aq --no-trunc` 枚举、逐个只读
+     `docker inspect` 的容器（**按容器 ID 排除预期的线上 api 容器本身**），除原有判定外，满足任一条即
+     `untrusted`：入口/命令出现 `task0023_real_ai_app`（authorized-real 装配，覆盖 `.py` 与 `:app` 写法）、
+     出现 `task0027_real_ai_validation_app`（隔离验证入口，**即使 mode 仍是 `offline`**）、命令为
+     `api_entry.py` 且 mode 为 `authorized-real`、镜像引用带验证标签 `task0027-validation`；
+     证据里每条实例都带 `reason`。
+  2. **无法读取执行身份时判 `unknown`（用户明确要求）**：任一容器的 `docker inspect` 失败/无 JSON、
+     容器 ID/镜像引用/入口命令/`State.Running` 读不到，或命令是 `api_entry.py` 而 `DEPLOY_REVIEW_MODE`
+     读不到 → 新增检查 `all_running_containers_identified: false`、退出码 2、提示立即停止，
+     **绝不声称"不存在第二个真实模型实例"**；已证明未在运行的容器不在范围内（`Running=false`）。
+     证据升版 `schema_version: v1alpha1 → v1alpha2`（`execution_instances.second_real_model_instances`
+     每条含 `{container_name, container_id, reason}`，检查键 `no_second_real_model_instance`），
+     加载器同步改名，旧版证据按版本明确拒绝。
+  3. **README 逐文件授权 CLI 不再依赖公网旧镜像**：`deploy/README-demo.md` 8.2 与 8.4 第二步的
+     `manage_authorization.py approve/list/revoke` 原来用 `$D exec api ...`（依赖运行中的 `:demo`，
+     即尚未更新的公网 TASK-0026 镜像，**里面没有该脚本**），改为 `IMAGE_TAG=task0027-validation $D build api`
+     + `docker compose run --rm --no-deps api python deploy/manage_authorization.py ...` 一次性容器
+     （复用 api 服务环境变量、网络与 `-modelstate` 读写挂载），并写明不影响运行中的 api/worker/nginx 与
+     `offline` 模式、`IMAGE_TAG` 只作用于该条命令、`$D up -d` 仍解析为 `:demo`（标签独立、不覆盖），
+     以及"先 approve/revoke、确认一次性容器已退出，再跑宿主证据脚本"。
+- 测试：`tests/test_task0027_host_offline_evidence.py` 20 → **28 项**，含用户指定必测反例：运行中且
+  `DEPLOY_REVIEW_MODE=offline` 的第二容器命令指向 `task0027_real_ai_validation_app.py` → `untrusted`；
+  命令匹配 `task0023_real_ai_app.py` 与 `scripts.task0023_real_ai_app:app` → `untrusted`；镜像标签匹配
+  → `untrusted`；`api_entry.py`+`authorized-real` → `untrusted`；运行容器 inspect 不可读/命令读不到/
+  `Running` 读不到/`api_entry.py` 无 mode 四种 → `unknown`；边界（另一个 offline 的 `api_entry.py`、
+  已停止的验证入口容器）→ `ok`。全部沿用现有 fixture 注入机制，**未调用真实 Docker**。
+- 本轮验证真实数字：ruff `All checks passed!`（官方范围 `src scripts tests`；
+  `deploy/verify_api_offline_mode.py` 额外检查亦通过）、mypy `Success: no issues found in 104 source files`、
+  `scripts/verify_repo.py` PASS、新增测试 `28 passed in 0.66s`、相关 6 文件 `90 passed in 121.54s`、
+  相关 8 文件 `90 passed in 6.50s`、官方 Focused `90 passed in 127.74s`（`[1/7]`–`[5/7]`；
+  Focused 按设计不跑 `[6/7]`/`[7/7]` 真实启动 smoke）；CLI fixture 回放：验证入口（offline）→
+  `untrusted` 退出码 3、inspect 不可读 → `unknown` 退出码 2、正常离线 → `ok` 退出码 0，证据不含注入的
+  供应商密钥。**按用户指令未重跑 Full、未 git 提交**。命令与转录见
+  [TASK-0027 验证记录 第四轮](docs/development/TASK-0027-validation.md)。
+- **本轮边界（不得宣称超出）**：判定是启动命令/镜像的**子串匹配**（把装配改名或用 shell 间接 `exec` 会漏）；
+  "验证镜像标签"规则会同时命中用该镜像跑的一次性辅助容器（**有意的失败关闭**，README 已写明先后顺序）；
+  全文仍是 fixture 回放，**未在真实宿主运行该脚本**；证据仍是内容不是签名，操作者仍在信任链中。
+  同类未改项：`deploy/README-demo.md` 8.1 第 3 条的预构建命令
+  （`$D exec api python scripts/prebuild_legal_vectors.py`）同样依赖运行中的 `:demo` 镜像，
+  按用户本轮明确范围未改动，线上 api 切到新代码镜像时应一并处理。
+
+以下保留 TASK-0027 第三轮（验证入口强制索引身份 + 宿主机侧离线证据）与更早的记录。
+
+- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，第三轮
+  （验证入口强制索引身份 + 宿主机侧离线证据）改动已由用户提交为 HEAD `972ef54`
+  （`feat(TASK-0027): pin the index identity and prove offline mode from the host`）。
 - 本轮两条"最小修正"（用户 2026-10-16 指令，全部本机合成测试，**零付费调用、未触碰线上服务器**）：
   1. **预构建索引校验不再可选**：`scripts/task0027_real_ai_validation_app.py` 的
      `--publication-id/--revision-id` 变为 argparse 必需项（缺失即退出码 2），新增

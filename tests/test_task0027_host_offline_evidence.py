@@ -133,6 +133,12 @@ def api_deployment(**overrides) -> SyntheticDocker:
     return SyntheticDocker(entries, documents)
 
 
+def add_container(runner: SyntheticDocker, container_id: str, name: str, **overrides) -> None:
+    """Add one extra running container that is on the host but not in the compose project."""
+    runner.documents[container_id] = inspect_document(container_id, name=name, **overrides)
+    runner.host_ids = [str(entry["ID"]) for entry in runner.entries] + [container_id]
+
+
 def run_generator(
     tmp_path: Path,
     runner,
@@ -189,7 +195,7 @@ def test_a_healthy_offline_api_produces_ok_evidence_without_any_secret(tmp_path,
     assert api["health_status"] == host.HEALTH_ABSENT
     assert evidence["execution_instances"] == {
         "scanned_container_count": 2,
-        "authorized_real_instances": [],
+        "second_real_model_instances": [],
     }
     assert evidence["checks"] == {
         "review_mode_offline": True,
@@ -197,7 +203,8 @@ def test_a_healthy_offline_api_produces_ok_evidence_without_any_secret(tmp_path,
         "health_acceptable": True,
         "image_expected": True,
         "entrypoint_expected": True,
-        "no_second_authorized_real_instance": True,
+        "all_running_containers_identified": True,
+        "no_second_real_model_instance": True,
     }
     assert evidence["failures"] == []
     printed = capsys.readouterr()
@@ -234,12 +241,137 @@ def test_a_second_authorized_real_instance_is_untrusted(tmp_path, capsys):
     assert exit_code == host.EXIT_CODE[host.VERDICT_UNTRUSTED] == 3
     evidence = read_evidence(path)
     assert evidence["verdict"] == host.VERDICT_UNTRUSTED
-    assert evidence["checks"]["no_second_authorized_real_instance"] is False
-    assert evidence["execution_instances"]["authorized_real_instances"] == [
-        {"container_name": f"{PROJECT}-api-run-abc", "container_id": OTHER_ID}
-    ]
-    assert any("authorized-real" in failure for failure in evidence["failures"])
+    assert evidence["checks"]["no_second_real_model_instance"] is False
+    instances = evidence["execution_instances"]["second_real_model_instances"]
+    assert [item["container_id"] for item in instances] == [OTHER_ID]
+    assert instances[0]["container_name"] == f"{PROJECT}-api-run-abc"
+    assert any("real-model execution instance" in failure for failure in evidence["failures"])
     assert "do not launch supplier calls" in capsys.readouterr().err
+
+
+def test_a_running_validation_entry_in_offline_mode_is_untrusted(tmp_path, capsys):
+    """The confirmed blind spot: the isolated validation container started by
+    scripts/task0027_real_ai_validation_app.py may still declare DEPLOY_REVIEW_MODE=offline
+    (its ceilings live in its own code), so the start command must be checked as well."""
+    runner = api_deployment()
+    add_container(
+        runner,
+        OTHER_ID,
+        f"{PROJECT}-api-run-verify",
+        mode="offline",
+        command=["python", "scripts/task0027_real_ai_validation_app.py"],
+    )
+    exit_code, path, _destination = run_generator(tmp_path, runner)
+    assert exit_code == host.EXIT_CODE[host.VERDICT_UNTRUSTED] == 3
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_UNTRUSTED
+    assert evidence["checks"]["no_second_real_model_instance"] is False
+    # The scan itself was complete: the container was identified, it is simply an instance.
+    assert evidence["checks"]["all_running_containers_identified"] is True
+    instances = evidence["execution_instances"]["second_real_model_instances"]
+    assert [item["container_id"] for item in instances] == [OTHER_ID]
+    assert "task0027_real_ai_validation_app" in instances[0]["reason"]
+    assert "do not launch supplier calls" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["python", "scripts/task0023_real_ai_app.py"],
+        ["uvicorn", "scripts.task0023_real_ai_app:app"],
+    ],
+)
+def test_a_running_authorized_real_assembly_command_is_untrusted(tmp_path, command):
+    """A second container that runs the authorized-real assembly is an instance even when its
+    effective mode is offline (the assembly itself does not consult DEPLOY_REVIEW_MODE)."""
+    runner = api_deployment()
+    add_container(runner, OTHER_ID, "leftover-real-ai-app", mode="offline", command=command)
+    exit_code, path, _destination = run_generator(tmp_path, runner)
+    assert exit_code == 3
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_UNTRUSTED
+    instances = evidence["execution_instances"]["second_real_model_instances"]
+    assert [item["container_id"] for item in instances] == [OTHER_ID]
+    assert "task0023_real_ai_app" in instances[0]["reason"]
+
+
+def test_a_running_validation_image_is_untrusted(tmp_path):
+    """The validation image tag identifies the instance even with a harmless-looking
+    command and an offline mode: the image is what this round must build under its own tag."""
+    runner = api_deployment()
+    add_container(
+        runner,
+        OTHER_ID,
+        "tender-review-validation-helper",
+        image="tender-review-api:task0027-validation",
+        mode="offline",
+        command=["python", "scripts/task0027_ledger_baseline.py"],
+    )
+    exit_code, path, _destination = run_generator(tmp_path, runner)
+    assert exit_code == 3
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_UNTRUSTED
+    instances = evidence["execution_instances"]["second_real_model_instances"]
+    assert [item["container_id"] for item in instances] == [OTHER_ID]
+    assert "task0027-validation" in instances[0]["reason"]
+
+
+def test_a_running_deployment_entry_with_authorized_real_is_untrusted(tmp_path):
+    """deploy/api_entry.py serves the authorized-real assembly when its mode says so."""
+    runner = api_deployment()
+    add_container(
+        runner,
+        OTHER_ID,
+        f"{PROJECT}-api-run-entry",
+        mode="authorized-real",
+        command=["python", "deploy/api_entry.py"],
+    )
+    exit_code, path, _destination = run_generator(tmp_path, runner)
+    assert exit_code == 3
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_UNTRUSTED
+    instances = evidence["execution_instances"]["second_real_model_instances"]
+    assert [item["container_id"] for item in instances] == [OTHER_ID]
+    assert "api_entry.py" in instances[0]["reason"]
+
+
+def test_a_second_offline_api_entry_is_not_an_instance(tmp_path):
+    """Boundary of the rule: another deploy/api_entry.py in offline mode cannot reach a
+    supplier, so it is neither an instance nor an unidentified container."""
+    runner = api_deployment()
+    add_container(
+        runner,
+        OTHER_ID,
+        f"{PROJECT}-api-run-offline",
+        mode="offline",
+        command=["python", "deploy/api_entry.py"],
+    )
+    exit_code, path, _destination = run_generator(tmp_path, runner)
+    assert exit_code == 0
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_OK
+    assert evidence["execution_instances"]["second_real_model_instances"] == []
+    assert evidence["checks"]["all_running_containers_identified"] is True
+
+
+def test_a_stopped_real_model_container_is_out_of_scope(tmp_path):
+    """Only running containers can place calls; a demonstrably stopped one is excluded (the
+    scan enumerates every container with `docker ps -aq`, so this boundary is explicit)."""
+    runner = api_deployment()
+    add_container(
+        runner,
+        OTHER_ID,
+        f"{PROJECT}-api-run-old",
+        mode="offline",
+        running=False,
+        state="exited",
+        command=["python", "scripts/task0027_real_ai_validation_app.py"],
+    )
+    exit_code, path, _destination = run_generator(tmp_path, runner)
+    assert exit_code == 0
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_OK
+    assert evidence["execution_instances"]["second_real_model_instances"] == []
 
 
 def test_an_api_that_serves_authorized_real_is_untrusted(tmp_path, capsys):
@@ -316,6 +448,65 @@ def test_an_absent_api_container_is_unknown(tmp_path):
     assert evidence["verdict"] == host.VERDICT_UNKNOWN
     assert evidence["api"]["container_id"] == ""
     assert any("no running container" in failure for failure in evidence["failures"])
+
+
+def test_an_unreadable_running_container_identity_is_unknown(tmp_path, capsys):
+    """Fail closed: when the execution identity of a running container cannot be read, this
+    script must never claim that no second real-model instance exists."""
+    # (a) docker inspect fails for a container that is on the host
+    failed = api_deployment()
+    add_container(failed, OTHER_ID, "tender-review-validation", mode="authorized-real")
+    failed.fail_ids = {OTHER_ID}
+    exit_code, path, _destination = run_generator(tmp_path, failed, evidence_dir=tmp_path / "a")
+    assert exit_code == host.EXIT_CODE[host.VERDICT_UNKNOWN] == 2
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_UNKNOWN
+    assert evidence["checks"]["all_running_containers_identified"] is False
+    assert evidence["checks"]["no_second_real_model_instance"] is True
+    assert any(OTHER_ID in failure for failure in evidence["failures"])
+
+    # (b) the start command of a running container cannot be read at all
+    no_command = api_deployment()
+    add_container(
+        no_command, OTHER_ID, "tender-review-validation", mode="offline", command=[], entrypoint=[]
+    )
+    exit_code, path, _destination = run_generator(
+        tmp_path, no_command, evidence_dir=tmp_path / "b"
+    )
+    assert exit_code == 2
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_UNKNOWN
+    assert evidence["checks"]["all_running_containers_identified"] is False
+    assert any("entrypoint/command" in failure for failure in evidence["failures"])
+
+    # (c) the running state itself cannot be read
+    no_state = api_deployment()
+    add_container(no_state, OTHER_ID, "tender-review-validation", mode="offline")
+    no_state.documents[OTHER_ID]["State"] = {"Status": "running"}
+    exit_code, path, _destination = run_generator(tmp_path, no_state, evidence_dir=tmp_path / "c")
+    assert exit_code == 2
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_UNKNOWN
+    assert any("running state" in failure for failure in evidence["failures"])
+
+    # (d) the deployment entry without a readable mode is ambiguous, not "not an instance"
+    no_mode = api_deployment()
+    add_container(
+        no_mode,
+        OTHER_ID,
+        f"{PROJECT}-api-run-entry",
+        mode=None,
+        command=["python", "deploy/api_entry.py"],
+    )
+    exit_code, path, _destination = run_generator(tmp_path, no_mode, evidence_dir=tmp_path / "d")
+    assert exit_code == 2
+    evidence = read_evidence(path)
+    assert evidence["verdict"] == host.VERDICT_UNKNOWN
+    assert any(
+        "DEPLOY_REVIEW_MODE could not be read" in failure for failure in evidence["failures"]
+    )
+
+    assert "Stop immediately; do not launch supplier calls" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------- read-only, injectable seam
@@ -412,7 +603,7 @@ def test_the_loader_accepts_a_fresh_ok_document_and_reports_the_age(tmp_path):
     assert accepted.api_container_id == API_ID
     assert accepted.api_image_reference == API_IMAGE
     assert accepted.age_seconds == 300.0
-    assert accepted.second_authorized_real_instances == ()
+    assert accepted.second_real_model_instances == ()
     assert accepted.as_payload()["max_age_seconds"] == 3600
 
 
@@ -463,8 +654,14 @@ def test_the_loader_rejects_an_unexpected_field_a_bad_mode_or_a_second_instance(
     with pytest.raises(host.EvidenceRejected, match="expected 'offline'"):
         accept(tmp_path, online_api)
     second = json.loads(json.dumps(evidence))
-    second["execution_instances"]["authorized_real_instances"] = ["other"]
-    with pytest.raises(host.EvidenceRejected, match="another authorized-real instance"):
+    second["execution_instances"]["second_real_model_instances"] = [
+        {
+            "container_name": "other",
+            "container_id": "f" * 64,
+            "reason": "synthetic instance for the loader test",
+        }
+    ]
+    with pytest.raises(host.EvidenceRejected, match="another real-model execution instance"):
         accept(tmp_path, second)
     not_running = json.loads(json.dumps(evidence))
     not_running["api"]["running"] = False

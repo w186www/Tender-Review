@@ -486,3 +486,169 @@ api 的 `DEPLOY_REVIEW_MODE=authorized-real` → `verdict: untrusted`、退出�
   在真实宿主上执行 `deploy/verify_api_offline_mode.sh`（本机只有 fixture 回放）。
 - **仍不确定**：线上 ECS 宿主机的 python3 版本（脚本按 3.10 兼容编写，未在宿主验证）；
   证据 JSON 字段后续若扩充，必须同步更新白名单常量与加载器（两侧当前共用同一模块的常量）。
+
+---
+
+# 第四轮：第二实例检测覆盖启动命令/镜像 + 逐文件授权 CLI 改用验证镜像（2026-10-16）
+
+本轮只做用户当次指定的**两处最小修正**（全部本机合成测试：**零付费调用、未触碰线上服务器
+47.83.132.211、未挂 Docker Socket、未给任何容器 Docker 权限**）。不做 git 提交，等待复核。
+
+## 一、改了什么
+
+1. **第二个真实模型实例的检测不再只看环境变量**（`deploy/verify_api_offline_mode.py`，
+   逻辑同时被 `deploy/verify_api_offline_mode.sh` 调用）。消除已确认盲区：隔离验证容器由
+   `scripts/task0027_real_ai_validation_app.py` 启动，其 `DEPLOY_REVIEW_MODE` **可能仍是
+   `offline`**，旧判定会漏掉它。现在检查对象是宿主上由只读 `docker ps -aq --no-trunc` 枚举、
+   逐个只读 `docker inspect` 的容器（**按容器 ID 排除预期的线上 api 容器本身**：docker 报告的
+   api 服务容器 ID 与其 inspect 到的 ID 都排除），除原有“实际生效 `DEPLOY_REVIEW_MODE` 为
+   `authorized-real`”外，以下任一条件成立即判 `untrusted`（每条例外写入证据的 `reason`）：
+   - 入口/命令中出现 `task0023_real_ai_app`（authorized-real 装配；同时覆盖 `<name>.py` 与
+     `<name>:app` 两种写法）；
+   - 入口/命令中出现 `task0027_real_ai_validation_app`（隔离验证入口，**即使该容器仍是
+     `offline`**）；
+   - 入口/命令中出现 `api_entry.py` **且**该容器 `DEPLOY_REVIEW_MODE=authorized-real`；
+   - 镜像引用带验证镜像标签（`task0027-validation`）。
+2. **无法读取执行身份时判 `unknown`，不再声称“不存在第二个真实模型实例”**（用户明确要求）：
+   任一容器的 `docker inspect` 失败/无 JSON/无文档、容器 ID、镜像引用或入口+主进程命令读不到、
+   `State.Running` 读不到，或命令是 `api_entry.py` 而 `DEPLOY_REVIEW_MODE` 读不到 →
+   新增检查 `checks.all_running_containers_identified: false` 且判定 `unknown`（退出码 2、
+   提示停止）。已证明**未在运行**的容器不在范围内（`Running=false`，它无法发起调用）。
+   `State.Running` 缺失不再被当成 `false`（`container_facts` 用 `None` 表示“读不到”）。
+3. 证据格式随之升版 `schema_version: v1alpha1 → v1alpha2`：`execution_instances` 的键由
+   `authorized_real_instances` 改为 `second_real_model_instances`，每条为
+   `{container_name, container_id, reason}`；新增检查键
+   `all_running_containers_identified`（`no_second_authorized_real_instance` →
+   `no_second_real_model_instance`）。加载器（`load_evidence`）同步改名并保持“非空即拒绝、
+   非 `ok` 即拒绝”；旧版脚本写出的证据会因版本不符被明确拒绝，而不是按不同语义读入。
+4. **README 逐文件授权 CLI 不再依赖公网旧镜像**（`deploy/README-demo.md` 8.2 与 8.4 第二步）：
+   `manage_authorization.py approve/list/revoke` 原来用 `$D exec api ...`，依赖运行中的
+   `:demo` 镜像（尚未更新的公网 TASK-0026 镜像，**里面没有该脚本**）。改为
+   `IMAGE_TAG=task0027-validation $D build api` 构建独立标签镜像 +
+   `docker compose run --rm --no-deps api python deploy/manage_authorization.py ...`
+   一次性容器（复用 api 服务环境变量、网络与 `-modelstate` 读写挂载），并写明：不影响运行中的
+   api/worker/nginx 与 `offline` 模式、`IMAGE_TAG` 只作用于该条命令、`$D up -d` 仍解析为
+   `tender-review-api:demo`（不覆盖 `:demo`）；同时提示这些一次性容器运行的那几秒内镜像带
+   验证标签，宿主证据脚本会把它当作第二实例（`untrusted`），因此要先完成 approve/revoke
+   并确认容器已退出再跑证据脚本。
+
+## 二、反例测试（用户指定必测，全部沿用 fixture 注入，未调用真实 Docker）
+
+`tests/test_task0027_host_offline_evidence.py` 由 20 项扩到 **28 项**，新增：
+
+- 运行中、`DEPLOY_REVIEW_MODE=offline` 的第二容器，命令指向
+  `scripts/task0027_real_ai_validation_app.py` → **`untrusted`**（已确认盲区的直接反例）；
+  同时断言 `all_running_containers_identified` 仍为 `true`（“识别到了，它就是实例”）。
+- 命令匹配 `task0023_real_ai_app.py` 与 `scripts.task0023_real_ai_app:app`（参数化 2 项）→
+  **`untrusted`**（mode 仍为 offline，证明判定与 mode 无关）。
+- 镜像引用为 `tender-review-api:task0027-validation`（命令是无害的账本脚本、mode offline）→
+  **`untrusted`**。
+- 命令为 `deploy/api_entry.py` 且 mode 为 `authorized-real` → **`untrusted`**（reason 含
+  `api_entry.py`）。
+- 边界：另一个 `deploy/api_entry.py` 但 mode 为 `offline` → `ok`（无法外发，不算实例）；
+  已停止（`Running=false`）的验证入口容器 → `ok`（不在“正在运行”范围内）。
+- 某个运行容器的 inspect 不可读 → **`unknown`**：分别覆盖 (a) `docker inspect` 失败、
+  (b) 入口/命令读不到、(c) `State.Running` 读不到、(d) `deploy/api_entry.py` 但
+  `DEPLOY_REVIEW_MODE` 读不到；四者均断言 `all_running_containers_identified: false`，
+  且 (a) 额外断言 `no_second_real_model_instance` 仍为 `true` 但 verdict 是 `unknown`
+  （不得据此声称不存在第二实例）。
+- 原有 `second_real_model_instances` 加载器反例改为新键与新实例结构（非空即拒绝）。
+
+## 三、真实命令与真实数字（本机）
+
+```
+$ "D:/自由项目/招标审核/bidding-compliance-agent-TASK-0021/.venv/Scripts/python.exe" -m ruff check src scripts tests
+All checks passed!
+
+$ ... -m ruff check deploy/verify_api_offline_mode.py     # 额外（官方门禁范围不含 deploy）
+All checks passed!
+
+$ ... -m mypy src
+Success: no issues found in 104 source files
+
+$ ... -m mypy --strict deploy/verify_api_offline_mode.py   # 额外（不是官方门禁范围）
+Success: no issues found in 1 source file
+
+$ ... -m pytest --basetemp=.verification/t27-min4-9 tests/test_task0027_host_offline_evidence.py
+28 passed in 0.66s
+
+$ ... -m pytest --basetemp=.verification/t27-min4-7 \
+    tests/test_task0027_host_offline_evidence.py tests/test_task0027_validation_entry.py \
+    tests/test_task0027_round_limits.py tests/test_task0027_budget_boundaries.py \
+    tests/test_task0027_per_file_authorization.py tests/test_task0027_deploy_compose.py
+90 passed in 121.54s (0:02:01)
+
+$ ... -m pytest --basetemp=.verification/t27-min4-8 tests/test_task0023_embedding.py \
+    tests/test_semantic_batching.py tests/test_model_gateway_security.py tests/test_model_gateway_contracts.py \
+    tests/test_legal_vector_index.py tests/test_model_adapter_conformance.py tests/test_real_ai_runtime.py \
+    tests/test_task0021_online_gateway.py
+90 passed in 6.50s
+```
+
+官方入口（`scripts/verify.ps1`，日志 `.verification/t27-focused4.log`）：
+
+```bash
+pwsh -NoProfile -Command "& scripts/verify.ps1 -Mode Focused \
+  -TestPaths @('tests/test_task0027_round_limits.py','tests/test_task0027_validation_entry.py', \
+               'tests/test_task0027_host_offline_evidence.py','tests/test_task0027_budget_boundaries.py', \
+               'tests/test_task0027_per_file_authorization.py','tests/test_task0027_deploy_compose.py') \
+  -PythonExecutable '<venv python>'"
+```
+
+实测：`[1/7]` 契约/生成/任务证据 `PASS`；`[2/7]` ruff `All checks passed!`；
+`[3/7]` mypy `Success: no issues found in 104 source files`；`[4/7]` 前端
+（OpenAPI 类型一致、Biome `Checked 21 files in 40ms`、tsc、vitest `2 passed (2)` /
+`6 passed (6)`、`built in 307ms`）；`[5/7]` **90 passed in 127.74s**；
+输出 `PASS: Focused checks for explicitly selected files only; not full acceptance or startup evidence.`
+（Focused 模式按设计在 `[5/7]` 后返回，`[6/7]`/`[7/7]` 的真实启动 smoke 只在 Full 执行。）
+按用户当次指令**未重跑 Full**。
+
+## 四、CLI 端到端转录（本机 fixture 回放，未调用真实 Docker、无供应商）
+
+`.verification/t27-cli3/`（合成 Docker 输出；api 容器为 offline + `:demo`）：
+
+```
+=== A) 第二容器：DEPLOY_REVIEW_MODE=offline，命令 = task0027_real_ai_validation_app.py ===
+STOP: the deployment contradicts the offline precondition. Stop immediately; do not launch supplier calls.
+evidence: .verification\t27-cli3\evidence-a\api-offline-20261016T033234Z.json
+verdict: untrusted
+api container: tender-review-demo-api-1 (1111...1111) mode=offline state=running image=tender-review-api:demo health=none
+  - another real-model execution instance is running: tender-review-demo-api-run-verify (3333...3333):
+    the start command runs the isolated validation entry (task0027_real_ai_validation_app)     exit=3
+（该证据的 second_real_model_instances 条目含 reason；all_running_containers_identified=true）
+
+=== B) 第二容器的 inspect 不可读（inspect fixture 缺失） ===
+STOP: the review mode or the execution identity of a running container could not be established.
+      Stop immediately; do not launch supplier calls.
+verdict: unknown
+  - docker inspect failed for the container 3333...3333; its execution identity could not be read   exit=2
+
+=== C) 正常离线宿主（api + 离线 worker，无第二实例） ===
+verdict: ok
+PASS: the public API runs in offline mode and no second real-model execution instance runs.     exit=0
+```
+
+三种情形的证据文件里都**没有**注入的 `DASHSCOPE_API_KEY` 值或键名；证据 `schema_version`
+为 `v1alpha2`。
+
+## 五、边界与未做到/不确定的部分（本轮）
+
+- **未在真实宿主运行该脚本**：本机只有 fixture 回放；线上 ECS 的 Docker 版本、`docker ps -aq`
+  实际能列出多少容器（含历史一次性容器）、compose ps 的 JSON 字段仍需实机核对。
+- **“正在运行”的范围**：只有 `Running=true` 的容器被计入实例；已停止的容器不算（它无法发起
+  调用），但**它仍会被 `docker ps -aq` 枚举并 inspect**，因此其身份读不到时同样判 `unknown`。
+- **判定是启动命令的字符串匹配**：用 `task0023_real_ai_app` / `task0027_real_ai_validation_app` /
+  `api_entry.py` / `task0027-validation` 子串匹配（覆盖 `.py` 与 `:app` 写法）。把真实模型装配
+  改名、或用 shell 拼接成不含这些名字的间接启动（例如把路径变量化后 `exec`），当前规则会漏；
+  这类规避需要改脚本常量并重新评审，不在本轮声称的覆盖范围内。
+- **验证镜像标签规则会同时命中一次性的辅助容器**（如用验证镜像跑
+  `manage_authorization.py` / 账本基线 / 预检查的那几秒）→ 那一刻判 `untrusted`。这是**有意的
+  失败关闭**：README 8.2/8.4 已写明“先完成 approve/revoke、确认一次性容器已退出，再跑证据脚本”。
+- **TOCTOU 与信任链不变**：扫描与判定之间的状态变化仍靠证据时间戳与 10 分钟窗口收敛；
+  证据仍是**内容不是签名**（能运行宿主脚本的人也能写出同样的 JSON），操作者仍是信任链一环。
+- **未做的**：任何容器构建 / `docker compose run` / `$D exec`（任务禁止容器操作）；任何真实
+  供应商调用（**本轮零付费调用**）；线上部署或切换到 `authorized-real`；git 提交与远程 CI
+  （用户自行提交）；Full（用户要求本轮不重跑）。
+- **本轮未改但同类的问题（留作待办）**：`deploy/README-demo.md` 8.1 第 3 条的预构建命令仍写作
+  `$D exec api python scripts/prebuild_legal_vectors.py`，同样依赖运行中的 `:demo` 镜像；
+  按用户本轮明确范围（逐文件授权 CLI）未改动 8.1。线上 api 切到新代码镜像时应一并处理。

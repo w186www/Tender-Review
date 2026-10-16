@@ -183,22 +183,51 @@ LangGraph 全流程、法规检索、证据核验、人工复核、Word/PDF 报�
 授权登记是**追加式 JSONL 审计文件**，只记录文件 SHA-256、文档标识、理由、时间与操作人，
 从不读写文件内容。它必须与 `DEC007_AUTHORIZATION_REGISTRY`、同一个 `-modelstate` 卷共用。
 
+**不要用 `:demo` 镜像跑这些命令**：`:demo` 是尚未更新的公网 TASK-0026 旧镜像，里面**没有**
+`deploy/manage_authorization.py`；而正在运行的线上 api 容器用的正是它。改用本轮独立标签
+构建的镜像**起一次性容器**执行（复用 api 服务的环境变量、网络与 `-modelstate` 读写挂载）：
+
 ```bash
 cd <repo>
 D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
 
+# 0) 一次性构建验证镜像：独立标签，绝不覆盖线上 tender-review-api:demo
+#    （构建方式与 8.4 相同：只改 IMAGE_TAG，不改 deploy/.env 里的 IMAGE_TAG=demo）
+IMAGE_TAG=task0027-validation $D build api
+
 # 1) 看当前状态：有效白名单 + 全部审计行
-$D exec api python deploy/manage_authorization.py list
-$D exec api python deploy/manage_authorization.py list --json
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python deploy/manage_authorization.py list
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python deploy/manage_authorization.py list --json
 
 # 2) 登记一个文件（面试官上传的合成样本）；--actor 省略时取 DEC007_AUTHORIZATION_ACTOR
-$D exec api python deploy/manage_authorization.py approve \
-    --sha256 <64 位小写 hex> --document <document-id> --reason "面试演示合成样本"
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python deploy/manage_authorization.py approve \
+        --sha256 <64 位小写 hex> --document <document-id> --reason "面试演示合成样本"
 
 # 3) 收回授权（文件、法务或演示范围变化时）
-$D exec api python deploy/manage_authorization.py revoke \
-    --sha256 <64 位小写 hex> --reason "演示结束收回"
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python deploy/manage_authorization.py revoke \
+        --sha256 <64 位小写 hex> --reason "演示结束收回"
 ```
+
+注册表路径来自 `DEC007_AUTHORIZATION_REGISTRY`（`deploy/.env` 注入 api 服务，默认
+`/app/.verification/private/TASK-0023/authorization-registry.jsonl`，即在 `-modelstate` 卷内）；
+未配置时 CLI 会直接拒绝并提示，不会写到某个"默认位置"。也可以用 `--registry <路径>` 显式指定。
+
+**为什么这样不影响运行中的线上容器与 offline 模式**：
+
+- `docker compose run --rm --no-deps` 只创建一个**一次性容器**，退出即删除：它继承 api 服务的
+  环境变量与 `-modelstate` 读写挂载，**不重启、不重建、不改动** api / worker / nginx，
+  也不改 `DEPLOY_REVIEW_MODE`（线上仍是 `offline`，可用 `$D exec api printenv DEPLOY_REVIEW_MODE` 复核）。
+- `IMAGE_TAG=task0027-validation` 只作用于该条命令：`$D up -d` 仍解析为
+  `tender-review-api:demo`，线上镜像不被替换（同一构建方式也用于 8.4 的受控验证轮）。
+- 这两条命令只读写 `-modelstate` 卷里的追加式注册表：不接触账本计数、不读文件内容、
+  不发起任何供应商调用。
+- 唯一要避开的时刻：这些一次性容器在**运行的那几秒**里，镜像带 `task0027-validation` 标签，
+  宿主机离线证据脚本会把它当作第二个真实模型执行实例（`untrusted`）。
+  先完成 approve/revoke、确认一次性容器已退出（`$D ps -a`），**再**跑宿主证据脚本。
 
 **生效语义**：
 
@@ -264,12 +293,18 @@ pwsh -NoProfile -Command "& scripts/verify.ps1 -Mode Focused \
 
 **第二步：登记冻结 DOCX 的 SHA-256**（只写追加式注册表，**不写环境变量白名单**）
 
+用 8.2 的同一方式（独立标签镜像 + 一次性容器），**不要**用线上 `:demo` 镜像的 api 容器执行：
+
 ```bash
 cd <repo>
 D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
-$D exec api python deploy/manage_authorization.py approve \
-    --sha256 <冻结 DOCX 的 64 位小写 hex> --document <document-id> \
-    --reason "TASK-0027 受控验证合成样本"
+IMAGE_TAG=task0027-validation $D build api          # 独立标签，绝不覆盖 :demo
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python deploy/manage_authorization.py approve \
+        --sha256 <冻结 DOCX 的 64 位小写 hex> --document <document-id> \
+        --reason "TASK-0027 受控验证合成样本"
+# 确认一次性容器已退出后再继续（$D ps -a 不再有 task0027-validation 容器），
+# 否则下一步的宿主机证据脚本会把它当成第二个真实模型执行实例（untrusted）。
 ```
 
 不要用改 `DEC005_ALLOWED_DOCUMENT_SHA256` 的方式放行文件：环境变量白名单是账本 scope 的一部分，
@@ -290,7 +325,7 @@ REV=$($D exec -T postgres psql -U postgres -d bidding_compliance -tAc \
     "select revision_id from legal_publication order by sequence desc limit 1")
 API_ID=$($D ps -q api)                                    # 当前 api 容器 ID（只读）
 
-# 0) 宿主机侧只读证据 + 人工确认：线上仍是离线模式、且没有第二个 authorized-real 实例
+# 0) 宿主机侧只读证据 + 人工确认：线上仍是离线模式、且没有第二个真实模型实例
 bash deploy/verify_api_offline_mode.sh \
     --evidence-dir /opt/tender-review-private/evidence   # verdict 必须是 ok（退出码 0）
 $D exec api printenv DEPLOY_REVIEW_MODE                  # 必须输出 offline
@@ -358,15 +393,29 @@ bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private
 - 唯一写入是 `--evidence-dir` 下的证据 JSON（默认 `/opt/tender-review-private/evidence`）。
 - 记录内容（**只允许白名单字段**）：检查时间戳、compose project、api 容器名与 64 位 ID、
   `docker inspect` 里**实际生效**的 `DEPLOY_REVIEW_MODE`、`APP_ENV`、镜像引用与镜像 ID、
-  入口与主进程命令、运行状态、health 状态、扫描到的容器数，以及"是否存在第二个以
-  `authorized-real` 模式运行的执行实例"。
+  入口与主进程命令、运行状态、health 状态、扫描到的容器数，以及"是否存在第二个**真实模型**
+  执行实例"（`execution_instances.second_real_model_instances`，每条带 `reason`）。
+  证据格式版本为 `schema_version: v1alpha2`；旧版本脚本写出的证据会被预检查按版本拒绝。
 - **绝不输出完整环境变量列表或任何密钥**：容器环境只在同一个循环里取出 `DEPLOY_REVIEW_MODE`
   与 `APP_ENV` 两个白名单值，其余变量连名字都不会写进证据文件或终端。
 - 判定：`DEPLOY_REVIEW_MODE` 必须是 `offline`；api 容器必须 running；health 必须是 healthy
   或至少 running；镜像与入口/命令必须是预期值（`tender-review-api:<IMAGE_TAG>` 与
-  `python deploy/api_entry.py`，镜像自身不声明 ENTRYPOINT）；发现任何第二个以
-  `authorized-real` 模式运行的执行实例（另一个 api 容器或验证实例）→ `untrusted`。
-  无法确定执行模式（inspect 失败、字段缺失、容器不存在）→ `unknown`。两种非 `ok` 都是
+  `python deploy/api_entry.py`，镜像自身不声明 ENTRYPOINT）。
+- **第二个真实模型实例的判定覆盖启动命令与镜像，不再只看环境变量**（检查对象是宿主上由
+  `docker ps -aq --no-trunc` 枚举、逐个 `docker inspect` 的容器，只读；按容器 ID 排除预期的
+  线上 api 容器本身）。除原有的"实际生效 `DEPLOY_REVIEW_MODE=authorized-real`"外，任一条件
+  成立即为**真实模型执行实例** → `untrusted`：
+  1. 入口/命令中出现 `task0023_real_ai_app`（authorized-real 装配）；
+  2. 入口/命令中出现 `task0027_real_ai_validation_app`（隔离验证入口，**即使该容器仍是
+     `DEPLOY_REVIEW_MODE=offline` 也算**——这正是之前确认的盲区）；
+  3. 入口/命令中出现 `api_entry.py` **且**该容器 `DEPLOY_REVIEW_MODE=authorized-real`；
+  4. 镜像引用带验证镜像标签（如 `task0027-validation`）。
+  已证明**未在运行**的容器不在范围内（它无法发起调用）。
+- **无法读取执行身份时判 `unknown`，绝不判 `ok`**：任一运行容器的 `docker inspect` 失败、
+  容器 ID/镜像引用/入口命令读不到、运行状态读不到，或命令是 `api_entry.py` 而
+  `DEPLOY_REVIEW_MODE` 读不到 → `unknown`（`checks.all_running_containers_identified: false`）。
+  此时**不得**声称"不存在第二个真实模型实例"。
+- 无法确定执行模式（inspect 失败、字段缺失、容器不存在）→ `unknown`。两种非 `ok` 都是
   **失败关闭**：**立即停止，不发起供应商调用**，证据文件仍会写出以便审计。
 - 证据是**内容而不是签名**：预检查校验它的 verdict、新鲜度以及容器/项目标识与当前部署一致，
   但能运行该脚本的人也能写出同样的文件，所以操作者仍是被信任的一环（与人工标志相同的信任假设，
