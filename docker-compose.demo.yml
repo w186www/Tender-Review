@@ -57,6 +57,14 @@ x-real-model-environment: &real-model-environment
   DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
   BAILIAN_WORKSPACE_ID: ${BAILIAN_WORKSPACE_ID:-}
   DEC007_AUTHORIZATION_ID: ${DEC007_AUTHORIZATION_ID:-}
+  # Leave the three DEC-007 paths empty to use the code defaults, which are the volume-root
+  # files below (the modelstate volume is mounted at /app/.verification/private, its root):
+  #   DEC007_AUTHORIZATION_REGISTRY=/app/.verification/private/authorization-registry.jsonl
+  #   DEC007_LEDGER_PATH=/app/.verification/private/dec007-budget.sqlite3
+  #   DEC007_MODEL_AUDIT_PATH=/app/.verification/private/dec007-model-audit.jsonl
+  # The ledger scope binds the registry path, so pointing it at another directory (for
+  # example /app/.verification/private/TASK-0023, which does not exist here) refuses the
+  # existing ledger with "existing DEC ledger has a different scope" instead of using it.
   DEC007_AUTHORIZATION_REGISTRY: ${DEC007_AUTHORIZATION_REGISTRY:-}
   DEC007_LEDGER_PATH: ${DEC007_LEDGER_PATH:-}
   DEC007_MODEL_AUDIT_PATH: ${DEC007_MODEL_AUDIT_PATH:-}

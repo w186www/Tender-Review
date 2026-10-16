@@ -2,9 +2,10 @@
 
 The round under test is the one the operator runs before the first paid call:
 ``llm_limit=4``, ``embedding_limit=322`` (312 batches are already recorded) and
-``total_cny=2`` cumulative, including the settled 0.1035070 CNY. Every supplier interaction
-below uses an explicit synthetic transport; no test opens a socket, reads a credential or
-reaches a paid supplier.
+``total_cny=2`` cumulative, including the 0.1035070 CNY settled prebuild and the two LLM
+reservations of the recorded phase-one round (the phase-two baseline is 2/312/0.1062161 in
+``scripts/task0027_ledger_baseline.py``). Every supplier interaction below uses an explicit
+synthetic transport; no test opens a socket, reads a credential or reaches a paid supplier.
 
 Boundary of the agreed option A (2026-10-16): the ledger *file* stores counters, and the
 ceilings are per-process parameters, so the file alone cannot stop a different process that

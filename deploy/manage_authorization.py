@@ -10,10 +10,15 @@ reason, the timestamp and the operator are recorded; document content is never r
     python deploy/manage_authorization.py list [--json]
     python deploy/manage_authorization.py revoke --sha256 <64 lowercase hex> --reason "收回"
 
-The registry path comes from ``--registry`` or ``DEC007_AUTHORIZATION_REGISTRY``; there is
-no implicit default location, so an approval can never be written to an unintended file.
-Approving a file never touches the budget ledger or its counters, and the API process must
-be restarted so the assembly reads the extended registry.
+The registry path comes from ``--registry`` or ``DEC007_AUTHORIZATION_REGISTRY``; when
+neither is set it resolves to the same default the server assemblies use -- the
+``authorization-registry.jsonl`` directly in the private root, which inside the container is
+the modelstate volume root ``/app/.verification/private`` -- so the CLI writes to the file
+the running API actually reads (the DEC-007 ledger scope binds that path, so a different
+one would refuse the existing ledger instead of using it). Every command prints the resolved
+registry path to stderr so an approval can never be written to an unnoticed file.
+Approving a file never touches the budget ledger or its counters, and the running API
+re-reads the registry when it changes.
 """
 
 from __future__ import annotations
@@ -28,15 +33,19 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from bidding_compliance.services.real_ai_runtime import (  # noqa: E402
+    DEC007_REGISTRY_FILE,
     FileAuthorizationRegistry,
 )
+
+# The private root of the server assemblies (the modelstate volume root in the container).
+DEFAULT_PRIVATE_ROOT = ROOT / ".verification" / "private"
 
 
 def registry_path(explicit: str | None) -> Path:
     value = (explicit or os.environ.get("DEC007_AUTHORIZATION_REGISTRY", "")).strip()
-    if not value:
-        raise SystemExit("--registry or DEC007_AUTHORIZATION_REGISTRY is required")
-    return Path(value)
+    if value:
+        return Path(value)
+    return DEFAULT_PRIVATE_ROOT / DEC007_REGISTRY_FILE
 
 
 def operator(explicit: str | None) -> str:
@@ -94,6 +103,9 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         registry = FileAuthorizationRegistry(registry_path(args.registry))
+        # The operator always sees which file a write would land in (stderr keeps stdout
+        # machine-readable for the approve/revoke record).
+        print(f"registry: {registry.path}", file=sys.stderr)
         if args.command == "list":
             allowed = sorted(registry.allowed_sha256())
             records = [dict(record) for record in registry.records()]

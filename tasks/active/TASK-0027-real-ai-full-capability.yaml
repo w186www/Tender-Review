@@ -183,6 +183,29 @@
         "deploy/README-demo.md",
         "docs/development/TASK-0027-validation.md"
       ]
+    },
+    {
+      "id": "TASK0027-011",
+      "description": "阶段二调整后的交付项（用户 2026-10-16 指令；不动数据、零付费调用、未触碰线上服务器）：① 统一 modelstate 正式部署路径——正式装配与部署默认 private root 改为阶段一实际存放数据的卷根 /app/.verification/private（task0023_real_ai_app.py、task0027_real_ai_validation_app.py、prebuild_legal_vectors.py、task0027_ledger_baseline.py、deploy/manage_authorization.py 默认注册表），并写入 deploy/demo.env.example、docker-compose.demo.yml、deploy/README-demo.md；不得移动/删除/重置任何已有数据。② 只读一致性核对手段与实测：新增 scripts/task0027_identity_check.py（授权 ID、账本 scope、注册表路径、模型审计文件、法规 publication/revision、向量索引 build_id、覆盖率与缓存向量完整性；全只读，缺失即报告绝不创建，退出码 0/2）与 scripts/task0027_index_plan.py（从冻结语料离线重算 build id 并给出快照增删/缓存命中）；实测 build_id=c7344cac…/snapshot=69d340d6…/3112/3120/312 批/在线 embedding 身份一致，容器内 --print-scope 解析为卷根路径、scope=a3d2e9d0…，本机无数据时失败关闭；账本基线期望同步为阶段二 LLM 2 / Embedding 312 / ¥0.1062161 / 未结算 0 并同步 README。③ 120 秒超时找回与幂等（证明，不重构后台）：tests/test_task0027_timeout_recovery.py 覆盖超时中断后任务仍可查询（running→result_published）、同幂等键重复提交不新增任务/不新增账本记录（账本字节与摘要不变）、同键不同文档集 409、新键才是新任务，并断言前端 120_000 ms 常量；前端仅在 AbortError 分支做最小引导（REVIEW_TIMEOUT_NOTICE + 立即刷新持久化任务列表），不重构后台任务系统、不改幂等语义；内部验证实例（本机回环 compose、离线）真实输出 task_found_after_abort=true、同键重提同一任务、跨项目同键 409。④ 部署与回滚方案（文档，不执行）：README 8.5 覆盖 api 与 nginx 分别构建同提交镜像、VITE_REVIEW_MODE=dec007-real-qwen 为构建期参数、切换 authorized-real 的前置（索引 pinned 校验、宿主 offline 证据、账本基线、注册表路径）、回滚（改回 offline 并重建 api、账本不重置、revoke 立即生效、索引与卷保留、HTTPS 与 certbot 定时器与审计/数据库不动），并明确新上传文件不得自动授权、未核验法规保持待核验。⑤ 内容验收：内部实例 Microsoft Edge 全流程 8 张截图（登录→项目→上传→上下文→审查详情→风险与服务端精确定位→人工复核历史→发布→Word/PDF 下载→任务列表 结果已发布）；对下载的 Word/PDF 抽正文断言风险标题、原文摘录、证据状态 insufficient_evidence、适用性未经确认提示与无违法认定，并声明该报告是阶段一服务器报告的替代品。",
+      "evidence": [
+        "scripts/task0023_real_ai_app.py",
+        "scripts/task0027_real_ai_validation_app.py",
+        "scripts/prebuild_legal_vectors.py",
+        "scripts/task0027_ledger_baseline.py",
+        "scripts/task0027_identity_check.py",
+        "scripts/task0027_index_plan.py",
+        "deploy/manage_authorization.py",
+        "deploy/demo.env.example",
+        "docker-compose.demo.yml",
+        "deploy/README-demo.md",
+        "tests/test_task0027_timeout_recovery.py",
+        "tests/test_task0027_identity_check.py",
+        "tests/test_task0027_index_plan.py",
+        "src/frontend/src/utils.ts",
+        "src/frontend/src/pages/project.tsx",
+        "src/frontend/src/utils.test.ts",
+        "docs/development/TASK-0027-validation.md"
+      ]
     }
   ],
   "verify": [

@@ -127,7 +127,12 @@ from bidding_compliance.services.real_embedding_runtime import (  # noqa: E402
 
 # The one private root the server assemblies use inside the read-write modelstate volume:
 # ledger, model audit, per-file registry and the prebuilt vector index all live here.
-PRIVATE_ROOT = ROOT / ".verification" / "private" / "TASK-0023"
+# Inside the container this is ``/app/.verification/private``, the modelstate volume root
+# (``docker-compose.demo.yml`` mounts ``modelstate:/app/.verification/private``), which is
+# where the recorded phase-one round keeps its ledger, registry and index. It is the same
+# root ``scripts/task0023_real_ai_app.py`` uses, so the official API and this round read the
+# identical files and the identical ledger scope.
+PRIVATE_ROOT = ROOT / ".verification" / "private"
 LEGAL_MANIFEST = "config/legal/manifest.json"
 INDEX_FILE = "legal-vectors.sqlite3"
 # The index manifest the prebuild wrote into the same volume: the signed-in-content record of

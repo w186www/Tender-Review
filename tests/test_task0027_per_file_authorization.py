@@ -650,22 +650,36 @@ def test_authorization_cli_approves_lists_and_revokes_with_audit_lines(
     assert FileAuthorizationRegistry(path).allowed_sha256() == frozenset({"d" * 64, "e" * 64})
 
 
-def test_authorization_cli_requires_an_explicit_registry_location(monkeypatch):
+def test_authorization_cli_defaults_to_the_same_registry_file_as_the_assemblies(
+    monkeypatch, capsys, tmp_path
+):
+    """Without a flag or variable the CLI writes where the running API reads.
+
+    The DEC-007 ledger scope binds the registry *path*, so a different default would refuse
+    the existing ledger ("existing DEC ledger has a different scope") instead of using it;
+    the fallback is therefore the same private root the server assemblies resolve
+    (``/app/.verification/private`` inside the container). Every command prints the resolved
+    path to stderr, and an explicit flag or environment variable still wins.
+    """
     cli = load_cli()
     monkeypatch.delenv("DEC007_AUTHORIZATION_REGISTRY", raising=False)
-    with pytest.raises(SystemExit, match="DEC007_AUTHORIZATION_REGISTRY"):
-        cli.main(["list"])
-    with pytest.raises(SystemExit, match="DEC007_AUTHORIZATION_REGISTRY"):
-        cli.main(
-            [
-                "--registry",
-                "",
-                "approve",
-                "--sha256",
-                REGISTERED,
-                "--document",
-                "doc-1",
-                "--reason",
-                "无登记文件",
-            ]
-        )
+    resolution = resolve_real_runtime_authorization(
+        {"DEC007_AUTHORIZATION_ID": FULL_CAPABILITY_AUTHORIZATION_ID},
+        private_root=cli.DEFAULT_PRIVATE_ROOT,
+    )
+    assert resolution.registry_path is not None
+    assert cli.registry_path(None) == resolution.registry_path
+    assert cli.registry_path("") == resolution.registry_path
+    assert cli.registry_path("   ") == resolution.registry_path
+    explicit = tmp_path / "explicit.jsonl"
+    assert cli.registry_path(str(explicit)) == explicit
+    assert cli.registry_path("   ") != explicit  # blank values never become a path
+    # Listing a registry that does not exist yet is a valid, read-only no-op: it reports the
+    # resolved path on stderr and never creates the file.
+    default = resolution.registry_path
+    assert not default.exists()
+    assert cli.main(["list"]) == 0
+    printed = capsys.readouterr()
+    assert str(default) in printed.err
+    assert "approved files: 0" in printed.out
+    assert not default.exists()

@@ -101,7 +101,7 @@ $D run --rm --no-deps --entrypoint python api deploy/demo_init.py storage   # �
 | `-pgdata` | 业务数据、迁移版本、**LangGraph checkpoint** | 项目/文档/审查任务/复核结论全部丢失，未完成的审查无法恢复 |
 | `-miniodata` | 上传的原始文件对象 | 已入库文档的正文永久缺失，无法重新解析 |
 | `-clamdb` | ClamAV 病毒特征库 | 仅影响下次启动时间（需重新下载） |
-| `-modelstate` | 模型预算账本与审计（`dec005-budget.sqlite3`、`dec007-budget.sqlite3`、`*-audit.jsonl`）、逐文件授权注册表、预构建的法规向量索引 | 真实模型授权的额度记录、逐文件授权与预构建索引丢失，属于审计缺口；索引需重新付费预构建 |
+| `-modelstate` | 模型预算账本与审计（`dec005-budget.sqlite3`、`dec007-budget.sqlite3`、`*-audit.jsonl`）、逐文件授权注册表、预构建的法规向量索引（挂载点是卷**根** `/app/.verification/private`，以上文件都在该根目录） | 真实模型授权的额度记录、逐文件授权与预构建索引丢失，属于审计缺口；索引需重新付费预构建 |
 
 卷名在 `deploy/.env` 里由 `VOLUME_PREFIX` 决定，可用 `docker volume ls` 核对。
 
@@ -153,20 +153,28 @@ LangGraph 全流程、法规检索、证据核验、人工复核、Word/PDF 报�
 2. **独立的 DEC-007 授权**：`DEC007_AUTHORIZATION_ID=DEC-007-2026-10-16`。
    仓库里的 `DEC-005` / `DEC-006` 有各自额度账本且已消耗，不能复用，也不会被重置；
    DEC-007 有独立账本 `dec007-budget.sqlite3`（LLM 300 次 / Embedding 800 批 / ¥30）。
-3. **预构建全量法规向量索引**（服务端不会临时建库）。在 api 容器内执行一次：
+3. **预构建全量法规向量索引**（服务端不会临时建库）。构建脚本同样**不在**公网 `:demo` 镜像里，
+   用与 8.2 相同的一次性容器方式执行（独立标签镜像 + 同一 `-modelstate` 卷）：
    ```bash
-   $D exec api python scripts/prebuild_legal_vectors.py \
+   cd <repo>
+   D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
+   IMAGE_TAG=task0027-validation $D build api          # 独立标签，绝不覆盖 :demo
+   IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+       python scripts/prebuild_legal_vectors.py \
        --dry-run                    # 先看计划：3120 条 → 3112 条可嵌入、8 条超长、312 批
-   $D exec api python scripts/prebuild_legal_vectors.py \
+   IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+       python scripts/prebuild_legal_vectors.py \
        --publication-id <id> --revision-id <id>   # 真实构建（付费，支持断点续建）
    ```
    `publication_id` / `revision_id` 取当前法规发布版本（见第八节末尾的查询命令）。
-   索引文件、账本与注册表都在 `-modelstate` 持久卷里，`down && up -d` 不会丢。
+   索引文件、账本与注册表都在 `-modelstate` 持久卷**根**（容器内 `/app/.verification/private`：
+   `legal-vectors.sqlite3`、`vector-manifest.json` 与账本同目录），`down && up -d` 不会丢。
    **缺索引、索引未完成或校验失败时，API 会直接拒绝该次审查**（零供应商调用），
    不会在面试官点击审查时同步跑几百批 Embedding。
 4. **逐文件外发授权**：未登记的文件一律拒绝（见 8.2）。
 5. 设置 `DEPLOY_REVIEW_MODE=authorized-real`，并用 `VITE_REVIEW_MODE=dec007-real-qwen`
-   重新构建前端（`$D build nginx`），保证页面提示与实际执行一致。
+   重新构建前端（`$D build nginx`）；`VITE_REVIEW_MODE` 是**构建期**参数，不重建 nginx
+   则文案不生效。api 与 nginx 是**两个镜像、分别构建**，完整切换与回滚步骤见 8.5。
 6. 额度与预算限制仍然生效：单次调用前**全额预留**，账本只增不减。批次到 800 拒绝；
    累计费用到 ¥30 拒绝（即使批次还有余额）；失败或用量未知的预留继续占用额度且不自动补发。
    本地账本**不是**生产级防回滚方案（审计与账本被整体回滚无法检测），演示期间不要宣称有防回滚能力。
@@ -212,9 +220,13 @@ IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
         --sha256 <64 位小写 hex> --reason "演示结束收回"
 ```
 
-注册表路径来自 `DEC007_AUTHORIZATION_REGISTRY`（`deploy/.env` 注入 api 服务，默认
-`/app/.verification/private/TASK-0023/authorization-registry.jsonl`，即在 `-modelstate` 卷内）；
-未配置时 CLI 会直接拒绝并提示，不会写到某个"默认位置"。也可以用 `--registry <路径>` 显式指定。
+注册表路径来自 `DEC007_AUTHORIZATION_REGISTRY`；未配置时用 `resolve_real_runtime_authorization`
+的默认值（与 api 装配 `scripts/task0023_real_ai_app.py` 同一个 private root），即
+`-modelstate` 卷**根**里的 `/app/.verification/private/authorization-registry.jsonl`
+（卷挂载点就是 `/app/.verification/private`，账本与模型审计也在该根目录）。**不要**写成
+`/app/.verification/private/TASK-0023/...`：该子目录在本部署里不存在，而且账本 scope 绑定注册表
+路径，换路径会与既有账本冲突（`existing DEC ledger has a different scope`）。也可以用
+`--registry <路径>` 显式指定，但必须与账本 scope 记录的一致。
 
 **为什么这样不影响运行中的线上容器与 offline 模式**：
 
@@ -270,9 +282,9 @@ $D exec postgres psql -U postgres -d bidding_compliance -c \
 
 | 项 | 本轮上限 | 说明 |
 |---|---|---|
-| LLM | **4 次** | 一次合成样本审查约 2 次（发现 + 语义），留余量 |
-| Embedding | **322 批** | 312 批已用于预构建索引，本轮最多再新增 **10 批**查询 |
-| 费用 | 累计 **¥2** | **含**已结算的 ¥0.1035070，不是额外新增额度 |
+| LLM | **4 次（累计）** | 阶段一已用 2 次（一次合成样本审查 = 发现 + 语义），本轮最多再新增 2 次 |
+| Embedding | **322 批（累计）** | 312 批已用于预构建索引，本轮最多再新增 **10 批**查询 |
+| 费用 | 累计 **¥2** | **含**已结算的累计 **¥0.1062161**，不是额外新增额度 |
 
 - 三个值都是脚本里的常量：**环境变量、命令行参数、普通演示账号都无法提高**。
 - 启动时还会拒绝"不比 DEC-007 授权更严"的取值；`AUTHORIZATION_LIMITS[DEC-007]` 的
@@ -425,7 +437,8 @@ bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private
 
 #### 账本基线核对（执行前必须做）
 
-期望值：**LLM 0 次 / Embedding 312 批 / 累计 ¥0.1035070 / 未结算 0**。
+期望值（阶段一之后、阶段二执行前的累计口径）：**LLM 2 次 / Embedding 312 批 /
+累计 ¥0.1062161 / 未结算 0**。
 
 ```bash
 IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
@@ -435,11 +448,23 @@ IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
 输出示例（口径为"该 authorization_id 在账本文件里的累计值"）：
 
 ```
-llm_calls: 0 (expected 0)
+llm_calls: 2 (expected 2)
 embedding_batches: 312 (expected 312)
-charged_or_reserved_cny: 0.1035070 (expected 0.1035070)
+charged_or_reserved_cny: 0.1062161 (expected 0.1062161)
 unsettled_requests: 0 (expected 0)
 PASS: the ledger matches the documented pre-round baseline.
+```
+
+同一只读入口还可先核对**身份一致性**（授权 ID、账本 scope、注册表路径、模型审计、
+法规 publication/revision、索引 build_id）：
+
+```bash
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python scripts/task0027_identity_check.py \
+        --expected-scope <64 位 scope> \
+        --publication-id <publication id> --revision-id <revision id> \
+        --build-id <64 位 build id>
+# 全部一致才打印：identity check passed: scope=... publication=... revision=... build_id=...
 ```
 
 **不一致时停止并上报**（退出码 2）：先记录观测值与期望值的差异，再决定本轮是否继续；
@@ -454,6 +479,106 @@ PASS: the ledger matches the documented pre-round baseline.
 - 收紧上限**不写入账本**，也不改表结构：本轮结束后 300/800/¥30 仍可用，继续累计使用**原有账本**。
 - 门禁在**任何**供应商请求之前生效：拒绝时 transport 零调用、账本计数不增加。
 - 本地账本**不是**生产级防回滚方案；本轮结束不得以删除账本的方式恢复额度。
+
+### 8.5 阶段二公网切换到 `authorized-real`：准备清单与回滚（本节只写步骤，不代执行）
+
+公网实例切换**不是**一次 `docker compose up`：两个镜像各自要构建成正确的版本，切换前后都有
+可核对的只读证据。**在切换完成并通过下列前置之前，公网不得出现任何真实供应商调用**；
+默认状态保持 `DEPLOY_REVIEW_MODE=offline`。
+
+#### 8.5.1 两个镜像分别构建正确版本
+
+| 镜像 | 构建命令 | 关键参数（**构建期**，不重建则不生效） |
+|---|---|---|
+| API | `IMAGE_TAG=<本次提交> $D build api` | 无前端参数；源码来自当前提交，装配由 `deploy/api_entry.py` 选择 |
+| 前端（nginx） | `IMAGE_TAG=<本次提交> $D build nginx` | `VITE_REVIEW_MODE=dec007-real-qwen`（`Dockerfile.web` 的 `ARG`，由 `deploy/.env` 注入） |
+
+- `VITE_REVIEW_MODE` 是 **Vite 编译期常量**：只改 `deploy/.env` 而不 `$D build nginx`，
+  页面横幅仍显示旧模式，与实际执行不一致——这是切换流程里最容易漏的一步。
+- 两个镜像用**同一个提交**、同一个 `IMAGE_TAG`（例如 `IMAGE_TAG=task0027-<短 SHA>`）构建，
+  这样 `docker inspect` 的镜像引用与实际代码一一对应；不要用 `:demo` 之类的可移动标签记录版本。
+- 前端模式取值必须与 `DEPLOY_REVIEW_MODE` 一致：`offline` ↔ `offline-deterministic`，
+  `authorized-real` ↔ `dec007-real-qwen`（`docker-compose.demo.yml` 已把 `VITE_REVIEW_MODE`
+  作为 `nginx` 服务的构建参数透传）。
+
+#### 8.5.2 切换 `DEPLOY_REVIEW_MODE=authorized-real` 的前置（逐项必须成立）
+
+1. **预构建索引 pinned 校验**（只读、本地可复算）：
+   ```bash
+   $D exec -T api python scripts/task0027_index_plan.py \
+       --publication-id "$PUB" --revision-id "$REV" \
+       --expect-build-id <记录的 64 位 build id>
+   # PASS: ... produce exactly the expected build id
+   ```
+   输出必须与 `-modelstate` 卷内 `vector-manifest.json` 的 `build_id`、`legal_snapshot_sha256`、
+   `item_count=3112`、`source_item_count=3120` 一致（同一字段也由 8.4 预检查逐一比对）。
+2. **宿主 offline 证据新鲜**：`bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private/evidence`
+   输出 `verdict: ok`（退出码 0），且证据里的 api 容器 ID 与 compose 项目与当前部署一致；
+   `$D exec api printenv DEPLOY_REVIEW_MODE` 必须仍是 `offline`。
+3. **账本基线**只读核对：`LLM 2 / Embedding 312 / 累计 ¥0.1062161 / 未结算 0`
+   （`scripts/task0027_ledger_baseline.py`，见 8.4）；不一致即停止并上报，**不得重置账本**。
+4. **注册表路径**：`DEC007_AUTHORIZATION_REGISTRY`（未配置时取默认值）解析为
+   `-modelstate` 卷**根** `/app/.verification/private/authorization-registry.jsonl`，
+   与账本 scope 绑定的路径一致；用 `scripts/task0027_identity_check.py --print-scope` 核对。
+5. **身份一致性**：`scripts/task0027_identity_check.py`（退出码 0）核对授权 ID、账本 scope、
+   注册表、模型审计、法规 publication/revision 与索引 build_id；任一不符即停止（退出码 2）。
+6. 8.4 的**受控验证轮**已完成（收紧上限 4/322/¥2），且当时没有第二个真实模型执行实例。
+7. 逐文件白名单非空（至少一个已登记合成文件）；未登记文件一律拒绝，**面试官新上传的文件
+   不会自动获得授权**，必须由操作员显式 `approve`（8.2）。
+
+#### 8.5.3 切换步骤（三个阶段谁也不能跳）
+
+```bash
+cd <repo>
+D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
+# 1) 先备份（保留审计与数据库；切换失败时按 8.5.4 回滚）
+./deploy/backup.sh /srv/backups/pre-authorized-real
+# 2) 编辑 deploy/.env：DEPLOY_REVIEW_MODE=authorized-real、VITE_REVIEW_MODE=dec007-real-qwen、
+#    IMAGE_TAG=<本次提交标签>；真实模型变量只写这里（600、不进镜像、不进仓库）
+# 3) 分别构建两个镜像（前端参数是构建期，必须重建 nginx）
+IMAGE_TAG=<本次提交标签> $D build api
+IMAGE_TAG=<本次提交标签> $D build nginx
+# 4) 先起 api，再更新 nginx（前端横幅与后端模式同时生效）
+$D up -d api
+$D up -d nginx
+# 5) 切换后立即复核（只读）
+$D exec api printenv DEPLOY_REVIEW_MODE          # 必须是 authorized-real
+bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private/evidence
+#    → 此时 verdict 应为 untrusted（线上 api 自身就是真实模型执行实例），这是预期的失败关闭；
+#      该脚本只用于切换「之前」证明基线离线，不要拿它当切换后的成功标志
+$D run --rm --no-deps --entrypoint python api scripts/task0027_identity_check.py --print-scope
+```
+
+- **HTTPS、IP 证书自动续期（`tender-certbot-*.timer`）、审计账本与数据库都保持不动**：
+  本切换只改两个服务的镜像与环境变量，不触碰卷、不重签证书、不重建数据库。
+- 切换后一次真实审查只允许打给已登记审批的合成文件；未核验法规的风险在报告里仍是**待核验**，
+  不得据此宣称违法。
+
+#### 8.5.4 回滚（任何异常时的第一动作）
+
+```bash
+cd <repo>
+D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
+# 1) 改回离线：编辑 deploy/.env，DEPLOY_REVIEW_MODE=offline；
+#    VITE_REVIEW_MODE 同步改回 offline-deterministic（横幅与实际执行必须一致）
+# 2) 重建 api 容器（环境变量变化必须重建，不是 restart）
+$D up -d --force-recreate api
+# 3) 前端横幅一并回滚（同样是构建期参数：改回 offline-deterministic 后重建 nginx）
+$D build nginx
+$D up -d --force-recreate nginx
+# 4) 复核离线（只读）
+$D exec api printenv DEPLOY_REVIEW_MODE    # offline
+bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private/evidence  # verdict: ok
+```
+
+- **账本不重置**：`dec007-budget.sqlite3` 保持原样继续累计；回滚**不需要也不允许**删除、
+  替换或用备份覆盖账本/注册表/索引来"恢复额度"。
+- **索引与数据卷保留**：不使用 `down -v`、不删 `-modelstate` 卷；回滚只重建 api 容器。
+  切换期间产生的已结算计数（如有）如实保留，下一次切换继续累计。
+- **`revoke` 立即生效**：逐文件授权是追加式审计文件，运行中的 API 在下一次外发判定时重新读取，
+  撤销无需等待重启；回滚期间担心外发时，先 `revoke` 再改模式，双保险。
+- 回滚后如需再切回 `authorized-real`，重新执行 8.5.2 的全部前置（包括新鲜 offline 证据与基线核对）。
+- 演示结束仍按第十节清理；**不要把账本/注册表的备份文件留在共享目录外泄**。
 
 ## 九、安全说明与已知限制
 

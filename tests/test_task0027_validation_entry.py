@@ -54,7 +54,13 @@ from bidding_compliance.services.real_embedding_runtime import (
 SCOPE = "b" * 64
 APPROVED_DOCUMENT = "d" * 64
 HISTORIC_BATCHES = 312
-HISTORIC_SETTLED_CNY = Decimal("0.1035070")
+HISTORIC_PREBUILD_CNY = Decimal("0.1035070")
+HISTORIC_SETTLED_CNY = Decimal("0.1062161")
+HISTORIC_LLM_CALLS = 2
+# The two LLM reservations of the recorded phase-one round. Only their sum (the documented
+# total minus the prebuild's 0.1035070 CNY) is recorded in the operator's baseline; the split
+# between the two reservations is a fixture detail, not a measured value.
+HISTORIC_LLM_SETTLED = (Decimal("0.0015000"), Decimal("0.0012091"))
 EMBEDDING_CEILING = Decimal("0.10")
 WIDENING_VARIABLES = (
     "DEC007_LLM_LIMIT",
@@ -83,7 +89,7 @@ def request_hash(number: int) -> str:
 
 # --------------------------------------------------------------------- synthetic inputs
 def seed_baseline_ledger(path: Path, *, scope_sha256: str = SCOPE) -> Dec005BudgetLedger:
-    """The recorded pre-round state: 0 LLM, 312 settled embedding batches, 0.1035070 CNY."""
+    """The recorded phase-two pre-round state: 2 LLM, 312 settled embedding batches, 0.1062161."""
     ledger = Dec005BudgetLedger(
         path, scope_sha256=scope_sha256, authorization_id=FULL_CAPABILITY_AUTHORIZATION_ID
     )
@@ -93,12 +99,19 @@ def seed_baseline_ledger(path: Path, *, scope_sha256: str = SCOPE) -> Dec005Budg
             kind="embedding", request_hash=request_hash(number), ceiling=EMBEDDING_CEILING
         )
         ledger.settle_external(reservation, per_batch)
-    remainder = HISTORIC_SETTLED_CNY - per_batch * (HISTORIC_BATCHES - 1)
+    remainder = HISTORIC_PREBUILD_CNY - per_batch * (HISTORIC_BATCHES - 1)
     reservation = ledger.reserve_external(
         kind="embedding", request_hash=request_hash(HISTORIC_BATCHES - 1), ceiling=EMBEDDING_CEILING
     )
     ledger.settle_external(reservation, remainder)
-    assert ledger.summary()["llm_calls"] == 0
+    for offset, settled in enumerate(HISTORIC_LLM_SETTLED):
+        reservation = ledger.reserve_external(
+            kind="llm",
+            request_hash=request_hash(900 + offset),
+            ceiling=Decimal("0.25"),
+        )
+        ledger.settle_external(reservation, settled)
+    assert ledger.summary()["llm_calls"] == HISTORIC_LLM_CALLS
     assert Decimal(ledger.summary()["charged_or_reserved_cny"]) == HISTORIC_SETTLED_CNY
     return ledger
 
@@ -552,9 +565,9 @@ def test_baseline_check_reports_the_four_values_and_never_writes(tmp_path, capsy
     before = path.read_bytes()
     assert baseline.main(["--ledger", str(path)]) == 0
     captured = capsys.readouterr()
-    assert "llm_calls: 0 (expected 0)" in captured.out
+    assert "llm_calls: 2 (expected 2)" in captured.out
     assert "embedding_batches: 312 (expected 312)" in captured.out
-    assert "charged_or_reserved_cny: 0.1035070 (expected 0.1035070)" in captured.out
+    assert "charged_or_reserved_cny: 0.1062161 (expected 0.1062161)" in captured.out
     assert "unsettled_requests: 0 (expected 0)" in captured.out
     assert "PASS" in captured.out
     assert path.read_bytes() == before  # read-only: the ledger bytes did not change
@@ -570,10 +583,10 @@ def test_baseline_mismatch_stops_the_round_without_resetting_the_ledger(tmp_path
     assert baseline.main(["--ledger", str(path)]) == 2
     captured = capsys.readouterr()
     assert "STOP" in captured.out + captured.err
-    assert "llm_calls: observed 1, expected 0" in captured.out + captured.err
+    assert "llm_calls: observed 3, expected 2" in captured.out + captured.err
     assert "Do not delete, replace or reset the ledger" in captured.out + captured.err
     assert path.read_bytes() == before
-    assert ledger.summary()["llm_calls"] == 1  # nothing was "fixed" by rewriting the file
+    assert ledger.summary()["llm_calls"] == 3  # nothing was "fixed" by rewriting the file
 
 
 def test_an_absent_ledger_is_reported_and_never_created(tmp_path, capsys):
@@ -588,9 +601,9 @@ def test_baseline_defaults_follow_the_documented_round_values_and_the_environmen
     seed_baseline_ledger(path)
     assert baseline.main(["--ledger", str(path), "--json"]) == 0
     assert baseline.ROUND_BASELINE == {
-        "llm_calls": 0,
+        "llm_calls": 2,
         "embedding_batches": 312,
-        "charged_or_reserved_cny": Decimal("0.1035070"),
+        "charged_or_reserved_cny": Decimal("0.1062161"),
         "unsettled_requests": 0,
     }
     environment = {"DEC007_LEDGER_PATH": str(path)}
@@ -628,9 +641,9 @@ def test_the_index_manifest_constants_are_the_frozen_corpus_counts():
 def test_preflight_passes_and_reports_the_round_ceilings_ledger_and_index(round_):
     report = round_.preflight().report.as_payload()
     assert report["round_limits"] == {"llm_limit": 4, "embedding_limit": 322, "total_cny": "2"}
-    assert report["ledger"]["llm_calls"] == 0
+    assert report["ledger"]["llm_calls"] == 2
     assert report["ledger"]["embedding_batches"] == 312
-    assert report["ledger"]["charged_or_reserved_cny"] == "0.1035070"
+    assert report["ledger"]["charged_or_reserved_cny"] == "0.1062161"
     assert report["ledger"]["unsettled_requests"] == 0
     assert report["approved_documents"] == {"count": 0, "sha256": []}
     assert report["online_api"]["payload"] == {"status": "ok", "version": "0.1.0"}

@@ -26,6 +26,7 @@ import {
   formatBytes,
   formatDate,
   intentKey,
+  REVIEW_TIMEOUT_NOTICE,
 } from "../utils";
 import { ProjectFormDialog } from "./projects";
 
@@ -209,7 +210,15 @@ export function ProjectPage() {
         );
       }
     } catch (reason) {
-      setError(errorText(reason));
+      if (reason instanceof DOMException && reason.name === "AbortError") {
+        // The 120 s client abort is not a lost task: reload the persisted task list and
+        // say so instead of only showing a generic "cancelled or timed out" message.
+        setError(null);
+        setNotice(REVIEW_TIMEOUT_NOTICE);
+        reload();
+      } else {
+        setError(errorText(reason));
+      }
     } finally {
       setStartingReview(false);
     }

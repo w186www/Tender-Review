@@ -2,7 +2,66 @@
 
 更新时间：2026-10-16
 
-## 进行中：TASK-0027（DEC-007 完整能力）第四轮最小修正完成，等待复核提交与首次真实调用批准
+## 进行中：TASK-0027（DEC-007 完整能力）第五轮：阶段二调整后的交付项完成，等待复核提交与首次真实调用批准
+
+- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，当前 HEAD `da28f9f`
+  （`fix(TASK-0027): close the detection blind spot and stop the README using the old image`）；
+  **本轮（阶段二调整后的 5 项交付）改动未提交**，由用户复核后自行提交。
+- 本轮边界：本机合成数据与回环容器验收；**零付费调用、未触碰线上服务器 47.83.132.211、
+  公网 `DEPLOY_REVIEW_MODE` 仍 `offline`**；**未做任何法规核验、未改任何 `verification` 状态**、
+  未删除/重建/重置 3112 条向量索引与 DEC-007 账本、未扩大外发授权、未 git 提交。
+  全部命令与转录见 [TASK-0027 验证记录 第五轮](docs/development/TASK-0027-validation.md)。
+- 交付 1（统一 modelstate 正式部署路径，不动数据）：正式装配/部署的 private root 由不存在的
+  `…/private/TASK-0023` 改为**卷根** `…/private`（`scripts/task0023_real_ai_app.py`、
+  `scripts/task0027_real_ai_validation_app.py`、`scripts/prebuild_legal_vectors.py`、
+  `scripts/task0027_ledger_baseline.py`、`deploy/manage_authorization.py` 默认注册表），
+  并写入 `deploy/demo.env.example`、`docker-compose.demo.yml`、`deploy/README-demo.md`。
+  新增只读一致性核对 `scripts/task0027_identity_check.py`（授权 ID、账本 scope、注册表路径、
+  模型审计、法规 publication/revision、索引 build_id/条目/覆盖率/缓存向量；缺失即报告绝不
+  创建，退出码 0/2）与 `scripts/task0027_index_plan.py`（本地只读重算 build id + 快照增删/
+  缓存命中）。账本基线期望改为**阶段二：LLM 2 / Embedding 312 / 累计 ¥0.1062161 / 未结算 0**，
+  README 输出示例同步。
+- 交付 2（120 秒超时找回与幂等，证明不重构）：新增 `tests/test_task0027_timeout_recovery.py`
+  （4 项，真实 Uvicorn 回环 + 真实路由/持久化 + 真实账本），覆盖"客户端中断后任务仍可查询
+  （running→result_published）""同幂等键重提同一任务、执行器只 1 次、账本字节与摘要不变"
+  "同键不同文档集 409""新键才是新任务"，并断言前端 **120_000 ms** 常量；前端仅在 `AbortError`
+  分支加最小引导（`REVIEW_TIMEOUT_NOTICE` + 立即刷新持久化任务列表），后台与幂等语义零改动。
+  内部验证实例（本机回环 compose `tender-review-t27`，本 Worktree 镜像、`offline`、仅
+  `127.0.0.1:8090`）真实输出：0.203 秒中断后 `task_found_after_abort=true`、
+  `running→waiting_human`、同键重提 202 同一任务、跨项目同键 409、任务数仍 1。
+- 交付 3（测试与 CI，本机真实数字）：ruff `All checks passed!`；mypy
+  `Success: no issues found in 104 source files`；`scripts/verify_repo.py` PASS；
+  前端 vitest `3 files / 8 passed`（新增 `utils.test.ts` 2 项）；官方 Focused
+  `123 passed in 105.57s`（`[1/7]`–`[5/7]` 全过）；官方 Full **退出码 0**：
+  `[1/7]` PASS、`[2/7]` ruff 通过、`[3/7]` mypy 通过、`[4/7]` 前端通过、
+  `[5/7]` **806 passed, 6 warnings in 486.12s**、`[6/7]`/`[7/7]` 真实启动与鉴权生命周期
+  `PASS`（JUnit：tests 806 / failures 0 / errors 0 / skipped 0）。**既有环境前置**：
+  `tests/test_verification_modes.py` 会不带 `-PythonExecutable` 调内层 `verify.ps1`，
+  必须把 venv 的 `Scripts` 前置到 `PATH`（未前置时该测试失败，属环境前置不属代码缺陷；
+  第一轮记录同款要求）。
+- 交付 4（部署与回滚方案，文档不执行）：`deploy/README-demo.md` 新增 8.5——api 与 nginx
+  **分别构建同一提交**、`VITE_REVIEW_MODE=dec007-real-qwen` 是**构建期**参数（不重建不生效）；
+  切换 `DEPLOY_REVIEW_MODE=authorized-real` 的前置逐项（索引 pinned 校验、宿主 offline 证据、
+  账本基线、注册表=卷根、身份一致性、受控验证轮、白名单非空且**新上传文件不自动授权**）；
+  **回滚**=改回 `offline` + `--force-recreate api`（前端一并重建）、账本不重置、索引与卷保留、
+  `revoke` 立即生效、HTTPS/`tender-certbot-*.timer`/审计账本/数据库不动。
+- 交付 5（浏览器验收 + Word/PDF 正文断言）：内部实例上 Microsoft Edge（Playwright）全流程
+  8 张截图（登录→项目→上传→上下文→审查详情→风险与服务端精确定位→人工复核历史→
+  继续审查流程→Word/PDF 下载→项目任务列表 `结果已发布`）；对下载的 Word（1697 字符）与
+  PDF（2 页）**抽正文**断言风险标题、原文摘录、`证据状态：insufficient_evidence`、
+  `法律适用框架尚未确认`/`未完成有效适用性匹配`/不补造条文、**无任何违法认定**（否定式免责
+  声明存在）——**明确声明这是替代品**：阶段一服务器报告
+  `/opt/tender-review-private/evidence/task0027-report-*.{docx,pdf}` 未取得。
+- **本轮不得宣称超出**：账本记录值（scope/计数/审计/索引条目）只能在宿主核对，本轮未在服务器
+  执行；`status_timeline` 是列表轮询采样；pytest 与脚本用缩放后的超时复现 120 秒语义
+  （未做真实 120 秒挂起回归）；浏览器验收是内部离线实例，不是公网、不是 `authorized-real`；
+  8.5 是方案不是执行记录。
+- 本机验收用 compose 栈 `tender-review-t27`（回环、离线、全新卷 `tender-review-t27-*`）
+  在验收结束后以 `docker compose down`（保留卷）停止；**未触碰**既有 `tender-review-demo`
+  栈与其卷，也未触碰线上任何资源。
+
+以下保留 TASK-0027 第四轮（第二实例检测覆盖启动命令/镜像 + 逐文件授权 CLI 改用验证镜像）与更早的记录。
+
 
 - 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，当前 HEAD `972ef54`
   （`feat(TASK-0027): pin the index identity and prove offline mode from the host`，即第三轮改动已提交）；

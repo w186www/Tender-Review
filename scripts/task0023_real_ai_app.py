@@ -28,7 +28,16 @@ from bidding_compliance.services.real_ai_runtime import (
 from bidding_compliance.services.real_embedding_runtime import create_real_retriever_factory
 
 ROOT = Path(__file__).resolve().parents[1]
-PRIVATE = ROOT / ".verification/private/TASK-0023"
+# The one private root the server assembly uses: inside the container this is
+# ``/app/.verification/private``, which is the modelstate volume root
+# (``docker-compose.demo.yml`` mounts ``modelstate:/app/.verification/private``). The DEC-007
+# ledger, its model audit trail, the per-file authorization registry and the prebuilt vector
+# index all live directly in that root; the recorded phase-one data is exactly there, so the
+# official API path must resolve to it instead of a TASK-0023 subdirectory that does not
+# exist. Pointing at a different directory would both miss the existing ledger and fail the
+# ledger scope check ("existing DEC ledger has a different scope"), whose only workaround
+# would be deleting the ledger -- the quota reset DEC-007 forbids.
+PRIVATE = ROOT / ".verification/private"
 
 resolution = resolve_real_runtime_authorization(os.environ, private_root=PRIVATE)
 key = os.environ.get("DASHSCOPE_API_KEY", "")

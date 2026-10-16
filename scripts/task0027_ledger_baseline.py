@@ -35,17 +35,21 @@ from bidding_compliance.services.real_ai_runtime import (  # noqa: E402
     DEC007_LEDGER_FILE,
 )
 
-# The one private root the server assemblies use inside the modelstate volume; the explicit
-# DEC007_LEDGER_PATH variable still wins, so a different round can point elsewhere.
-PRIVATE_ROOT = ROOT / ".verification" / "private" / "TASK-0023"
+# The one private root the server assemblies use inside the modelstate volume: inside the
+# container this is ``/app/.verification/private`` (the volume root), which is where the
+# recorded phase-one ledger and registry live. The explicit DEC007_LEDGER_PATH variable still
+# wins, so a different round can point elsewhere.
+PRIVATE_ROOT = ROOT / ".verification" / "private"
 
-# The pre-round baseline of the TASK-0027 controlled round: no LLM request has ever been
-# reserved under DEC-007, the full-corpus prebuild recorded exactly 312 embedding batches
-# for a settled-and-reserved total of 0.1035070 CNY, and no reservation is in flight.
+# The phase-two pre-round baseline of the TASK-0027 controlled round, measured read-only on
+# the recorded DEC-007 ledger: the phase-one round reserved two LLM requests, the full-corpus
+# prebuild recorded exactly 312 embedding batches, and the settled-and-reserved total is
+# 0.1062161 CNY with no reservation in flight. A mismatch means the ledger moved since the
+# baseline was recorded: report it and stop, never delete or reset the ledger.
 ROUND_BASELINE: dict[str, Any] = {
-    "llm_calls": 0,
+    "llm_calls": 2,
     "embedding_batches": 312,
-    "charged_or_reserved_cny": Decimal("0.1035070"),
+    "charged_or_reserved_cny": Decimal("0.1062161"),
     "unsettled_requests": 0,
 }
 

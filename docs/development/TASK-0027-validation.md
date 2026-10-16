@@ -652,3 +652,299 @@ PASS: the public API runs in offline mode and no second real-model execution ins
 - **本轮未改但同类的问题（留作待办）**：`deploy/README-demo.md` 8.1 第 3 条的预构建命令仍写作
   `$D exec api python scripts/prebuild_legal_vectors.py`，同样依赖运行中的 `:demo` 镜像；
   按用户本轮明确范围（逐文件授权 CLI）未改动 8.1。线上 api 切到新代码镜像时应一并处理。
+
+# 第五轮：阶段二调整后的交付项（2026-10-16，未提交、未部署、零付费调用）
+
+本轮把阶段一实测到的 **modelstate 真实布局**固定进正式装配与部署配置，为 120 秒超时后的
+任务找回与幂等提供可复现证据，补齐阶段二公网切换/回滚方案，并在**内部验证实例**（本机
+回环 compose 栈，非公网 47.83.132.211）上完成真实浏览器验收与 Word/PDF **正文**断言。
+**未做任何法规核验、未改任何 `verification` 状态、未删除/重建/重置 3112 条向量索引与
+DEC-007 账本、未触碰线上服务器、未扩大真实模型外发授权、未发起任何供应商调用。**
+
+## 一、交付 1：统一 modelstate 正式部署路径（不动数据）
+
+- 正式装配与部署默认 private root 从 `…/private/TASK-0023`（本部署不存在）改为**卷根**
+  `…/private`：`scripts/task0023_real_ai_app.py`、`scripts/task0027_real_ai_validation_app.py`、
+  `scripts/prebuild_legal_vectors.py`、`scripts/task0027_ledger_baseline.py`、
+  `deploy/manage_authorization.py`（未配置时解析到同一个默认注册表并在 stderr 打印实际路径）。
+- `deploy/demo.env.example`、`docker-compose.demo.yml`、`deploy/README-demo.md` 写明三个
+  DEC-007 路径就是卷根文件（留空即用默认值），并说明换路径会与账本 scope 冲突
+  （`existing DEC ledger has a different scope`），而 scope 冲突的"唯一修复办法"是删账本——
+  正是 DEC-007 禁止的额度重置。
+- 新增**只读一致性核对** `scripts/task0027_identity_check.py`（全部 `mode=ro`/只读解析，
+  缺失即报告绝不创建；退出码 0 一致 / 2 停止）：核对 DEC-007 授权 ID、账本自身记录的 scope
+  与当前配置重新计算的 scope（注册表路径是 scope 的一部分）、private root/账本/模型审计/
+  注册表路径、模型审计存在性与账本-审计连续性、法规 publication/revision（与索引
+  `vector-manifest.json` 及可选数据库行交叉核对）、向量索引 build_id/条目数/覆盖率/
+  每个条目都有完好的缓存向量。`--print-scope` 只打印配置绑定的路径与 scope，不读账本。
+- 新增 `scripts/task0027_index_plan.py`（只读、本地、零请求）：从冻结语料重算 build id
+  （纯函数，可先于任何卷读取核对记录值），并逐条给出新快照的增删/文本变化/缓存命中，
+  判断重建是否**完全由持久缓存服务**（0 新批次）。
+
+### 实测结果（真实命令与数字）
+
+1) 索引身份链（本机对仓库内冻结语料重算，非读取服务器数据）：
+
+```
+$ python scripts/task0027_index_plan.py \
+    --publication-id 977826ab-948a-4681-9001-4866c7da3bc2 \
+    --revision-id fa2407bb-1dff-4da8-b828-bcc846df76ad \
+    --expect-build-id c7344cac5f45933fb7408701cb63ab2095206600aca952dcf4457130c85865d2
+publication: 977826ab-948a-4681-9001-4866c7da3bc2  revision: fa2407bb-1dff-4da8-b828-bcc846df76ad
+legal_snapshot_sha256: 69d340d65f5e9114c8a2e76f8b3b524b67f47d0cbc0088c4e01d80b7db8729fd
+clauses: 3112/3120 embeddable (8 overlong), 312 batches
+embedding identity: 8b05650d7f2d1bd4d089459f957bdd49b6340ddcda388719952e465fae16a723 (online)
+planned build_id: c7344cac5f45933fb7408701cb63ab2095206600aca952dcf4457130c85865d2
+PASS: the frozen corpus, the embedding identity and the publication/revision produce exactly
+the expected build id; the durable cache covers every planned clause (no new embedding batch).
+```
+
+2) 部署配置身份（在**本 Worktree 构建的容器**内运行，等于线上同一配置的解析结果）：
+
+```
+$ COMPOSE_PROJECT_NAME=tender-review-t27 docker compose --env-file deploy/.env \
+    -f docker-compose.demo.yml run --rm --no-deps \
+    -e DEC007_AUTHORIZATION_ID=DEC-007-2026-10-16 api \
+    python scripts/task0027_identity_check.py --print-scope
+{
+  "authorization_id": "DEC-007-2026-10-16",
+  "ledger_path": "/app/.verification/private/dec007-budget.sqlite3",
+  "ledger_read": false,
+  "mode": "scope-only",
+  "model_audit_path": "/app/.verification/private/dec007-model-audit.jsonl",
+  "private_root": "/app/.verification/private",
+  "registry_path": "/app/.verification/private/authorization-registry.jsonl",
+  "scope_sha256": "a3d2e9d06ed85ced833146d13b8de53d94de7f868ba49935d8a630287c88ccd9"
+}
+scope-only: the ledger was NOT read; this is the scope the current configuration binds.
+```
+
+3) 本地（本机回环栈）无 DEC-007 数据 → **失败关闭**（证据链不伪造本地数据）：
+
+```
+$ ... python scripts/task0027_ledger_baseline.py        # 期望 2/312/¥0.1062161/0 的只读入口
+STOP: the DEC ledger is absent at /app/.verification/private/dec007-budget.sqlite3; stop and
+report instead of initialising a fresh quota.                                    exit=2
+$ ... python scripts/task0027_identity_check.py --expected-scope a3d2e9d0... \
+      --publication-id 977826ab-... --revision-id fa2407bb-... --build-id c7344cac...
+STOP: the DEC-007 ledger is absent at /app/.verification/private/dec007-budget.sqlite3;
+stop and report instead of initialising a fresh quota.                           exit=2
+```
+
+**身份一致的实测边界（必须如实说明）**：线上账本记录值（scope、计数、审计文件、索引
+条目）**只有宿主操作员能读**——本机既无该卷也不允许访问服务器，因此本机证明的是
+①索引身份可由冻结语料 + 记录发布/修订**离线重算并完全一致**（含 build_id、snapshot、
+3112/3120、312 批、在线 embedding 身份）；②正式装配在容器内解析到**卷根路径**且 scope 由
+当前配置唯一确定；③工具在数据缺失时拒绝而不是编造。账本侧四项（scope 记录值 = a3d2e9d0…、
+LLM 2 / Embedding 312 / ¥0.1062161 / 未结算 0）需由操作员在宿主上以 8.4 的命令核对（**未执行**）。
+
+## 二、交付 2：120 秒超时后的任务找回与幂等
+
+### 2.1 前端最小引导修正（不重构后台、不改幂等语义）
+
+`src/frontend/src/pages/project.tsx` 原来对 `AbortError` 只显示通用错误文案，用户可能误以为
+任务丢失。现在创建审查请求被 120 秒客户端超时中断时：清空错误、显示
+`REVIEW_TIMEOUT_NOTICE`（新增于 `src/frontend/src/utils.ts`）：说明"不代表任务丢失……请在
+本页下方「审查任务」列表查看真实状态；再次点击「发起审查」会复用同一幂等键，不会重复创建
+任务，也不会产生新的模型调用"，并立即 `reload()` 刷新持久化任务列表。幂等键沿用既有
+`intentKey`（sessionStorage，只在成功时 `clearIntentKey`），后台任务的创建/持久化/幂等
+语义**零改动**。
+
+### 2.2 测试（自包含、回环、无供应商）`tests/test_task0027_timeout_recovery.py`
+
+```
+$ pytest --basetemp=.verification/t27-timeout tests/test_task0027_timeout_recovery.py
+4 passed in 8.08s
+```
+
+覆盖：
+1. `test_the_browser_aborts_the_review_request_after_120_seconds`：从 `client.ts` 断言
+   **120_000 ms** abort 与 `REVIEW_TIMEOUT_NOTICE` 出现在超时分支（场景绑定真实常量）。
+2. `test_the_same_idempotency_key_returns_the_task_and_executes_once`：同一 `Idempotency-Key`
+   第二次提交返回 **202 且响应字节等同**首次（同一 review_task_id/run_id/status），
+   执行器 `start` 只被调用 **1 次**、`review_engine_run` 只有 **1 行**、
+   真实 `Dec005BudgetLedger` 文件**字节不变**且摘要不变（`llm_calls=1`）。
+3. `test_the_same_key_with_a_different_document_set_is_a_conflict_and_executes_once`：
+   同键不同文档集 → **409**，执行器仍只 1 次、账本不变；换新键 → 新任务、执行器 2 次
+   （证明抑制来自幂等键而非全局阻塞）。
+4. `test_a_client_timeout_still_finds_the_running_task_and_its_result`：**真实 Uvicorn 回环
+   HTTP**，客户端 0.25 秒超时（对 1.5 秒执行，缩放后的 120 秒 abort 语义）后，
+   `GET /projects/{id}/reviews` 立刻显示 `running`，随后轮询到 `result_published`；
+   同键重提返回同一已完成任务且执行器仍只 1 次。
+
+边界：执行器是**记录型替身**（在 API 唯一调用边界 `engine.start` 上，用同一 ORM 行与真实账本
+记账）；真实 `ReviewEngine` 的 LangGraph 持久检查点要求 PostgreSQL，本机自包含测试未启动它；
+生产路径上的真实实例证据见 2.3。
+
+### 2.3 内部验证实例（本机回环 compose 栈）真实输出
+
+栈：`tender-review-t27`（本 Worktree 的 `docker-compose.demo.yml` + `Dockerfile.api/web`
+构建，`tender-review-api:task0027-t27` / `tender-review-web:task0027-t27`），
+`DEPLOY_REVIEW_MODE=offline`、`VITE_REVIEW_MODE=offline-deterministic`，仅发布
+`127.0.0.1:8090`；卷 `tender-review-t27-*`（全新，未触碰任何既有卷）。脚本
+`.verification/t27-acceptance/timeout_recovery_check.py`（真实登录 → 建项目 → 上传合成 DOCX →
+上下文确认 → 客户端 0.2 秒超时中断创建审查 → 列表找回 → 同键重提 → 跨项目同键 409）：
+
+```json
+{
+  "client_abort_seconds": 0.203,
+  "document_status_before_confirmation": "needs_confirmation",
+  "document_status_after_confirmation": "ready",
+  "review_task_id": "0af70a7c-e2e1-5eb5-b3e3-0d792b4ea18f",
+  "status_timeline": [{"status": "running"}, {"status": "waiting_human"}],
+  "task_found_after_abort": true,
+  "duplicate_status": 202,
+  "duplicate_same_task": true,
+  "same_key_other_project_status": 409,
+  "task_count_in_project_after_duplicates": 1,
+  "frontend_abort_milliseconds": 120000
+}
+```
+
+即：真实离线 LangGraph 审查在客户端中断后继续执行（`running → waiting_human`），任务始终
+可从项目页的任务列表找回；重复提交不产生第二个任务。离线模式下不存在付费调用；
+本机 DEC-007 账本不存在、未创建（本脚本不触碰任何 DEC-007 数据）。
+
+## 三、交付 5：内部实例的真实浏览器验收与 Word/PDF 正文断言
+
+### 3.1 真实浏览器（Microsoft Edge / Playwright，非公网）
+
+`.verification/t27-acceptance/browser_acceptance.mjs` 在 `http://127.0.0.1:8090` 全流程实测
+（8 张全页截图在 `.verification/t27-acceptance/browser/`）：登录 → 新建项目 → 真实上传
+→ 确认上下文 → 发起审查（202）→ 审查任务详情（`等待人工复核`）→ 风险卡片
+`待核验：Synthetic location requirement for human review` + `查询服务端精确定位`
+（1 条引用，含 SHA-256 与 `ooxml/body/3/paragraph` 定位）→ 保存复核决定 →
+人工复核历史（2 行）→ 继续审查流程（`结果已发布`）→ 生成并下载 Word 与 PDF →
+项目页任务列表显示该任务 `结果已发布`：
+
+```json
+{
+  "review_status_code": 202, "review_initial_status": "waiting_human",
+  "review_detail_status_badges": ["等待人工复核", "待复核"],
+  "finding_count": 1, "exact_citation_count": 1, "human_review_history_rows": 2,
+  "project_task_list_status": "结果已发布",
+  "reports": {"docx": {"sha256": "a7dd45f1…b3926"}, "pdf": {"sha256": "6573299b…c6717"}}
+}
+```
+
+### 3.2 Word/PDF 内容抽查（不看哈希，抽正文）
+
+**替代品声明**：阶段一的真实 AI 报告在 `/opt/tender-review-private/evidence/task0027-report-*.{docx,pdf}`，
+**只在服务器上，本轮不允许访问服务器**，未取得；下方断言对象是**本机内部实例（离线确定性
+模式）由真实报告流水线生成并经浏览器下载的 Word/PDF**，是明确的替代品，不代表阶段一真实
+AI 报告的逐字内容。
+
+`.verification/t27-acceptance/report_content_check.py`（python-docx 抽 DOCX 正文 1697 字符、
+pypdf 抽 PDF 2 页）断言并全部成立：
+
+- **风险标题**：`待核验：Synthetic location requirement for human review`（两种格式均有）；
+- **原文摘录**：`投标人必须在本市注册。该条款仅供离线演示和软件流程验证使用。`；
+- **证据状态**：`证据状态：insufficient_evidence`（独立 Evidence Checker 结果）；
+- **法规参考的适用性提示**：`法律适用框架尚未确认`、`未完成有效适用性匹配`、
+  `未包含可引用的法规条款` / `未提供可引用条款`（不补造条文）；
+- **不存在违法认定**：文本中 `认定违法`/`构成违法`/`属于违法`/`确认违法`/`违反了《`/`系违法行为`
+  全部不出现；`违法认定` 只出现在否定句（`尚无法律违法认定依据`、`不得据此认定确定性法律违规`）。
+
+```
+PASS: Word and PDF report content assertions held
+```
+
+## 四、交付 4：阶段二公网切换与回滚方案（文档，未执行）
+
+`deploy/README-demo.md` 新增 **8.5**（8.1 第 5 条同步补充"构建期参数、两镜像分别构建"）：
+- 8.5.1 **两个镜像分别构建**：API `$D build api` 与前端 `$D build nginx` 用同一提交/同一
+  `IMAGE_TAG`；`VITE_REVIEW_MODE=dec007-real-qwen` 是 Vite **编译期**常量，不重建 nginx
+  则文案不生效；前端模式必须与 `DEPLOY_REVIEW_MODE` 一致。
+- 8.5.2 切换 `authorized-real` 的**前置逐项**：预构建索引 pinned 校验（`task0027_index_plan.py
+  --expect-build-id`）、宿主 offline 证据新鲜（`verify_api_offline_mode.sh` → `verdict: ok`）、
+  账本基线（2/312/¥0.1062161/0）、注册表路径=卷根且与 scope 绑定一致
+  （`task0027_identity_check.py --print-scope`）、身份一致性退出码 0、8.4 受控验证轮已完成、
+  逐文件白名单非空且**面试官新上传文件不会自动授权**。
+- 8.5.3 切换步骤：先备份 → 改 `deploy/.env`（模式 + 前端模式 + 标签）→ 分别构建 → 先 api 后
+  nginx → 只读复核（并说明切换后宿主证据脚本对线上 api 本身必然报 `untrusted`，它只能用于
+  切换**之前**证明基线离线）。**HTTPS、`tender-certbot-*.timer` 自动续期、审计账本与数据库
+  全程不动**。
+- 8.5.4 **回滚**：改回 `offline` + `VITE_REVIEW_MODE=offline-deterministic` → `$D up -d
+  --force-recreate api`（环境变量变化必须重建）→ 重建 nginx → 宿主证据复核 `ok`；**账本不重置**
+  （不得删/替换/用备份覆盖）、索引与数据卷保留（不 `down -v`）、`revoke` 立即生效（注册表
+  append-only，运行中 API 每次判定重读）。
+- 明确边界：真实外发仅限已登记批准的合成文件；未核验法规的风险保持"待核验"，不得宣称违法。
+
+## 五、交付 3：本轮代码候选的真实命令与数字（本机）
+
+```
+$ ruff check src scripts tests                     -> All checks passed!
+$ mypy src                                         -> Success: no issues found in 104 source files
+$ python scripts/verify_repo.py                    -> PASS: contracts, examples, generated State and
+                                                      scoped task evidence
+$ pytest --basetemp=.verification/t27-timeout tests/test_task0027_timeout_recovery.py
+                                                   -> 4 passed in 8.08s
+$ pytest --basetemp=.verification/t27-plan-fix2 \
+    tests/test_task0027_index_plan.py tests/test_task0027_identity_check.py
+                                                   -> 34 passed in 7.46s
+$ cd src/frontend && npm run test                  -> 3 files, 8 passed (含新增 utils.test.ts 2 项)
+```
+
+官方 Focused（`scripts/verify.ps1 -Mode Focused`，8 个 TASK-0027 测试文件）：
+
+```
+[1/7] 契约/生成/任务证据 PASS；[2/7] ruff All checks passed!；
+[3/7] mypy Success: no issues found in 104 source files；
+[4/7] 前端（OpenAPI 一致、Biome Checked 22 files、tsc、vitest 8 passed、build）；
+[5/7] 123 passed in 105.57s
+PASS: Focused checks for explicitly selected files only; not full acceptance or startup evidence.
+```
+
+官方 Full：本轮**执行**了 Full（与第四轮"按用户指令未重跑 Full"不同——本轮改动含前端源码
+与测试，必须重跑）。**既有环境前置（第一轮已记录，本轮复现）**：`tests/test_verification_modes.py`
+会不带 `-PythonExecutable` 调内层 `verify.ps1`，因此必须把 venv 的 `Scripts` 目录前置到 `PATH`
+（否则内层回退到 PATH 上无 `jsonschema` 的系统 python，该测试失败且内层 pwsh 输出的中文路径
+会让读取线程抛 `UnicodeDecodeError`）。**第一次 Full 尝试（未前置 PATH）在 `[5/7]` 失败
+`1 failed, 805 passed`，失败项正是该环境前置，不是本轮代码缺陷**；前置 PATH 后的权威结果：
+
+```
+$ export PATH="/d/.../TASK-0021/.venv/Scripts:$PATH"
+$ pwsh -NoProfile -Command "& scripts/verify.ps1 -Mode Full     -PythonExecutable 'D:/.../TASK-0021/.venv/Scripts/python.exe'"
+[1/7] PASS  [2/7] ruff All checks passed!  [3/7] mypy Success: no issues found in 104 source files
+[4/7] 前端 OpenAPI 一致 / Biome Checked 22 files / tsc / vitest 8 passed / built
+[5/7] 806 passed, 6 warnings in 486.12s (0:08:06)
+[6/7] PASS: live HTTP health=200, missing=404, request IDs matched; port=62862
+[7/7] PASS: real HTTP login, project create/read/version, logout/revocation; child stopped
+PASS: development baseline checks; production acceptance is a separate milestone.
+FULL-EXIT=0
+```
+
+JUnit 汇总（`.verification/pytest-result.xml`）：`tests=806, failures=0, errors=0, skipped=0,
+time=486.085s`。6 条 warning 与第一轮相同：`tests/test_verification_modes.py` 在 Windows 下读取
+内层 pwsh 子进程输出时的 `UnicodeDecodeError` 线程告警（子进程输出编码，测试本身通过），
+属既有环境现象，本轮未改动验证脚本。完整日志 `.verification/t27-full.log`（含 `FULL-EXIT=0`）。
+
+## 六、本轮修掉的上一轮遗留（不改变语义）
+
+- `tests/test_task0027_index_plan.py`：① 空 egress 断言改为核对**守卫**先拒绝
+  （`never reserves a supplier request`；transport 是永不触达的第二层）；
+  ② 文本改写场景按实际语义断言——本合成语料的 clause_id 由文本决定，改写表现为
+  `removed=3/added=3/changed_text=0`（而不是同 id 改文本），三项合计仍是 3 条需重新嵌入。
+- 上一轮新增文件里的 ruff/密钥扫描问题：导入排序、超长行、未用导入、`/tmp` 字面量、
+  占位凭据命名（`example-…` 前缀，仅存在于测试/计划脚本，transport 拒绝一切请求）。
+
+## 七、边界与未做到/不确定（本轮）
+
+- **未做**：任何法规官网核验、任何 `verification` 状态修改、任何 `valid` 认定；任何供应商
+  调用（零付费）；任何线上操作（47.83.132.211 未触碰，公网 `DEPLOY_REVIEW_MODE` 仍
+  `offline`）；未删除/重建/重置 3112 条索引与 DEC-007 账本（本机根本没有这两样数据，
+  工具在缺失时失败关闭）；未 git 提交（用户自行提交）。
+- **未在服务器上读取账本/索引**：交付 1 的"实测结果"分三层，其中账本记录值（scope、
+  计数、审计、索引条目）**只能在宿主上核对**，本轮未执行；`status_timeline` 是列表轮询的
+  采样，不是服务端事件流。
+- **超出脚本覆盖的行为**：120 秒是前端常量（`client.ts` 已断言），pytest 与内部实例脚本
+  用缩放后的超时复现同一语义（客户端放弃、服务端继续）；**未做真实 120 秒挂起**的回归测试
+  （避免套件时长不可控），若需要可在宿主上以真实 120 秒复跑同一脚本。
+- **浏览器验收是内部实例**（本机回环 compose，离线确定性模式）：不是公网、不是
+  `authorized-real`，未上传任何真实标书；离线横幅与"固定测试网关"说明如实显示。
+- **Word/PDF 内容断言的是替代品**（本机内部实例生成），阶段一真实 AI 报告未取得；
+  两种格式的具体措辞不同，断言按各自实际正文逐条列出。
+- **8.5 是方案不是执行记录**：索引 pinned 校验、宿主 offline 证据、账本基线、切换与回滚
+  均**未在服务器上执行**；host 侧命令的实机可用性仍需切换当天核对。
+- 本轮为本机验证额外跑起的 `tender-review-t27` compose 栈（回环、离线、全新卷）是**验收
+  环境**，不是部署；验收后按 `$D down`（保留卷）停止，报告里如实说明其状态。

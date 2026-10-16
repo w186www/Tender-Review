@@ -13,6 +13,15 @@ export function clearIntentKey(scope: string): void {
   window.sessionStorage.removeItem(`${INTENT_PREFIX}${scope}`);
 }
 
+/**
+ * Guidance shown when the create-review request was aborted by the client-side 120 s
+ * timeout before any response arrived. The persisted task is not lost: the server keeps
+ * executing and the project page's task list shows its real status. Retrying reuses the
+ * same idempotency key, so it can never create a second task or a second model call.
+ */
+export const REVIEW_TIMEOUT_NOTICE =
+  "审查请求等待超过 120 秒已被浏览器中断，这不代表任务丢失：服务端可能已创建该审查任务并仍在执行。请在本页下方「审查任务」列表查看真实状态；再次点击「发起审查」会复用同一幂等键，不会重复创建任务，也不会产生新的模型调用。";
+
 export function formatBytes(size?: number | null): string {
   if (size === undefined || size === null) return "大小未提供";
   if (size < 1024) return `${size} 字节`;

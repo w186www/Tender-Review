@@ -59,7 +59,10 @@ from bidding_compliance.services.real_embedding_runtime import (  # noqa: E402
     real_embedding_settings,
 )
 
-DEFAULT_PRIVATE_ROOT = ROOT / ".verification/private/TASK-0023"
+# The modelstate volume root inside the container (``/app/.verification/private``): the
+# same root the server assemblies use, so the prebuild writes the index next to the DEC-007
+# ledger, audit trail and per-file registry instead of a TASK-0023 subdirectory.
+DEFAULT_PRIVATE_ROOT = ROOT / ".verification/private"
 INDEX_FILE = "legal-vectors.sqlite3"
 MANIFEST_FILE = "vector-manifest.json"
 
