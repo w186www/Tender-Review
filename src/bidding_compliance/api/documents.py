@@ -18,9 +18,10 @@ from bidding_compliance.ingestion.schemas import (
 )
 from bidding_compliance.ingestion.storage import make_store
 from bidding_compliance.services import documents, reports
+from bidding_compliance.services.identity import audit
 
 from .projects import DB, User
-from .schemas import ErrorResponse
+from .schemas import ErrorResponse, ExternalAuthorizationRecord, ExternalAuthorizationRequest
 
 router = APIRouter(
     prefix="/api/v1/projects/{projectId}/documents",
@@ -151,6 +152,67 @@ def corrections(
         )
     except (PermissionError, LookupError, FileExistsError, ValueError, IngestionError) as exc:
         raise translate(exc) from exc
+
+
+@router.post(
+    "/{documentId}/external-authorization",
+    status_code=201,
+    response_model=ExternalAuthorizationRecord,
+    operation_id="authorizeDocumentExternalProcessing",
+)
+def authorize_external_processing(
+    projectId: str,
+    documentId: str,
+    body: ExternalAuthorizationRequest,
+    request: Request,
+    principal: User,
+    session: DB,
+) -> ExternalAuthorizationRecord:
+    """Record one reviewer's explicit confirmation that a single uploaded file may be sent.
+
+    This is the per-file half of the DEC-007 authorization: the reviewer asserts, per
+    document, that they are entitled to have the file processed and agree that its
+    necessary (minimized) content may be sent to Alibaba Cloud Bailian. The row appended to
+    the append-only registry is the same audited record the operator CLI writes, so the
+    running API observes it on the next egress decision. Only the SHA-256 the server
+    resolves for *this* document is authorized -- there is deliberately no "allow
+    everything" switch, no caller-supplied hash and no content upload; files that were
+    never confirmed stay local-only (the review executor and the outbound minimizer both
+    refuse them). Every request also writes a tenant audit event.
+    """
+    registry = getattr(request.app.state, "external_authorization_registry", None)
+    if registry is None:
+        # Offline deployments have no external-processing authorization: fail closed
+        # instead of pretending the confirmation was recorded somewhere.
+        raise HTTPException(503, detail="external processing authorization is unavailable")
+    try:
+        documents.require_reviewer(session, principal)
+        document = documents.find_document(session, principal, projectId, documentId)
+        record = registry.approve(
+            sha256=document.sha256,
+            document_id=document.document_id,
+            reason=body.reason,
+            approved_by=principal.user_id,
+        )
+        audit(
+            session,
+            principal.tenant_id,
+            principal.user_id,
+            "document.external_authorization_approved",
+            document.document_id,
+        )
+        session.commit()
+    except (PermissionError, LookupError, FileExistsError, ValueError) as exc:
+        raise translate(exc) from exc
+    return ExternalAuthorizationRecord.model_validate(
+        {
+            "document_id": record["document_id"],
+            "sha256": record["sha256"],
+            "action": record["action"],
+            "approved_at": record["approved_at"],
+            "approved_by": record["approved_by"],
+        }
+    )
 
 
 @router.get("/{documentId}/original", response_class=Response, operation_id="downloadDocument")

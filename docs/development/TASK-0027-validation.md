@@ -948,3 +948,101 @@ time=486.085s`。6 条 warning 与第一轮相同：`tests/test_verification_mod
   均**未在服务器上执行**；host 侧命令的实机可用性仍需切换当天核对。
 - 本轮为本机验证额外跑起的 `tender-review-t27` compose 栈（回环、离线、全新卷）是**验收
   环境**，不是部署；验收后按 `$D down`（保留卷）停止，报告里如实说明其状态。
+
+# 第六轮：解除自设额度上限 + 工作台逐文件授权（2026-10-16，未提交、未部署、零付费调用）
+
+本轮按用户 2026-10-16 指令做两件事（公网真实 AI 上线前置）：**只提高 DEC-007 的硬上限数值**
+与**允许对当前上传文件做逐文件授权**。底线全部保持：不删除/重建/重置任何账本，不改授权 ID、
+不改历史行、不动 3112 条索引与 `modelstate` 卷、不动法规核验状态、零供应商调用、零密钥入库。
+
+## 一、任务 A：DEC-007 上限 300/800/¥30 → 2000/2000/¥200
+
+只改 `src/bidding_compliance/model_gateway/authorized_runtime.py` 的
+`AUTHORIZATION_LIMITS[FULL_CAPABILITY_AUTHORIZATION_ID]` 三个数值，并写明理由注释；授权 ID
+`DEC-007-2026-10-16`、账本文件 `dec007-budget.sqlite3`、每一行历史记录都不变（测试断言
+`summary()["ledger_history"]` 与既有账本接口行为）。**防失控机制一个都没放宽**：
+
+- 单次调用前**全额预留**（LLM ¥0.25/次、Embedding ¥0.10/批），账本只增不减；
+- `max_attempts=1`（无自动重试）、`max_concurrent_per_provider=1`；
+- 失败或用量未知的预留**继续占用额度**且不自动补发；
+- 上限是构造期参数（进程内），不写入账本、不改表结构；
+- 构造器仍拒绝任何超过 `AUTHORIZATION_LIMITS[DEC-007]` 的显式参数。
+
+同步更新的期望值/文档（保持可核对）：
+
+| 位置 | 旧值 → 新值 |
+|---|---|
+| `tests/test_task0027_budget_boundaries.py` | 800/801 与 300/301 边界 → **2000/2001**；¥30 耗尽 → **¥200**（800 × ¥0.25） |
+| `tests/test_task0027_per_file_authorization.py` | 授权上限字典、超限参数（2001/2001/¥200.01）、重开账本上限 |
+| `tests/test_task0027_round_limits.py` | `wide_ledger` 上限断言与 `summary()["limits"]` |
+| `tests/test_task0027_validation_entry.py` | "严格更紧"对比的硬上限、可放宽环境变量与 CLI 反例值 |
+| `scripts/task0027_real_ai_validation_app.py` | 模块说明（受控轮常量 4/322/¥2 **不变**） |
+| `deploy/README-demo.md`（8.1/8.4/8.5）、`deploy/demo.env.example`、`docs/decisions/DEC-007-*.md` | 数值与"修订二"说明 |
+
+## 二、任务 B：逐文件授权的最小实现（API + 前端一次显式确认）
+
+保留"未授权文件不外发"门禁，把授权动作做进工作台，**只对当前上传文件的 SHA-256 生效**：
+
+1. **本轮不改 `contracts/**`（用户底线）**：端点**未**登记进 `contracts/openapi.yaml`，前端
+   `src/api/schema.d.ts` 保持原样（`npm run api:check` 通过），前端改用 `src/api/client.ts` 新增的
+   显式鉴权 JSON 调用 `postJson`（bearer 令牌、401 清会话、统一中文错误映射，与生成客户端同路径）。
+   **这是与仓库"契约先行"规则的已知偏离**：把该端点补进 OpenAPI 契约需由用户单独决定；
+   其余数据面（请求/响应字段、错误码语义）已在 `api/schemas.py` 与新测试里固定。
+2. 服务端：`src/bidding_compliance/api/documents.py` 新端点 + `api/schemas.py` 新模型。
+   - `confirmed` 是 `Literal[True]`：**声明本身被服务端校验**，不是纯 UI 勾选；
+   - SHA-256 **由服务端从数据库取该文档的值**，请求体不接受哈希（`extra="forbid"`，
+     传 `sha256` 直接 422）；没有任何"全部放行"开关；
+   - 写注册表一行（actor=登录用户、时间、文件 SHA-256、文档标识、理由），并写租户审计事件
+     `document.external_authorization_approved`；**不触碰任何账本、不读文件内容、不发起供应商调用**；
+   - 注册表来自 `app.state.external_authorization_registry`：只有 `authorized-real` 装配
+     （`scripts/task0023_real_ai_app.py`）与 8.4 的验证实例（`scripts/task0027_real_ai_validation_app.py`）
+     设置它；`offline` 装配没有该状态 → **503 失败关闭**；
+   - 权限：只有可写项目的 `reviewer` 能登记（auditor 403，未登录 401）。
+3. 前端：`src/frontend/src/pages/project.tsx` 在文档行新增「登记外发授权」按钮
+   （**仅** `VITE_REVIEW_MODE === "dec007-real-qwen"` 构建且角色为 reviewer 时显示），弹窗展示
+   该文件完整 SHA-256、固定声明文案（"我确认我依法有权处理该文件，并同意把审查所需的必要内容
+   （经脱敏最小化的原文分段）交由阿里云百炼（bailian）处理"）+ 必填理由 + 必选确认框；
+   成功后用服务端返回的记录回显并刷新列表。
+4. `deploy/manage_authorization.py` CLI **未改动**，两条途径写同一个追加式文件、同一种行。
+5. 任务 YAML 同步：`allowed_paths` 增加本轮改动的四个源码/前端文件，`must_not_change` 收紧为
+   具体未改文件（保留 `contracts/**`），新增验收项 `TASK0027-012`；`scripts/verify_repo.py` PASS。
+
+## 三、本轮真实命令与真实数字（本机，全部合成数据、零供应商调用）
+
+```text
+ruff check src scripts tests                                 → All checks passed!
+mypy src                                                     → Success: no issues found in 104 source files
+scripts/verify_repo.py                                       → PASS: contracts, examples, generated State and scoped task evidence
+pytest tests/test_task0027_budget_boundaries.py \
+       tests/test_task0027_per_file_authorization.py \
+       tests/test_task0027_round_limits.py \
+       tests/test_task0027_validation_entry.py \
+       tests/test_authorized_runtime.py \
+       tests/test_task0027_external_authorization_api.py     → 72 passed in 205.95s
+前端（src/frontend）npm run api:check / lint / typecheck / test / build
+                                                            → 生成契约一致；22 文件 0 错误；8 passed；build 成功
+官方门禁 pwsh scripts/verify.ps1 -Mode Full -PythonExecutable <venv>
+                                                            → 退出码 0；[1/7]–[7/7] 全过；
+                                                              [5/7] 810 passed, 6 warnings in 528.45s
+                                                              （JUnit：tests 810 / failures 0 / errors 0 / skipped 0）；
+                                                              [6/7] 真实启动 smoke 与 [7/7] 鉴权生命周期 PASS
+```
+
+新增测试文件 `tests/test_task0027_external_authorization_api.py`（4 项，真实迁移数据库 +
+真实鉴权 API + 真实注册表类）：无注册表 503；缺 `confirmed`/`confirmed=false`/多余字段/空理由
+各自 422；auditor 403 且不落盘；reviewer 提交后注册表恰一行（字段集合精确、时间戳格式、操作人
+=登录用户）、有效白名单恰含该文件哈希、第二份未确认文件仍不在白名单、DB 审计事件 actor/资源正确、
+响应不泄漏注册表路径。前端检查同时通过 `api:check`（生成类型与未改动的契约一致）。
+`tests/test_task0027_budget_boundaries.py` 的两条边界测试改成 2000 次全量循环（真实 SQLite
+逐次预留与结算），耗时 205.95s 中含这两项。
+
+## 四、边界与未做到/不确定（本轮）
+
+- **未做真实 2000 次的供应商调用**：2000/2000/¥200 只是上限数值；本轮零付费调用。
+- 端点可用性取决于装配状态：`offline` 一律 503；`authorized-real`/验证实例才可用。
+- 前端按钮只在 `VITE_REVIEW_MODE=dec007-real-qwen` 的构建里出现；**必须重建 nginx 镜像**才生效
+  （构建期常量，见 8.5）。
+- 注册表行只证明"谁在何时为哪个文件哈希登记了授权"，不证明文件内容的合法来源；操作者
+  （登录审核员）仍是被信任的一环，与 CLI 同一信任假设。
+- 未在服务器上执行以上任何命令；本机 Windows 仅做代码与测试验证，**公网部署与真实调用
+  见本轮后续记录**。

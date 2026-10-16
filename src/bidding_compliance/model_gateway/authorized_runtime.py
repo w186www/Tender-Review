@@ -30,9 +30,19 @@ AUTHORIZATION_LIMITS: dict[str, dict[str, Any]] = {
     SEMANTIC_AUTHORIZATION_ID: {"llm": 15, "embedding": 0, "cny": Decimal("5")},
     # DEC-007 is a separate authorization with its own ledger file and scope; it neither
     # reuses nor resets the DEC-005/DEC-006 counters above. Building and querying share one
-    # ledger (no split build/query budgets) with 800 embedding batches: the full corpus
-    # needs about 312 of them, the rest is query headroom for the demo.
-    FULL_CAPABILITY_AUTHORIZATION_ID: {"llm": 300, "embedding": 800, "cny": Decimal("30")},
+    # ledger (no split build/query budgets).
+    #
+    # 2026-10-16, operator instruction: the original self-imposed ceilings (300 LLM / 800
+    # embedding / CNY 30) were low enough to block the final acceptance test and real use
+    # after the phase-one round had already recorded 2 LLM calls, 312 embedding batches and
+    # 0.1062161 CNY on this same ledger. Only the numbers were raised, to 2000 / 2000 /
+    # CNY 200; the authorization id, the ledger file and every recorded row stay exactly as
+    # they are (nothing is deleted, replaced or reset, and the counters never decrease).
+    # The runaway guards are untouched: one full-ceiling reservation before any networking,
+    # no automatic retry (max_attempts=1), concurrency 1 per provider, failed or
+    # unknown-usage reservations keep their reservation, and every ceiling is cumulative
+    # over the same authorization id.
+    FULL_CAPABILITY_AUTHORIZATION_ID: {"llm": 2000, "embedding": 2000, "cny": Decimal("200")},
 }
 
 

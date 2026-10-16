@@ -48,55 +48,57 @@ def request_hash(number: int) -> str:
     return hashlib.sha256(f"dec007-attempt-{number}".encode()).hexdigest()
 
 
-def test_eight_hundred_embedding_batches_are_allowed_and_eight_hundred_and_one_refused(
+def test_two_thousand_embedding_batches_are_allowed_and_two_thousand_and_one_refused(
     tmp_path,
 ):
     ledger = dec007_ledger(tmp_path)
-    for number in range(800):
+    for number in range(2000):
         reservation = ledger.reserve_external(
             kind="embedding", request_hash=request_hash(number), ceiling=EMBEDDING_CEILING
         )
         ledger.settle_external(reservation, Decimal("0.0002"))
     summary = ledger.summary()
-    assert summary["embedding_batches"] == 800
-    assert summary["limits"]["embedding_batches"] == 800
+    assert summary["embedding_batches"] == 2000
+    assert summary["limits"]["embedding_batches"] == 2000
     assert summary["unsettled_requests"] == 0
-    # 800 settled batches cost a fraction of the ceiling: the count is the binding limit.
+    # 2000 settled batches cost a fraction of the ceiling: the count is the binding limit.
     assert Decimal(summary["charged_or_reserved_cny"]) < Decimal("1")
 
     with pytest.raises(ModelGatewayError, match="count exhausted"):
         ledger.reserve_external(
-            kind="embedding", request_hash=request_hash(800), ceiling=EMBEDDING_CEILING
+            kind="embedding", request_hash=request_hash(2000), ceiling=EMBEDDING_CEILING
         )
-    assert ledger.summary()["embedding_batches"] == 800
+    assert ledger.summary()["embedding_batches"] == 2000
 
 
-def test_three_hundred_llm_calls_are_allowed_and_three_hundred_and_one_refused(tmp_path):
+def test_two_thousand_llm_calls_are_allowed_and_two_thousand_and_one_refused(tmp_path):
     ledger = dec007_ledger(tmp_path)
-    for number in range(300):
+    for number in range(2000):
         reservation = ledger.reserve_external(
             kind="llm", request_hash=request_hash(number), ceiling=LLM_CEILING
         )
         ledger.settle_external(reservation, Decimal("0.0005"))
-    assert ledger.summary()["llm_calls"] == 300
+    assert ledger.summary()["llm_calls"] == 2000
     with pytest.raises(ModelGatewayError, match="count exhausted"):
         ledger.reserve_external(
-            kind="llm", request_hash=request_hash(300), ceiling=LLM_CEILING
+            kind="llm", request_hash=request_hash(2000), ceiling=LLM_CEILING
         )
 
 
-def test_spent_thirty_yuan_refuses_new_requests_despite_remaining_batch_headroom(tmp_path):
+def test_spent_two_hundred_yuan_refuses_new_requests_despite_remaining_batch_headroom(
+    tmp_path,
+):
     ledger = dec007_ledger(tmp_path)
-    for number in range(120):  # 120 x ¥0.25 = the full ¥30 ceiling
+    for number in range(800):  # 800 x ¥0.25 = the full ¥200 ceiling
         reservation = ledger.reserve_external(
             kind="llm", request_hash=request_hash(number), ceiling=LLM_CEILING
         )
         ledger.settle_external(reservation, LLM_CEILING)
     summary = ledger.summary()
-    assert summary["llm_calls"] == 120 and summary["limits"]["llm_calls"] == 300
+    assert summary["llm_calls"] == 800 and summary["limits"]["llm_calls"] == 2000
     assert summary["embedding_batches"] == 0
-    assert summary["limits"]["embedding_batches"] == 800
-    assert Decimal(summary["charged_or_reserved_cny"]) == Decimal("30")
+    assert summary["limits"]["embedding_batches"] == 2000
+    assert Decimal(summary["charged_or_reserved_cny"]) == Decimal("200")
 
     with pytest.raises(ModelGatewayError, match="budget exhausted"):
         ledger.reserve_external(
@@ -104,7 +106,7 @@ def test_spent_thirty_yuan_refuses_new_requests_despite_remaining_batch_headroom
         )
     with pytest.raises(ModelGatewayError, match="budget exhausted"):
         ledger.reserve_external(kind="llm", request_hash=request_hash(501), ceiling=LLM_CEILING)
-    assert Decimal(ledger.summary()["charged_or_reserved_cny"]) == Decimal("30")
+    assert Decimal(ledger.summary()["charged_or_reserved_cny"]) == Decimal("200")
 
 
 class FailingTransport(httpx.BaseTransport):

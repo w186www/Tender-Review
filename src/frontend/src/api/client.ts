@@ -127,3 +127,42 @@ export function errorText(error: unknown): string {
   if (error instanceof TypeError) return "网络连接失败，请检查服务状态后重试。";
   return "发生未知错误，请稍后重试。";
 }
+
+/**
+ * POST one JSON body through the same authenticated, fail-closed path as the generated
+ * client: bearer token from the tab session, 401 clears the session and announces expiry,
+ * and every failure maps to the shared Chinese message plus the server request id.
+ *
+ * It exists for the routes that are served but deliberately absent from the frozen
+ * OpenAPI contract of this round (the per-file external-processing confirmation), so no
+ * generated type is available for them.
+ */
+export async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const token = readToken();
+  const response = await fetch(new URL(path, window.location.origin), {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response
+    .json()
+    .catch(() => ({}))) as Partial<ErrorBody> & Record<string, unknown>;
+  if (response.status === 401) {
+    setToken(null);
+    window.dispatchEvent(new Event("auth:expired"));
+  }
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      apiMessage(response.status, payload.code),
+      payload.code,
+      payload.request_id,
+    );
+  }
+  return payload as T;
+}

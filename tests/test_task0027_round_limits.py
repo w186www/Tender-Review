@@ -80,7 +80,7 @@ def round_ledger(path: Path) -> Dec005BudgetLedger:
 
 
 def wide_ledger(path: Path) -> Dec005BudgetLedger:
-    """The DEC-007 authorization ceilings (300/800/CNY 30) as the prebuild used them."""
+    """The DEC-007 authorization ceilings (2000/2000/CNY 200) as the prebuild used them."""
     return Dec005BudgetLedger(
         path, scope_sha256=SCOPE, authorization_id=FULL_CAPABILITY_AUTHORIZATION_ID
     )
@@ -444,7 +444,11 @@ def test_option_a_boundary_wide_and_tight_instances_share_one_counter_file(tmp_p
         tight.reserve_external(kind="llm", request_hash=request_hash(50), ceiling=LLM_CEILING)
 
     wide = wide_ledger(path)
-    assert (wide.llm_limit, wide.embedding_limit, wide.total_cny) == (300, 800, Decimal("30"))
+    assert (wide.llm_limit, wide.embedding_limit, wide.total_cny) == (
+        2000,
+        2000,
+        Decimal("200"),
+    )
     assert wide.summary()["llm_calls"] == 4  # one shared series, never reset per instance
     wide.reserve_external(kind="llm", request_hash=request_hash(51), ceiling=LLM_CEILING)
     assert wide.summary()["llm_calls"] == 5
@@ -457,7 +461,7 @@ def test_option_a_boundary_wide_and_tight_instances_share_one_counter_file(tmp_p
         }
     assert tables == {"authorization", "requests"}
     assert wide.summary()["limits"] == {
-        "llm_calls": 300,
-        "embedding_batches": 800,
-        "total_cny": "30",
+        "llm_calls": 2000,
+        "embedding_batches": 2000,
+        "total_cny": "200",
     }

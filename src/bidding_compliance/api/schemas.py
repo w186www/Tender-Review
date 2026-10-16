@@ -33,3 +33,28 @@ class ErrorResponse(BaseModel):
     message: str
     request_id: str
     details: dict[str, object] = Field(default_factory=dict)
+
+
+class ExternalAuthorizationRequest(BaseModel):
+    """One operator's explicit, per-file confirmation for external processing.
+
+    ``confirmed`` must literally be ``true``: the declaration is part of the audited
+    record, never a UI-only checkbox. The endpoint accepts no file content and no hash
+    from the caller -- it resolves the document's own SHA-256 server-side -- so it cannot
+    be used to authorize a file the caller cannot access.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=1, max_length=500)
+    confirmed: Literal[True]
+
+
+class ExternalAuthorizationRecord(BaseModel):
+    """One append-only registry row, echoed back for the operator's confirmation."""
+
+    model_config = ConfigDict(extra="forbid")
+    document_id: str
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    action: Literal["approve"]
+    approved_at: str
+    approved_by: str

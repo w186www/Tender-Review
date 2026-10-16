@@ -529,7 +529,7 @@ def test_round_ceilings_are_the_documented_constants_and_stay_tighter_than_dec00
     )
     assert validation.assert_round_limits_bounded(limits) is limits
     hard = AUTHORIZATION_LIMITS[FULL_CAPABILITY_AUTHORIZATION_ID]
-    assert (hard["llm"], hard["embedding"], hard["cny"]) == (300, 800, Decimal("30"))
+    assert (hard["llm"], hard["embedding"], hard["cny"]) == (2000, 2000, Decimal("200"))
     assert limits.llm_limit < hard["llm"]
     assert limits.embedding_limit < hard["embedding"]
     assert limits.total_cny < hard["cny"]
@@ -537,7 +537,7 @@ def test_round_ceilings_are_the_documented_constants_and_stay_tighter_than_dec00
 
 def test_no_environment_variable_or_cli_option_can_raise_the_round_ceilings(monkeypatch):
     for name in WIDENING_VARIABLES:
-        monkeypatch.setenv(name, "300")
+        monkeypatch.setenv(name, "2000")
     limits = validation.round_limits()
     assert (limits.llm_limit, limits.embedding_limit, limits.total_cny) == (
         4,
@@ -545,7 +545,11 @@ def test_no_environment_variable_or_cli_option_can_raise_the_round_ceilings(monk
         Decimal("2"),
     )
     parser = validation.build_parser()
-    for argv in (["--llm-limit", "300"], ["--embedding-limit", "800"], ["--total-cny", "30"]):
+    for argv in (
+        ["--llm-limit", "2000"],
+        ["--embedding-limit", "2000"],
+        ["--total-cny", "200"],
+    ):
         with pytest.raises(SystemExit):
             parser.parse_args(
                 ["--publication-id", PUBLICATION, "--revision-id", REVISION, *argv]
@@ -553,7 +557,7 @@ def test_no_environment_variable_or_cli_option_can_raise_the_round_ceilings(monk
 
 
 def test_a_ceiling_that_is_not_strictly_tighter_than_dec007_is_refused(monkeypatch):
-    monkeypatch.setattr(validation, "ROUND_LLM_LIMIT", 300)
+    monkeypatch.setattr(validation, "ROUND_LLM_LIMIT", 2000)
     with pytest.raises(ValueError, match="strictly tighter"):
         validation.assert_round_limits_bounded(validation.round_limits())
 

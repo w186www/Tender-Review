@@ -1,4 +1,4 @@
-import { client, unwrap } from "./client";
+import { client, postJson, unwrap } from "./client";
 import type { components } from "./schema";
 
 export type Identity = components["schemas"]["Identity"];
@@ -17,6 +17,37 @@ export type ConfigurationState =
   components["schemas"]["ConfigurationStateResponse"];
 export type LegalManagement = components["schemas"]["LegalManagementResponse"];
 export type ReadRequestOptions = { signal?: AbortSignal };
+
+export type ExternalAuthorizationRecord = {
+  document_id: string;
+  sha256: string;
+  action: "approve";
+  approved_at: string;
+  approved_by: string;
+};
+
+export type ExternalAuthorizationRequest = {
+  reason: string;
+  confirmed: true;
+};
+
+/**
+ * The reviewer's explicit, per-file confirmation that one uploaded document may be sent
+ * to the external model service. The route is served by the API but deliberately absent
+ * from this round's frozen OpenAPI contract (`contracts/**` is not modified), so it is
+ * called through the client's explicit authenticated JSON helper instead of the generated
+ * client. The server resolves the file SHA-256 itself and accepts no hash from here.
+ */
+export async function authorizeDocumentExternalProcessing(
+  projectId: string,
+  documentId: string,
+  body: ExternalAuthorizationRequest,
+): Promise<ExternalAuthorizationRecord> {
+  return postJson<ExternalAuthorizationRecord>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/external-authorization`,
+    body,
+  );
+}
 
 export const api = {
   async login(tenant_id: string, username: string, password: string) {

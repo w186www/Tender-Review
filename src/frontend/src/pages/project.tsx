@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError, errorText } from "../api/client";
 import {
   api,
+  authorizeDocumentExternalProcessing,
   type DocumentRecord,
   type Project,
   type ReviewTask,
@@ -34,6 +35,11 @@ type ContextFields = components["schemas"]["ContextFields"];
 type ContextData = components["schemas"]["DocumentContext"];
 
 const processingStates = new Set(["quarantined", "accepted", "parsing"]);
+
+// The per-file confirmation control only exists in the build that actually talks to the
+// real supplier (VITE_REVIEW_MODE is a compile-time switch); offline builds never show it.
+const EXTERNAL_AUTHORIZATION_MODE =
+  import.meta.env.VITE_REVIEW_MODE === "dec007-real-qwen";
 
 const issueLabels: Record<string, string> = {
   TYPE_MISMATCH: "文件类型与内容不匹配",
@@ -76,6 +82,8 @@ export function ProjectPage() {
   const [contextDocument, setContextDocument] = useState<DocumentRecord | null>(
     null,
   );
+  const [authorizationDocument, setAuthorizationDocument] =
+    useState<DocumentRecord | null>(null);
 
   const reload = useCallback(() => setRefresh((value) => value + 1), []);
 
@@ -387,6 +395,15 @@ export function ProjectPage() {
                     >
                       查看上下文
                     </Button>
+                    {EXTERNAL_AUTHORIZATION_MODE &&
+                      identity?.role === "reviewer" && (
+                        <Button
+                          variant="quiet"
+                          onClick={() => setAuthorizationDocument(doc)}
+                        >
+                          登记外发授权
+                        </Button>
+                      )}
                   </td>
                 </tr>
               ))}
@@ -512,7 +529,134 @@ export function ProjectPage() {
           reload();
         }}
       />
+      <ExternalAuthorizationDialog
+        key={authorizationDocument?.document_id ?? "none"}
+        document={authorizationDocument}
+        onClose={() => setAuthorizationDocument(null)}
+        onSaved={(message) => {
+          setAuthorizationDocument(null);
+          setNotice(message);
+          reload();
+        }}
+      />
     </section>
+  );
+}
+
+const EXTERNAL_AUTHORIZATION_STATEMENT =
+  "我确认我依法有权处理该文件，并同意把审查所需的必要内容（经脱敏最小化的原文分段）交由阿里云百炼（bailian）处理。";
+
+function ExternalAuthorizationDialog({
+  document,
+  onClose,
+  onSaved,
+}: {
+  document: DocumentRecord | null;
+  onClose: () => void;
+  onSaved: (message: string) => void;
+}) {
+  const [confirmed, setConfirmed] = useState(false);
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    if (!document || !confirmed || !reason.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const record = await authorizeDocumentExternalProcessing(
+        document.project_id,
+        document.document_id,
+        { reason: reason.trim(), confirmed: true },
+      );
+      onSaved(
+        `已登记外发授权：文件 ${record.document_id}（SHA-256 ${record.sha256.slice(0, 12)}…），` +
+          `操作人 ${record.approved_by}，时间 ${record.approved_at}。该授权只对本文件生效，可被运维收回。`,
+      );
+    } catch (reasonValue) {
+      setError(errorText(reasonValue));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={document !== null}
+      title="登记该文件的外发处理授权"
+      onClose={onClose}
+      size="wide"
+    >
+      {error && <Notice kind="error">{error}</Notice>}
+      {document && (
+        <div className="context-layout">
+          <div className="context-doc-summary">
+            <strong>{document.document_id}</strong>
+            <span>
+              文件 SHA-256：<code>{document.sha256}</code>
+            </span>
+            <span>
+              <StatusBadge status={document.status} />
+            </span>
+          </div>
+          <Notice kind="info">
+            {EXTERNAL_AUTHORIZATION_STATEMENT}
+            该确认只对上面这一个文件的 SHA-256 生效，不会放行其他文件，
+            也不会放宽额度或覆盖“未核验法规不得作为违法依据”的证据规则。
+          </Notice>
+          <form
+            className="form-grid"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+          >
+            <div className="form-field form-span">
+              <label htmlFor="external-authorization-reason">
+                授权理由 <span className="required-mark">*</span>
+              </label>
+              <textarea
+                id="external-authorization-reason"
+                rows={2}
+                minLength={1}
+                maxLength={500}
+                required
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                aria-describedby="external-authorization-reason-hint"
+              />
+              <small id="external-authorization-reason-hint">
+                将写入追加式审计记录（文件哈希、文件标识、理由、时间、操作人）。
+              </small>
+            </div>
+            <div className="form-field form-span">
+              <label htmlFor="external-authorization-confirm">
+                <input
+                  id="external-authorization-confirm"
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(event) => setConfirmed(event.target.checked)}
+                />{" "}
+                我已阅读并同意上述声明（服务端同样校验该确认）
+              </label>
+            </div>
+            <div className="modal-actions form-span">
+              <Button type="button" onClick={onClose}>
+                取消
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={saving || !confirmed || !reason.trim()}
+              >
+                {saving ? "正在登记…" : "确认授权该文件"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+    </Dialog>
   );
 }
 

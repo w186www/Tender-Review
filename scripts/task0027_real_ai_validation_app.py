@@ -3,7 +3,9 @@
 Why this assembly exists
 ------------------------
 ``scripts/task0023_real_ai_app.py`` (``DEPLOY_REVIEW_MODE=authorized-real``) runs the
-DEC-007 envelope exactly as authorized: LLM 300 calls / Embedding 800 batches / CNY 30. The
+DEC-007 envelope exactly as authorized: LLM 2000 calls / Embedding 2000 batches / CNY 200
+(raised on operator instruction 2026-10-16 from 300/800/30; the authorization id, ledger
+file and recorded rows are unchanged, and the counters keep accumulating). The
 controlled round before the first paid call must spend far less, so this assembly is the
 *same* server runtime -- same publication and revision, same embedding identity, same
 authorization scope, same ``modelstate`` private root, same prebuilt-index requirement -- with
@@ -17,7 +19,7 @@ they live here as module constants: there is deliberately no environment variabl
 option or request field that can raise them, so neither an operator, an API caller nor a
 demo account can widen this round. ``assert_round_limits_bounded`` additionally refuses an
 assembly whose constants are not strictly tighter than ``AUTHORIZATION_LIMITS[DEC-007]``,
-which stays 300/800/CNY 30.
+which stays 2000/2000/CNY 200.
 
 Two operations, deliberately not fused
 --------------------------------------
@@ -802,6 +804,9 @@ def build_app(
     app.state.external_budget = budget
     app.state.authorization_id = resolution.authorization_id
     app.state.authorized_document_count = len(resolution.allowed_documents)
+    # Same per-file confirmation endpoint as the official assembly, backed by the same
+    # append-only registry (this round shares the modelstate volume and the ledger scope).
+    app.state.external_authorization_registry = resolution.registry
     return app, outcome
 
 

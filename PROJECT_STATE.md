@@ -2,7 +2,62 @@
 
 更新时间：2026-10-16
 
-## 进行中：TASK-0027（DEC-007 完整能力）第五轮：阶段二调整后的交付项完成，等待复核提交与首次真实调用批准
+## 进行中：TASK-0027（DEC-007 完整能力）第六轮：解除自设额度上限 + 工作台逐文件授权 + 公网真实 AI 上线
+
+- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `8204239`
+  （`feat(TASK-0027): unify the deployed data path, recover from a review timeout, prepare the switch`，
+  已推送且工作树干净）；**本轮（任务 A/B）改动未提交**，由用户复核后提交——**部署前必须已有提交**。
+- 用户 2026-10-16 指令：公网真实 AI 上线（DEC-007 完整能力），三项任务 A（解除自设上限）、
+  B（允许对当前上传文件做逐文件授权）、C（公网部署，含回滚准备）、D（公网真实端到端验收）。
+  底线：**不删除/重建/重置任何账本与 3112 条向量索引、不改授权 ID 与历史行、不动法规核验状态、
+  不伪造 valid、不外发未授权文件、密钥不入仓库/镜像/前端/日志**；出现不可恢复数据丢失风险即停止。
+- **任务 A（本轮完成，本机验证）**：`AUTHORIZATION_LIMITS[DEC-007]` 仅数值 300/800/¥30 →
+  **2000/2000/¥200**（`src/bidding_compliance/model_gateway/authorized_runtime.py`，含理由注释）；
+  授权 ID `DEC-007-2026-10-16`、账本 `dec007-budget.sqlite3`、全部历史行原样保留（只在同一账本上
+  继续累计）；防失控机制未放宽：单次全额预留、`max_attempts=1`、并发 1、失败/未知用量保留预留且
+  不自动补发、构造期拒绝超限参数、上限不写入账本。测试期望与文档同步（budget_boundaries、
+  per_file_authorization、round_limits、validation_entry、README-demo 8.1/8.4/8.5、demo.env.example、
+  DEC-007 决定记录加"修订二"）。
+- **任务 B（本轮完成最小实现，本机验证）**：保留"未授权文件不外发"，把授权动作做进工作台：
+  受鉴权端点 `POST /projects/{projectId}/documents/{documentId}/external-authorization`，
+  服务端 `api/documents.py` 新端点 + `api/schemas.py` 两个模型；**按用户底线本轮不改 `contracts/**`**
+  （端点未登记进 `contracts/openapi.yaml`，`src/api/schema.d.ts` 保持原样、`api:check` 通过；
+  前端改用 `src/api/client.ts` 新增的显式鉴权 JSON 调用 `postJson`——与仓库"契约先行"规则的
+  已知偏离，是否补契约由用户决定）；`confirmed` 必须为 true（服务端校验）、
+  SHA-256 **由服务端从数据库解析该文档**（请求体不接受哈希，`extra="forbid"`）、**没有"全部放行"开关**、
+  每次登记写追加式注册表一行 + 租户审计事件 `document.external_authorization_approved`、
+  **不触碰任何账本**；只有 `authorized-real` 装配与 8.4 验证实例设置
+  `app.state.external_authorization_registry`（`offline` 装配一律 503）；权限仅 reviewer。
+  前端 `src/api/operations.ts` 暴露 `authorizeDocumentExternalProcessing`（走 `postJson`），
+  `pages/project.tsx` 在文档行新增「登记外发授权」（仅 `VITE_REVIEW_MODE=dec007-real-qwen`
+  构建显示），弹窗含固定声明文案 + 必填理由 + 必选确认。`deploy/manage_authorization.py` CLI 未改动，
+  两条途径写同一文件同一种行。**nginx 镜像必须重建**该前端才可见（构建期常量）。
+  任务 YAML 同步（`allowed_paths` 收录本轮文件、`must_not_change` 收紧为具体未改文件并保留
+  `contracts/**`、新增验收项 `TASK0027-012`），`scripts/verify_repo.py` PASS。
+- 本轮真实数字（本机合成数据、零付费调用、未触碰线上服务器）：ruff `All checks passed!`；
+  mypy `Success: no issues found in 104 source files`；`scripts/verify_repo.py` PASS；
+  pytest（6 个相关文件，含新增 `tests/test_task0027_external_authorization_api.py` 4 项）
+  `72 passed in 205.95s`；前端 `api:check`/`lint`/`typecheck`/`test`(8 passed)/`build` 全通过；
+  官方 **Full 退出码 0**（`[1/7]`–`[7/7]` 全过，`[5/7]` **810 passed, 6 warnings in 528.45s**，
+  JUnit tests 810 / failures 0 / errors 0 / skipped 0）。
+  命令与转录见 [TASK-0027 验证记录 第六轮](docs/development/TASK-0027-validation.md)。
+- **任务 C/D（公网部署与真实端到端验收）**：见本文件"公网真实 AI 上线记录"一节（随后续步骤更新）。
+- **本轮不得宣称超出**：上限只是数值（未做真实 2000 次调用）；端点/按钮的可用性与构建模式绑定；
+  端点尚未进入 OpenAPI 契约（见上）；
+  注册表行只证明"谁在何时为哪个文件哈希登记"，操作者仍是信任链的一环；未在服务器执行任何上述命令。
+
+## 公网真实 AI 上线记录（任务 C/D，本文件逐步更新）
+
+- 状态：**进行中**（本段在切换与验收过程中逐项更新；每次只记录已真实执行并有证据的步骤）。
+- 待完成项：① 用户提交并推送本轮改动；② CI 对 head_sha 全部适用作业 success；③ 服务器只读
+  基线核对（账本 2/312/¥0.1062161/未结算 0 或其后只增不减、身份一致性、索引 build_id/match、
+  publication/revision）；④ api 与 nginx 分构建同提交（nginx 构建期 `VITE_REVIEW_MODE=dec007-real-qwen`）；
+  ⑤ 记录回滚信息后切换 `DEPLOY_REVIEW_MODE=authorized-real` 并 `--force-recreate`；
+  ⑥ 公网端到端验收（真实 Qwen 调用证据、Token/费用/耗时、Word/PDF 正文断言、新文件授权路径）。
+
+以下保留第五轮（阶段二调整后的交付项）与更早的记录。
+
+## 第五轮（已提交为 HEAD 8204239）：阶段二调整后的交付项完成
 
 - 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，当前 HEAD `da28f9f`
   （`fix(TASK-0027): close the detection blind spot and stop the README using the old image`）；

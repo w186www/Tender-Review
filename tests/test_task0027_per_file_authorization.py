@@ -124,9 +124,9 @@ def test_dec007_is_an_independent_authorization_with_its_own_ledger(tmp_path):
         "cny": Decimal("5"),
     }
     assert AUTHORIZATION_LIMITS[FULL_CAPABILITY_AUTHORIZATION_ID] == {
-        "llm": 300,
-        "embedding": 800,
-        "cny": Decimal("30"),
+        "llm": 2000,
+        "embedding": 2000,
+        "cny": Decimal("200"),
     }
 
     legacy = Dec005BudgetLedger(
@@ -144,13 +144,13 @@ def test_dec007_is_an_independent_authorization_with_its_own_ledger(tmp_path):
     )
     summary = full.summary()
     assert summary["llm_calls"] == 0 and summary["embedding_batches"] == 0
-    assert summary["limits"] == {"llm_calls": 300, "embedding_batches": 800, "total_cny": "30"}
+    assert summary["limits"] == {"llm_calls": 2000, "embedding_batches": 2000, "total_cny": "200"}
     assert legacy.summary()["llm_calls"] == 1  # the earlier authorization is untouched
 
     for overrides in (
-        {"llm_limit": 301},
-        {"embedding_limit": 801},
-        {"total_cny": Decimal("30.01")},
+        {"llm_limit": 2001},
+        {"embedding_limit": 2001},
+        {"total_cny": Decimal("200.01")},
     ):
         with pytest.raises(ValueError):
             Dec005BudgetLedger(
@@ -419,7 +419,7 @@ def test_engine_denies_egress_after_an_external_revocation_of_a_running_process(
         scope_sha256=resolution.scope_sha256,
         authorization_id=resolution.authorization_id,
     )
-    assert reopened.summary()["limits"]["embedding_batches"] == 800
+    assert reopened.summary()["limits"]["embedding_batches"] == 2000
 
 
 def test_minimizer_refuses_a_revoked_document_at_the_next_egress_decision(tmp_path):

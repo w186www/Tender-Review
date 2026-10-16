@@ -82,6 +82,10 @@ app.state.review_prompt_version = SEMANTIC_PROMPT_VERSION
 app.state.external_budget = budget
 app.state.authorization_id = resolution.authorization_id
 app.state.authorized_document_count = len(resolution.allowed_documents)
+# The per-file registry the reviewer's explicit confirmation endpoint appends to (same file
+# the operator CLI writes and the egress gate re-reads): without it that endpoint is
+# unavailable (503) and every unconfirmed file stays local-only.
+app.state.external_authorization_registry = resolution.registry
 # Operator-critical context goes to stderr, where the JSON formatter cannot hide it.
 print(
     "real model authorization: "

@@ -40,6 +40,11 @@
     "src/bidding_compliance/model_gateway/authorized_runtime.py",
     "src/bidding_compliance/legal/vector_index.py",
     "src/frontend/src/app.tsx",
+    "src/bidding_compliance/api/documents.py",
+    "src/bidding_compliance/api/schemas.py",
+    "src/frontend/src/api/client.ts",
+    "src/frontend/src/api/operations.ts",
+    "src/frontend/src/pages/project.tsx",
     "scripts/**",
     "deploy/**",
     "docker-compose.demo.yml",
@@ -57,8 +62,12 @@
     "knowledge/legal/**",
     "config/legal/**",
     "contracts/**",
-    "src/frontend/src/api/**",
-    "src/frontend/src/pages/**",
+    "src/frontend/src/api/schema.d.ts",
+    "src/frontend/src/pages/audit.tsx",
+    "src/frontend/src/pages/configuration.tsx",
+    "src/frontend/src/pages/login.tsx",
+    "src/frontend/src/pages/projects.tsx",
+    "src/frontend/src/pages/reviews.tsx",
     "src/frontend/package.json",
     "src/frontend/package-lock.json",
     "docs/reference/**",
@@ -81,7 +90,9 @@
     "验收前阻断问题：前端新增 dec007-real-qwen 模式说明并更新 Dockerfile.web 与 env 模板注释；800/801 批次边界、¥30 耗尽与失败预留保留均补边界测试。",
     "以 MockTransport 与离线 provider 完成单元测试、集成测试；确认失败路径不产生任何合成结论、无静默回退。",
     "运行 Focused 与 Full 及必需专项检查，记录真实命令与数字；开发期间不切换线上 API。",
-    "离线实测建库批数与查询消耗，据此提交首次真实调用申请（批次、费用、文件哈希、外发数据范围），等待批准。"
+    "离线实测建库批数与查询消耗，据此提交首次真实调用申请（批次、费用、文件哈希、外发数据范围），等待批准。",
+    "第六轮（用户 2026-10-16 指令）：只提高 DEC-007 的硬上限数值为 2000 次 LLM / 2000 批 Embedding / ¥200（授权 ID、账本文件与历史行不变，防失控机制不放宽），同步测试期望与文档。",
+    "第六轮（用户 2026-10-16 指令）：允许审核员对**当前上传的单个文件**做逐文件外发授权——受鉴权 API 端点（confirmed 服务端校验、SHA-256 由服务端解析、无全部放行开关、每次登记写追加式注册表一行与租户审计行、不触碰账本）与前端一次性显式确认；offline 装配一律 503；CLI 继续可用；本轮不改 contracts/**（端点未登记进 OpenAPI 契约，如实记录）。"
   ],
   "acceptance_checks": [
     {
@@ -204,6 +215,25 @@
         "src/frontend/src/utils.ts",
         "src/frontend/src/pages/project.tsx",
         "src/frontend/src/utils.test.ts",
+        "docs/development/TASK-0027-validation.md"
+      ]
+    }
+    ,
+    {
+      "id": "TASK0027-012",
+      "description": "第六轮（用户 2026-10-16 指令）：① DEC-007 硬上限只提数值为 2000/2000/¥200，授权 ID DEC-007-2026-10-16、账本文件与全部历史行不变，单次全额预留、max_attempts=1、并发 1、失败与未知用量保留预留且不自动补发、构造期拒绝超限参数等防失控机制全部保持；测试期望（budget_boundaries 的 2000/2001 与 ¥200 耗尽、per_file_authorization 的授权上限字典、round_limits 的宽上限断言、validation_entry 的严格更紧对比）与文档同步。② 逐文件授权的受鉴权端点 POST /projects/{projectId}/documents/{documentId}/external-authorization 只对当前上传文件的 SHA-256 生效：confirmed 必须为 true（服务端校验）、SHA-256 由服务端从数据库解析（请求体 extra=forbid，不接受调用方哈希）、无全部放行开关、未确认文件只做本地处理；每次登记写追加式注册表一行（哈希/文档标识/理由/时间/操作人）并写租户审计事件；不触碰账本、不读文件内容、不发起供应商调用；仅 authorized-real 装配与验证实例提供注册表（offline 一律 503），权限仅 reviewer；前端在 dec007-real-qwen 构建中新增「登记外发授权」一次性显式确认（固定声明 + 必填理由 + 必选确认框）。③ 本轮按底线不改 contracts/**：端点未登记进 contracts/openapi.yaml，前端未使用生成类型而走显式鉴权 JSON 调用（postJson），如实记录该偏离；deploy/manage_authorization.py CLI 未改动。",
+      "evidence": [
+        "src/bidding_compliance/model_gateway/authorized_runtime.py",
+        "src/bidding_compliance/api/documents.py",
+        "src/bidding_compliance/api/schemas.py",
+        "src/frontend/src/api/client.ts",
+        "src/frontend/src/api/operations.ts",
+        "src/frontend/src/pages/project.tsx",
+        "tests/test_task0027_budget_boundaries.py",
+        "tests/test_task0027_per_file_authorization.py",
+        "tests/test_task0027_round_limits.py",
+        "tests/test_task0027_validation_entry.py",
+        "tests/test_task0027_external_authorization_api.py",
         "docs/development/TASK-0027-validation.md"
       ]
     }
