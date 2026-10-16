@@ -151,6 +151,39 @@ export const api = {
       }),
     );
   },
+  /**
+   * The parsed fragments of one document: the automatic text a parser produced and the
+   * effective text (which a recorded human correction may have replaced). A document whose
+   * quality gate failed is only repairable through these fragments.
+   */
+  async documentSections(
+    projectId: string,
+    documentId: string,
+    options?: ReadRequestOptions,
+  ) {
+    return unwrap(
+      client.GET("/projects/{projectId}/documents/{documentId}/sections", {
+        params: { path: { projectId, documentId } },
+        signal: options?.signal,
+      }),
+    );
+  },
+  /**
+   * Record one human text correction. The server re-runs the quality gate on the corrected
+   * fragments itself: this call can never assert that a document is good enough.
+   */
+  async correctDocumentText(
+    projectId: string,
+    documentId: string,
+    body: components["schemas"]["QualityCorrection"],
+  ) {
+    return unwrap(
+      client.POST("/projects/{projectId}/documents/{documentId}/corrections", {
+        params: { path: { projectId, documentId } },
+        body,
+      }),
+    );
+  },
   async confirmDocumentContext(
     projectId: string,
     documentId: string,

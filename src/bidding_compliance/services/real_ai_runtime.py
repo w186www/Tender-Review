@@ -643,7 +643,13 @@ class AuthorizedRealReviewEngine(ReviewEngine):
 
     def _require_authorized_documents(self, hashes: set[str]) -> None:
         if not hashes or not hashes.issubset(self.allowed_document_sha256):
-            raise PermissionError("DEC-005 does not authorize external processing of this document")
+            # The wording matters beyond readability: api/reviews.py maps a PermissionError
+            # whose message names an authorization to 403 (an ordinary state conflict stays
+            # 409), so the workbench can tell the reviewer that a file is not authorized for
+            # external processing instead of claiming the data changed underneath them.
+            raise PermissionError(
+                "this document is not authorized for external processing"
+            )
 
     def _freeze_run(self, principal: Principal, request: ReviewRequest) -> ReviewRunHandle:
         hashes = {item.raw_source_sha256 for item in request.document_requests}

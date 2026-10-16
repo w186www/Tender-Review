@@ -1046,3 +1046,136 @@ pytest tests/test_task0027_budget_boundaries.py \
   （登录审核员）仍是被信任的一环，与 CLI 同一信任假设。
 - 未在服务器上执行以上任何命令；本机 Windows 仅做代码与测试验证，**公网部署与真实调用
   见本轮后续记录**。
+
+# 第七轮：两条可用性阻断修复（2026-10-16，未提交、零付费调用、未触碰线上服务器）
+
+工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `2fc9800`；
+本轮改动**未提交**，由用户复核后提交。本轮目标：**任意用户自有文件上传后能在网页里走到审查**。
+
+## 一、改了什么
+
+| # | 阻断 | 修复 | 证据 |
+|---|---|---|---|
+| 1 | 解析质量不足的文档（`needs_review`）在浏览器里是死路：前端没有校正入口 | `src/frontend/src/pages/project.tsx` 新增「查看/校正文本」（reviewer 且 `needs_review` 时显示）+ `TextCorrectionDialog`：`GET .../sections` 列片段（自动原文只读、生效文本可编辑、位置与修订号可见、空片段提示按原件转录）→ 只提交改动的片段 + 必填理由 → `POST .../corrections` → 若返回 `needs_confirmation` 自动接着打开既有上下文确认弹窗 → `POST .../context` → `ready`；未通过则弹窗保持打开、提示"质量门禁仍未通过"并重读片段 | `src/frontend/src/pages/project.test.tsx`（6 项）、`tests/test_task0027_needs_review_repair.py`（6 项）、Phase A 浏览器实录 |
+| 2 | 逐文件外发授权入口未验证；"未授权文件"的审查拒发被服务端映射成 409 | 复验入口（可见/可提交/写入注册表）并修正拒发消息措辞，使 `_translate` 正确映射 403；前端 403 分支给出授权指引 | `tests/test_task0027_external_authorization_api.py`（6 项，含冻结前拒绝与无任务行）、`tests/test_task0027_per_file_authorization.py`、Phase B 浏览器实录 |
+
+未改动：`ingestion/quality.py`、`services/ingestion_worker.py`（质量判定与状态机）、
+`services/documents.py`（含 `confirm_context` 的 `needs_confirmation/ready` 前置）、病毒扫描、
+租户隔离与鉴权、`knowledge/legal/**`、`config/legal/**`、`contracts/**`、`tests/completed/**`、
+`legal/retrieval.py`、`services/evidence_checker.py`、法规 `verification` 状态、账本与索引。
+
+## 二、真实命令与真实数字（本机，合成数据，零供应商调用）
+
+```text
+ruff check src scripts tests                                 → All checks passed!
+mypy src                                                     → Success: no issues found in 104 source files
+scripts/verify_repo.py                                       → PASS: contracts, examples, generated State and scoped task evidence
+pytest tests/test_task0027_needs_review_repair.py \
+       tests/test_task0027_external_authorization_api.py     → 11 passed in 69.67s（Focused 前的手工基线）
+官方 Focused pwsh scripts/verify.ps1 -Mode Focused \
+       -TestPaths @('tests/test_task0027_needs_review_repair.py',
+                    'tests/test_task0027_external_authorization_api.py')  → PASS；[5/7] 11 passed in 69.67s
+前端（src/frontend）npx biome check src scripts vite.config.ts playwright.config.ts → 23 文件 0 错误
+                     npx tsc --noEmit -p tsconfig.json         → 退出码 0（无输出）
+                     npx vitest run                           → Test Files 4 passed / Tests 14 passed
+                     npx vite build                           → ✓ built（dist/assets/index-DIQ-IRba.js 357.65 kB）
+官方 Full pwsh scripts/verify.ps1 -PythonExecutable <venv>   → 退出码 0；[1/7]–[7/7] 全过；
+                                                               [5/7] 818 passed, 6 warnings in 525.69s
+                                                               （JUnit tests 818 / failures 0 / errors 0 / skipped 0）
+```
+
+**交付复核（2026-10-17 在同一工作树重跑，未改任何源码）**：
+
+```text
+ruff check src scripts tests                                 → All checks passed!
+mypy src                                                     → Success: no issues found in 104 source files
+scripts/verify_repo.py                                       → PASS
+官方 Focused（三个改动测试文件：tests/test_task0027_needs_review_repair.py、
+       tests/test_task0027_external_authorization_api.py、
+       tests/test_task0027_per_file_authorization.py）        → [5/7] 26 passed in 77.09s
+前端 biome check（23 文件）/tsc --noEmit（0 错误）/vitest run（14 passed，4 文件）/vite build → 全通过
+官方 Full pwsh scripts/verify.ps1 -PythonExecutable <venv>   → 退出码 0；[1/7]–[7/7] 全过；
+                                                               [5/7] 818 passed, 6 warnings in 525.69s
+                                                               JUnit tests 818 / failures 0 / errors 0 / skipped 0；
+                                                               [6/7]/[7/7] 真实启动与鉴权生命周期 PASS
+```
+
+复核未发现缺陷（质量门禁、逐文件授权门、租户/角色、幂等与报告路径在 Full 中全部通过），
+因此本轮改动直接交付：本地提交后合并远端 README 提交并推送。
+
+## 三、端到端（本机回环 compose 栈，本 Worktree 镜像，仅 `127.0.0.1:8090`）
+
+栈：`docker compose -p t27r7 --env-file .verification/t27r7/stack.env -f docker-compose.demo.yml`
+（独立项目名 + `VOLUME_PREFIX=tender-review-t27r7`，因此不读写任何其它栈的卷；未触碰线上服务器）。
+镜像全部由本 Worktree 构建：`tender-review-api:t27r7`、`tender-review-web:t27r7`、
+`tender-review-parser:t27r7`（`sha256:5964282a…`，写入 `PARSER_IMAGE`）。
+合成文件：`scripts/generate_demo_fixture.py --output .verification/t27r7/synthetic-tender.docx`
+（`sha256=7eb5a497fe681f999f4a869eada346a857cc1132505fd170beb5a435f0dc26d4`，6 个片段、质量门禁通过）
+与一份人工生成的短正文 DOCX `synthetic-low-quality.docx`
+（`sha256=60c5f8aa0cfbbeb6e652b98702bba035dd4d5d6f027ef32b7093a95fddabb918`，1 个片段 "Short"、质量门禁不通过）。
+
+Phase A（`DEPLOY_REVIEW_MODE=offline`、`VITE_REVIEW_MODE=offline-deterministic`，Microsoft Edge）：
+
+```text
+sign_in                         → http://127.0.0.1:8090/projects
+project_created                 → 9e54bfcb-922e-4564-ba7e-30322b82044e
+uploaded_generated_fixture      → needs_confirmation（sha256 7eb5a497…）
+uploaded_low_quality_fixture    → needs_review（sha256 60c5f8aa…）
+correction_recorded             → 1 个片段，POST /corrections 200
+documents_ready                 → 2
+review_accepted                 → 202，跳转 /reviews/28c254d6-143c-5f8c-b118-97317a8bdcb3/d097bee2-33d5-5c4c-a884-b48e7d97e8da
+review_task_status             → 等待人工复核，1 条风险（待核验：Synthetic location requirement for human review）
+review_decision_recorded        → accept
+review_published               → 结果已发布（result 41a1b475-2f42-45bb-8c32-b869e96de3eb）
+project_task_list              → 28c254d6… d097bee2… 结果已发布 41a1b475… 打开任务
+文档终态                        → 135bf9ce…(7eb5a497…) ready P1 C2；75913382…(60c5f8aa…) ready P2 C3
+```
+
+即：**质量不足的文档经"查看/校正文本"人工转录后，解析版本 P1→P2、`LOW_QUALITY` 清空、上下文
+确认到位，最终可勾选并发起审查、走完离线确定性管线并发布结果**；另一份文件只经上下文确认（P1 C2）。
+
+Phase B（同一栈重建为 `DEPLOY_REVIEW_MODE=authorized-real` + `VITE_REVIEW_MODE=dec007-real-qwen`，
+本机一次性 DEC-007 身份 `DEC-007-2026-10-16`；`DEC005_ALLOWED_DOCUMENT_SHA256` 为 64 个 `f`
+的**占位值**，代表操作者此前已批准的、本栈不存在的文件——装配在空白名单下会拒绝启动，
+这是设计如此；`DASHSCOPE_API_KEY`/`BAILIAN_WORKSPACE_ID` 为**占位字符串，从未被任何请求使用**）：
+
+```text
+authorization_control_visible  → 3 个「登记外发授权」控件（页面横幅为「已配置真实模型路由」）
+documents                      → target 7e649152-…(60c5f8aa…) ready；unauthorized 3202a4bb-…(7eb5a497…) ready
+correction_recorded            → 同一「查看/校正文本」入口在真实模式构建下同样可用
+authorization_recorded         → 201；页面回显「已登记外发授权：文件 7e649152-…（SHA-256 60c5f8aa0cfb…），
+                                 操作人 reviewer，时间 2026-10-16T07:45:18+00:00」
+unconfirmed_review_refused     → 403：当前账号没有执行此操作的权限。（请求编号 3c9fea4e-…）
+                                 真实模型部署还要求所选文件已逐个登记外发授权；请先在文档行完成「登记外发授权」…
+```
+
+容器内实测（同一运行中装配重算，零外发）：
+
+```text
+registry.jsonl  → 2 行（两次登记，字段 action/sha256/document_id/reason/approved_at/approved_by）
+allowlist       → ['60c5f8aa…', 'ffffffff…']（注册表哈希 ∪ 静态占位项；未登记文件的哈希不在其中）
+env allowlist   → ['ffffffff…']
+ledger summary  → {'llm_calls': 0, 'embedding_batches': 0, 'charged_or_reserved_cny': '0',
+                   'unsettled_requests': 0, 'limits': {'llm_calls': 2000, 'embedding_batches': 2000, 'total_cny': '200'}}
+model audit     → dec007-model-audit.jsonl 0 字节、embedding-audit.jsonl 0 字节
+api logs        → POST /reviews 403、POST /external-authorization 201；grep dashscope|bailian.aliyuncs = 0 命中
+project tasks   → 仍然只有 Phase A 的 1 条任务（被拒的审查没有创建任务行）
+```
+
+## 四、边界与未做到/不确定（本轮）
+
+- **未做任何真实供应商调用**：Phase B 只走"上传→修复→登记授权→未登记文件被拒"，
+  被登记文件的真实放行由 pytest 的引擎门与最小化器断言证明（`tests/test_task0027_external_authorization_api.py`
+  与 `tests/test_task0027_per_file_authorization.py`），浏览器证据到"登记成功 + 未登记被拒"为止；
+  对已登记文件发起审查会真实调用供应商，按用户要求"不必真实调用"未执行。
+- Phase B 的静态白名单是 64 个 `f` 的占位哈希：它不匹配任何上传文件，只为让装配在
+  "白名单非空"的前提下启动（空集合失败关闭是设计行为，未放宽）。
+- `contracts/**` 未改：逐文件授权端点仍未进入 OpenAPI，前端仍走显式鉴权 JSON 调用（`postJson`），
+  与仓库"契约先行"的已知偏离保持记录状态。
+- `VITE_REVIEW_MODE` 是 Vite 构建期常量：切换执行模式必须重建 nginx 镜像（Phase A/B 各重建一次）。
+- 校正只替换"生效文本"（automatic 原文与文件 SHA-256 不变），是否达标始终由服务端重新判定；
+  OCR 空片段也必须被人工转录，页面会提示"服务端未得到文字"。
+- 本机 compose 栈用 `docker compose -p t27r7 down` 停止（**不加 `-v`**）：容器与网络删除、
+  命名卷保留；未删除、未重建、未重置任何账本或索引。
+- 本轮改动已由交付提交（本地提交 → 合并远端 README 提交 → 推送）；公网更新与公网真实调用
+  见 `PROJECT_STATE.md` 的"公网真实 AI 上线记录"。

@@ -17,15 +17,35 @@ import json
 import re
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from test_identity_projects import create, sign_in
 from test_identity_projects import system as shared_system
 from test_ingestion import upload
 from verify_contracts import ROOT, load_contracts, load_openapi, validator_for_contract
 
-from bidding_compliance.persistence.models import AuditEvent
-from bidding_compliance.services.real_ai_runtime import FileAuthorizationRegistry
+from bidding_compliance.core.config import Settings
+from bidding_compliance.model_gateway.authorization import AuthorizationPolicy
+from bidding_compliance.model_gateway.authorized_runtime import (
+    FULL_CAPABILITY_AUTHORIZATION_ID,
+)
+from bidding_compliance.model_gateway.contracts import DataPolicy
+from bidding_compliance.persistence.database import make_engine
+from bidding_compliance.persistence.models import (
+    AuditEvent,
+    Document,
+    ReviewEngineRun,
+    ReviewTask,
+)
+from bidding_compliance.services.real_ai_runtime import (
+    AuthorizedRealReviewEngine,
+    AuthorizedTenderMinimizer,
+    FileAuthorizationRegistry,
+    real_ai_policy,
+    resolve_authorized_documents,
+    resolve_real_runtime_authorization,
+)
 
 system = shared_system
 REGISTRY_FIELDS = {"action", "sha256", "document_id", "reason", "approved_at", "approved_by"}
@@ -179,3 +199,186 @@ def test_a_forged_or_missing_document_never_gets_authorized(system, tmp_path):
     )
     assert unknown.status_code == 404, unknown.text
     assert not registry_path.exists()
+
+
+def test_the_confirmation_of_the_uploaded_file_is_what_lets_that_file_leave_the_host(
+    system, tmp_path
+):
+    """Upload -> refused egress -> API confirmation -> allowed egress, for one real hash.
+
+    The hash the reviewer confirms is not a constant in this test: it is the SHA-256 the
+    API itself resolved for the uploaded document, and the very same running-process
+    assembly the assemblies pass (`RealRuntimeAuthorization.allowed_document_source`) is
+    what flips from refusing to allowing that one file. The second uploaded document is
+    never confirmed and must stay local-only.
+    """
+    client, engine, _, _ = system
+    registry_path = tmp_path / "authorization-registry.jsonl"
+    ledger_path = tmp_path / "dec007-budget.sqlite3"
+    client.app.state.external_authorization_registry = FileAuthorizationRegistry(registry_path)
+    resolution = resolve_real_runtime_authorization(
+        {
+            "DEC007_AUTHORIZATION_ID": FULL_CAPABILITY_AUTHORIZATION_ID,
+            "DEC007_AUTHORIZATION_REGISTRY": str(registry_path),
+            "DEC007_LEDGER_PATH": str(ledger_path),
+        },
+        private_root=tmp_path,
+    )
+    headers = sign_in(system)
+    project, uploaded = upload(system)
+    document = uploaded.json()
+    _, unconfirmed = upload(system)
+    other = unconfirmed.json()
+    assert other["sha256"] != document["sha256"]
+
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        database_url="sqlite:///" + (tmp_path / "egress.db").as_posix(),
+    )
+    review_engine = AuthorizedRealReviewEngine(
+        settings=settings,
+        session_factory=sessionmaker(make_engine(settings), expire_on_commit=False),
+        gateway=None,
+        model_policy=real_ai_policy(),
+        legal_root=tmp_path,
+        authorization=AuthorizationPolicy(
+            trusted_calls={}, tenant_providers={}, provider_data_policies={}
+        ),
+        allowed_document_sha256=resolution.allowed_document_source,
+    )
+
+    # 1) Nothing is authorized yet: the uploaded file may not be processed externally.
+    assert review_engine.allowed_document_sha256 == frozenset()
+    with pytest.raises(PermissionError):
+        review_engine._require_authorized_documents({document["sha256"]})
+    with pytest.raises(PermissionError):
+        review_engine._require_authorized_documents({other["sha256"]})
+
+    # 2) The reviewer confirms that one file through the API.
+    recorded = client.post(
+        endpoint(project, document["document_id"]),
+        headers=headers,
+        json={"reason": "演示用合成样本，已确认有权处理", "confirmed": True},
+    )
+    assert recorded.status_code == 201, recorded.text
+    assert recorded.json()["sha256"] == document["sha256"]
+
+    # 3) The already-running assembly now authorizes exactly that hash -- and nothing else.
+    assert review_engine.allowed_document_sha256 == frozenset({document["sha256"]})
+    review_engine._require_authorized_documents({document["sha256"]})
+    with pytest.raises(PermissionError):
+        review_engine._require_authorized_documents({other["sha256"]})
+    with pytest.raises(PermissionError):
+        review_engine._require_authorized_documents({document["sha256"], other["sha256"]})
+
+    # 4) The last gate before the wire: the minimizer emits the confirmed file's minimized
+    #    fragment and refuses the unconfirmed one.
+    minimizer = AuthorizedTenderMinimizer(resolution.allowed_document_source)
+    section = {"section_key": "s000000c000", "text": "合成资格条件原文。", "document_sha256": ""}
+    section["document_sha256"] = document["sha256"]
+    assert minimizer({"discovery_sections": [section]}, DataPolicy.CONFIDENTIAL) == {
+        "discovery_sections": [{"section_key": "s000000c000", "text": "合成资格条件原文。"}]}
+    section["document_sha256"] = other["sha256"]
+    with pytest.raises(ValueError, match="outside authorized scope"):
+        minimizer({"discovery_sections": [section]}, DataPolicy.CONFIDENTIAL)
+
+    # 5) The registry holds exactly one audited row, and the allowlist is exactly one hash:
+    #    there is no "allow everything" switch and no implicit approval.
+    lines = registry_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    row = json.loads(lines[0])
+    assert set(row) == REGISTRY_FIELDS
+    assert row["reason"] == "演示用合成样本，已确认有权处理"
+    assert row["approved_by"] == "reviewer"
+    assert row["approved_at"] and row["action"] == "approve"
+    reloaded = FileAuthorizationRegistry(registry_path)
+    assert reloaded.allowed_sha256() == frozenset({document["sha256"]})
+    assert resolve_authorized_documents(registry=reloaded, environment_hashes=()) == frozenset(
+        {document["sha256"]}
+    )
+    different_tenant_registry = FileAuthorizationRegistry(tmp_path / "other-registry.jsonl")
+    assert different_tenant_registry.allowed_sha256() == frozenset()
+
+    # 6) No budget ledger was created for this file, and the tenant audit trail names the
+    #    actor and the resource.
+    assert not ledger_path.exists()
+    with Session(engine) as db:
+        events = list(
+            db.scalars(
+                select(AuditEvent).where(
+                    AuditEvent.action == "document.external_authorization_approved"
+                )
+            )
+        )
+    assert len(events) == 1
+    assert events[0].actor_id == "reviewer"
+    assert events[0].resource_id == document["document_id"]
+
+
+def test_starting_a_review_of_an_unconfirmed_file_is_refused_with_403(system, tmp_path):
+    """The workbench must be able to tell "not authorized" apart from "state changed".
+
+    The review endpoint refuses a run whose document is not in the authorization before any
+    gateway work; the refusal has to surface as 403 (an authorization answer the page can
+    explain) instead of the generic 409 "the data changed underneath you".
+    """
+    client, engine, _, _ = system
+    registry_path = tmp_path / "authorization-registry.jsonl"
+    client.app.state.external_authorization_registry = FileAuthorizationRegistry(registry_path)
+    resolution = resolve_real_runtime_authorization(
+        {
+            "DEC007_AUTHORIZATION_ID": FULL_CAPABILITY_AUTHORIZATION_ID,
+            "DEC007_AUTHORIZATION_REGISTRY": str(registry_path),
+            "DEC007_LEDGER_PATH": str(tmp_path / "dec007-budget.sqlite3"),
+        },
+        private_root=tmp_path,
+    )
+    headers = sign_in(system)
+    project, uploaded = upload(system)
+    document = uploaded.json()
+    # A ready document: only the external-processing authorization is missing.
+    with Session(engine) as db:
+        row = db.get(Document, ("a", document["document_id"]))
+        row.status, row.parse_version, row.context_version = "ready", 1, 1
+        db.commit()
+
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        database_url="sqlite:///" + (tmp_path / "refusal.db").as_posix(),
+    )
+    client.app.state.review_engine = AuthorizedRealReviewEngine(
+        settings=settings,
+        session_factory=sessionmaker(make_engine(settings), expire_on_commit=False),
+        gateway=None,
+        model_policy=real_ai_policy(),
+        legal_root=tmp_path,
+        authorization=AuthorizationPolicy(
+            trusted_calls={}, tenant_providers={}, provider_data_policies={}
+        ),
+        allowed_document_sha256=resolution.allowed_document_source,
+    )
+    refused = client.post(
+        f"/api/v1/projects/{project}/reviews",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={"document_ids": [document["document_id"]]},
+    )
+    assert refused.status_code == 403, refused.text
+    validate("Error", refused.json())
+    # Nothing was frozen, nothing was queued: the refusal happened before any gateway work.
+    with Session(engine) as db:
+        assert list(db.scalars(select(ReviewEngineRun))) == []
+        assert list(db.scalars(select(ReviewTask))) == []
+    assert not registry_path.exists()
+
+    # Confirming the file is what makes the same request acceptable to the engine gate.
+    assert (
+        client.post(
+            endpoint(project, document["document_id"]),
+            headers=headers,
+            json={"reason": "登记后再发起审查", "confirmed": True},
+        ).status_code
+        == 201
+    )
+    client.app.state.review_engine._require_authorized_documents({document["sha256"]})

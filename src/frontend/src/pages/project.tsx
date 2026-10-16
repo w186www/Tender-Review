@@ -33,13 +33,22 @@ import { ProjectFormDialog } from "./projects";
 
 type ContextFields = components["schemas"]["ContextFields"];
 type ContextData = components["schemas"]["DocumentContext"];
+type DocumentSections = components["schemas"]["DocumentSections"];
 
 const processingStates = new Set(["quarantined", "accepted", "parsing"]);
 
 // The per-file confirmation control only exists in the build that actually talks to the
-// real supplier (VITE_REVIEW_MODE is a compile-time switch); offline builds never show it.
-const EXTERNAL_AUTHORIZATION_MODE =
-  import.meta.env.VITE_REVIEW_MODE === "dec007-real-qwen";
+// real supplier; offline builds never show it. Read at render time (not into a module
+// constant) so a test can exercise exactly the build it claims to cover.
+function externalAuthorizationEnabled(): boolean {
+  return import.meta.env.VITE_REVIEW_MODE === "dec007-real-qwen";
+}
+
+const fragmentSourceLabels: Record<string, string> = {
+  native: "解析原文",
+  ocr: "OCR 识别",
+  manual: "人工转录",
+};
 
 const issueLabels: Record<string, string> = {
   TYPE_MISMATCH: "文件类型与内容不匹配",
@@ -82,6 +91,8 @@ export function ProjectPage() {
   const [contextDocument, setContextDocument] = useState<DocumentRecord | null>(
     null,
   );
+  const [correctionDocument, setCorrectionDocument] =
+    useState<DocumentRecord | null>(null);
   const [authorizationDocument, setAuthorizationDocument] =
     useState<DocumentRecord | null>(null);
 
@@ -149,6 +160,13 @@ export function ProjectPage() {
           item.status === "ready" && selected.includes(item.document_id),
       ),
     [documents, selected],
+  );
+
+  // A document the quality gate flagged cannot be selected at all; the page says so and
+  // points at the only server-supported repair path instead of leaving a dead end.
+  const unrepairedCount = useMemo(
+    () => documents.filter((item) => item.status === "needs_review").length,
+    [documents],
   );
 
   function toggleSelected(document: DocumentRecord) {
@@ -224,6 +242,13 @@ export function ProjectPage() {
         setError(null);
         setNotice(REVIEW_TIMEOUT_NOTICE);
         reload();
+      } else if (reason instanceof ApiError && reason.status === 403) {
+        // In a build with per-file external processing the server refuses a run whose
+        // document has not been confirmed; the shared 403 message alone would hide that.
+        setError(
+          `${errorText(reason)}真实模型部署还要求所选文件已逐个登记外发授权；` +
+            "请先在文档行完成「登记外发授权」，或取消选择未登记的文件后重试。",
+        );
       } else {
         setError(errorText(reason));
       }
@@ -395,7 +420,16 @@ export function ProjectPage() {
                     >
                       查看上下文
                     </Button>
-                    {EXTERNAL_AUTHORIZATION_MODE &&
+                    {identity?.role === "reviewer" &&
+                      doc.status === "needs_review" && (
+                        <Button
+                          variant="quiet"
+                          onClick={() => setCorrectionDocument(doc)}
+                        >
+                          查看/校正文本
+                        </Button>
+                      )}
+                    {externalAuthorizationEnabled() &&
                       identity?.role === "reviewer" && (
                         <Button
                           variant="quiet"
@@ -415,6 +449,8 @@ export function ProjectPage() {
             <span className="muted">
               只能选择服务端状态为“可用于审查”的文档。当前选中{" "}
               {selectedReady.length} 份。
+              {unrepairedCount > 0 &&
+                `另有 ${unrepairedCount} 份文档解析质量不足（需人工校对），请先「查看/校正文本」按原件转录，再确认上下文。`}
             </span>
             <Button
               variant="primary"
@@ -529,8 +565,24 @@ export function ProjectPage() {
           reload();
         }}
       />
+      <TextCorrectionDialog
+        key={`correction-${correctionDocument?.document_id ?? "none"}`}
+        document={correctionDocument}
+        onClose={() => setCorrectionDocument(null)}
+        onSubmitted={(message, repaired, keepOpen) => {
+          setNotice(message);
+          reload();
+          if (!keepOpen) setCorrectionDocument(null);
+          // A correction that re-passed the gate leaves exactly one step: the reviewer
+          // confirms the context, which is what turns the document into "ready".
+          if (repaired && repaired.status === "needs_confirmation") {
+            setCorrectionDocument(null);
+            setContextDocument(repaired);
+          }
+        }}
+      />
       <ExternalAuthorizationDialog
-        key={authorizationDocument?.document_id ?? "none"}
+        key={`authorization-${authorizationDocument?.document_id ?? "none"}`}
         document={authorizationDocument}
         onClose={() => setAuthorizationDocument(null)}
         onSaved={(message) => {
@@ -654,6 +706,234 @@ function ExternalAuthorizationDialog({
               </Button>
             </div>
           </form>
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+function TextCorrectionDialog({
+  document,
+  onClose,
+  onSubmitted,
+}: {
+  document: DocumentRecord | null;
+  onClose: () => void;
+  onSubmitted: (
+    message: string,
+    repaired: DocumentRecord | null,
+    keepOpen: boolean,
+  ) => void;
+}) {
+  const [sections, setSections] = useState<DocumentSections | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fetches, setFetches] = useState(0);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetches re-reads the server-side fragments after a conflict or a correction that still fails the gate.
+  useEffect(() => {
+    if (!document) return;
+    let active = true;
+    setLoading(true);
+    setError(null);
+    setSections(null);
+    api
+      .documentSections(document.project_id, document.document_id)
+      .then((value) => {
+        if (!active) return;
+        setSections(value);
+        setDrafts(
+          Object.fromEntries(
+            value.items.map((item) => [item.section_id, item.effective.text]),
+          ),
+        );
+      })
+      .catch((reasonValue: unknown) => {
+        if (active) setError(errorText(reasonValue));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [document, fetches]);
+
+  const changed = (sections?.items ?? []).filter(
+    (item) =>
+      (drafts[item.section_id] ?? item.effective.text) !== item.effective.text,
+  );
+  const blank = changed.some((item) => !(drafts[item.section_id] ?? "").trim());
+
+  async function submit() {
+    if (!document || !sections) return;
+    if (changed.length === 0) {
+      setError("尚未修改任何片段文本。请按原件转录有问题的片段后再提交。");
+      return;
+    }
+    if (blank) {
+      setError("片段文本不能为空。请按原件填写后再提交。");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const repaired = await api.correctDocumentText(
+        document.project_id,
+        document.document_id,
+        {
+          expected_parse_version: sections.parse_version,
+          reason: reason.trim(),
+          corrections: changed.map((item) => ({
+            section_id: item.section_id,
+            text: drafts[item.section_id] ?? item.effective.text,
+          })),
+        },
+      );
+      if (repaired.status === "needs_confirmation") {
+        onSubmitted(
+          `文本校正已记录（解析版本 P${repaired.parse_version}），服务端质量门禁已通过。` +
+            "请继续确认上下文；完成后该文档才可勾选发起审查。",
+          repaired,
+          false,
+        );
+        return;
+      }
+      onSubmitted(
+        `文本校正已记录（解析版本 P${repaired.parse_version}），但服务端质量门禁仍未通过。` +
+          "请继续按原件转录仍然质量不足的片段；只有服务端重新判定通过后才会进入上下文确认。",
+        null,
+        true,
+      );
+      setFetches((value) => value + 1);
+    } catch (reasonValue) {
+      setError(errorText(reasonValue));
+      if (reasonValue instanceof ApiError && reasonValue.status === 409) {
+        // Another tab corrected the same document: re-read instead of guessing.
+        setFetches((value) => value + 1);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={document !== null}
+      title="查看与校正解析文本"
+      onClose={onClose}
+      size="wide"
+    >
+      {loading && <Loading label="正在读取服务端解析片段" />}
+      {error && <Notice kind="error">{error}</Notice>}
+      {document && (
+        <div className="context-layout">
+          <div className="context-doc-summary">
+            <strong>{document.document_id}</strong>
+            <span>
+              <StatusBadge status={document.status} />
+            </span>
+            <span>
+              解析版本 P{document.parse_version} · 上下文版本 C
+              {document.context_version}
+            </span>
+            <span>
+              文件 SHA-256：<code>{document.sha256.slice(0, 16)}…</code>
+            </span>
+          </div>
+          <Notice kind="info">
+            解析质量不足时，只有按原件人工转录才能让这份文件通过服务端质量门禁。
+            校正会写入可审计的修订记录，自动解析原文与文件哈希保持不变，
+            是否达标仍由服务端重新判定；请勿填写未经核对的内容。
+          </Notice>
+          {sections && (
+            <form
+              className="form-grid"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+              }}
+            >
+              <p className="muted form-span">
+                服务端解析版本 P{sections.parse_version}，共{" "}
+                {sections.items.length} 个片段。只提交发生修改的片段（当前{" "}
+                {changed.length} 处）。
+              </p>
+              {sections.items.map((item, index) => (
+                <div className="form-field form-span" key={item.section_id}>
+                  <label htmlFor={`correction-${item.section_id}`}>
+                    片段 {index + 1} ·{" "}
+                    {fragmentSourceLabels[item.effective.source] ||
+                      item.effective.source}{" "}
+                    · 修订 r{item.revision}
+                  </label>
+                  <small>
+                    定位 <code>{item.effective.locator}</code>
+                    {!item.effective.text.trim() &&
+                      " · 服务端未得到文字，需按原件转录"}
+                  </small>
+                  <textarea
+                    id={`correction-${item.section_id}`}
+                    rows={3}
+                    maxLength={8000}
+                    value={drafts[item.section_id] ?? item.effective.text}
+                    onChange={(event) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [item.section_id]: event.target.value,
+                      }))
+                    }
+                    aria-describedby={`correction-${item.section_id}-automatic`}
+                  />
+                  <small id={`correction-${item.section_id}-automatic`}>
+                    自动解析原文：
+                    {item.automatic.text.trim()
+                      ? item.automatic.text
+                      : "（空）"}
+                  </small>
+                </div>
+              ))}
+              <div className="form-field form-span">
+                <label htmlFor="correction-reason">
+                  校正理由 <span className="required-mark">*</span>
+                </label>
+                <textarea
+                  id="correction-reason"
+                  rows={2}
+                  minLength={1}
+                  maxLength={1000}
+                  required
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  aria-describedby="correction-reason-hint"
+                />
+                <small id="correction-reason-hint">
+                  将随每个片段的修订写入可审计记录（操作人、时间、理由）。
+                </small>
+              </div>
+              <div className="modal-actions form-span">
+                <Button type="button" onClick={onClose}>
+                  关闭
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={
+                    saving ||
+                    loading ||
+                    changed.length === 0 ||
+                    blank ||
+                    !reason.trim()
+                  }
+                >
+                  {saving ? "正在提交校正…" : `提交 ${changed.length} 处校正`}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       )}
     </Dialog>

@@ -269,7 +269,9 @@ def test_unregistered_document_is_denied_before_any_gateway_work(tmp_path):
     allowed = resolve_authorized_documents(registry=store, environment_hashes=())
     engine = review_engine(tmp_path, allowed)
 
-    with pytest.raises(PermissionError, match="does not authorize external processing"):
+    # The refusal names the authorization on purpose: the API layer maps that to 403 so the
+    # workbench can say "this file is not authorized" instead of "the data changed".
+    with pytest.raises(PermissionError, match="not authorized for external processing"):
         engine._freeze_run(principal(), review_request(UNREGISTERED))
     with pytest.raises(PermissionError):
         engine._freeze_run(principal(), review_request("a" * 64))

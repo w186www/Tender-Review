@@ -1,8 +1,77 @@
 # PROJECT_STATE
 
-更新时间：2026-10-16
+更新时间：2026-10-17
 
-## 进行中：TASK-0027（DEC-007 完整能力）第六轮：解除自设额度上限 + 工作台逐文件授权 + 公网真实 AI 上线
+## 进行中：TASK-0027 第七轮：两条可用性阻断的修复（任意自有文件上传后能在网页里走到审查）
+
+- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `2fc9800`
+  （第六轮已由用户提交：`feat(TASK-0027): lift the DEC-007 ceilings and let a reviewer approve one file`）；
+  **第七轮改动已由本轮交付提交**并推送，远端 `8a7021b`（只改 `README.md`）已合并进分支。
+- 用户 2026-10-16 指令（本轮目标：**任意用户自有文件上传后能在网页里走到真实 AI 审查**）：
+  ① 修复 `needs_review` 文档在网页里无法推进（前端没有任何校正/上下文确认入口 → 浏览器死路）；
+  ② 验证并（如需要）修正第六轮引入的逐文件外发授权流程。底线：**不放宽/不绕过 `ingestion/quality.py`、
+  `services/ingestion_worker.py` 的质量门禁与病毒扫描、不绕过租户隔离与鉴权、不改 `knowledge/legal/**`、
+  `config/legal/**`、`contracts/**`、`tests/completed/**`、`legal/retrieval.py`、`services/evidence_checker.py`、
+  不改法规 `verification` 状态、不删除/重置账本与索引、不触碰线上服务器、不新增无关设施、不 git 提交**。
+- **修复 1（needs_review 死路）**：新增前端「查看/校正文本」（仅 reviewer 且状态 `needs_review` 时出现）
+  → `GET .../sections` 列出解析片段（自动原文只读展示、生效文本可编辑、空片段提示按原件转录）
+  → 只提交发生修改的片段 + 必填理由 `POST .../corrections`（`expected_parse_version` 取自 `sections.parse_version`）
+  → 服务端重新判定质量：通过（`needs_confirmation`）则自动接着打开既有上下文确认弹窗
+  （`expected_version` 取自 `GET .../context` 的 `version`）→ `POST .../context` → `ready` → 可勾选发起审查；
+  未通过则弹窗不关闭、如实提示"质量门禁仍未通过"并重新读取服务端解析版本继续转录；409 冲突同样重读。
+  门禁**一字未改**：`needs_review` 仍不能直接确认上下文（服务端 409），仍只有 `ready` 可勾选，
+  `correctDocumentText` 的请求体完全按 `src/frontend/src/api/schema.d.ts` 契约实现（未猜字段）。
+  页面对存在 `needs_review` 文档时新增数量提示与修复指引。后端**无需改动**即支持该路径
+  （`services/documents.py` 的 `correct_text` 原本就允许 `needs_review` 入口，只是前端从未调用）。
+- **修复 2（逐文件外发授权）**：端到端复验并修掉一个真实缺陷——外发拒发消息为
+  "…does not authorize…"，`api/reviews.py` 的 `_translate` 因消息不含 "authorized" 把"文件未授权"
+  误映射为 **409**，页面只能显示"数据已被其他操作更新"，与"未授权"完全不符；改为
+  `"this document is not authorized for external processing"` 后正确映射 **403**
+  （`src/bidding_compliance/services/real_ai_runtime.py` 一行 + 注释说明为何措辞是接口的一部分），
+  前端在"发起审查"的 403 分支给出明确指引（"真实模型部署还要求所选文件已逐个登记外发授权…"）。
+  同时修掉两个弹窗 `key` 重复（都是 `"none"`）导致的 React 同键告警（改为 `correction-…`/`authorization-…`）。
+  授权入口本身**可用**：浏览器实测可见、可提交、可写入注册表并回显服务端记录（actor/时间/理由/哈希）。
+- **本轮真实数字（本机合成数据、零付费调用、未触碰线上服务器、未放宽任何门禁）**：
+  ruff `All checks passed!`；mypy `Success: no issues found in 104 source files`；`scripts/verify_repo.py` PASS；
+  官方 Focused（两个改动测试文件）`17 passed`；前端 `biome check`（23 文件，0 错误）/`tsc --noEmit`（0 错误）/
+  `vitest run`（**14 passed**，4 文件）/`vite build` 成功；官方 **Full 退出码 0**（`[1/7]`–`[7/7]` 全过，
+  `[5/7]` **818 passed, 6 warnings in 525.69s**，JUnit tests 818 / failures 0 / errors 0 / skipped 0）。
+- **交付复核（2026-10-17 本机在同一工作树重跑，命令与数字如下）**：ruff `All checks passed!`；
+  mypy `Success: no issues found in 104 source files`；`scripts/verify_repo.py` PASS；官方 Focused
+  （三个改动测试文件 `tests/test_task0027_needs_review_repair.py`、
+  `tests/test_task0027_external_authorization_api.py`、`tests/test_task0027_per_file_authorization.py`）
+  `26 passed in 77.09s`；前端 `biome check`（23 文件，0 错误）/`tsc --noEmit`（0 错误）/
+  `vitest run`（**14 passed**，4 文件）/`vite build` 成功；官方 **Full 退出码 0**（`[1/7]`–`[7/7]` 全过，
+  `[5/7]` **818 passed, 6 warnings in 525.69s**，JUnit tests 818 / failures 0 / errors 0 / skipped 0），
+  `[6/7]`/`[7/7]` 真实启动与鉴权生命周期 PASS；未发现缺陷，无需返工。
+  两组新增/扩展的真实测试：`tests/test_task0027_needs_review_repair.py`（**6 项**：修复路径到 `ready`
+  并创建任务、校正后仍不达标不得放行、未修复不可发起审查、租户/角色/定位符/版本校验、自动原文与文件
+  哈希不被改写且上下文版本无缺口）与 `tests/test_task0027_external_authorization_api.py`（**6 项**，含新增
+  上传→未授权拒绝→端点登记→同一运行中装配放行该哈希的最小化器/引擎证明，以及"未登记文件的审查 =
+  403 且在冻结前拒绝、无任务行"的映射回归）。
+- **端到端（本机回环 compose 栈、本 Worktree 镜像、仅 `127.0.0.1:8090`）**：栈 `t27r7`
+  （`tender-review-api:t27r7` / `tender-review-web:t27r7` / `tender-review-parser:t27r7`，独立
+  `VOLUME_PREFIX=tender-review-t27r7`、独立项目名，未触碰其它栈与线上）。Phase A（`offline` +
+  `offline-deterministic` 前端，Microsoft Edge/Playwright）：上传 `scripts/generate_demo_fixture.py`
+  生成的合成 DOCX（`sha256=7eb5a497…` → `needs_confirmation`）与一份质量不足的合成 DOCX
+  （`sha256=60c5f8aa…` → `needs_review`）→ 用新入口转录并提交（P1→P2、`LOW_QUALITY` 清空）→ 上下文确认
+  → 两份均 `ready` → 发起审查（202，离线确定性网关，无供应商路径）→ 任务 `28c254d6…` `等待人工复核`
+  （1 条风险）→ 记录人工决定 → 发布结果 `41a1b475…`，任务列表 `结果已发布`。Phase B（`authorized-real`
+  + `dec007-real-qwen` 前端，与真实部署同构；本机一次性 DEC-007 身份/卷，占位供应商凭据**从未被调用**）：
+  页面显示「已配置真实模型路由」横幅与逐文件授权文案 → 新上传文件走同一修复路径到 `ready` →
+  「登记外发授权」→ 201 并回显服务端记录（reviewer / `2026-10-16T07:45:18+00:00` / `60c5f8aa…`）→
+  注册表追加一行 → 对另一份**未登记**的 `ready` 文件发起审查被**冻结前拒绝**（403 + 页面明确指引），
+  无任务行；账本 `llm_calls=0 / embedding_batches=0 / charged_or_reserved_cny=0 / unsettled_requests=0`，
+  `dec007-model-audit.jsonl` 与 `embedding-audit.jsonl` 均 **0 字节**，日志零供应商主机名。
+  证据：`.verification/t27r7/`（`phase-a-result.json`、`phase-b-result.json`、`registry.jsonl`、
+  `allowlist.txt`、`phase-a-documents.txt`、`shots/` 15 张截图）——`.verification/` 为 gitignore 目录。
+- **本轮不得宣称超出**：本机 Phase A/B 未做真实供应商调用（"登记后放行"由 pytest 的引擎/最小化器断言证明，
+  浏览器侧只到"登记成功 + 未登记被拒"）；`contracts/**` 未改，端点仍未进入 OpenAPI；
+  `VITE_REVIEW_MODE` 是构建期开关，切模式必须重建 nginx 镜像；校正只替换"生效文本"，
+  自动解析原文与文件哈希保持不变，质量是否达标始终由服务端判定。
+  公网更新与本轮的公网真实调用见下方"公网真实 AI 上线记录"。
+
+## 已完成：TASK-0027（DEC-007 完整能力）第六轮：解除自设额度上限 + 工作台逐文件授权（HEAD `2fc9800`）
 
 - 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `8204239`
   （`feat(TASK-0027): unify the deployed data path, recover from a review timeout, prepare the switch`，
