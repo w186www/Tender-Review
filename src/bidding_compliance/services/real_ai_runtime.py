@@ -549,9 +549,16 @@ def create_dec005_gateway(
     authorization_id: str = AUTHORIZATION_ID,
     scope_documents: frozenset[str] | None = None,
     authorization_registry: Path | None = None,
+    llm_limit: int | None = None,
+    embedding_limit: int | None = None,
+    total_cny: Decimal | None = None,
 ) -> tuple[ModelGatewayService, AuthorizationPolicy, Dec005BudgetLedger]:
     if not api_key or not api_key.strip() or not workspace_id or not workspace_id.strip():
         raise ValueError("real AI requires server-side DASHSCOPE_API_KEY and BAILIAN_WORKSPACE_ID")
+    # The assembly may hand the session a ceiling tighter than the authorization's own one
+    # (a bounded validation round); every omitted value keeps the authorization ceiling and
+    # the ledger refuses anything wider than AUTHORIZATION_LIMITS[authorization_id], so an
+    # assembly can narrow a session but can never widen one.
     # The ledger scope binds the static part of the authorization only; per-file registry
     # approvals stay dynamic so recording one never invalidates (and never resets) it. A
     # dynamic source is resolved here once for the scope check and then handed to the
@@ -569,7 +576,12 @@ def create_dec005_gateway(
     minimizer = AuthorizedTenderMinimizer(allowed_document_sha256)
     verify_ledger_continuity(ledger_path, audit_path)
     ledger = Dec005BudgetLedger(
-        ledger_path, scope_sha256=scope, authorization_id=authorization_id
+        ledger_path,
+        scope_sha256=scope,
+        authorization_id=authorization_id,
+        llm_limit=llm_limit,
+        embedding_limit=embedding_limit,
+        total_cny=total_cny,
     )
     authorization = AuthorizationPolicy(
         trusted_calls={},

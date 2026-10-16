@@ -146,10 +146,31 @@
         "docker-compose.demo.yml",
         "tests/test_task0027_deploy_compose.py"
       ]
+    },
+    {
+      "id": "TASK0027-008",
+      "description": "本轮硬门禁：装配层可显式传入 llm_limit/embedding_limit/total_cny 并透传到同一账本（DEC-007 授权上限不变）；隔离验证入口把 4/322/累计¥2 固定为代码常量（环境变量与命令行都无法放宽），第 5 次 LLM、第 11 次新增 Embedding、累计 ¥2 耗尽均在供应商请求前被原子拒绝；账本基线只读核对（0/312/¥0.1035070/未结算 0，不一致即停止且不重置）；方案 A 的多实例边界如实记录。",
+      "evidence": [
+        "src/bidding_compliance/services/real_ai_runtime.py",
+        "scripts/task0027_real_ai_validation_app.py",
+        "scripts/task0027_ledger_baseline.py",
+        "tests/test_task0027_round_limits.py",
+        "tests/test_task0027_validation_entry.py",
+        "deploy/README-demo.md"
+      ]
     }
   ],
   "verify": [
     "./scripts/verify.ps1 -Mode Full"
   ],
-  "handoff_notes": "DEC-007 全能力实施的代码与离线测试任务。首次真实调用需在离线测试与 CI 完成后单独提交申请并等待批准；批准前不得产生任何付费调用。线上仍运行 TASK-0026 的离线确定性模式。\n\n【ScopedEmbeddingGuard 线性化的设计结论，实现前必须按此进行】\n现状：approve(texts) 对整批 payload 取摘要存入 allowed_hashes；reserve_external 只做摘要成员校验。工厂原本为 10 条预批准其全部子集（1023 个摘要）以兼容断点续建时批次构成可变。\n\n冲突：provider 调 reserve_external 时只传 request_hash，看不到文本，因此 guard 无法按条校验。若把 3120 条照搬旧办法枚举子集，摘要数约 312 批 × 1023 ≈ 32 万，不可接受。\n\n采用的方案（二选一，倾向前者，实现时择一并写测试）：\n  A. 让 build() 以「整片发送」代替「只发缺失子集」：批的构成只由 clause_ids 的顺序与批大小决定，因此摘要确定且只有 ceil(N/10) ≈ 312 个；已缓存整片的批直接跳过。代价是某一整片部分命中时会重发少量已缓存条目（费用可忽略，因为总量不足 1 元）。guard 侧只需把「枚举子集」换成「按当前 clause_ids 依序切片并逐片 approve」，保持逐摘要校验语义不变。\n  B. 若不想改 build() 的发送粒度，则在 guard 上增加按条目的批准集合，并让 provider 在 reserve 前把本批文本交给 guard 校验成员资格；这需要改动 legal/embedding_provider.py 的调用签名，改动面更大。\n\n两种方案都不得退化为「批准任意文本」——按条或按片校验必须保留，否则等于删除外发门禁。实现后必须有不通过批准即 PermissionError 的反例测试。\n\n【2026-10-16 验收前阻断问题处置（9 项）】\n1) compose：新增 x-real-model-environment 锚点，仅合并进 api.environment（worker/init 不注入）；全部值为 ${VAR:-} 可选，留空即离线启动。测试 tests/test_task0027_deploy_compose.py 解析 YAML 固定该边界。\n2) 预构建索引：real_embedding_runtime 新增 require_prebuilt_vector_index；AuthorizedRetrieverFactory.allow_build 默认 False（API 装配显式传 False），维护命令 scripts/prebuild_legal_vectors.py 直接调用 build_authorized_vector_index 继续支持建库与断点续建。缺索引/未完成/校验失败 → 拒绝且零供应商调用。\n3) 身份一致性：planned_build_id 绑定 embedding 身份+发布版本+条款覆盖；API 侧再校验 manifest 的 identity/publication/revision/coverage；测试覆盖身份、发布版本、卷与账本 scope 不一致各自被拒。\n4) 撤销即时生效：FileAuthorizationRegistry 按文件 mtime/size 重读（线程锁保护），RealRuntimeAuthorization 暴露 allowed_document_source 可调用视图，_freeze_run/_invoke 与 AuthorizedTenderMinimizer 每次判定重解析；测试用「进程已启动 → 外部 revoke → 再次外发被拒」证明（含 gateway 级反例）。\n5) 前端：新增 dec007-real-qwen 模式文案（授权范围与逐文件白名单），保留既有模式；Dockerfile.web 与 demo.env.example 注释同步。\n6) 上限：Embedding 400 → 800；边界测试 800 允许 / 801 拒绝、¥30 耗尽即拒绝（批次有余量）、失败与未知用量保留预留且不自动补发。\n7) 文档：docs/development/TASK-0027-validation.md（本轮命令与结果）、DEC-007 修订、deploy/README-demo.md 逐文件授权运维步骤、PROJECT_STATE.md、CHANGELOG.md。\n\n仍未完成：git 提交与远程 CI 观察（用户自行提交）；线上部署与首次付费调用（需单独批准）。"
+  "handoff_notes": "DEC-007 全能力实施的代码与离线测试任务。首次真实调用需在离线测试与 CI 完成后单独提交申请并等待批准；批准前不得产生任何付费调用。线上仍运行 TASK-0026 的离线确定性模式。\n\n【ScopedEmbeddingGuard 线性化的设计结论，实现前必须按此进行】\n现状：approve(texts) 对整批 payload 取摘要存入 allowed_hashes；reserve_external 只做摘要成员校验。工厂原本为 10 条预批准其全部子集（1023 个摘要）以兼容断点续建时批次构成可变。\n\n冲突：provider 调 reserve_external 时只传 request_hash，看不到文本，因此 guard 无法按条校验。若把 3120 条照搬旧办法枚举子集，摘要数约 312 批 × 1023 ≈ 32 万，不可接受。\n\n采用的方案（二选一，倾向前者，实现时择一并写测试）：\n  A. 让 build() 以「整片发送」代替「只发缺失子集」：批的构成只由 clause_ids 的顺序与批大小决定，因此摘要确定且只有 ceil(N/10) ≈ 312 个；已缓存整片的批直接跳过。代价是某一整片部分命中时会重发少量已缓存条目（费用可忽略，因为总量不足 1 元）。guard 侧只需把「枚举子集」换成「按当前 clause_ids 依序切片并逐片 approve」，保持逐摘要校验语义不变。\n  B. 若不想改 build() 的发送粒度，则在 guard 上增加按条目的批准集合，并让 provider 在 reserve 前把本批文本交给 guard 校验成员资格；这需要改动 legal/embedding_provider.py 的调用签名，改动面更大。\n\n两种方案都不得退化为「批准任意文本」——按条或按片校验必须保留，否则等于删除外发门禁。实现后必须有不通过批准即 PermissionError 的反例测试。\n\n【2026-10-16 验收前阻断问题处置（9 项）】\n1) compose：新增 x-real-model-environment 锚点，仅合并进 api.environment（worker/init 不注入）；全部值为 ${VAR:-} 可选，留空即离线启动。测试 tests/test_task0027_deploy_compose.py 解析 YAML 固定该边界。\n2) 预构建索引：real_embedding_runtime 新增 require_prebuilt_vector_index；AuthorizedRetrieverFactory.allow_build 默认 False（API 装配显式传 False），维护命令 scripts/prebuild_legal_vectors.py 直接调用 build_authorized_vector_index 继续支持建库与断点续建。缺索引/未完成/校验失败 → 拒绝且零供应商调用。\n3) 身份一致性：planned_build_id 绑定 embedding 身份+发布版本+条款覆盖；API 侧再校验 manifest 的 identity/publication/revision/coverage；测试覆盖身份、发布版本、卷与账本 scope 不一致各自被拒。\n4) 撤销即时生效：FileAuthorizationRegistry 按文件 mtime/size 重读（线程锁保护），RealRuntimeAuthorization 暴露 allowed_document_source 可调用视图，_freeze_run/_invoke 与 AuthorizedTenderMinimizer 每次判定重解析；测试用「进程已启动 → 外部 revoke → 再次外发被拒」证明（含 gateway 级反例）。\n5) 前端：新增 dec007-real-qwen 模式文案（授权范围与逐文件白名单），保留既有模式；Dockerfile.web 与 demo.env.example 注释同步。\n6) 上限：Embedding 400 → 800；边界测试 800 允许 / 801 拒绝、¥30 耗尽即拒绝（批次有余量）、失败与未知用量保留预留且不自动补发。\n7) 文档：docs/development/TASK-0027-validation.md（本轮命令与结果）、DEC-007 修订、deploy/README-demo.md 逐文件授权运维步骤、PROJECT_STATE.md、CHANGELOG.md。\n\n仍未完成：git 提交与远程 CI 观察（用户自行提交）；线上部署与首次付费调用（需单独批准）。
+
+【2026-10-16 本轮：硬门禁接线 + 独立隔离验证入口（未调用供应商）】
+- 装配层：`create_dec005_gateway` 新增 `llm_limit` / `embedding_limit` / `total_cny` 参数并透传到 `Dec005BudgetLedger`（同一账本文件、同一 authorization_id，计数累计）；`AUTHORIZATION_LIMITS[DEC-007]` 的 300/800/¥30 不变，只作构造期上界，省略参数即等于授权上限。
+- 本轮上限（用户 2026-10-16 批准，选项 A）：`llm_limit=4`、`embedding_limit=322`（312 已用 + 10）、`total_cny=Decimal(2)`（含已结算 ¥0.1035070 的累计口径）。固定为 `scripts/task0027_real_ai_validation_app.py` 的代码常量：环境变量/命令行/演示账号都无法放宽；装配时拒绝「不比 DEC-007 授权更严」的取值。
+- 隔离验证入口：`scripts/task0027_real_ai_validation_app.py`（独立镜像标签 `IMAGE_TAG=task0027-validation`、同一 modelstate 卷读写挂载、同一发布/修订与 embedding 身份与授权 scope、`allow_build=False` 默认复用预构建索引）；`--preflight` 只做本地/只读检查（基线、scope、公网 API 可达性、操作者 offline 确认、可选预构建索引校验），零预留零写入零外发。
+- 账本基线只读核对：`scripts/task0027_ledger_baseline.py`（`mode=ro`，不创建/不修改/不重置），期望 0/312/¥0.1035070/未结算 0，不一致退出码 2 并要求停止上报。
+- 方案 A 的边界（用户明确要求如实记录）：账本只存计数、上限是进程内参数，宽上限实例理论上仍可打开同一账本；本轮必须确保只有一个真实模型验证实例运行，不得宣称跨任意进程的全局收紧锁。
+- 反例测试：`tests/test_task0027_round_limits.py`（8 项）与 `tests/test_task0027_validation_entry.py`（16 项），覆盖第 5 次 LLM/第 11 次新增 Embedding/¥2 耗尽（次数仍有余量）/失败与未知用量保留且不补发/跨实例重启计数不减/两实例竞争最后一个名额原子拒绝/宽窄实例差异与账本不被写入收紧值/环境与 CLI 无法放宽/基线只读与漂移停止。
+- 文档：`deploy/README-demo.md` 新增 8.4（三步顺序、独立镜像命令、基线核对、边界说明）。"
 }

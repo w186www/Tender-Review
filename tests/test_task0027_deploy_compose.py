@@ -112,3 +112,25 @@ def test_frontend_mode_switch_documents_the_dec007_value():
     assert "dec007-real-qwen" in template
     app = (ROOT / "src" / "frontend" / "src" / "app.tsx").read_text(encoding="utf-8")
     assert '"dec007-real-qwen"' in app
+
+
+def test_the_validation_image_tag_is_opt_in_and_never_replaces_the_demo_tag():
+    """The controlled-round image is a per-command override, never the new default.
+
+    ``IMAGE_TAG=task0027-validation $D build api`` creates an independent tag; every other
+    command (``up``, ``build``, ``run`` without the override) still resolves the online
+    ``:demo`` tag from deploy/.env, so a validation build can never replace the image the
+    deployment serves.
+    """
+    document = compose()
+    for service, image in (
+        ("api", "tender-review-api"),
+        ("worker", "tender-review-api"),
+        ("init", "tender-review-api"),
+        ("nginx", "tender-review-web"),
+    ):
+        assert document["services"][service]["image"] == f"{image}:${{IMAGE_TAG:-demo}}"
+    assert re.search(r"(?m)^IMAGE_TAG=demo$", ENV_TEMPLATE.read_text(encoding="utf-8"))
+    assert "task0027-validation" in (ROOT / "deploy" / "README-demo.md").read_text(
+        encoding="utf-8"
+    )

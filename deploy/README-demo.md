@@ -170,6 +170,8 @@ LangGraph 全流程、法规检索、证据核验、人工复核、Word/PDF 报�
 6. 额度与预算限制仍然生效：单次调用前**全额预留**，账本只增不减。批次到 800 拒绝；
    累计费用到 ¥30 拒绝（即使批次还有余额）；失败或用量未知的预留继续占用额度且不自动补发。
    本地账本**不是**生产级防回滚方案（审计与账本被整体回滚无法检测），演示期间不要宣称有防回滚能力。
+7. **首次真实调用前**先跑一次受控验证轮（独立镜像 + 收紧上限 4 次 LLM / 322 批 / 累计 ¥2，
+   含账本基线核对与三步顺序）：见 8.4。
 
 未满足上述条件时，真实审查入口保持关闭并如实报错，**不会**回退成 Mock 冒充成功。
 `docker-compose.demo.yml` 把上述真实模型变量（`DASHSCOPE_*`、`BAILIAN_*`、`DEC007_*`、
@@ -229,6 +231,125 @@ $D exec api python deploy/manage_authorization.py revoke \
 $D exec postgres psql -U postgres -d bidding_compliance -c \
     "select publication_id, revision_id from legal_publication order by sequence desc limit 1"
 ```
+
+### 8.4 本轮受控验证：独立镜像 + 收紧上限（LLM 4 / Embedding 322 / 累计 ¥2）
+
+线上 `authorized-real` 用的是 DEC-007 授权额度本身（LLM 300 / Embedding 800 / ¥30）。
+**首次真实调用之前**先跑一轮受控验证：仍是 TASK-0027 最新代码、仍然是同一个
+`-modelstate` 命名卷（读写挂载）、同一法规发布/修订、同一 embedding 身份与同一授权 scope，
+但本轮上限在**装配层代码里固定**（`scripts/task0027_real_ai_validation_app.py`）：
+
+| 项 | 本轮上限 | 说明 |
+|---|---|---|
+| LLM | **4 次** | 一次合成样本审查约 2 次（发现 + 语义），留余量 |
+| Embedding | **322 批** | 312 批已用于预构建索引，本轮最多再新增 **10 批**查询 |
+| 费用 | 累计 **¥2** | **含**已结算的 ¥0.1035070，不是额外新增额度 |
+
+- 三个值都是脚本里的常量：**环境变量、命令行参数、普通演示账号都无法提高**。
+- 启动时还会拒绝"不比 DEC-007 授权更严"的取值；`AUTHORIZATION_LIMITS[DEC-007]` 的
+  300/800/¥30 **保持不变**，只作构造期上界。
+- 计数是**同一账本文件、同一 authorization_id 的累计值**（硬限制，不是预估）；
+  失败或用量未知的预留继续占用额度且不自动补发。
+
+#### 三步顺序（不可颠倒）
+
+**第一步：门禁与测试通过（尚未有任何外发）**
+
+```bash
+pwsh -NoProfile -Command "& scripts/verify.ps1 -Mode Focused \
+  -TestPaths @('tests/test_task0027_round_limits.py','tests/test_task0027_validation_entry.py', \
+               'tests/test_task0027_budget_boundaries.py','tests/test_task0027_per_file_authorization.py') \
+  -PythonExecutable <venv python>"
+```
+
+**第二步：登记冻结 DOCX 的 SHA-256**（只写追加式注册表，**不写环境变量白名单**）
+
+```bash
+cd <repo>
+D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
+$D exec api python deploy/manage_authorization.py approve \
+    --sha256 <冻结 DOCX 的 64 位小写 hex> --document <document-id> \
+    --reason "TASK-0027 受控验证合成样本"
+```
+
+不要用改 `DEC005_ALLOWED_DOCUMENT_SHA256` 的方式放行文件：环境变量白名单是账本 scope 的一部分，
+改了会与既有账本冲突（`existing DEC ledger has a different scope`），唯一的"修复"办法就成了删账本 ——
+正是 DEC-007 禁止的额度重置。逐文件注册表**不参与 scope**，所以 approve/revoke 永远不会作废账本。
+
+**第三步：才发起真实调用**（本轮上限生效，命令见下）。未完成前两步、未获批准前不要执行。
+
+#### 独立镜像标签与运行命令（不影响线上容器与 offline 模式）
+
+```bash
+cd <repo>
+D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
+
+# 0) 启动前人工确认：线上仍是离线模式、且没有第二个 authorized-real 实例
+$D exec api printenv DEPLOY_REVIEW_MODE          # 必须输出 offline
+$D ps
+
+# 1) 用独立标签构建验证镜像（绝不覆盖线上 tender-review-api:demo）
+IMAGE_TAG=task0027-validation $D build api
+
+# 2) 只读核对账本基线（不创建、不修改、不重置账本）
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python scripts/task0027_ledger_baseline.py
+
+# 3) 预检查（零供应商调用、零写入、零预留；缺索引/基线不符/公网 API 不可达即拒绝）
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python scripts/task0027_real_ai_validation_app.py --preflight \
+    --publication-id <id> --revision-id <id> --online-api-offline-verified
+
+# 4) 起一次性验证实例：只在宿主机回环发布端口
+IMAGE_TAG=task0027-validation $D run --rm --no-deps -p 127.0.0.1:8123:8000 api \
+    python scripts/task0027_real_ai_validation_app.py \
+    --publication-id <id> --revision-id <id> --online-api-offline-verified
+```
+
+- `run --rm --no-deps` 只创建一个**一次性容器**：复用 api 服务的环境变量、网络与 `-modelstate`
+  读写挂载，**不重启、不改动线上 api / worker / nginx**，也不改 `DEPLOY_REVIEW_MODE`。
+- 容器内验证实例监听 `0.0.0.0:8000`（否则 `-p` 无法转发到它），但**只发布到宿主机回环**
+  `127.0.0.1:8123`；容器自身只挂在 compose 内网，没有对外端口。
+- `IMAGE_TAG=...` 只作用于该条命令；`$D up -d` 仍解析为 `tender-review-api:demo`，线上镜像不被替换。
+- 上传与隔离解析仍走线上栈（worker 是离线解析，不外发）；本轮审查请求打到
+  `127.0.0.1:8123` 上的验证实例。验证实例的日志（stderr）含预检查报告与生效上限。
+- `--preflight` 的 `--publication-id/--revision-id` 取自第八节末尾的 SQL；给出后会在启动前
+  用 `require_prebuilt_vector_index` 本地校验预构建索引（零供应商调用）。不给出时该项显示为
+  "not pinned"，服务端仍在审查时拒绝建库（`allow_build=False`）。
+- 验证实例需要**至少一个已登记文件**才能启动（出站最小化器拒绝空白名单），所以第二步必须在前。
+- 服务端（API 侧）只允许**逐文件登记 + 本轮收紧上限**两条同时成立；缺一即拒绝且零外发。
+
+#### 账本基线核对（执行前必须做）
+
+期望值：**LLM 0 次 / Embedding 312 批 / 累计 ¥0.1035070 / 未结算 0**。
+
+```bash
+IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+    python scripts/task0027_ledger_baseline.py
+```
+
+输出示例（口径为"该 authorization_id 在账本文件里的累计值"）：
+
+```
+llm_calls: 0 (expected 0)
+embedding_batches: 312 (expected 312)
+charged_or_reserved_cny: 0.1035070 (expected 0.1035070)
+unsettled_requests: 0 (expected 0)
+PASS: the ledger matches the documented pre-round baseline.
+```
+
+**不一致时停止并上报**（退出码 2）：先记录观测值与期望值的差异，再决定本轮是否继续；
+**不得删除、替换或重置账本**。`--expect-*` 只用于如实记录已知漂移，不是修复手段。
+`--json` 可输出机器可读结果（含各授权 ID 的历史计数，用于确认 DEC-005/006 未被触碰）。
+
+#### 本轮的边界（必须如实说明，不得宣称超出）
+
+- 账本文件只存**计数**，上限是**进程内参数**：若另一个进程被显式以 300/800/¥30 打开同一账本，
+  账本本身不会阻止它（选项 A 的已知边界）。因此本轮**必须确保只有一个真实模型验证实例在运行**，
+  运维不得并行启动宽上限进程；本方案**不提供**跨任意进程的全局收紧锁（选项 C 的账本内租约锁未实现）。
+- 收紧上限**不写入账本**，也不改表结构：本轮结束后 300/800/¥30 仍可用，继续累计使用**原有账本**。
+- 门禁在**任何**供应商请求之前生效：拒绝时 transport 零调用、账本计数不增加。
+- 本地账本**不是**生产级防回滚方案；本轮结束不得以删除账本的方式恢复额度。
 
 ## 九、安全说明与已知限制
 

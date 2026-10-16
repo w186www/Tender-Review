@@ -2,7 +2,35 @@
 
 更新时间：2026-10-16
 
-## 进行中：TASK-0027（DEC-007 完整能力）验收前阻断问题已处置，等待复核提交与首次真实调用批准
+## 进行中：TASK-0027（DEC-007 完整能力）本轮硬门禁已接线、隔离验证入口就绪，等待复核提交与首次真实调用批准
+
+- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `37e380f`；
+  **本轮（硬门禁接线 + 独立隔离验证入口）改动未提交**，由用户复核后自行提交。
+- 本轮按用户 2026-10-16 批准的**方案 A**（装配层固定本轮额度，不新增租约锁、不改账本表结构、
+  不永久写入收紧上限）完成：
+  1. `create_dec005_gateway` 新增 `llm_limit`/`embedding_limit`/`total_cny` 可选参数并透传到
+     `Dec005BudgetLedger`（同一账本文件、同一 authorization_id，计数累计）；`AUTHORIZATION_LIMITS[DEC-007]`
+     的 300/800/¥30 不变，只作构造期上界。
+  2. 隔离验证入口 `scripts/task0027_real_ai_validation_app.py`：本轮上限固定为常量
+     `llm_limit=4`、`embedding_limit=322`（312 已用 + 10）、`total_cny=Decimal("2")`（含已结算
+     ¥0.1035070 的累计口径）；环境变量/命令行/演示账号都无法放宽；独立镜像标签
+     `IMAGE_TAG=task0027-validation`（不覆盖 `:demo`）、同一 `modelstate` 卷读写挂载、同一发布/修订
+     与 embedding 身份与授权 scope、`allow_build=False` 缺索引即拒绝；`--preflight` 只做本地/只读检查
+     （基线、scope、公网 API 可达性、操作者 offline 确认、可选预构建索引校验），零预留零写入零外发。
+  3. 账本基线只读核对 `scripts/task0027_ledger_baseline.py`（`mode=ro`，不创建/不修改/不重置）；
+     基线期望值 **LLM 0 / Embedding 312 / ¥0.1035070 / 未结算 0**，不一致退出码 2 并要求停止上报。
+  4. 反例测试 `tests/test_task0027_round_limits.py`（8 项）与 `tests/test_task0027_validation_entry.py`
+     （16 项）：第 5 次 LLM、第 11 次新增 Embedding、¥2 耗尽（次数仍有余量）、失败与未知用量保留且不
+     自动补发、跨实例/重启计数不减、两实例竞争最后一个名额原子拒绝、宽窄实例差异与账本不被写入收紧值、
+     环境与 CLI 无法放宽、拒绝时 transport 零调用。
+  5. 文档：`deploy/README-demo.md` 新增 8.4（三步顺序：门禁与测试通过 → 登记冻结 DOCX 的 SHA-256 →
+     才发起真实调用；独立镜像命令；基线核对；方案 A 边界），`docs/development/TASK-0027-validation.md`
+     第二轮记录，任务 YAML 新增 `TASK0027-008`。
+- 本轮验证：ruff `All checks passed!`、mypy `Success: no issues found in 104 source files`、
+  新测试 24 passed、相关回归 49 passed / 75 passed、官方 Focused `49 passed in 72.74s`（未重跑 Full）。
+- **方案 A 的边界（不得宣称超出）**：账本只存计数、上限是进程内参数，宽上限实例理论上仍可打开同一账本；
+  本轮必须确保只有一个真实模型验证实例运行，**不提供**跨任意进程的全局收紧锁（选项 C 未实现）。
+  收紧上限不落盘：后续正式演示恢复 300/800/¥30 时继续累计使用原有账本，**不得删除账本恢复额度**。
 
 - 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `fced54b`
   （DEC-007 方案 A 已实现）；**本轮改动未提交**，由用户复核后自行提交。
@@ -30,9 +58,9 @@
   8. 已运行 Focused/Full/`scripts/verify_repo.py`、ruff、mypy 与前端四项检查；命令与数字见验证记录。
   9. **线上保持离线**：未执行任何部署或容器操作，未访问任何付费供应商，`47.83.132.211` 未触碰。
 - 仍未完成/待批准：git 提交与远程 CI 观察；DEC-007 首次真实调用申请（批次、费用、文件哈希、
-  外发数据范围）；线上切换到 `authorized-real` 与预构建索引。
-- 不可宣称：任何风险的违法认定、任何条款已核验适用、生产级防回滚；本地账本只挡住"审计存在而
-  账本被删/空"的明显回滚形态。
+  外发数据范围）；线上切换到 `authorized-real` 与预构建索引；本轮未重跑 Full。
+- 不可宣称：任何风险的违法认定、任何条款已核验适用、生产级防回滚、跨任意进程的全局预算收紧锁；
+  本地账本只挡住"审计存在而账本被删/空"的明显回滚形态。
 
 以下保留 TASK-0026 上线状态与更早的历史记录。
 
