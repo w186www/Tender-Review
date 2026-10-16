@@ -1,74 +1,81 @@
-# 招标文件智能合规审查 Agent
+# Tender-Review · 招标文件智能合规审查 Agent
 
-面向真实招标文件的智能合规审查系统。项目采用 LangGraph 编排规则检查、法规检索、模型语义分析、证据校验和人工复核，目标是交付可部署、可审计、可替换模型、可持续维护的完整系统。
+基于 **FastAPI + LangGraph + React** 的招标文件 AI 辅助审查系统：从文件安全接入、规则检查和法规检索，到真实大模型分析、原文定位、人工复核及 Word/PDF 报告，提供一条可演示、可追溯的审查流程。
 
-## 当前阶段
+> **请先看这里：最新完整实现位于 [`work/TASK-0027` 分支](https://github.com/w186www/Tender-Review/tree/work/TASK-0027)。** 当前 `main` 仅作为仓库首页与项目介绍入口，尚未合并该开发分支的功能代码。请勿直接用 `main` 判断项目最终完成度。
 
-**M1 后端与安全文件接入已通过基础退出检查，下一阶段为 M2 法规、规则与模型网关。** 后端已实现身份、租户隔离、项目版本、安全上传、独立隔离解析、OCR、原文定位与人工质量/上下文确认。法规检索、规则、模型和完整审查仍待后续任务。准确状态与验收证据见 [PROJECT_STATE.md](PROJECT_STATE.md)。
+**快速入口：** [查看最新代码](https://github.com/w186www/Tender-Review/tree/work/TASK-0027) · [查看部署说明](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/deploy/README-demo.md) · [查看项目状态](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/PROJECT_STATE.md) · [查看验收记录](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/docs/development/TASK-0027-validation.md)
 
-## 新开发者或 AI 的入口
+## 项目解决什么问题
 
-两个软件协作开发时，先读[模型分工与仓库派工](docs/development/multi-model-workflow.md)。当前可交给DeepSeek的是[TASK-0006第一阶段](tasks/dispatch/TASK-0006.md)，可复制[启动提示词](docs/development/prompts/deepseek-task-0006.md)；设计审定后再进入业务代码实现。
-
-1. 阅读 [AGENTS.md](AGENTS.md)。
-2. 阅读 [PROJECT_STATE.md](PROJECT_STATE.md)。
-3. 从 [docs/index.md](docs/index.md) 找到需求和架构。
-4. 先阅读 [里程碑与任务依赖](docs/development/roadmap.md)，只处理依赖已完成的当前任务。
-5. 准备Python 3.12和项目独立环境：
-
-```powershell
-python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements-dev.lock
-./.venv/Scripts/python.exe -m pip install --no-deps --no-build-isolation -e .
-```
-
-6. 提交前运行（自动优先使用项目虚拟环境）：
-
-```powershell
-./scripts/verify.ps1
-```
-
-校验包括JSON Schema、OpenAPI、正反例、任务证据与依赖、State生成一致性、Ruff、Mypy和Pytest。空测试集失败。本地和CI使用同一锁文件与检查脚本。
-
-## 启动后端
-
-```powershell
-./scripts/start.ps1
-```
-
-访问 `http://127.0.0.1:8000/api/v1/health`；开发接口文档在 `/docs`，Ctrl+C停止。日志约定见 [后端启动说明](docs/development/backend-start.md)。登录和项目接口的迁移、账号引导及权限步骤见 [身份与数据启动说明](docs/development/identity-data-start.md)；健康接口不依赖模型或数据库连接。
-
-统一验证现已包含真实后端启动与本机HTTP烟雾检查，检查后自动清理自己的测试服务。
-
-实际文件上传与 Worker 操作见 [安全文件接入启动说明](docs/development/secure-ingestion-start.md)。需要 Docker Linux Engine、受控解析镜像和 ClamAV；CI 另强制验证真实 S3、杀毒、OCR 与解析隔离。开发本地存储不适用于生产。
-
-若使用的打包Python没有ensurepip，可用支持虚拟环境的标准Python，或由已有pip执行 `python -m pip --python .venv/Scripts/python.exe install -r requirements-dev.lock` 后安装项目。不要把其他项目的site-packages加入本项目环境。
-
-当前通过范围仅为开发基线；生产安全、性能、模型替换和业务验收在M1至M6执行。Word V2.0与当前架构差异登记在docs/reference/README.md。
-
-## 目录
+人工审阅招标文件需要同时核对资格条件、限制性条款、评标要求与相关法规。Tender-Review 将这些步骤组织为一条可复核的辅助审查链路：
 
 ```text
-config/                 非秘密配置样例
-contracts/              OpenAPI、事件、领域和数据库契约
-docs/                   需求、架构、ADR、开发与交付文档
-evals/                  黄金样本、期望结果与质量阈值
-knowledge/legal/        法规原文及来源索引
-scripts/                统一验证和工程脚本
-src/                    应用源代码
-tasks/                  可执行任务与完成记录
-tests/                  单元、契约、集成和安全测试
+项目创建与文件上传
+        ↓
+文件类型校验、ClamAV 扫描、隔离解析 / OCR
+        ↓
+原文结构化与采购上下文确认
+        ↓
+规则检查 + AI 疑点发现 + 法规检索
+        ↓
+证据与原文位置校验（不确定项保留待核验）
+        ↓
+人工接受 / 修改 / 驳回
+        ↓
+结果发布与 Word / PDF 报告下载
 ```
 
-## 技术方向
+系统的目标是**辅助识别与解释疑似风险**，而非跳过法律核验或人工复核，自动断言某条款违法。
 
-- Python 3.12（当前本地与CI验证版本）
-- FastAPI
-- LangGraph
-- PostgreSQL + pgvector
-- Redis 与异步 Worker
-- S3 兼容对象存储
-- 可替换的 LLM、Embedding、Reranker 和 OCR 适配层
+## 已实现的主要能力
 
-正式开发与交付方案位于 [docs/reference](docs/reference/README.md)。Word 文档用于评审和交付，仓库内的 Markdown、YAML、OpenAPI 与 JSON Schema 用于实际开发。
+| 模块 | 能力 |
+| --- | --- |
+| 安全接入 | DOCX/PDF 上传、文件校验、ClamAV、隔离解析、OCR 与原文定位 |
+| 项目与权限 | JWT 认证、租户隔离、项目及文档版本、审查任务持久化与审计 |
+| 审查编排 | LangGraph 组织规则、疑点发现、法规检索、语义分析与证据检查 |
+| 真实模型 | 阿里云百炼 `qwen3.8-flash`；模型调用、Token 与费用可审计 |
+| 法规参考 | 现有法规库、BM25 检索及预构建向量索引；未核验来源不作为已确认法律依据 |
+| 人工闭环 | 审查员复核、结果发布、带引用与原文位置的 Word/PDF 报告 |
+| 演示部署 | Docker Compose、PostgreSQL、MinIO、Nginx/HTTPS，以及故障回滚说明 |
 
+## 已完成的验证与适用范围
+
+在**受控服务器环境**中，冻结的合成 DOCX 样本已完成真实 Qwen 审查：2 次模型调用（无重试）、产生 2 条待人工核验的疑似风险，完成原文定位、人工复核、结果发布与 Word/PDF 下载；本次从发起审查到等待人工复核约 **64.95 秒**。这不是对任意大型真实招标文件的性能保证。
+
+现有法规快照包含约 **3120 条条文**；其中 **3112 条**已建立持久向量索引，8 条保留 BM25 检索路径。**需要特别说明：上述受控真实 Qwen 验收中，Dense 向量检索尚未实际参与排名，法规候选主要来自 BM25。** 不将“索引已构建”等同于“混合向量检索已在该次审查中生效”。
+
+法规有效性与适用范围尚未全面核验，因此系统会将相关引用标注为**待核验参考**，不会凭相似度直接作出违法认定。
+
+本机还完成了前端工作台、超时后任务找回、幂等提交与报告内容的相关测试。公网实时演示状态及账号开放情况，以最终部署验收和交付通知为准；**代码测试通过不等于公网已完成上线**。
+
+## 技术栈
+
+- **后端**：Python 3.12、FastAPI、Pydantic、LangGraph
+- **前端**：React、TypeScript、Vite
+- **存储与隔离**：PostgreSQL（含 RLS）、MinIO、SQLite 模型预算/向量索引、Docker 隔离解析
+- **检索与模型**：BM25、Embedding / 向量索引、阿里云百炼 Qwen
+- **部署与测试**：Docker Compose、Nginx、HTTPS、Pytest、Ruff、Mypy、GitHub Actions
+
+## 如何查看最新实现
+
+```bash
+git clone --branch work/TASK-0027 --single-branch https://github.com/w186www/Tender-Review.git
+cd Tender-Review
+```
+
+安装、配置、容器部署、环境变量及回滚步骤请查看 **[开发分支的部署文档](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/deploy/README-demo.md)**。请使用实际需要的独立环境变量文件，**不要将密钥、测试账号密码或真实招标文件提交到公开仓库**。
+
+项目设计与运行细节：
+- [最新开发分支](https://github.com/w186www/Tender-Review/tree/work/TASK-0027)
+- [当前项目状态](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/PROJECT_STATE.md)
+- [阶段验收与已知限制](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/docs/development/TASK-0027-validation.md)
+- [架构与文档索引](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/docs/index.md)
+
+## 演示与安全边界
+
+- 优先使用**合成或明确获准处理的招标文件**。将真实文件内容发送给第三方模型前，需要文件处理权限及明确外发授权；上传不自动等于同意外发。
+- 未核验法规仅用于提示和人工参考，风险项及报告不得将其写成已确认违法结论。
+- 模型费用与请求应保留审计；演示并非对法律结论、商业场景或生产级负载的保证。
+- `main` 未合并最新实现；审查代码和复现步骤请使用 `work/TASK-0027`。
