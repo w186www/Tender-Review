@@ -2,7 +2,59 @@
 
 更新时间：2026-10-16
 
-## 进行中：TASK-0027（DEC-007 完整能力）本轮硬门禁已接线、隔离验证入口就绪，等待复核提交与首次真实调用批准
+## 进行中：TASK-0027（DEC-007 完整能力）第三轮最小修正完成，等待复核提交与首次真实调用批准
+
+- 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，当前 HEAD `2cd6a71`
+  （`feat(TASK-0027): wire the round cap the phase-one validation must obey`）；
+  **第三轮（验证入口强制索引身份 + 宿主机侧离线证据）改动未提交**，由用户复核后自行提交。
+- 本轮两条"最小修正"（用户 2026-10-16 指令，全部本机合成测试，**零付费调用、未触碰线上服务器**）：
+  1. **预构建索引校验不再可选**：`scripts/task0027_real_ai_validation_app.py` 的
+     `--publication-id/--revision-id` 变为 argparse 必需项（缺失即退出码 2），新增
+     `verify_prebuilt_index` 把两者与 `modelstate` 卷内 `vector-manifest.json` 记录值**逐一比对**，
+     并校验 `legal_snapshot_sha256`（对冻结语料）、`embedding_identity.identity_sha256`（对本装配
+     embedding 身份）、`item_count`（常量 **3112**）、`source_item_count`（**3120**）、覆盖率，
+     以及索引库中该构建的 `status=complete`、身份/发布/计数/`manifest_sha256` 一致与条目数相等；
+     索引库以 SQLite `mode=ro` 打开，**不创建、不写入**。全部一致才打印一行
+     `prebuilt index verified build_id=<64 位> item_count=3112 source_item_count=3120 ...`；
+     任一项不一致 → 退出码 2、不启动、**不打印该行**、零供应商请求。
+  2. **offline 状态必须有宿主机侧实际检查证据**：人工标志 `--online-api-offline-verified` 保留语义
+     但不再单独成立；`--preflight` 同时要求新鲜的 `verdict: "ok"` 证据文件
+     （`--host-offline-evidence`，默认窗口 600 秒、可配 60–3600 秒），且证据里的 api 容器 ID 与
+     compose 项目必须与当前部署一致（`DEC007_API_CONTAINER_ID`/`--api-container-id`；
+     compose 注入的 `DEPLOY_COMPOSE_PROJECT`/`--compose-project`）。缺失/过期/`unknown`/
+     `untrusted`/标识不一致/只有人工标志无证据，一律退出码 2、不启动、零供应商请求。
+  3. 新增宿主机侧只读脚本 `deploy/verify_api_offline_mode.sh`（逻辑在同目录
+     `verify_api_offline_mode.py`，标准库 only、按宿主 python3.10 兼容编写）：只用只读
+     `docker compose ... ps` / `docker ps` / `docker inspect`，**不创建/启动/停止/删除/进入容器、
+     不挂 Docker Socket、不给任何容器 Docker 权限**；唯一写入是 `--evidence-dir` 下的证据 JSON，
+     记录检查时间戳、compose project、api 容器名与 64 位 ID、`docker inspect` 里**实际生效**的
+     `DEPLOY_REVIEW_MODE`、`APP_ENV`、镜像引用/镜像 ID、入口与主进程命令、运行状态、health、
+     扫描容器数，以及"是否存在第二个 `authorized-real` 执行实例"；判定 `ok`=0 / `untrusted`=3 /
+     `unknown`=2，两种非 ok 均为失败关闭并明确提示"立即停止、不发起供应商调用"。
+     **只输出白名单字段，绝不输出完整环境变量或任何密钥**（测试注入 `DASHSCOPE_API_KEY` 与 `PATH`
+     后断言二者都不出现在证据与终端输出中）。
+  4. `docker-compose.demo.yml` 的 api 服务新增 `DEPLOY_COMPOSE_PROJECT: tender-review-demo`
+     （与顶层 `name:` 相同、非密钥、其他服务零注入），供一次性验证容器取得当前项目名。
+- 测试：新建 `tests/test_task0027_host_offline_evidence.py`（20 项：ok/untrusted/unknown 三类 verdict、
+  只读 docker 调用审计、密钥不外泄、证据键集合等于白名单、fixture 回放、严格加载器的全部拒绝路径），
+  `tests/test_task0027_validation_entry.py` 扩到 28 项（必需 ID、`prebuilt index verified` 打印与
+  **反例不打印**、manifest 发布/修订/快照/身份/计数不一致各自被拒——用摘要自洽的篡改清单避免只测到
+  digest 校验、缺 manifest/索引库**零写入**、拒绝时**零网络请求**），`tests/test_task0027_deploy_compose.py`
+  固定项目名常量。全部合成数据、无真实 Docker、无供应商。
+- 本轮验证真实数字：ruff `All checks passed!`（官方范围 `src scripts tests`）；mypy
+  `Success: no issues found in 104 source files`；`scripts/verify_repo.py` PASS；
+  pytest `55 passed`（3 个新增/修改文件）、`79 passed`（6 文件）、`90 passed`（8 文件相关回归）；
+  官方 Focused `82 passed in 115.46s`（另一次 `82 passed in 125.00s`，7 步全过）；
+  **按用户指令未重跑 Full**。命令与转录见
+  [TASK-0027 验证记录 第三轮](docs/development/TASK-0027-validation.md)。
+- **本轮边界（不得宣称超出）**：证据是**内容不是签名**——能运行宿主脚本的人也能写出同样的 JSON，
+  操作者仍是信任链的一环（与人工标志同一信任假设，区别是"确实检查过"由可核对证据与时间窗口固定）；
+  容器内无法读取宿主 Docker 状态（也不允许挂 socket），当前 api 容器 ID/compose 项目由操作者声明
+  与 compose 常量提供；`item_count/source_item_count` 常量绑定冻结语料，语料变更必须重新测量；
+  **未在真实宿主运行该脚本**（本机只有 fixture 回放）；线上 `--publication-id/--revision-id` 与
+  `modelstate` 卷的实机校验、任何容器构建/`docker compose run`、任何付费调用都**尚未发生**。
+
+以下保留 TASK-0027 上一轮（硬门禁接线 + 独立隔离验证入口）与更早的记录。
 
 - 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `37e380f`；
   **本轮（硬门禁接线 + 独立隔离验证入口）改动未提交**，由用户复核后自行提交。

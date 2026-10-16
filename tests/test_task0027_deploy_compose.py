@@ -105,6 +105,22 @@ def test_offline_entry_point_stays_offline_when_the_real_variables_are_blank():
     assert "real_embedding_runtime" not in offline
 
 
+def test_the_api_container_carries_its_compose_project_name_for_the_controlled_round():
+    """The one-off validation container inherits the api service's project name.
+
+    ``scripts/task0027_real_ai_validation_app.py`` compares the host evidence's compose
+    project with the current deployment; the project name is a deployment constant, never a
+    secret and never operator input.
+    """
+    document = compose()
+    api = environment(document, "api")
+    assert api["DEPLOY_COMPOSE_PROJECT"] == document["name"] == "tender-review-demo"
+    for name in document["services"]:
+        if name == "api":
+            continue
+        assert "DEPLOY_COMPOSE_PROJECT" not in environment(document, name), name
+
+
 def test_frontend_mode_switch_documents_the_dec007_value():
     dockerfile = (ROOT / "Dockerfile.web").read_text(encoding="utf-8")
     assert "dec007-real-qwen" in dockerfile

@@ -138,6 +138,10 @@ services:
     environment:
       <<: [*app-environment, *real-model-environment]
       DEPLOY_REVIEW_MODE: ${DEPLOY_REVIEW_MODE:-offline}
+      # The compose project this deployment belongs to (never a secret). The one-off
+      # validation container inherits it, so the controlled round can compare the host
+      # evidence's project with the running deployment without an operator retyping it.
+      DEPLOY_COMPOSE_PROJECT: tender-review-demo
     volumes:
       # Model budget ledger and audit trail for authorized real-model mode.
       - modelstate:/app/.verification/private

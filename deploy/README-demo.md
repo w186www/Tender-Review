@@ -283,10 +283,17 @@ $D exec api python deploy/manage_authorization.py approve \
 ```bash
 cd <repo>
 D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
+# 当前法规发布版本（预构建与预检查都要用）
+PUB=$($D exec -T postgres psql -U postgres -d bidding_compliance -tAc \
+    "select publication_id from legal_publication order by sequence desc limit 1")
+REV=$($D exec -T postgres psql -U postgres -d bidding_compliance -tAc \
+    "select revision_id from legal_publication order by sequence desc limit 1")
+API_ID=$($D ps -q api)                                    # 当前 api 容器 ID（只读）
 
-# 0) 启动前人工确认：线上仍是离线模式、且没有第二个 authorized-real 实例
-$D exec api printenv DEPLOY_REVIEW_MODE          # 必须输出 offline
-$D ps
+# 0) 宿主机侧只读证据 + 人工确认：线上仍是离线模式、且没有第二个 authorized-real 实例
+bash deploy/verify_api_offline_mode.sh \
+    --evidence-dir /opt/tender-review-private/evidence   # verdict 必须是 ok（退出码 0）
+$D exec api printenv DEPLOY_REVIEW_MODE                  # 必须输出 offline
 
 # 1) 用独立标签构建验证镜像（绝不覆盖线上 tender-review-api:demo）
 IMAGE_TAG=task0027-validation $D build api
@@ -295,15 +302,22 @@ IMAGE_TAG=task0027-validation $D build api
 IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
     python scripts/task0027_ledger_baseline.py
 
-# 3) 预检查（零供应商调用、零写入、零预留；缺索引/基线不符/公网 API 不可达即拒绝）
-IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
+# 3) 预检查（零供应商调用、零写入、零预留）
+IMAGE_TAG=task0027-validation $D run --rm --no-deps \
+    -e DEC007_API_CONTAINER_ID="$API_ID" \
+    -v /opt/tender-review-private/evidence:/evidence:ro api \
     python scripts/task0027_real_ai_validation_app.py --preflight \
-    --publication-id <id> --revision-id <id> --online-api-offline-verified
+    --publication-id "$PUB" --revision-id "$REV" --online-api-offline-verified \
+    --host-offline-evidence /evidence/api-offline-<timestamp>.json
+# 全部一致时必须打印一行：prebuilt index verified build_id=<64 位> item_count=3112 ...
 
 # 4) 起一次性验证实例：只在宿主机回环发布端口
-IMAGE_TAG=task0027-validation $D run --rm --no-deps -p 127.0.0.1:8123:8000 api \
+IMAGE_TAG=task0027-validation $D run --rm --no-deps -p 127.0.0.1:8123:8000 \
+    -e DEC007_API_CONTAINER_ID="$API_ID" \
+    -v /opt/tender-review-private/evidence:/evidence:ro api \
     python scripts/task0027_real_ai_validation_app.py \
-    --publication-id <id> --revision-id <id> --online-api-offline-verified
+    --publication-id "$PUB" --revision-id "$REV" --online-api-offline-verified \
+    --host-offline-evidence /evidence/api-offline-<timestamp>.json
 ```
 
 - `run --rm --no-deps` 只创建一个**一次性容器**：复用 api 服务的环境变量、网络与 `-modelstate`
@@ -313,11 +327,52 @@ IMAGE_TAG=task0027-validation $D run --rm --no-deps -p 127.0.0.1:8123:8000 api \
 - `IMAGE_TAG=...` 只作用于该条命令；`$D up -d` 仍解析为 `tender-review-api:demo`，线上镜像不被替换。
 - 上传与隔离解析仍走线上栈（worker 是离线解析，不外发）；本轮审查请求打到
   `127.0.0.1:8123` 上的验证实例。验证实例的日志（stderr）含预检查报告与生效上限。
-- `--preflight` 的 `--publication-id/--revision-id` 取自第八节末尾的 SQL；给出后会在启动前
-  用 `require_prebuilt_vector_index` 本地校验预构建索引（零供应商调用）。不给出时该项显示为
-  "not pinned"，服务端仍在审查时拒绝建库（`allow_build=False`）。
+- **`--publication-id/--revision-id` 是必需项**（取自上面两条 SQL），没有默认值、没有
+  "not pinned" 分支：预检查会把两者与 `-modelstate` 卷内 `vector-manifest.json` 记录的发布/修订
+  **逐一比对**，并校验 `legal_snapshot_sha256`、`embedding_identity.identity_sha256`、
+  `item_count`（本冻结语料应为 **3112**）、`source_item_count`（**3120**），以及索引库里该构建的
+  完整性、覆盖率与条目数；全部一致才打印 `prebuilt index verified build_id=... item_count=3112`。
+  任一项不一致 → 退出码 2、不启动、零供应商请求、不打印该行。
+- **`--online-api-offline-verified` 人工确认必须保留，但不再单独成立**：还必须有宿主机侧
+  `deploy/verify_api_offline_mode.sh` 产出的**新鲜**证据文件（`verdict: "ok"`，默认 10 分钟窗口，
+  可用 `--host-offline-evidence-max-age-seconds` 或 `DEC007_HOST_OFFLINE_EVIDENCE_MAX_AGE_SECONDS`
+  调整，允许范围 60–3600 秒），且证据里的 **api 容器 ID** 与 **compose project** 必须与当前部署
+  一致（容器 ID 用 `DEC007_API_CONTAINER_ID` 或 `--api-container-id`；项目名由 compose 注入的
+  `DEPLOY_COMPOSE_PROJECT=tender-review-demo` 提供，也可用 `--compose-project` 覆盖）。证据缺失、
+  过期、verdict 为 `unknown`/`untrusted`、容器或项目不一致，或者**只有人工标志没有证据**，
+  一律退出码 2、不启动、零供应商请求。
 - 验证实例需要**至少一个已登记文件**才能启动（出站最小化器拒绝空白名单），所以第二步必须在前。
 - 服务端（API 侧）只允许**逐文件登记 + 本轮收紧上限**两条同时成立；缺一即拒绝且零外发。
+
+#### 宿主机侧离线证据脚本（`deploy/verify_api_offline_mode.sh`）
+
+```bash
+bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private/evidence
+# evidence: /opt/tender-review-private/evidence/api-offline-20261016T024838Z.json
+# verdict: ok            （退出码 0）
+# STOP: ... Stop immediately; do not launch supplier calls.   （退出码 2 unknown / 3 untrusted）
+```
+
+- 只在**宿主机**执行，只用只读 Docker 命令（`docker compose ... ps`、`docker ps`、`docker inspect`）：
+  **不创建/启动/停止/删除/进入**任何容器，**不挂 Docker Socket**，也**不给任何容器 Docker 权限**。
+- 唯一写入是 `--evidence-dir` 下的证据 JSON（默认 `/opt/tender-review-private/evidence`）。
+- 记录内容（**只允许白名单字段**）：检查时间戳、compose project、api 容器名与 64 位 ID、
+  `docker inspect` 里**实际生效**的 `DEPLOY_REVIEW_MODE`、`APP_ENV`、镜像引用与镜像 ID、
+  入口与主进程命令、运行状态、health 状态、扫描到的容器数，以及"是否存在第二个以
+  `authorized-real` 模式运行的执行实例"。
+- **绝不输出完整环境变量列表或任何密钥**：容器环境只在同一个循环里取出 `DEPLOY_REVIEW_MODE`
+  与 `APP_ENV` 两个白名单值，其余变量连名字都不会写进证据文件或终端。
+- 判定：`DEPLOY_REVIEW_MODE` 必须是 `offline`；api 容器必须 running；health 必须是 healthy
+  或至少 running；镜像与入口/命令必须是预期值（`tender-review-api:<IMAGE_TAG>` 与
+  `python deploy/api_entry.py`，镜像自身不声明 ENTRYPOINT）；发现任何第二个以
+  `authorized-real` 模式运行的执行实例（另一个 api 容器或验证实例）→ `untrusted`。
+  无法确定执行模式（inspect 失败、字段缺失、容器不存在）→ `unknown`。两种非 `ok` 都是
+  **失败关闭**：**立即停止，不发起供应商调用**，证据文件仍会写出以便审计。
+- 证据是**内容而不是签名**：预检查校验它的 verdict、新鲜度以及容器/项目标识与当前部署一致，
+  但能运行该脚本的人也能写出同样的文件，所以操作者仍是被信任的一环（与人工标志相同的信任假设，
+  区别是"确实检查过"由可核对的机器证据固定下来，过期的旧证据会被时间窗口拒绝）。
+- 测试与离线复核可用 `--fixture-dir <dir>` 回放预置的 `compose-ps.json` / `docker-ps.json` /
+  `inspect-<容器 ID>.json`，此时证据里的 `docker_binary` 记为 `fixture:<dir>`；线上不要使用。
 
 #### 账本基线核对（执行前必须做）
 

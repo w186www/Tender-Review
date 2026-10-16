@@ -303,3 +303,186 @@ pwsh -NoProfile -Command "& scripts/verify.ps1 -Mode Focused \
   `summary()["charged_or_reserved_cny"]` 一致），这也是 DEC-007 文档既有口径；若用户希望
   "仅已结算"口径，需要改账本语义，本轮未做。
 
+
+---
+
+# 第三轮：验证入口强制索引身份 + 宿主机侧离线证据（2026-10-16）
+
+本轮回答两条"最小修正"：① 预构建索引校验不许再是可选项、也不许未指定发布/修订；
+② online/offline 不再只靠操作者人工标志，必须有宿主机侧实际检查的证据文件。
+**未调用任何真实供应商、未访问百炼/DashScope、未设置真实 key、未触碰线上服务器 47.83.132.211、
+未挂 Docker Socket、未给任何容器 Docker 权限**；本轮全部为本机代码与合成数据测试。
+
+## 一、改了什么
+
+1. `scripts/task0027_real_ai_validation_app.py`
+   - `--publication-id` / `--revision-id` 变为 **argparse 必需参数**（缺席即用法错误、退出码 2），
+     并且在 `run_preflight`/`verify_prebuilt_index` 内再次拒绝空值：**没有默认值，也没有
+     "not pinned" 分支**（旧文案已删除）。
+   - 新增 `verify_prebuilt_index`：读取 `modelstate` 卷内 `vector-manifest.json`，把传入的
+     publication/revision 与 manifest 记录值**逐一比对**，并校验
+     `legal_snapshot_sha256`（对冻结语料 `index_hash`）、`embedding_identity.identity_sha256`
+     （对本装配的 embedding 身份，非 mock）、`item_count`（冻结语料 3112 且 pin 为常量）、
+     `source_item_count`（3120 且 pin 为常量）、`coverage_sha256`（对计划条款集合），
+     以及索引库中该构建的 `status=complete`、身份/发布/计数/`manifest_sha256` 一致、条目数相等。
+     索引库以 SQLite `mode=ro` 打开：**不创建、不写入**（不改 `legal-vectors.sqlite3`，
+     也不因缺文件而"初始化"它）。
+   - 全部一致时 `--preflight` 打印一行可断言结果：
+     `prebuilt index verified build_id=<64 位> item_count=3112 source_item_count=3120
+     publication=<id> revision=<id>`，随后 `PASS: preflight complete; ...`。
+     任一不一致 → 退出码 2、不启动、零供应商请求、**不打印该行**。
+   - 新增 `verify_host_offline_evidence`：`--preflight` 现在**同时**要求人工标志与证据文件
+     （缺任一项即退出码 2）；证据窗口 60–3600 秒、默认 600 秒，可用
+     `--host-offline-evidence-max-age-seconds` 或 `DEC007_HOST_OFFLINE_EVIDENCE_MAX_AGE_SECONDS`
+     调整；当前 api 容器 ID 取 `DEC007_API_CONTAINER_ID`/`--api-container-id`，compose 项目名取
+     `DEPLOY_COMPOSE_PROJECT`/`--compose-project`，与证据比对。
+   - 所有本地检查（含索引身份、证据）排在唯一一次只读健康探测之前：拒绝时**连探测都不发生**。
+   - `make_probe_client()` 作为可注入的健康探测客户端工厂（CLI 与测试共用一条代码路径）。
+2. 新增 `deploy/verify_api_offline_mode.sh` + `deploy/verify_api_offline_mode.py`（宿主机侧、
+   标准库 only，兼容宿主机 python3.10）：只用只读 Docker 命令（`docker compose ... ps`、
+   `docker ps`、`docker inspect`）产出证据 JSON；详见 3.、4.。
+3. `docker-compose.demo.yml`：api 服务新增 `DEPLOY_COMPOSE_PROJECT: tender-review-demo`
+   （与顶层 `name:` 相同、非密钥），一次性验证容器继承它；`tests/test_task0027_deploy_compose.py`
+   固定该常量且其他服务零注入。
+4. 文档：本文件、`deploy/README-demo.md` 8.4（证据步骤 + 必需项 + verdict/退出码）、
+   `CHANGELOG.md`、`PROJECT_STATE.md`、任务 YAML（`TASK0027-009`）。
+
+## 二、宿主机侧证据脚本：产出、白名单与判定
+
+- 产物：`/opt/tender-review-private/evidence/api-offline-<UTC 时间戳>.json`（可用 `--evidence-dir` 改）。
+  字段（**严格白名单，键集合由测试固定**）：`schema_version`、`script`、`docker_binary`、
+  `checked_at`、`compose_project`、`compose_file`、`api`（service/容器名/64 位容器 ID/镜像引用/
+  镜像 ID/**实际生效的 `DEPLOY_REVIEW_MODE`**/`APP_ENV`/入口/主进程命令/state/running/health）、
+  `execution_instances`（扫描容器数 + `authorized-real` 实例列表）、`checks`、`failures`、`verdict`。
+- **不打印任何密钥、不输出完整环境变量列表**：容器环境只在同一个循环里取出 `DEPLOY_REVIEW_MODE`
+  与 `APP_ENV` 两个白名单值，其余丢在循环内；测试注入 `DASHSCOPE_API_KEY=sk-live-...` 与 `PATH=...`，
+  断言证据文件与终端输出中**都不出现**这些值或键名。
+- 判定与退出码：`ok`=0（mode 为 offline、容器 running、镜像与入口/命令为预期值、无第二个
+  `authorized-real` 实例）；`untrusted`=3（api 以 authorized-real 运行 / 未运行 / 镜像或入口不符 /
+  存在第二个 running 的 authorized-real 实例）；`unknown`=2（inspect 失败、字段缺失、容器不存在）。
+  两种非 `ok` 都**立即停止、不得发起供应商调用**，证据文件仍写出以便审计。
+- 只读性由测试固定：注入的执行器记录每次调用，断言全部满足 `is_read_only`（`compose ps`/`ps`/`inspect`）
+  且参数中不出现 run/exec/create/start/stop/rm/kill/up/down。`--fixture-dir` 回放预置
+  `compose-ps.json`/`docker-ps.json`/`inspect-<id>.json`（测试与离线复核用，`docker_binary` 记为 `fixture:<dir>`）。
+
+## 三、新增/更新的反例测试（全部合成、无真实 Docker、无供应商）
+
+- `tests/test_task0027_host_offline_evidence.py`（20 项，新建）：ok / untrusted（第二个 authorized-real
+  实例、api 为 authorized-real、停止或镜像不符、ENTRYPOINT 被覆盖）/ unknown（缺 mode 字段、
+  inspect 失败、api 容器不存在）三类 verdict；只读调用审计；fixture 文件名映射；真实 subprocess
+  执行器对失败 docker 二进制的容错；白名单键集合；密钥不外泄；以及 consumer 侧严格加载器
+  （非 ok verdict、过期、未来时间、容器/项目不一致、多余字段、缺字段、窗口越界、无证据路径、
+  非法 JSON、无时区时间戳）。
+- `tests/test_task0027_validation_entry.py`（28 项）：原有用例迁移到"合成语料 + 真实构建的预构建索引 +
+  真实生成的宿主证据"夹具；新增 publication/revision **必需**（空值/缺参）、
+  `prebuilt index verified` 的 CLI 打印断言与**反例不打印**断言、manifest 的发布/修订/快照/身份/
+  `item_count`/`source_item_count` 不一致各自被拒（用 `VectorIndexManifest.create` 造出**摘要自洽**的
+  篡改清单，避免只测到 digest 校验）、缺 manifest / 缺索引库**不创建任何文件**、
+  索引检查对账本/manifest/索引库**零写入**、`publication/revision` 与 manifest 不一致时
+  **连健康探测都没有发生**（零请求）等。
+- `tests/test_task0027_deploy_compose.py`：新增 compose 项目名常量与顶层 `name:` 一致、其他服务零注入。
+
+## 四、真实命令与真实数字（本机）
+
+```
+$ "D:/自由项目/招标审核/bidding-compliance-agent-TASK-0021/.venv/Scripts/python.exe" -m ruff check src scripts tests
+All checks passed!
+
+$ ... -m ruff check src scripts tests deploy     # 额外把 deploy 也纳入（官方门禁不含 deploy）
+deploy\demo_init.py 与 deploy\verify_deployment.py 共 9 条**既有**告警（本轮未触碰这两个文件）；
+本轮新增/修改的 deploy/verify_api_offline_mode.py、scripts/、tests/ 全部 0 告警。
+
+$ ... -m mypy src
+Success: no issues found in 104 source files
+
+$ ... scripts/verify_repo.py
+PASS: contracts, examples, generated State and scoped task evidence
+
+$ ... -m pytest --basetemp=.verification/t27-min2-15 \
+    tests/test_task0027_validation_entry.py tests/test_task0027_host_offline_evidence.py tests/test_task0027_deploy_compose.py
+55 passed in 88.53s
+
+$ ... -m pytest --basetemp=.verification/t27-min2-13 tests/test_task0027_validation_entry.py \
+    tests/test_task0027_round_limits.py tests/test_task0027_budget_boundaries.py \
+    tests/test_task0027_per_file_authorization.py tests/test_task0027_deploy_compose.py \
+    tests/test_task0027_full_vector_index.py
+79 passed in 111.66s
+
+$ ... -m pytest --basetemp=.verification/t27-min2-14 tests/test_task0023_embedding.py \
+    tests/test_semantic_batching.py tests/test_model_gateway_security.py tests/test_model_gateway_contracts.py \
+    tests/test_legal_vector_index.py tests/test_model_adapter_conformance.py tests/test_real_ai_runtime.py \
+    tests/test_task0021_online_gateway.py
+90 passed in 6.56s
+```
+
+官方入口（`scripts/verify.ps1`，日志 `.verification/t27-focused3.log`）：
+
+```bash
+pwsh -NoProfile -Command "& scripts/verify.ps1 -Mode Focused \
+  -TestPaths @('tests/test_task0027_round_limits.py','tests/test_task0027_validation_entry.py', \
+               'tests/test_task0027_host_offline_evidence.py','tests/test_task0027_budget_boundaries.py', \
+               'tests/test_task0027_per_file_authorization.py','tests/test_task0027_deploy_compose.py') \
+  -PythonExecutable '<venv python>'"
+```
+
+实测：`[1/7]` 契约/生成/任务证据 PASS；`[2/7]` ruff `All checks passed!`；
+`[3/7]` mypy `Success: no issues found in 104 source files`；`[4/7]` 前端
+（`Checked 21 files in 47ms`、2 文件 6 用例、`built`）；`[5/7]` **82 passed in 115.46s**
+（同一命令前一次运行为 `82 passed in 125.00s`，两次都在本轮最终代码上）；
+输出 `PASS: Focused checks for explicitly selected files only; not full acceptance or startup evidence.`
+
+> 按用户当次指令只跑 `ruff` / `mypy` / 新增测试与相关 Focused，**未重跑 Full**（上一轮 Full 702 项
+> 对应上一提交）。因此不得把本轮称为"最终代码候选已通过 Full"。
+
+## 五、CLI 端到端实测转录（本机合成语料，无供应商）
+
+合成轮次（3 条条款的冻结语料 + 真实构建的预构建索引 + 由宿主脚本生成的证据，
+`.verification/t27-cli2/round`）：
+
+```
+=== A) 合法预检查 ===
+prebuilt index verified build_id=b6a3b0569d55df93fdd6925c1ef85eaf391ee450f3a46dd8a0e1da50e1740a90 item_count=3 source_item_count=3 publication=pub-2026-10-16 revision=rev-2026-10-16
+PASS: preflight complete; nothing was reserved, sent or written.        exit = 0
+
+=== B) 出版/修订与 manifest 不一致 ===
+STOP: the prebuilt index belongs to publication/revision (pub-2026-10-16, rev-2026-10-16),
+      not to the requested (pub-other, rev-2026-10-16)                     exit = 2（无 verified 行）
+
+=== C) 缺 --revision-id ===
+usage: ... error: the following arguments are required: --revision-id     SystemExit = 2
+
+=== D) 只有人工标志、没有证据文件 ===
+STOP: the host offline evidence is not acceptable: the host offline evidence is absent at
+      ...\gone.json; run deploy/verify_api_offline_mode.sh on the host first   exit = 2
+
+本轮健康探测替身收到的请求数：1（只有 A 通过后到达探测；B/C/D 均为本地拒绝，零网络）
+```
+
+宿主机脚本单机实测（fixture 回放，未调用真实 Docker）：正常离线 → `verdict: ok`、退出码 0；
+api 的 `DEPLOY_REVIEW_MODE=authorized-real` → `verdict: untrusted`、退出码 3；
+缺 `DEPLOY_REVIEW_MODE` → `verdict: unknown`、退出码 2。三种情形都会写出证据文件，
+输出中不含注入的 `DASHSCOPE_API_KEY` 值。
+
+## 六、边界与未做到/不确定的部分（本轮新增）
+
+- **证据是内容不是签名**：能运行 `deploy/verify_api_offline_mode.sh` 的人也能写出同样的 JSON；
+  预检查校验 verdict、新鲜度与容器/项目标识与当前部署一致，但**操作者仍是被信任的一环**
+  （与人工标志同一信任假设）。没有做 HMAC/远程签名：容器内没有可用的可信秘密，
+  加了也只会是在同一信任级别上的"防伪"表演。
+- **"当前实际"的来源**：容器内不可能读取宿主 Docker 状态（也不允许挂 socket），所以当前 api
+  容器 ID 与 compose 项目名分别由 `DEC007_API_CONTAINER_ID`/`--api-container-id`（操作者从
+  `$D ps -q api` 或证据文件复制）与 compose 注入的 `DEPLOY_COMPOSE_PROJECT` 提供；
+  机器校验的是"证据 ↔ 当前声明"一致、时间新鲜、mode 为 offline。**不宣称**这是纯技术门禁。
+- **第二个实例的扫描范围**：脚本枚举 compose 项目容器（`docker compose ps -a --no-trunc --format json`）
+  与 `docker ps -aq` 的宿主全部容器，逐只 `docker inspect` 只读**两个**白名单环境值；
+  判定"以 authorized-real 模式且 running"。扫描与判定之间的状态变化属常规 TOCTOU 风险，
+  以证据时间戳与窗口（默认 10 分钟）收敛。
+- **`item_count`/`source_item_count` 常量**：本轮按冻结语料固定为 3112/3120（与
+  `tests/test_task0027_full_vector_index.py` 的语料计数一致）；语料变更必须重新测量并修改常量，
+  而不是让预检查自动放宽。
+- **未执行的**：Full 与远程 CI（用户要求本轮不重跑 / 本轮未提交）；任何容器构建或
+  `docker compose run`（任务禁止容器操作）；任何真实供应商调用（**本轮零付费调用**）；
+  线上 `--publication-id/--revision-id` 与线上 `modelstate` 卷的实机校验；
+  在真实宿主上执行 `deploy/verify_api_offline_mode.sh`（本机只有 fixture 回放）。
+- **仍不确定**：线上 ECS 宿主机的 python3 版本（脚本按 3.10 兼容编写，未在宿主验证）；
+  证据 JSON 字段后续若扩充，必须同步更新白名单常量与加载器（两侧当前共用同一模块的常量）。

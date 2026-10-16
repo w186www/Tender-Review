@@ -158,6 +158,20 @@
         "tests/test_task0027_validation_entry.py",
         "deploy/README-demo.md"
       ]
+    },
+    {
+      "id": "TASK0027-009",
+      "description": "验证入口强制索引身份与宿主机侧离线证据（第三轮最小修正）：① --publication-id/--revision-id 为必需项，缺失即非零退出，不打印 prebuilt index verified、零供应商请求；② 预检查把两者与 modelstate 卷内 vector-manifest.json 记录值逐一比对，并校验 legal_snapshot_sha256、embedding_identity.identity_sha256、item_count（3112）、source_item_count（3120）与索引库中该构建的完整性/条目数，全部一致才打印含 build_id 与 item_count 的 prebuilt index verified 行；③ 人工标志保留但不再单独成立：--preflight 同时要求新鲜的 verdict=ok 宿主机证据（deploy/verify_api_offline_mode.sh 产出，默认 600 秒窗口、可配 60–3600 秒），证据中的 api 容器 ID 与 compose 项目必须与当前部署一致；缺失/过期/unknown/untrusted/不一致/只有标志无证据一律拒绝；④ 宿主机脚本只用只读 docker compose ps / docker ps / docker inspect，不挂 socket、不给容器 Docker 权限，判定 ok/untrusted/unknown 并写证据文件，且只输出白名单字段（DEPLOY_REVIEW_MODE、APP_ENV、镜像与进程信息），绝不输出完整环境变量或密钥；发现第二个 authorized-real 实例即 untrusted，无法确定执行模式即 unknown，两者均立即停止、不发起供应商调用。",
+      "evidence": [
+        "scripts/task0027_real_ai_validation_app.py",
+        "deploy/verify_api_offline_mode.sh",
+        "deploy/verify_api_offline_mode.py",
+        "docker-compose.demo.yml",
+        "tests/test_task0027_host_offline_evidence.py",
+        "tests/test_task0027_validation_entry.py",
+        "deploy/README-demo.md",
+        "docs/development/TASK-0027-validation.md"
+      ]
     }
   ],
   "verify": [
@@ -172,5 +186,5 @@
 - 账本基线只读核对：`scripts/task0027_ledger_baseline.py`（`mode=ro`，不创建/不修改/不重置），期望 0/312/¥0.1035070/未结算 0，不一致退出码 2 并要求停止上报。
 - 方案 A 的边界（用户明确要求如实记录）：账本只存计数、上限是进程内参数，宽上限实例理论上仍可打开同一账本；本轮必须确保只有一个真实模型验证实例运行，不得宣称跨任意进程的全局收紧锁。
 - 反例测试：`tests/test_task0027_round_limits.py`（8 项）与 `tests/test_task0027_validation_entry.py`（16 项），覆盖第 5 次 LLM/第 11 次新增 Embedding/¥2 耗尽（次数仍有余量）/失败与未知用量保留且不补发/跨实例重启计数不减/两实例竞争最后一个名额原子拒绝/宽窄实例差异与账本不被写入收紧值/环境与 CLI 无法放宽/基线只读与漂移停止。
-- 文档：`deploy/README-demo.md` 新增 8.4（三步顺序、独立镜像命令、基线核对、边界说明）。"
+- 文档：`deploy/README-demo.md` 新增 8.4（三步顺序、独立镜像命令、基线核对、边界说明）。\n\n【2026-10-16 第三轮最小修正：验证入口强制索引身份 + 宿主机侧离线证据（未调用供应商）】\n- 预构建索引校验不再可选：`--publication-id/--revision-id` 为 argparse 必需项（缺失退出码 2），`verify_prebuilt_index` 把两者与 `modelstate` 卷内 `vector-manifest.json` 逐一比对，并校验 `legal_snapshot_sha256`、`embedding_identity.identity_sha256`、`item_count`（常量 3112）、`source_item_count`（常量 3120）、覆盖率与索引库内该构建的完整性/条目数；索引库以 SQLite `mode=ro` 打开，不创建不写入。全部一致才打印一行 `prebuilt index verified build_id=... item_count=3112 ...`；任一项不一致 → 退出码 2、不启动、不打印该行、零供应商请求。`EXPECTED_PREBUILT_ITEM_COUNT`/`EXPECTED_PREBUILT_SOURCE_ITEM_COUNT` 是冻结语料常量，语料变更必须重新测量后改常量，不得让预检查自动放宽。\n- 人工标志 `--online-api-offline-verified` 保留但不再单独成立：`--preflight` 同时要求新鲜的 `verdict: \"ok\"` 证据文件（`--host-offline-evidence` 或 `DEC007_HOST_OFFLINE_EVIDENCE`，默认窗口 600 秒、可配 60–3600 秒），证据里的 api 容器 ID 与 compose 项目必须与当前部署一致（`DEC007_API_CONTAINER_ID`/`--api-container-id`；compose 注入的 `DEPLOY_COMPOSE_PROJECT`/`--compose-project`）。缺失/过期/unknown/untrusted/不一致/只有标志无证据一律退出码 2。\n- 宿主机侧脚本 `deploy/verify_api_offline_mode.sh`（逻辑在 `verify_api_offline_mode.py`，标准库 only、兼容宿主 python3.10）：只用只读 `docker compose ps`/`docker ps`/`docker inspect`，不挂 socket、不给容器 Docker 权限，唯一写入是 `--evidence-dir` 下的证据 JSON；判定 ok=0 / untrusted=3 / unknown=2，两种非 ok 都立即停止且不得发起供应商调用；证据只含白名单字段（DEPLOY_REVIEW_MODE、APP_ENV、镜像与进程信息），绝不输出完整环境变量或密钥。`--fixture-dir` 为测试/离线复核的回放模式（`docker_binary` 记为 `fixture:<dir>`），线上不要用。\n- 已知边界（不得宣称超出）：证据是**内容不是签名**——能运行宿主脚本的人也能写出同样的 JSON，操作者仍是信任链的一环（与人工标志同一信任假设）；容器内无法读取宿主 Docker 状态，当前 api 容器 ID/compose 项目由操作者声明与 compose 常量提供；未在真实宿主运行该脚本（本机仅 fixture 回放）。\n- 验证：ruff `All checks passed!`、mypy `Success: no issues found in 104 source files`、`verify_repo.py` PASS、新增/相关 pytest 55 passed / 79 passed / 90 passed，官方 Focused 82 passed in 115.46s（另一次 82 passed in 125.00s）；按用户指令未重跑 Full。命令与数字见 `docs/development/TASK-0027-validation.md` 第三轮。"
 }
