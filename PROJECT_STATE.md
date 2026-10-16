@@ -6,7 +6,10 @@
 
 - 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `2fc9800`
   （第六轮已由用户提交：`feat(TASK-0027): lift the DEC-007 ceilings and let a reviewer approve one file`）；
-  **第七轮改动已由本轮交付提交**并推送，远端 `8a7021b`（只改 `README.md`）已合并进分支。
+  **第七轮改动已由本轮交付提交**并推送：修复提交 `3b0df81`，合并远端 `8a7021b`（只改 `README.md`）
+  后的分支 HEAD `61a0185`（`61a0185e7f6b0e4eaeeeae4004b97adeb3aaf2c8`）；该 SHA 的 CI
+  （run 38931207073）全部适用作业 success（impact/baseline/postgres/ingestion/verify-required；
+  quick 在 Full 模式下按条件合法 skipped），公网已按该提交更新并验收（见"公网真实 AI 上线记录"）。
 - 用户 2026-10-16 指令（本轮目标：**任意用户自有文件上传后能在网页里走到真实 AI 审查**）：
   ① 修复 `needs_review` 文档在网页里无法推进（前端没有任何校正/上下文确认入口 → 浏览器死路）；
   ② 验证并（如需要）修正第六轮引入的逐文件外发授权流程。底线：**不放宽/不绕过 `ingestion/quality.py`、
@@ -115,14 +118,64 @@
   端点尚未进入 OpenAPI 契约（见上）；
   注册表行只证明"谁在何时为哪个文件哈希登记"，操作者仍是信任链的一环；未在服务器执行任何上述命令。
 
-## 公网真实 AI 上线记录（任务 C/D，本文件逐步更新）
+## 公网真实 AI 上线记录（任务 C/D）
 
-- 状态：**进行中**（本段在切换与验收过程中逐项更新；每次只记录已真实执行并有证据的步骤）。
-- 待完成项：① 用户提交并推送本轮改动；② CI 对 head_sha 全部适用作业 success；③ 服务器只读
-  基线核对（账本 2/312/¥0.1062161/未结算 0 或其后只增不减、身份一致性、索引 build_id/match、
-  publication/revision）；④ api 与 nginx 分构建同提交（nginx 构建期 `VITE_REVIEW_MODE=dec007-real-qwen`）；
-  ⑤ 记录回滚信息后切换 `DEPLOY_REVIEW_MODE=authorized-real` 并 `--force-recreate`；
-  ⑥ 公网端到端验收（真实 Qwen 调用证据、Token/费用/耗时、Word/PDF 正文断言、新文件授权路径）。
+- 状态：**第七轮修复已上线并完成公网真实验收（2026-10-17）**。切换在第六轮已完成
+  （`DEPLOY_REVIEW_MODE=authorized-real`、`VITE_REVIEW_MODE=dec007-real-qwen` 都在
+  `deploy/.env` 里，本轮**原样未改**）；本轮只把 api 与 nginx 镜像换成本轮提交的构建产物。
+- **服务器**：`/opt/tender-review`，本轮先 `git fetch` 再 `git reset --hard origin/work/TASK-0027`
+  → HEAD `61a0185`，工作树干净（这条 `reset --hard` 只作用于服务器检出，用户已授权）。
+- **镜像（新）**：`tender-review-api:task0027-61a0185`
+  （镜像 ID `sha256:42c4ff4f69fe32e21aac1fd3e695a813c1ec6cd7301bbb801b9098f7dc57a34e`）与
+  `tender-review-web:task0027-61a0185`
+  （`sha256:69d6f1a31f8cd77f5d2698c3f558a07ec5b6a33fa829aa57093ad5940fcdb258`，
+  构建期 `VITE_REVIEW_MODE=dec007-real-qwen`，`docker compose config` 已确认该 ARG 生效）。
+  **旧镜像保留可回滚**：`tender-review-api:task0027-2fc9800`
+  （`sha256:f0b955a8…`）与 `tender-review-web:task0027-2fc9800`（`sha256:14e1e32d…`）仍在宿主机。
+- **重建方式**：`IMAGE_TAG=task0027-61a0185` 作为**命令行覆盖**传给 compose（api 用
+  `-f docker-compose.demo.yml`，nginx 额外带 `-f deploy/docker-compose.tls.yml`，与两容器当初的
+  config_files 标签一致），`up -d --force-recreate` 只重建 api 与 nginx；`deploy/.env`、
+  `/opt/tender-review-private/`、`modelstate` 卷、账本、注册表、索引、HTTPS 证书与 certbot 定时器
+  一律未动。worker 仍是 `tender-review-api:demo`（本轮范围外，其镜像已含 TASK-0018 起的解析/质量代码）。
+  **已知操作性残留（如实记录）**：`deploy/.env` 的 `IMAGE_TAG` 仍是 `task0027-2fc9800`，
+  运行中容器由命令行覆盖创建；若之后有人**不加覆盖**执行 `docker compose up -d`，compose 会把
+  api/nginx 重新创建回旧镜像标签。按用户"`deploy/.env` 一律不动"的指令，本轮未改该文件。
+- **公网真实 Qwen 端到端（`deploy/verify_deployment.py`，`--base-url https://47.83.132.211`，
+  容器 `--user 0:0 --network host --env-file deploy/.env` + `/fixtures:ro`，冻结样本
+  `080511f9…`）**：`status: passed`，40.1 秒。项目 `8dabba41-…`，文档 `20371e4e-…`，
+  `needs_confirmation`→上下文确认→`ready`→审查 `2a9aac5d-…`/run `7e6d6c75-…` → `waiting_human`，
+  2 条风险（`evidence_status=insufficient_evidence`）→ 记录 2 条决定 → 发布 `ce2180cb-…`
+  （`content_hash=caacb164…`）；`model_runtime`：`execution_mode=real-qwen`、`provider=bailian`、
+  `model=qwen3.8-flash`、`model_calls=2`、`input_tokens=1009`、`output_tokens=699`、
+  `estimated_cost_cny=0.0026945`、`embedding_model=text-embedding-v4`、
+  `vector_index_build_id=c7344cac…`（与钉住的预构建索引一致）；Word 40563 字节
+  `sha256=55ca8c24…`、PDF 7622 字节 `sha256=7090ab0d…`，**两者 `matches_content_hash` 均为 true**。
+- **`needs_review` 闭环公网实测（本轮核心目标，API 实测；脚本 `.verification/t27public/closure.py`
+  经 `workbench upload` 送服务器、一次性容器内执行）**：`status: passed`。上传故意低质量的合成 DOCX
+  （1 个片段 `"Short"`，`sha256=0258e691…`）→ `needs_review` + `LOW_QUALITY` →
+  `GET .../sections` 读到该片段 → `POST .../corrections`（人工转录，`expected_parse_version=1`）
+  → `needs_confirmation`、`issues` 清空、`parse_version=2` → `POST .../context`（`expected_version=2`）
+  → `ready`（`context_version=3`）→ **对未登记文件发起审查被 403 拒绝**（冻结前，无任务行）→
+  `POST .../external-authorization`（reviewer 确认）→ 201 并写入注册表 →
+  再发起审查 **202** → `waiting_human`，`model_runtime`：`real-qwen`/`bailian`/`qwen3.8-flash`、
+  `model_calls=2`、`input_tokens=1165`、`output_tokens=821`、`estimated_cost_cny=0.0031487`、
+  `model_candidate_count=2`。即"质量不足的文档能在网页同源 API 上完成校正并继续走到真实审查"。
+- **账本（`dec007-budget.sqlite3`，只增不减，未重置）**：本轮开始 20 次 LLM / 312 批 Embedding /
+  ¥0.1413027 / 未结算 0；结束时 **25 次 LLM / 312 批 Embedding / ¥0.1474435 / 未结算 0**
+  （337 条请求全部 settled）。新增 5 次真实 LLM 调用 = 公网验收 2 次（¥0.0026945）+ 首次闭环尝试
+  1 次（发现零候选缺陷，仅 discovery，¥0.0002976）+ 成功闭环 2 次（¥0.0031487）。
+  注册表 8 → 10 行（两次闭环登记各一行，均 reviewer 确认）。索引、embedding 账本、法规核验状态未动。
+- **本轮发现但未修（范围外，如实记录）**：当 discovery 的候选数为 0 时，`semantic_analysis`
+  节点在调用模型前就以 `ValueError` 失败（`src/bidding_compliance/graph/review.py` 的
+  `batches = _semantic_batches(discovery.candidates)` + `if not batches ... raise ValueError
+  ("semantic analysis exceeds the authorized batch capacity")`），运行被标 `failed`
+  （`failure_code=review_execution_failed`），API 把该 `ValueError` 映射成 **422**（用户看不到原因）。
+  证据：首次闭环尝试用极短转录（65 字）时，真实模型对单片段返回 `{"findings": []}`
+  （run `e2fdfe45-…`，仅 1 次 discovery 调用后失败，无任何 semantic 工件）。这是**既有行为**
+  （本轮未改 graph），影响"内容过少/无可发现候选的文件"，与 needs_review 修复路径无关
+  （同一文档用有内容的转录即可走通，见上条闭环证据）；报告生成层本身支持 0 候选
+  （`services/reporting.py` 有 `candidate_count == 0` 文案），因此属于图执行层的缺口，
+  建议单独任务处理。
 
 以下保留第五轮（阶段二调整后的交付项）与更早的记录。
 

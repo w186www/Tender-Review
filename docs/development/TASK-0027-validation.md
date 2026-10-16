@@ -1179,3 +1179,92 @@ project tasks   → 仍然只有 Phase A 的 1 条任务（被拒的审查没有
   命名卷保留；未删除、未重建、未重置任何账本或索引。
 - 本轮改动已由交付提交（本地提交 → 合并远端 README 提交 → 推送）；公网更新与公网真实调用
   见 `PROJECT_STATE.md` 的"公网真实 AI 上线记录"。
+
+## 五、交付、CI 与公网更新验收（2026-10-17）
+
+### 5.1 提交、合并与 CI
+
+- 修复提交 `3b0df81`（12 个文件：前端修复路径 + 一个后端拒发措辞修正 + 两组测试 + 文档），
+  随后 `git merge --no-ff origin/work/TASK-0027` 合并远端 README 提交，分支 HEAD
+  `61a0185e7f6b0e4eaeeeae4004b97adeb3aaf2c8`（两个父提交的有效修改都在，未用 reset/强制推送）。
+- 推送后 CI（run 38931207073，head `61a0185`）：`impact` success、`baseline` success、
+  `postgres` success、`ingestion` success、`verify-required` success、`quick` 在 Full 模式下按条件
+  合法 skipped —— 全部适用作业 success。
+
+### 5.2 公网更新（保留回滚）
+
+```text
+服务器 /opt/tender-review: git fetch && git reset --hard origin/work/TASK-0027  → HEAD 61a0185，工作树干净
+构建: IMAGE_TAG=task0027-61a0185 docker compose --env-file deploy/.env \                 → tender-review-api:task0027-61a0185
+        -f docker-compose.demo.yml build api                                               sha256:42c4ff4f69fe32e21aac1fd3e695a813c
+                                                                                          1ec6cd7301bbb801b9098f7dc57a34e
+      IMAGE_TAG=task0027-61a0185 VITE_REVIEW_MODE=dec007-real-qwen docker compose \
+        --env-file deploy/.env -f docker-compose.demo.yml -f deploy/docker-compose.tls.yml build nginx
+                                                                                          → tender-review-web:task0027-61a0185
+                                                                                           sha256:69d6f1a31f8cd77f5d2698c3f558a07
+                                                                                           ec5b6a33fa829aa57093ad5940fcdb258
+重建: up -d --force-recreate api（base 文件）与 up -d --force-recreate nginx（base + tls 覆盖，与两个容器
+      当初的 config_files 标签一致），端口 80→8080 / 443→8443 与证书挂载复核一致，HTTPS 200
+未动: deploy/.env（DEPLOY_REVIEW_MODE=authorized-real、VITE_REVIEW_MODE=dec007-real-qwen 原样）、
+      /opt/tender-review-private/、modelstate 卷、账本、注册表、索引、证书与 tender-certbot-*.timer
+回滚保留: tender-review-api:task0027-2fc9800（sha256:f0b955a8…）、tender-review-web:task0027-2fc9800
+      （sha256:14e1e32d…）仍在宿主机；回滚命令见 PROJECT_STATE
+前端产物复核（公网拉取实际 bundle /assets/index-C6dXYxXa.js）：包含「查看/校正文本」「登记外发授权」
+      「真实模型部署还要求所选文件已逐个登记外发授权」「解析质量不足」「服务端未得到文字」与真实模型横幅，
+      无离线模式横幅（`dec007-real-qwen` 字面量被构建期折叠，符合预期）
+```
+
+### 5.3 公网真实 Qwen 端到端（冻结样本）
+
+`deploy/verify_deployment.py --base-url https://47.83.132.211 --fixture /fixtures/dec007-synthetic-v1.docx`
+（一次性容器 `--user 0:0 --network host --env-file deploy/.env`，`/opt/tender-review-private/fixtures`
+只读挂载）：`status: passed`，40.1 秒，2 条风险（`insufficient_evidence`），
+`provider=bailian`、`model=qwen3.8-flash`、`execution_mode=real-qwen`、`model_calls=2`、
+1009/699 tokens、`¥0.0026945`、`embedding_model=text-embedding-v4`、
+`vector_index_build_id=c7344cac…`；Word 40563 字节 / PDF 7622 字节下载后与服务端 `content_hash`
+一致（`matches_content_hash: true`）。证据：`.verification/t27public/deployment-acceptance.json`。
+
+### 5.4 公网 `needs_review` 闭环（本轮核心目标）
+
+一次性容器内运行 `.verification/t27public/closure.py`（`workbench upload` 送 `/tmp/t27-public/`）：
+
+```text
+upload_low_quality_docx          → 0258e691…  quarantined → needs_review
+document_flagged_by_quality_gate → needs_review issues=["LOW_QUALITY"] parse_version=1
+read_fragments                   → 1 个片段 "Short"
+correction_recorded              → needs_confirmation issues=[] parse_version=2
+context_confirmed                → ready context_version=3
+review_refused_unregistered_file → 403（冻结前拒绝；这正是本轮修掉 409 误映射后的语义）
+external_authorization_registered→ 201（reviewer / 2026-10-16T16:43:14+00:00 / 0258e691…）
+review_accepted                  → 202 → waiting_human
+model_runtime                    → real-qwen / bailian / qwen3.8-flash / 2 calls /
+                                   1165 in / 821 out / ¥0.0031487 / model_candidate_count=2
+```
+
+即：**质量不足的文档可以在真实网页同源 API 上完成校正并继续走到真实 Qwen 审查**。
+证据：`.verification/t27public/closure-evidence.json`。
+
+### 5.5 本轮新发现、未修的既有缺口（范围外，如实记录）
+
+首次闭环尝试使用极短转录（65 字）时，真实模型对单片段返回 `{"schema_version": "v1alpha1",
+"findings": []}`（run `e2fdfe45-…`，`finish_reason=stop`、无拒绝项），随后图执行失败：
+`graph/review.py` 的 `semantic_analysis` 里 `_semantic_batches()` 对空候选返回空批次，
+`if not batches or len(batches) > MAX_SEMANTIC_BATCHES: raise ValueError("semantic analysis exceeds
+the authorized batch capacity")`，运行被标 `failed`（`failure_code=review_execution_failed`），
+API 的 `_translate` 把不含 conflict 词的 `ValueError` 映射为 **422**（页面拿不到原因）。该行为
+**在第七轮之前就存在**（本轮未改 `graph/**`），与修复路径无关：同一文档用有内容的转录即走通
+（5.4）。`services/reporting.py` 本身有 `candidate_count == 0` 的文案，说明"0 候选"是报告层已
+支持的结果，缺口在图执行层；建议单独任务处理，本轮按"不扩展其他功能"未改动。
+
+### 5.6 账本与数据的最终值
+
+```text
+dec007-budget.sqlite3（只增不减，未重置）：
+  LLM       20 → 25 次（settled），累计 ¥0.0377957 → ¥0.0439365
+  Embedding 312 批（未变），累计 ¥0.103507
+  合计      ¥0.1413027 → ¥0.1474435，未结算 0，337 条请求全部 settled
+新增 5 次真实 LLM 调用 = 冻结样本验收 2 次（¥0.0026945）+ 零候选失败尝试 1 次（¥0.0002976）
+                        + 成功闭环 2 次（¥0.0031487）
+authorization-registry.jsonl：8 → 10 行（两次闭环各登记一个文件哈希，均 reviewer 显式确认）
+索引 / embedding 账本 / 法规核验状态 / 服务器数据卷：未动
+```
