@@ -1,115 +1,152 @@
-# 招标文件智能合规审查 Agent
+# Tender-Review · 招标文件智能合规审查 Agent
 
-面向真实招标文件的智能合规审查系统。项目采用 LangGraph 编排规则检查、法规检索、模型语义分析、证据校验和人工复核，目标是交付可部署、可审计、可替换模型、可持续维护的完整系统。
+> **当前完整实现分支：`work/TASK-0027`。** 本分支包含真实 Qwen 接入、法规索引、智能审查、人工复核、报告导出以及部署与验收方案。仓库默认 `main` 暂未合并这些功能，请以本分支的代码和文档为准。
 
-## 当前阶段
+一个面向**招标文件编制侧**的 AI 辅助合规审查演示项目。系统将安全文件接入、采购上下文确认、确定性规则、LLM 疑点发现、法规参考检索、原文证据追溯和人工复核整合为可运行的工作流，最终生成 Word / PDF 审查报告。
 
-**TASK-0023 真实 Qwen 业务验收已完成，TASK-0024 法规检索解阻已交付。** 分支 `work/TASK-0023`。
+**项目入口：** [代码仓库](https://github.com/w186www/Tender-Review/tree/work/TASK-0027) · [技术与部署说明](deploy/README-demo.md) · [项目进度](PROJECT_STATE.md) · [TASK-0027 验收记录](docs/development/TASK-0027-validation.md) · [系统文档索引](docs/index.md)
 
-### 真实运行证据（调用真实供应商，已记账）
+## 1. 业务流程
 
-- **TASK-0023 / DEC-006 完整闭环**：天津地铁 11 号线 DOCX 经正式网页完成上传、正式校正、上下文确认、
-  真实 AI 审查、19 项人工复核、结果发布与 Word/PDF 生成下载。模型为阿里云百炼 `qwen3.8-flash`，
-  10 次调用、费用 ¥0.062695；7 批风险发现覆盖 1207 个非空片段，确定性 Skills 候选 0 项而**模型独立发现
-  19 个候选**，19/19 原文定位一致、**0 条违法断言**、全部 `insufficient_evidence` 待核验；下载报告
-  SHA-256 与服务端 `content_hash` 一致。
-- **TASK-0023 / DEC-005 真实供应商验证**：真实 `text-embedding-v4` 取得 1024 维在线向量并完成 SQLite
-  索引与 BM25+向量 RRF 融合（缓存复用不重复付费，覆盖度如实 10/3120）；真实 Qwen 独立发现 41 个候选。
-  该轮 30 次 LLM／3 批 Embedding、费用 ¥1.081571，因 `semantic_analysis` 单请求超时阻断，已在下轮修复。
-- 两条授权在同一 SQLite 账本分别累计，历史互不重置；失败或未知用量按整笔预留记账。
+```text
+创建项目 / 设置采购上下文
+            │
+   上传 DOCX / PDF / 图片
+            │
+格式与安全校验 → ClamAV 扫描 → 隔离解析 / OCR
+            │
+确认文档质量、来源片段与项目上下文
+            │
+  规则 Skill + Qwen 疑点发现 / 语义分析
+            │
+ 法规参考检索（BM25 / 条件满足时使用 Dense）
+            │
+    风险合并、证据状态与原文定位
+            │
+    审查人员接受 / 修改 / 驳回
+            │
+       发布结果 → Word / PDF
+```
 
-### 离线测试与静态检查证据（未调用供应商）
+审查输出是**可核验的风险线索**，不是自动出具的法律意见。系统区分“模型判断”“规则发现”“原文证据”“法规适用性”，法规未经有效性与适用范围核验时只作为候选参考，不直接认定条款违法。
 
-- **TASK-0024 法规检索解阻**：查明 `CONTEXT_INVALID` 根因是查询构造阶段对企业非招标采购推导出空框架即抛错，
-  且空框架被判为 `framework_mismatch` 二次阻断。现按"未知框架 ≠ 不匹配"处理：不推断框架、允许检索参考候选，
-  但 `confirmation_reason` 在无已确认框架或法规未声明适用范围时返回 `applicability_unverified`，永不返回 `valid`。
-- **参考候选展示**：风险详情页与 Word/PDF 均展示"可能相关法规（适用性未经确认，仅供参考，不计入已核验证据）"，
-  含条款号、来源、版本核验状态与未确认原因；渲染验证基于**提取后的 DOCX/PDF 文本**，不是数据结构。
-- **三案例排名**：生产检索**已是逐候选查询**（`category + problem_key + matched_reason + 原文摘录`）；
-  《民法典》第五百八十五条在逾期违约金案例中排第 7，追加中文法律领域词后第 6。
-- Focused 143 项、Ruff、Mypy 104 源文件、前端 lint/typecheck/单测/build 与 `verify_repo` 通过。
+## 2. 主要功能
 
-### 已知限制
+| 模块 | 已实现能力 |
+| --- | --- |
+| 文件安全接入 | 扩展名/MIME/魔数校验、ClamAV、容器隔离解析、Tesseract OCR、解析版本与来源哈希 |
+| 用户与项目 | JWT 登录/撤销、角色权限、PostgreSQL 行级安全（RLS）、多租户隔离、项目上下文版本 |
+| Agent 审查 | LangGraph 工作流、确定性 Skill、Qwen 候选发现与语义分析、风险融合与审计 |
+| 法规检索 | 现有法规库、BM25、持久向量索引、候选条款适用性状态和引用回查 |
+| 证据链 | 文档 SHA-256、OOXML 段落/片段位置、风险证据状态与人工复核记录 |
+| 人工复核 | 接受、修改、驳回候选；复核后发布可追溯结果 |
+| 报告交付 | Word / PDF 导出、内容哈希与下载校验 |
+| 真实模型授权 | 审核员对**单个文件**确认外发授权、服务端核对文档 SHA-256、追加式授权与审计 |
+| 审查超时恢复 | 任务持久化、同幂等键复用；前端等待超时后可从项目任务列表找回 |
 
-- **法规库 42/43 版本未核验**且缺生效日期与适用范围声明，唯一已核验版本已超核验期，因此
-  **已核验适用法规数为 0**，任何风险都不能被判定为违法；需法律专业核验后才能改变。
-- 法规库 `source_uri` 多为转载地址；参考候选的排序精度仍有提升空间（语义检索覆盖仅 10/3120）。
-- 未知上传文件不继承既有授权；本机 `test_verification_modes.py` 的 Quick 用例因 PowerShell 输出编码失败
-  （移除本轮变更后同样失败，属既有环境问题）。
+### 真实模型与逐文件外发
 
-TASK-0021 的真实 Qwen 在线演示仍为历史归档证据，其 DEC-002 授权已消耗。
+- 在线模型：阿里云百炼 `qwen3.8-flash`；法规 Embedding：`text-embedding-v4`。
+- `DEPLOY_REVIEW_MODE=offline` 使用确定性离线网关，**不代表真实 AI 语义审查**；`authorized-real` 使用真实 Qwen 网关，未满足授权前置时拒绝执行而非静默回退。
+- 真实模式可由审核员在工作台对某个已上传文件点击“登记外发授权”，明确确认并填写理由。服务端从数据库取该文档哈希，写入审计注册表；**上传本身不等于外发授权**。
+- 只允许处理具有合法使用权限且获明确外发同意的资料；避免上传真实商业秘密、身份信息或无权处理的文件。外发请求按最小必要内容组装。
+- 模型账本记录调用和实际费用，保留历史记录与失败预留。**当前代码中 DEC-007 的累计硬上限为 2000 次 LLM、2000 批 Embedding、¥200**（该数值可在 `docs/decisions/DEC-007-demo-real-qwen-authorization.md` 中核对），不是“无限额”。
 
-## 新开发者或 AI 的入口
+## 3. 真实验证情况
 
-默认使用单Codex按正式TASK直接实施、自检与收尾，见[开发与验证规则](docs/development/development-workflow.md)和[接手提示词](docs/development/prompts/codex-task.md)。默认跨软件和独立代理关卡已撤销，既有代码及问题记录保留。
+### TASK-0027：受控真实 Qwen 端到端验证
 
-1. 阅读 [AGENTS.md](AGENTS.md)。
-2. 阅读 [PROJECT_STATE.md](PROJECT_STATE.md)。
-3. 从 [docs/index.md](docs/index.md) 找到需求和架构。
-4. 先阅读 [里程碑与任务依赖](docs/development/roadmap.md)，只处理依赖已完成的当前任务。
-5. 准备Python 3.12和项目独立环境：
+服务器上的冻结合成 DOCX 样本完成了如下流程：上传、解析、上下文确认、**真实 Qwen 调用**、2 条疑点发现与原文定位、人工复核、结果发布、Word/PDF 下载。
+
+| 指标 | 该次实测 |
+| --- | --- |
+| 模型 | `qwen3.8-flash`（百炼，真实执行） |
+| Qwen 调用 | 2 次：discovery + semantic_analysis；0 次自动重试 |
+| Token | 输入 1007 / 输出 705（供应商回传） |
+| 本次模型调用费用 | ¥0.0027091 |
+| 发起审查至等待人工复核 | 64.95 秒（单页合成样本） |
+| 风险处理 | 2 条疑点，均保留 `insufficient_evidence` 与“待核验”状态 |
+| 结果 | 完成人工复核、发布、Word/PDF 生成与下载哈希核对 |
+
+**范围说明：** 这是特定合成文件的服务器实测，不保证大型文件均可在同样时间内完成。阶段二另有本机回环浏览器/测试环境的报告正文验收；**阶段一服务器生成的真实 AI 报告，尚未在本次文档整理中取得额外的逐项正文复核证据**。最终公网部署是否已切换、是否在线可用，也不能仅凭代码或 CI 断言。
+
+### 法规库与检索的准确边界
+
+- 法规语料共 **3120 条**，其中 **3112 条**已完成真实 Embedding 建库，另 8 条因长度约束保留 BM25 路径。
+- TASK-0027 上述真实审查中，因法规核验与适用性门禁，**Dense 查询并未实际参与排名，结果主要来自 BM25**；不把“向量库已建成”等同于“该次混合检索已生效”。
+- 法规版本、有效期和适用性尚未全面核验；参考候选明确标注未确认原因，不升级为已核验证据，不作违法认定。
+
+### 自动化与浏览器验证
+
+- TASK-0027 最新开发阶段：本机 Full 报告 **810 passed**、Ruff、Mypy、前端检查及构建通过；对应提交的 GitHub Actions 已通过。具体证据与环境前置见 [验收记录](docs/development/TASK-0027-validation.md)。
+- 已对审查请求超时后的任务查询、幂等键重试、文档集冲突（409）等路径进行测试。
+- 本机 Edge/Playwright 已覆盖项目、上传、审查结果、人工复核和报告内容抽查；该结果**不能替代公网真实模型的最终验收**。
+
+## 4. 技术架构
+
+| 层次 | 技术 |
+| --- | --- |
+| Web 工作台 | React、TypeScript、Vite |
+| 后端 API | Python 3.12、FastAPI、Pydantic |
+| Agent 编排 | LangGraph、规则 Skills、模型网关 |
+| 身份与业务数据 | PostgreSQL 16、RLS、JWT |
+| 文件与解析 | MinIO（S3 兼容）、ClamAV、Docker 沙箱、Tesseract |
+| 法规检索 | BM25、SQLite 持久向量索引、Embedding 缓存与检索融合 |
+| 模型 | 阿里云百炼 Qwen、`text-embedding-v4` |
+| 运维与质量 | Docker Compose、Nginx/HTTPS、Pytest、Ruff、Mypy、GitHub Actions |
+
+模型凭据仅应配置在受保护的服务器环境，绝不能写进 Git 仓库、前端代码或日志。
+
+## 5. 快速开始
+
+获取**实际开发分支**：
+
+```bash
+git clone --branch work/TASK-0027 --single-branch https://github.com/w186www/Tender-Review.git
+cd Tender-Review
+```
+
+### 本地验证（Windows / PowerShell）
+
+需准备 Python 3.12，以及前端所需 Node.js 环境。按锁文件建立虚拟环境：
 
 ```powershell
 python -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -r requirements-dev.lock
 ./.venv/Scripts/python.exe -m pip install --no-deps --no-build-isolation -e .
+./scripts/verify.ps1 -Mode Full
 ```
 
-6. 最终代码候选运行（默认Full；过程文档用-Mode Quick，模块改动用-Mode Focused -TestPaths相关测试文件）：
+Windows 上部分嵌套 PowerShell 测试要求将虚拟环境的 `Scripts` 目录前置到 `PATH`；详见验收记录。上面的完整验证**不等于自动部署真实 AI**。
 
-```powershell
-./scripts/verify.ps1
-```
+### 容器演示与真实 Qwen 模式
 
-校验包括JSON Schema、OpenAPI、正反例、任务证据与依赖、State生成一致性、Ruff、Mypy和Pytest。空测试集失败。本地和CI使用同一锁文件与检查脚本。
+完整的 Docker Compose 环境、服务依赖、初始化、模型授权、法规索引身份检查、镜像构建、HTTPS、备份和回滚步骤，统一见 **[deploy/README-demo.md](deploy/README-demo.md)**。
 
-## 启动后端
+真实模式需要单独准备百炼账号凭据、原有持久账本和向量索引，并核验模型授权与文件逐项确认。前端 `VITE_REVIEW_MODE=dec007-real-qwen` 是 **构建期**参数；切换后必须重新构建对应前端镜像。不要把 `DEPLOY_REVIEW_MODE` 切换与前端横幅显示混为一谈。
 
-```powershell
-./scripts/start.ps1
-```
-
-访问 `http://127.0.0.1:8000/api/v1/health`；开发接口文档在 `/docs`，Ctrl+C停止。日志约定见 [后端启动说明](docs/development/backend-start.md)。登录和项目接口的迁移、账号引导及权限步骤见 [身份与数据启动说明](docs/development/identity-data-start.md)；健康接口不依赖模型或数据库连接。
-
-统一验证现已包含真实后端启动与本机HTTP烟雾检查，检查后自动清理自己的测试服务。
-
-实际文件上传与 Worker 操作见 [安全文件接入启动说明](docs/development/secure-ingestion-start.md)。需要 Docker Linux Engine、受控解析镜像和 ClamAV；CI 另强制验证真实 S3、杀毒、OCR 与解析隔离。开发本地存储不适用于生产。
-
-离线与在线审查模式及 DEC-002 批准前置条件见[在线 Qwen 演示指南](docs/development/model-gateway-online-demo.md)。在线演示只面向生成的合成 DOCX，不包含法规原文外发，不具备生产预算账本或公网部署能力。
-
-前端工作台的 API 代理、Node/npm 版本、构建和浏览器 E2E 前置条件见[前端工作台说明](docs/development/frontend-workbench.md)。
-
-若使用的打包Python没有ensurepip，可用支持虚拟环境的标准Python，或由已有pip执行 `python -m pip --python .venv/Scripts/python.exe install -r requirements-dev.lock` 后安装项目。不要把其他项目的site-packages加入本项目环境。
-
-当前通过范围仅为开发基线；生产安全、性能、模型替换和业务验收在M1至M6执行。Word V2.0与当前架构差异登记在docs/reference/README.md。
-
-## 目录
+## 6. 项目结构
 
 ```text
-config/                 非秘密配置样例
-contracts/              OpenAPI、事件、领域和数据库契约
-docs/                   需求、架构、ADR、开发与交付文档
-evals/                  黄金样本、期望结果与质量阈值
-knowledge/legal/        法规原文及来源索引
-scripts/                统一验证和工程脚本
-src/                    应用源代码
-tasks/                  可执行任务与完成记录
-tests/                  单元、契约、集成和安全测试
+config/             规则、法规清单等非密钥配置
+knowledge/legal/     法规语料及来源材料
+contracts/           API、领域数据与事件契约
+src/                 FastAPI 后端、Agent、前端工作台
+deploy/              Compose、镜像、部署与备份说明
+scripts/             验证、向量索引、身份检查与辅助脚本
+tests/               单元、集成、安全、反例与业务验收
+docs/                架构、决策、开发记录与技术文档
+tasks/               项目治理及任务记录
 ```
 
-## 技术方向
+新开发者可按 [AGENTS.md](AGENTS.md) → [PROJECT_STATE.md](PROJECT_STATE.md) → [docs/index.md](docs/index.md) 的顺序阅读。历史任务与某些归档文档可能记载旧阶段结果，请优先以本分支实际代码、最新提交与对应验收记录为准。
 
-- Python 3.12（当前本地与CI验证版本）
-- FastAPI
-- LangGraph
-- PostgreSQL + pgvector
-- Redis 与异步 Worker
-- S3 兼容对象存储
-- 可替换的 LLM、Embedding、Reranker 和 OCR 适配层
+## 7. 已知限制与定位
 
-正式开发与交付方案位于 [docs/reference](docs/reference/README.md)。Word 文档用于评审和交付，仓库内的 Markdown、YAML、OpenAPI 与 JSON Schema 用于实际开发。
+1. **定位为 AI 辅助审查 Demo，不是自动法律裁判。** 未经法律专业核验的法规仅供人工参考。
+2. TASK-0027 已有真实 Qwen 业务链路证据，但部分浏览器测试在本机隔离环境执行；生产级可靠性、任意大文件性能与实际公网状态仍需分别核实。
+3. 现有 Dense 索引已预构建，但上述审查的有效法规门禁使实际排名主要使用 BM25。
+4. 逐文件外发授权端点已实现并有测试，但**尚未同步进入主 OpenAPI 契约**；这是当前已知的契约一致性待办。
+5. 部署环境的 Worker 仍需要 Docker Socket 执行隔离解析；该权限边界和对象存储最小权限是后续生产化事项。
 
-## TASK-0006 法规能力
-
-法规摄取、不可变索引和混合检索启动见[法规检索说明](docs/development/legal-retrieval-start.md)。新版司法部法规快照与原始资料分别保留，待核实版本默认不能作为确定依据。
-
+**面试演示重点：** 一份招标文件如何从安全解析进入真实模型发现疑点，如何准确回查原文、控制法规断言，并最终由审查员复核生成可交付报告。
