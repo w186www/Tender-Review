@@ -72,7 +72,9 @@ def load_adoption_policy(root: Path) -> AdoptionPolicy | None:
     policy = _load_json(policy_path)
     if policy.get("schema_version") != "legal-adoption-policy.v1":
         raise ValueError("unsupported legal adoption policy version")
-    manifest_raw = manifest_path.read_bytes()
+    # Git checkouts may materialise the manifest with CRLF; the policy identity is the
+    # logical JSON bytes, so normalise line endings before hashing.
+    manifest_raw = manifest_path.read_bytes().replace(bytes([13, 10]), bytes([10]))
     manifest = _load_json(manifest_path)
     if policy.get("manifest_sha256") != hashlib.sha256(manifest_raw).hexdigest():
         raise ValueError("legal adoption policy does not match the manifest bytes")

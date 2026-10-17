@@ -111,3 +111,15 @@ def test_retriever_refuses_a_policy_for_a_different_snapshot(tmp_path):
     )
     with pytest.raises(ValueError, match="retrieval snapshot"):
         LegalRetriever(index, adoption_policy=policy)
+
+
+def test_policy_identity_is_stable_across_crlf_checkout(tmp_path):
+    config = tmp_path / "config/legal"
+    config.mkdir(parents=True)
+    shutil.copy(ROOT / "config/legal/adoption-policy.json", config)
+    raw = (ROOT / "config/legal/manifest.json").read_bytes()
+    logical = raw.replace(bytes([13, 10]), bytes([10]))
+    (config / "manifest.json").write_bytes(logical.replace(bytes([10]), bytes([13, 10])))
+    policy = load_adoption_policy(tmp_path)
+    assert policy is not None
+    assert policy.version_count == 43

@@ -7,7 +7,7 @@
 
 本版直接采用项目现有法规库作为审查参考依据。冻结身份：
 
-- 清单：`config/legal/manifest.json`，SHA-256 `7e96248b7851a6b0ffd2d70074a20203dbb76f43c0969be1363e001b723f2813`
+- 清单：`config/legal/manifest.json`，SHA-256 `1cd46d8b28c8f36394003156622e4586f39932ce645309cd782c3ea8e7e98d09`
 - 版本数：43；片段数：3120
 - 法规索引：`69d340d65f5e9114c8a2e76f8b3b524b67f47d0cbc0088c4e01d80b7db8729fd`
 - 采用政策：`config/legal/adoption-policy.json`，`policy_id=ADOPT-2026-10-18`
