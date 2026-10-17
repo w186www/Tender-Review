@@ -39,7 +39,10 @@ SATURATION_FINDING_LIMIT = 3
 # within a fixed depth and a fixed number of additional calls. Hitting either bound
 # leaves the batch visibly saturated/partial; it never claims complete coverage.
 MAX_SUBDIVISION_DEPTH = 2
-MAX_SUBDIVISION_BATCHES = 8
+# Four saturated parents can each produce two children (8) and their saturated
+# children need one more bounded split (8 more); sixteen extra batches is the measured
+# ceiling for a 1,155-section real tender without allowing unbounded rescanning.
+MAX_SUBDIVISION_BATCHES = 16
 
 
 def batch_coverage(

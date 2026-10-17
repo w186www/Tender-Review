@@ -1632,6 +1632,47 @@ def build_review_graph(
                             reference_payload(reference_hit, selected=False)
                         )
                         reference_only_count += 1
+                # A configured rule-law association is surfaced for the reviewer even when
+                # the model chose not to cite it. It remains a reference, never formal
+                # evidence, and only appears when the exact clause was retrieved.
+                if candidate_result is not None and candidate_rule_ids:
+                    existing_by_id = {
+                        item.get("evidence_id"): item for item in legal_references
+                    }
+                    for hit_payload in candidate_result["result"]["hits"]:
+                        binding_hit, _ = verify_legal_hit(
+                            session,
+                            principal,
+                            publication_id=row.publication_id or "",
+                            revision_id=row.revision_id or "",
+                            result_payload=candidate_result["result"],
+                            hit_payload=hit_payload,
+                        )
+                        if binding_hit is None:
+                            continue
+                        binding = binding_for(
+                            rule_law_bindings,
+                            rule_ids=candidate_rule_ids,
+                            law_id=binding_hit.law_id,
+                            version=binding_hit.version,
+                            article=binding_hit.article,
+                        )
+                        if binding is None:
+                            continue
+                        configured = reference_payload(binding_hit, selected=True)
+                        configured["selected_by_model"] = False
+                        existing_reference = existing_by_id.get(binding_hit.evidence_id)
+                        if existing_reference is not None:
+                            existing_reference.update(
+                                {
+                                    "rule_law_binding_id": binding.binding_id,
+                                    "rule_law_binding_reason": binding.reason,
+                                    "rule_law_binding_asserted_by": binding.asserted_by,
+                                }
+                            )
+                        else:
+                            legal_references.insert(0, configured)
+                            existing_by_id[binding_hit.evidence_id] = configured
                 category = candidate.category
                 finding_id = hashlib.sha256(
                     f"{principal.tenant_id}:{row.review_task_id}:{row.run_id}:{candidate.candidate_id}".encode()
