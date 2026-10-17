@@ -63,7 +63,9 @@ SEMANTIC_PROMPT = (
     "原文摘录及是否具备确认资格。legal_evidence_ids只能填写该候选legal_candidates中出现的"
     "evidence_id；没有合适条款时返回空数组并在description说明证据不足。不得引用、改写或"
     "扩展输入以外的法条，不得把参考条款说成已确认适用。eligible_for_confirmation=true仅表示"
-    "条款来源和核验状态可供服务端复核，不代表适用于本案；适用性最终由服务端与人工复核判断。"
+    "条款来源和核验状态可供服务端复核，不代表适用于本案；adoption_status=project_adopted"
+    "表示该版本已按项目采用政策纳入参考库，但仍未经独立法律核验，可作为参考引用，不能称为"
+    "已核验或已确认适用；适用性最终由服务端与人工复核判断。"
     "title和description使用中文、具体且审慎，recommendation说明人工核验事项，"
     "assessment为potential_issue/no_issue/uncertain之一。严格返回契约JSON。"
     "各字段简洁：title不超过25字，description不超过100字，recommendation不超过60字，"
@@ -564,6 +566,7 @@ class AuthorizedTenderMinimizer:
                         quote = hit.get("quote")
                         version_status = hit.get("version_status")
                         eligible = hit.get("eligible_for_confirmation")
+                        adoption_status = hit.get("adoption_status", "not_adopted")
                         reason = hit.get("reason")
                         if (
                             not isinstance(evidence_id, str)
@@ -579,6 +582,8 @@ class AuthorizedTenderMinimizer:
                             or not isinstance(version_status, str)
                             or not version_status.strip()
                             or not isinstance(eligible, bool)
+                            or adoption_status
+                            not in {"project_adopted", "not_adopted"}
                             or not isinstance(reason, str)
                             or not reason.strip()
                             or (
@@ -599,6 +604,7 @@ class AuthorizedTenderMinimizer:
                                 "quote": quote[:MAX_LEGAL_QUOTE_CHARACTERS],
                                 "quote_truncated": truncated,
                                 "version_status": version_status,
+                                "adoption_status": adoption_status,
                                 "eligible_for_confirmation": eligible,
                                 "reason": reason,
                             }

@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any, Literal, Protocol
 
+from .adoption import AdoptionPolicy
 from .contracts import (
     Applicability,
     EvidenceRef,
@@ -247,13 +248,25 @@ class LegalRetriever:
     retrieval_version: Literal["bm25-char-cosine-rrf-5", "bm25-dense-cosine-rrf-1"] = (
         "bm25-char-cosine-rrf-5"
     )
-    def __init__(self, index: LegalIndex, embedding: Embedding | None = None) -> None:
+    def __init__(
+        self,
+        index: LegalIndex,
+        embedding: Embedding | None = None,
+        *,
+        adoption_policy: AdoptionPolicy | None = None,
+    ) -> None:
         self.index = index
         self.embedding = embedding or CharacterEmbedding()
+        self.adoption_policy = adoption_policy
         # A changed adapter needs a new reproducibility contract and evaluation.
         if self.embedding.version != "character-bigram-1":
             raise ValueError("embedding version not supported by this retrieval snapshot")
         self.snapshot_hash = index_hash(index)
+        if (
+            adoption_policy is not None
+            and adoption_policy.corpus_index_sha256 != self.snapshot_hash
+        ):
+            raise ValueError("legal adoption policy does not match the retrieval snapshot")
 
     def runtime_snapshot(self, top_k: int) -> RetrievalRuntimeSnapshot:
         return RetrievalRuntimeSnapshot(
@@ -366,6 +379,12 @@ class LegalRetriever:
         for key, score in sorted(scores.items(), key=lambda x: (-x[1], x[0]))[: query.limit]:
             clause, version, reason = lookup[key]
             effective_from, effective_to, _, _ = clause_window(version, clause.article)
+            adoption_status: Literal["project_adopted", "not_adopted"] = (
+                "project_adopted"
+                if self.adoption_policy is not None
+                and self.adoption_policy.covers(version.law_id, version.version)
+                else "not_adopted"
+            )
             status: VersionStatus = (
                 "unverified"
                 if reason != "valid"
@@ -389,6 +408,7 @@ class LegalRetriever:
                     effective_from=effective_from,
                     effective_to=effective_to,
                     version_status=status,
+                    adoption_status=adoption_status,
                     eligible_for_confirmation=reason == "valid",
                     reason=reason,
                     score=score,
@@ -411,6 +431,7 @@ class LegalRetriever:
                         effective_from=effective_from,
                         effective_to=effective_to,
                         version_status=status,
+                        adoption_status=adoption_status,
                         jurisdiction=query.region,
                     ),
                 )
@@ -435,6 +456,12 @@ class LegalRetriever:
             excluded=tuple(excluded),
             citable_evidence=tuple(
                 hit.evidence_id for hit in hits if hit.eligible_for_confirmation
+            ),
+            adopted_evidence=tuple(
+                hit.evidence_id for hit in hits if hit.adoption_status == "project_adopted"
+            ),
+            adoption_policy_id=(
+                self.adoption_policy.policy_id if self.adoption_policy is not None else None
             ),
             ranking_trace=(
                 tuple(

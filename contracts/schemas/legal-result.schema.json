@@ -338,6 +338,15 @@
           "title": "Version Status",
           "type": "string"
         },
+        "adoption_status": {
+          "default": "not_adopted",
+          "enum": [
+            "project_adopted",
+            "not_adopted"
+          ],
+          "title": "Adoption Status",
+          "type": "string"
+        },
         "eligible_for_confirmation": {
           "title": "Eligible For Confirmation",
           "type": "boolean"
@@ -962,6 +971,28 @@
       "title": "Citable Evidence",
       "type": "array",
       "uniqueItems": true
+    },
+    "adopted_evidence": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Adopted Evidence",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "adoption_policy_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adoption Policy Id"
     },
     "excluded": {
       "default": [],

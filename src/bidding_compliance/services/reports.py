@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from bidding_compliance.domain.identity import Principal, Role
+from bidding_compliance.legal.adoption import load_adoption_policy
 from bidding_compliance.persistence.models import (
     Document,
     DocumentSection,
@@ -39,6 +41,7 @@ from bidding_compliance.services.review_persistence import (
 from bidding_compliance.services.review_projection import project_product_execution
 
 TEMPLATE_VERSION = "task0010-v3"
+ROOT = Path(__file__).resolve().parents[3]
 MAX_REPORT_BYTES = 20_000_000
 
 
@@ -319,6 +322,32 @@ def _assessment_scope(
         and no_findings_decision.snapshot_hash != result.snapshot_hash
     ):
         raise ValueError("human confirmation does not match the published result snapshot")
+    adopted_references: set[str] = set()
+    configured_bindings = 0
+    for finding in result.content.get("findings", []):
+        for reference in finding.get("legal_references", []):
+            if reference.get("adoption_status") == "project_adopted":
+                identity = reference.get("evidence_id") or reference.get("title")
+                if identity is not None:
+                    adopted_references.add(str(identity))
+            if reference.get("rule_law_binding_id"):
+                configured_bindings += 1
+    adoption_policy = load_adoption_policy(ROOT)
+    adoption_projection = (
+        {
+            "policy_id": adoption_policy.policy_id,
+            "decision_ref": adoption_policy.decision_ref,
+            "adopted_on": adoption_policy.adopted_on,
+            "independent_legal_verification": False,
+            "version_count": adoption_policy.version_count,
+            "fragment_count": adoption_policy.fragment_count,
+            "corpus_index_sha256": adoption_policy.corpus_index_sha256,
+            "manifest_sha256": adoption_policy.manifest_sha256,
+            "statement": adoption_policy.statement,
+        }
+        if adoption_policy is not None
+        else None
+    )
     model_content = model.content
     run = session.get(
         ReviewEngineRun,
@@ -350,6 +379,9 @@ def _assessment_scope(
         "retrieval_context_errors": context_error_counts,
         "retrieval_hit_count": retrieval_hit_count,
         "citable_legal_evidence_count": citable_count,
+        "adopted_legal_reference_count": len(adopted_references),
+        "configured_rule_law_binding_count": configured_bindings,
+        "legal_adoption_policy": adoption_projection,
         "retrieval_algorithms": sorted(algorithms),
         "model_provider": model_content.get("provider", "unknown"),
         "model_name": model_content.get("model", "unknown"),

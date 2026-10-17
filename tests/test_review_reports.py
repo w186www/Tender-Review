@@ -385,3 +385,79 @@ def test_v3_report_discloses_partial_coverage_in_word_and_pdf() -> None:
         assert "不得解释为全部内容已审查完成" in compact, label
         assert "未处理单元" in compact, label
         assert "饱和" in compact, label
+
+
+def test_v3_report_discloses_project_adopted_legal_references() -> None:
+    report = _report()
+    report["schema_version"] = "task0010-report.v3"
+    report["template_version"] = "task0010-v3"
+    report["run_id"] = "00000000-0000-4000-8000-000000000011"
+    report["result_id"] = "00000000-0000-4000-8000-000000000012"
+    report["report_id"] = "00000000-0000-4000-8000-000000000013"
+    report["assessment_scope"] = _v3_scope(
+        {
+            "completion_status": "complete",
+            "coverage_status": "complete",
+            "unprocessed_units": 0,
+            "truncated": False,
+            "saturated": False,
+            "reason_codes": ["discovery_complete"],
+            "unknown_model_call_count": 0,
+        }
+    )
+    report["assessment_scope"]["legal_adoption_policy"] = {
+        "policy_id": "ADOPT-2026-10-18",
+        "decision_ref": "DEC-009",
+        "adopted_on": "2026-10-18",
+        "independent_legal_verification": False,
+        "version_count": 43,
+        "fragment_count": 3120,
+        "corpus_index_sha256": "a" * 64,
+        "manifest_sha256": "b" * 64,
+        "statement": "项目采用库内法规版本，未做独立法律核验。",
+    }
+    report["assessment_scope"]["adopted_legal_reference_count"] = 1
+    report["assessment_scope"]["configured_rule_law_binding_count"] = 1
+    report["findings"][0]["legal_references"] = [
+        {
+            "evidence_id": "e" * 64,
+            "kind": "law",
+            "title": "中华人民共和国招标投标法实施条例",
+            "article": "第三十二条",
+            "quote": "招标人不得以不合理的条件限制、排斥潜在投标人或者投标人。",
+            "source_uri": "artifact://legal-text/" + "f" * 64,
+            "source_hash": "f" * 64,
+            "version_status": "unverified",
+            "confirmation_reason": "outside_verification_horizon",
+            "adoption_status": "project_adopted",
+            "selected_by_model": True,
+            "rule_law_binding_id": "BIND-QUAL-LOCAL-32",
+        }
+    ]
+    documents, registry, errors = load_contracts(Path(__file__).resolve().parents[1])
+    api, api_errors = load_openapi(Path(__file__).resolve().parents[1])
+    assert not errors + api_errors
+    validator = validator_for_contract(
+        Path(__file__).resolve().parents[1],
+        "contracts/schemas/review-report.schema.json",
+        documents,
+        registry,
+        api,
+    )
+    validator.validate(report)
+
+    word_text = "".join(
+        paragraph.text for paragraph in Document(BytesIO(render_docx(report))).paragraphs  # type: ignore[arg-type]
+    )
+    pdf_text = "".join(
+        page.extract_text() or ""
+        for page in PdfReader(BytesIO(render_pdf(report))).pages  # type: ignore[arg-type]
+    )
+    for label, text in (("docx", word_text), ("pdf", pdf_text)):
+        compact = "".join(text.split())
+        assert "法规采用政策" in compact, label
+        assert "ADOPT-2026-10-18" in compact, label
+        assert "项目采用法规库参考" in compact, label
+        assert "项目采用库内版本" in compact, label
+        assert "BIND-QUAL-LOCAL-32" in compact, label
+        assert "未做独立法律核验" in compact, label

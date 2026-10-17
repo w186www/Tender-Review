@@ -25,6 +25,11 @@ from bidding_compliance.domain.rules.models import (
     DiscoveryResult,
 )
 from bidding_compliance.graph.state import ComplianceReviewState
+from bidding_compliance.legal.adoption import (
+    binding_for,
+    load_adoption_policy,
+    load_rule_law_bindings,
+)
 from bidding_compliance.legal.corpus import index_hash
 from bidding_compliance.model_gateway.contracts import (
     ModelPolicy,
@@ -315,6 +320,12 @@ def build_review_graph(
 ) -> Any:
     """Compile the persisted review DAG. A per-invocation principal is rechecked per node."""
     schema_root = legal_root or ROOT
+    adoption_policy = load_adoption_policy(schema_root)
+    rule_law_bindings = (
+        load_rule_law_bindings(schema_root, adoption_policy)
+        if adoption_policy is not None
+        else ()
+    )
     analysis_schema = _analysis_schema(schema_root)
     selected_skill_ids = tuple(sorted(skill_ids or SKILLS))
     if (
@@ -1477,25 +1488,58 @@ def build_review_graph(
                 # hides that law was found without verified applicability. Clauses the model
                 # selected are included here too when they are not confirmable, which keeps the
                 # classification truthful even when the model asks for an unverified clause.
-                legal_references: list[dict[str, Any]] = [
-                    {
+                candidate_rule_ids = {
+                    item.rule_id
+                    for item in candidate.provenance
+                    if item.origin == "rule" and item.rule_id is not None
+                }
+
+                def reference_payload(
+                    hit: Any,
+                    *,
+                    selected: bool,
+                    reason: str | None = None,
+                    candidate_rule_ids: set[str] = candidate_rule_ids,
+                ) -> dict[str, Any]:
+                    payload = {
                         **hit.evidence.model_dump(mode="json"),
-                        "confirmation_reason": hit.reason,
+                        "confirmation_reason": reason or hit.reason,
                         "version_status": hit.version_status,
                         "applicable": False,
-                        "selected_by_model": True,
+                        "selected_by_model": selected,
+                        "adoption_status": getattr(hit, "adoption_status", "not_adopted"),
+                        "adoption_policy_id": (
+                            adoption_policy.policy_id if adoption_policy is not None else None
+                        ),
                     }
-                    for hit in unconfirmed_laws
+                    if selected:
+                        binding = binding_for(
+                            rule_law_bindings,
+                            rule_ids=candidate_rule_ids,
+                            law_id=getattr(hit, "law_id", ""),
+                            version=getattr(hit, "version", ""),
+                            article=getattr(hit, "article", None),
+                        )
+                        if binding is not None:
+                            payload.update(
+                                {
+                                    "rule_law_binding_id": binding.binding_id,
+                                    "rule_law_binding_reason": binding.reason,
+                                    "rule_law_binding_asserted_by": binding.asserted_by,
+                                }
+                            )
+                    return payload
+
+                legal_references: list[dict[str, Any]] = [
+                    reference_payload(hit, selected=True) for hit in unconfirmed_laws
                 ]
                 if not rule_law_binding_confirmed:
                     legal_references.extend(
-                        {
-                            **hit.evidence.model_dump(mode="json"),
-                            "confirmation_reason": "rule_law_binding_unreviewed",
-                            "version_status": hit.version_status,
-                            "applicable": False,
-                            "selected_by_model": True,
-                        }
+                        reference_payload(
+                            hit,
+                            selected=True,
+                            reason="rule_law_binding_unreviewed",
+                        )
                         for hit in confirmable_laws
                     )
                 if candidate_result is not None:
@@ -1516,13 +1560,7 @@ def build_review_graph(
                         if reference_hit is None:
                             continue
                         legal_references.append(
-                            {
-                                **reference_hit.evidence.model_dump(mode="json"),
-                                "confirmation_reason": reference_hit.reason,
-                                "version_status": reference_hit.version_status,
-                                "applicable": False,
-                                "selected_by_model": False,
-                            }
+                            reference_payload(reference_hit, selected=False)
                         )
                         reference_only_count += 1
                 category = candidate.category

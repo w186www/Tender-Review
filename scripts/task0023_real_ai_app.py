@@ -17,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bidding_compliance.api import create_app
 from bidding_compliance.core.config import Settings
+from bidding_compliance.legal.adoption import load_adoption_policy
 from bidding_compliance.persistence.database import make_engine
 from bidding_compliance.services.real_ai_runtime import (
     SEMANTIC_PROMPT_VERSION,
@@ -75,6 +76,7 @@ review_engine = AuthorizedRealReviewEngine(
         # Serving never builds: the full-corpus index must already exist in the same
         # modelstate volume, written by scripts/prebuild_legal_vectors.py.
         allow_build=False,
+        adoption_policy=load_adoption_policy(ROOT),
     ),
 )
 app = create_app(settings, review_engine=review_engine)

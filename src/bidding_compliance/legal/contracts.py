@@ -382,6 +382,7 @@ class EvidenceRef(Closed):
     effective_from: date | None = None
     effective_to: date | None = None
     version_status: VersionStatus
+    adoption_status: Literal["project_adopted", "not_adopted"] = "not_adopted"
     jurisdiction: str | None = Field(default=None, max_length=200)
 
 
@@ -436,6 +437,7 @@ class LegalHit(Closed):
     effective_from: date | None
     effective_to: date | None
     version_status: VersionStatus
+    adoption_status: Literal["project_adopted", "not_adopted"] = "not_adopted"
     eligible_for_confirmation: bool = Field(strict=True)
     reason: Reason
     applicable_frameworks: tuple[Framework, ...]
@@ -479,6 +481,7 @@ class LegalHit(Closed):
             "effective_from": self.effective_from,
             "effective_to": self.effective_to,
             "version_status": self.version_status,
+            "adoption_status": self.adoption_status,
         }
         if (
             evidence.kind not in {"law", "policy"}
@@ -643,6 +646,10 @@ class RetrievalResult(Closed):
     query: RetrievalQuery | None
     hits: tuple[LegalHit, ...]
     citable_evidence: tuple[str, ...] = Field(json_schema_extra={"uniqueItems": True})
+    adopted_evidence: tuple[str, ...] = Field(
+        default=(), json_schema_extra={"uniqueItems": True}
+    )
+    adoption_policy_id: str | None = Field(default=None, max_length=128)
     excluded: tuple[Excluded, ...] = ()
     run_snapshot: RunSnapshot | None = None
     ranking_trace: tuple[RetrievalRankingTrace, ...] = ()
@@ -663,6 +670,11 @@ class RetrievalResult(Closed):
         expected = tuple(hit.evidence_id for hit in self.hits if hit.eligible_for_confirmation)
         if self.citable_evidence != expected:
             raise ValueError("citable evidence association mismatch")
+        expected_adopted = tuple(
+            hit.evidence_id for hit in self.hits if hit.adoption_status == "project_adopted"
+        )
+        if self.adopted_evidence != expected_adopted:
+            raise ValueError("adopted evidence association mismatch")
         if self.status == "context_incomplete":
             if self.query is not None or self.hits or self.context_error is None:
                 raise ValueError("incomplete context cannot produce query or evidence")

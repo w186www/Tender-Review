@@ -81,6 +81,18 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
         lines.append("法规检索上下文不完整，未完成有效适用性匹配。")
     if isinstance(hits, int) and isinstance(citable, int):
         lines.append(f"法规检索命中 {hits} 项，可引用依据 {citable} 项。")
+    adoption = scope.get("legal_adoption_policy")
+    if isinstance(adoption, dict):
+        lines.append(
+            f"法规采用政策：{adoption.get('policy_id')}（{adoption.get('decision_ref')}，"
+            f"{adoption.get('adopted_on')}）；采用库内 {adoption.get('version_count')} 个版本/"
+            f"{adoption.get('fragment_count')} 个片段；未做独立法律核验。"
+        )
+        lines.append(
+            f"项目采用参考 {scope.get('adopted_legal_reference_count', 0)} 条；"
+            f"其中工程配置规则—法规关联 {scope.get('configured_rule_law_binding_count', 0)} 条；"
+            f"正式可引用（独立核验）依据 {citable} 条。"
+        )
 
     provider = scope.get("model_provider")
     model_name = scope.get("model_name")
@@ -291,8 +303,11 @@ def render_docx(report: dict[str, Any]) -> bytes:
             document.add_paragraph("法规或规则证据：本条结果未包含可引用的法规条款，不补造条文。")
         references = finding.get("legal_references", [])
         if references:
+            adoption = report.get("assessment_scope", {}).get("legal_adoption_policy")
             document.add_paragraph(
-                "可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）："
+                "项目采用法规库参考（未经独立法律核验，不计入已核验证据）："
+                if isinstance(adoption, dict)
+                else "可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）："
             )
             for reference_item in references[:3]:
                 label = (
@@ -304,10 +319,18 @@ def render_docx(report: dict[str, Any]) -> bytes:
                     if reference_item.get("selected_by_model")
                     else "检索候选"
                 )
+                suffix = (
+                    "；项目采用库内版本（未经独立法律核验）"
+                    if reference_item.get("adoption_status") == "project_adopted"
+                    else ""
+                )
+                binding = reference_item.get("rule_law_binding_id")
+                if binding:
+                    suffix += f"；工程配置规则—法规关联 {binding}"
                 document.add_paragraph(
                     f"参考法规（{source_kind}）：{label}；版本状态 "
                     f"{reference_item.get('version_status')}；未确认原因 "
-                    f"{reference_item.get('confirmation_reason')}。"
+                    f"{reference_item.get('confirmation_reason')}{suffix}。"
                 )
                 document.add_paragraph(f"“{reference_item.get('quote', '')}”")
     scope_lines = _assessment_scope_lines(report)
@@ -511,19 +534,34 @@ def render_pdf(report: dict[str, Any]) -> bytes:
             story.append(para("法规或规则证据：未提供可引用条款，不补造条文。"))
         references = item.get("legal_references", [])
         if references:
-            story.append(para("可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）："))
+            adoption = report.get("assessment_scope", {}).get("legal_adoption_policy")
+            story.append(
+                para(
+                    "项目采用法规库参考（未经独立法律核验，不计入已核验证据）："
+                    if isinstance(adoption, dict)
+                    else "可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）："
+                )
+            )
             for reference_item in references[:3]:
                 source_kind = (
                     "模型引用候选"
                     if reference_item.get("selected_by_model")
                     else "检索候选"
                 )
+                suffix = (
+                    "；项目采用库内版本（未经独立法律核验）"
+                    if reference_item.get("adoption_status") == "project_adopted"
+                    else ""
+                )
+                binding = reference_item.get("rule_law_binding_id")
+                if binding:
+                    suffix += f"；工程配置规则—法规关联 {binding}"
                 story.append(
                     para(
                         f"参考法规（{source_kind}）：{reference_item.get('title', '')} "
                         f"{reference_item.get('article') or '条款未提供'}；版本状态 "
                         f"{reference_item.get('version_status')}；未确认原因 "
-                        f"{reference_item.get('confirmation_reason')}。"
+                        f"{reference_item.get('confirmation_reason')}{suffix}。"
                     )
                 )
                 story.append(para(f"“{reference_item.get('quote', '')}”"))

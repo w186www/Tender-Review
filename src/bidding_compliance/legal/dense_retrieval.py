@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 
+from .adoption import AdoptionPolicy
 from .contracts import (
     LegalClause,
     LegalIndex,
@@ -33,8 +34,9 @@ class DenseHybridRetriever(LegalRetriever):
         publication_id: str,
         revision_id: str,
         query_minimizer: Callable[[str], str] | None = None,
+        adoption_policy: AdoptionPolicy | None = None,
     ) -> None:
-        super().__init__(index)
+        super().__init__(index, adoption_policy=adoption_policy)
         self.provider = provider
         self.vector_index = vector_index
         self.build_id = build_id

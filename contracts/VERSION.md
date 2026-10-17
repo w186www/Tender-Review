@@ -1,9 +1,10 @@
 # 开发契约版本与兼容性
 
-当前契约集合：v1alpha7（2026-10-18），尚未对生产消费者发布。
+当前契约集合：v1alpha8（2026-10-18），尚未对生产消费者发布。
 
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
+| EvidenceRef / LegalResult / ReviewReport | v1alpha8 加法 | 新增可选 `adoption_status`、`adopted_evidence`、`adoption_policy_id` 及报告 `legal_adoption_policy`/采用参考计数；采用政策不等于独立法律核验，`citable_evidence` 仍只含原独立核验命中；旧字段和旧报告保持原义 |
 | OpenAPI | 0.10.1 | 在 0.10.0 上加法升级：检索结果新增可选 `product_execution` 覆盖与完整度投影；旧响应字段与消费者保持有效。0.10.0 曾于 0.9.0 上加法升级：逐文件授权请求新增可选 purpose/provider/expires_at，响应新增可选授权身份/期限/撤销字段，新增撤销操作；旧请求字段和旧响应消费者保持有效 |
 | LegalManifest、LegalIndex | Manifest v1alpha3 / Index v1alpha4 | D01条款效力；D07冻结原始字节/PDF字符框映射与显式文本排除；旧索引明确升级，原文与来源字节不变 |
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha3 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |

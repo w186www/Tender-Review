@@ -101,6 +101,7 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 from bidding_compliance.api import create_app  # noqa: E402
 from bidding_compliance.core.config import Settings  # noqa: E402
+from bidding_compliance.legal.adoption import load_adoption_policy  # noqa: E402
 from bidding_compliance.legal.contracts import LegalIndex, LegalManifest  # noqa: E402
 from bidding_compliance.legal.corpus import index_hash, ingest, read_bounded  # noqa: E402
 from bidding_compliance.legal.embedding_provider import DashScopeEmbeddingProvider  # noqa: E402
@@ -798,6 +799,7 @@ def build_app(
             budget=budget,
             private_root=root,
             allow_build=False,
+            adoption_policy=load_adoption_policy(ROOT),
         ),
     )
     app = create_app(settings, review_engine=review_engine)

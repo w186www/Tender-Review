@@ -634,3 +634,30 @@
 
 - 已在实际服务器网页完成“登录→上传受支持 PDF→解析/上下文→逐文件授权→真实模型审查→原文定位/参考法规→人工复核→发布→Word/PDF 下载”的端到端验收；报告哈希与服务器一致，数据/账本保留。
 - 这不等于用户独立验收，也不等于正式法规依据/专业效果达标；D2 内容和 U15/U16 仍待用户决定。
+
+## 2026-10-18 法规采用政策与真实文件质量准备（DEC-009 / ADR-0022）
+
+**执行单元/TASK：** U07/U09/U10 的法规采用语义；U06 的真实表格质量修正。正式 U07/U09/U10 仍按依赖保留，不因采用政策提前标完成。
+
+### 1. 本次完成
+
+- 新增 `config/legal/adoption-policy.json`：冻结清单 SHA-256 `7e96248b…`、43 个版本、3120 个片段、法规索引 `69d340d6…`，`policy_id=ADOPT-2026-10-18`，明确 `independent_legal_verification=false`。
+- 新增 `config/legal/rule-law-bindings.json`：11 条工程配置的规则—法规关联，覆盖五类规则的资格/技术/评分/合同/程序规则；每条记录库内版本、条文、理由和 `source_reviewed=true`，`asserted_by=engineering-config`，不是专家或人工裁定。
+- 新增 `legal/adoption.py`：加载并校验清单字节、版本集合、索引身份；政策/索引不一致失败关闭。规则—法规关联逐条检查规则 ID、版本、条文在冻结原文中出现。
+- 法规命中新增 `adoption_status=project_adopted/not_adopted`；检索结果新增 `adopted_evidence`/`adoption_policy_id`。`citable_evidence` 仍只含独立核验且资格满足的命中；采用条文不并入正式证据集合。
+- 语义请求的法规候选新增 `adoption_status`；Prompt 说明“项目采用但仍未独立核验”，允许模型把采用条文作为参考引用，不得称为已核验/已确认适用。
+- 报告 v3 新增 `legal_adoption_policy`、采用参考数、工程配置关联数；Word/PDF/网页标注“项目采用库内版本（未经独立法律核验）”。旧报告/快照不改写。
+- `TABLE_STRUCTURE_GAP` 收敛：不再因合并/标题行较少单元格误报；只有系统性额外单元格（异常行≥1/4 且宽度差>1，或单行超过多数行 2 格以上）才触发。真实天津地铁 DOCX 的复杂表格不再仅因合并单元格整体阻断。
+
+### 2. 验证
+
+- 新增 `tests/test_legal_adoption_policy.py`：政策/绑定身份、清单篡改拒绝、检索标注、快照不一致拒绝。
+- 官方 Focused（法规/质量/报告/契约等 12 个文件）：**235 passed in 191.90s**；Ruff/Mypy/前端检查通过。
+- 最终代码候选官方 Full 七阶段全部通过：后端 `924 passed, 6 warnings in 815.58s`，HTTP 与鉴权/项目生命周期阶段 PASS（`.verification/legal-adoption-full.log`）。
+- 真实天津地铁3号线 DOCX（已授权，SHA-256 `506e9ec1…`）已核对：689,683 字节、1,483 个 section、两处空 OCR 页脚（已按 OOXML PAGE=36 校正）、复杂表格行宽；真实文件的 OCR/表格质量路径仍需最终部署后重跑。
+
+### 3. 边界
+
+- 采用政策不是独立法律核验：不改变任何 `verification`/`verified_through`，不生成专家标签，不把采用参考称为已核验依据。
+- 规则—法规关联是工程配置，质量需人工抽检；正式违法认定仍需人工复核，不由系统自动作出。
+- D2 的专业金标和用户独立验收仍未发生；U07/U09/U10 的正式状态不因采用政策自动提升。

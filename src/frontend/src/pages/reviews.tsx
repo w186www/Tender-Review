@@ -909,6 +909,9 @@ function FindingCard({
                 version_status?: string;
                 confirmation_reason?: string;
                 selected_by_model?: boolean;
+                adoption_status?: string;
+                adoption_policy_id?: string | null;
+                rule_law_binding_id?: string;
               };
               const referenceKey = `${reference.evidence_id ?? reference.title ?? "reference"}:${
                 reference.article ?? "no-article"
@@ -929,8 +932,14 @@ function FindingCard({
                     {reference.confirmation_reason
                       ? `（${apiEnumLabel(reference.confirmation_reason)}）`
                       : ""}
+                    {reference.adoption_status === "project_adopted"
+                      ? " · 项目采用库内版本（未经独立法律核验）"
+                      : ""}
+                    {reference.rule_law_binding_id
+                      ? ` · 工程配置规则—法规关联 ${reference.rule_law_binding_id}`
+                      : ""}
                     {" · "}
-                    仍需人工核验：该条文尚未完成版本与适用性核验，不能作为违反依据。
+                    仍需人工核验：该条文尚未完成独立法律核验，不能作为违反依据。
                   </small>
                 </li>
               );

@@ -22,6 +22,7 @@ from pathlib import Path
 import httpx
 from pydantic import SecretStr
 
+from bidding_compliance.legal.adoption import AdoptionPolicy
 from bidding_compliance.legal.contracts import LegalClause, LegalIndex
 from bidding_compliance.legal.dense_retrieval import DenseHybridRetriever
 from bidding_compliance.legal.embedding_provider import (
@@ -266,8 +267,10 @@ class AuthorizedRetrieverFactory:
         private_root: Path,
         client: httpx.Client | None = None,
         allow_build: bool = False,
+        adoption_policy: AdoptionPolicy | None = None,
     ) -> None:
         self.private_root = private_root
+        self.adoption_policy = adoption_policy
         self.allow_build = allow_build
         self.guard = ScopedEmbeddingGuard(budget)
         self.settings = real_embedding_settings(api_key=api_key, workspace_id=workspace_id)
@@ -332,6 +335,7 @@ class AuthorizedRetrieverFactory:
             publication_id=publication_id,
             revision_id=revision_id,
             query_minimizer=self.safe_query,
+            adoption_policy=self.adoption_policy,
         )
 
 
@@ -343,6 +347,7 @@ def create_real_retriever_factory(
     private_root: Path,
     client: httpx.Client | None = None,
     allow_build: bool = False,
+    adoption_policy: AdoptionPolicy | None = None,
 ) -> Callable[[LegalIndex, str, str], DenseHybridRetriever]:
     """Authorized dense retriever factory for the server assembly.
 
@@ -356,4 +361,5 @@ def create_real_retriever_factory(
         private_root=private_root,
         client=client,
         allow_build=allow_build,
+        adoption_policy=adoption_policy,
     )

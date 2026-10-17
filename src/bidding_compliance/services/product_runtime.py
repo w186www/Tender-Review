@@ -18,6 +18,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bidding_compliance.api import create_app
 from bidding_compliance.core.config import Settings
+from bidding_compliance.legal.adoption import load_adoption_policy
 from bidding_compliance.model_gateway.adapters.bailian_qwen_adapter import BailianQwenChatAdapter
 from bidding_compliance.model_gateway.authorization import AuthorizationPolicy
 from bidding_compliance.model_gateway.authorized_runtime import MetadataAuditSink
@@ -134,12 +135,13 @@ def create_product_runtime(
         max_concurrent_per_provider=1,
     )
     reconciliation = budget.reconcile_orphaned()
+    legal_root = Path(__file__).resolve().parents[3]
     review_engine = AuthorizedRealReviewEngine(
         settings=settings,
         session_factory=session_factory,
         gateway=gateway,
         model_policy=real_ai_policy(),
-        legal_root=Path(__file__).resolve().parents[3],
+        legal_root=legal_root,
         authorization=authorization,
         allowed_document_sha256=gate.allowed_hashes,
         document_authorization=gate,
@@ -156,6 +158,7 @@ def create_product_runtime(
                 transport=embed_transport,
             ),
             allow_build=allow_vector_build,
+            adoption_policy=load_adoption_policy(legal_root),
         ),
     )
     app = create_app(settings, review_engine=review_engine)

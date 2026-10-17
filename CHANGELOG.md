@@ -5,6 +5,9 @@
 ## [Unreleased]
 
 ### Added
+- 2026-10-18 法规库采用政策（DEC-009/ADR-0022）：新增 `config/legal/adoption-policy.json` 冻结现有 43 版本/3120 片段与索引身份，新增 `config/legal/rule-law-bindings.json` 记录 11 条工程配置的规则—法规关联；法规命中新增 `adoption_status`，检索结果新增 `adopted_evidence`/`adoption_policy_id`，报告 v3 与网页标注“项目采用库内版本（未经独立法律核验）”。采用政策不改变 `verification`/`verified_through`，不把参考条款并入 `citable_evidence`，不伪造专家或人工签署；旧报告/快照不变。`EvidenceRef`/`LegalResult`/`ReviewReport` 加法字段，契约集升 v1alpha8。法规采用候选官方 Full 七阶段通过（924 passed、6 项既有 warning）。
+- 2026-10-18 摄取表格结构信号收敛：`TABLE_STRUCTURE_GAP` 不再因合并/标题行较少单元格而误报，改为系统性额外单元格（异常行占比≥1/4 且宽度差>1，或单行超过多数行 2 格以上）；保留真实表格结构缺失的人工复核信号，支持矩阵同步。真实天津地铁 DOCX 的复杂表格不再仅因合并单元格被整体阻断。
+
 
 - 2026-10-18 D1—D4 受控交付授权与服务器备份/恢复演练：新增 `DEC-008` 记录用户批准的首版支持范围（自托管单机/多租户/人工复核、PDF/DOCX/PNG/JPEG、10 MiB/300 页/OCR 30 页）、D2 工程侧标签准备、D3 既有百炼供应商累计预算内的真实调用、D4 现有 ECS 备份/隔离演练/候选发布。服务器全量备份（PostgreSQL dump、部署配置、modelstate、MinIO 对象）带 SHA-256 清单；数据库在隔离 `postgres:16` 容器恢复后 24 文档/15 运行/9 结果/16 决定/358 审计事件与源库一致，28 张 RLS 表恢复；备份账本 25 LLM/312 Embedding/约 ¥0.1474435、索引 build `c7344cac…` 与线上一致。未删除业务数据、未覆盖账本。
 

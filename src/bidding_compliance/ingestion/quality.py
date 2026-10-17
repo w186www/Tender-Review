@@ -94,7 +94,13 @@ def _has_table_structure_gap(fragments: list[Fragment], policy: IngestionPolicy)
             continue
         widths = [len(columns) for columns in rows.values()]
         modal = max(set(widths), key=widths.count)
-        if any(abs(width - modal) > policy.max_table_row_deviation for width in widths):
+        # Merged/header rows legitimately have fewer cells. Flag only systematic extra-cell
+        # extraction or a severe width jump, not every merged cell in a real tender table.
+        wider = [width for width in widths if width > modal + policy.max_table_row_deviation]
+        if not wider:
+            continue
+        anomalous = len(wider)
+        if max(wider) > modal + 1 and anomalous >= max(1, (len(rows) + 3) // 4):
             return True
     return False
 
