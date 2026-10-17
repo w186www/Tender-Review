@@ -116,17 +116,36 @@
     {
       "id": "TASK0029-004",
       "description": "U08 对所有应审非空输入记录覆盖；分批、饱和、截断、失败及人工处理可见；Mock 协议测试与真实效果证据分别标注。",
-      "evidence": []
+      "evidence": [
+        "docs/development/product-delivery-validation.md",
+        "tests/test_task0029_discovery_coverage.py",
+        "tests/test_llm_candidate_discovery.py",
+        "src/bidding_compliance/services/llm_candidate_discovery.py"
+      ]
     },
     {
       "id": "TASK0029-005",
       "description": "U09 检索相关性排名与法定证据资格分离，索引/模型/快照身份可核验，损坏或身份冲突失败关闭。",
-      "evidence": []
+      "evidence": [
+        "docs/development/product-delivery-validation.md",
+        "tests/test_legal_retrieval.py",
+        "tests/test_legal_evidence.py",
+        "tests/test_legal_vector_index.py",
+        "src/bidding_compliance/legal/retrieval.py",
+        "src/bidding_compliance/services/real_embedding_runtime.py"
+      ]
     },
     {
       "id": "TASK0029-006",
       "description": "U10 实际法规候选进入受限 RAG；服务端复核原文、版本、引用与适用资格，并正确处理零候选、证据不足和冲突。",
-      "evidence": []
+      "evidence": [
+        "docs/development/product-delivery-validation.md",
+        "tests/test_task0030_real_rag.py",
+        "tests/test_legal_evidence_classification.py",
+        "src/bidding_compliance/graph/review.py",
+        "src/bidding_compliance/services/real_ai_runtime.py",
+        "contracts/schemas/semantic-analysis.schema.json"
+      ]
     },
     {
       "id": "TASK0029-007",
@@ -136,11 +155,17 @@
     {
       "id": "TASK0029-008",
       "description": "U12 结构化、Word、PDF、审计与下载鉴权引用同一不可变结果；内容、定位、证据状态和人工决定一致。",
-      "evidence": []
+      "evidence": [
+        "docs/development/product-delivery-validation.md",
+        "contracts/schemas/review-report.schema.json",
+        "src/bidding_compliance/services/reporting.py",
+        "src/bidding_compliance/services/reports.py",
+        "tests/test_review_reports.py"
+      ]
     }
   ],
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "2026-10-18 用户以 DEC-008 批准 D1 首版支持范围、D2 工程侧核验/标签准备、D3 既有百炼供应商受控真实调用（累计 200 元/2000 次/2000 批，不新增额度）和 D4 现有 ECS 备份/隔离演练/候选发布；D2 的逐条内容确认、专家金标和用户独立验收仍未完成。U06 已实现结构质量信号、容量前检、已 ready 文档校正后的上下文失效和合成 OCR 已知失败回归；D1 范围的 PDF/DOCX/PNG/JPEG、10 MiB、300 页、OCR 30 页边界由 tests/test_task0029_support_scope.py 覆盖；正式 U06 仍为 planned，因为 U03 冻结样本和 D2 专业标签未完成，TASK0029-002 evidence 保持为空。U07 已强化无人工 rule-law binding 时不以模型文本形成违法结论；来源核验和 binding 签署仍受 D2 限制，U07 保持 in_progress。U08 已有饱和标记、覆盖摘要、有界 section 二分/重扫、深度和额外批次上限、父子覆盖与缓存复用；真实覆盖质量等待受控真实评测和冻结集，TASK0029-004 evidence 保持为空。U10 已把法规候选与受限 evidence_id 真实送入语义请求（新 Prompt task0030-semantic-rag-v1，保留 legacy task0023-semantic-v1 以恢复历史在途运行），服务端继续用 verify_legal_hit 重核引用/版本/资格；零候选不调用模型；新增 product_execution 覆盖/部分完成/ unknown 调用投影（报告 task0010-report.v3、findings API 可选字段、网页提示），并把 selected_by_model 标记写入参考条款。真实服务器端到端、法规引用可见性和报告下载仍待 U11/U12/D3/D4 验收，TASK0029-006/008 evidence 暂保持为空。U03 已获准恢复：评测器/测试/两份历史结果从备份恢复，原始哈希一致；评测器仅格式适配（7b2c…→2888…）；缺失法规报告重新生成到新路径，核心指标一致；五案例身份/分区/待裁定标签材料已登记；专家标签仍为 0，precision/recall 未测量。DEC-002 与 DEC-007 历史授权不可复用或扩展；本轮 D3 只按 DEC-008 的允许数据和累计额度执行。用户独立验收不由本任务状态替代。"
+  "handoff_notes": "2026-10-18 用户以 DEC-008 批准 D1—D4 的受控范围；D2 的逐条内容确认、专家金标和用户独立验收仍未完成。U03 已恢复评测器/测试/历史结果并登记数据集分区与待裁定标签（TASK0019-002），专家标签仍为 0，precision/recall 未测量。U06 的 D1 格式/规模/OCR 页数边界由 tests/test_task0029_support_scope.py 覆盖，正式 U06 仍 planned（U03/D2 未完成，TASK0029-002 evidence 为空）。U07 的法规/规则/配置生命周期与无 binding 不作违法结论的边界保持；D2 签署未完成，TASK0029-003 evidence 为空。U08 的饱和标记、覆盖摘要、有界 section 二分/重扫、父子覆盖和缓存复用已有实现；真实服务器运行观察到 3 次 discovery（父批次饱和→2 个子批次）和 partial 覆盖，TASK0029-004 evidence 已登记。U09 的预构建向量索引、Embedding 身份 3112/3120、参考排名与正式证据资格分离在真实服务器运行；160 个参考命中、0 个可引用正式依据，TASK0029-005 evidence 已登记。U10 已把每个候选前 6 条法规候选真实送入语义请求（task0030-semantic-rag-v1），保留 legacy task0023-semantic-v1；服务端 verify_legal_hit 重核引用/发布/版本/资格并拒绝未暴露 ID；同原文摘录的重复候选确定性合并；报告 v3/findings API 暴露覆盖/部分完成/unknown 调用，参考条款限制为每条 3 条并标注来源。公网最终运行：项目 7e5c341e、文档 bdaa24e1、task f47fa2d0、run 33faaef9、result 6abcb16a；5 次真实 LLM（¥0.015822）、6 条风险、全部有原文定位、人工接受、结果发布、Word/PDF 下载哈希与服务端一致；法规检索 160 命中/0 可引用、覆盖 partial（16 section 未处理）。TASK0029-006 evidence 已登记，但 U10 正式仍 in_progress：D2 法律资格、U07/U08/U09 的正式完成和冻结集效果未满足。TASK0029-008 evidence 已登记（报告 v3/Word/PDF/哈希/审计一致），U12 正式仍 planned，因为 U10/U11 未完成、U11 的失败/多角色分支未全测。最终部署 339155d、API/Web 镜像与迁移 202610172000 已记录；备份/隔离恢复演练通过，账本累计 55 LLM/312 Embedding/¥0.2419564，unknown=0，未删除业务数据或重置额度。DEC-002/007 历史授权不扩展；用户独立验收不由任务状态替代。"
 }

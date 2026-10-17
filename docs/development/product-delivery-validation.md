@@ -577,3 +577,59 @@
 ### 3. 结论与缺口
 
 - 报告结构、覆盖披露和前端提示已实现；真实报告的文件可读性、下载鉴权、定位/法规/人工决定一致性和审计仍需 U11/U12 服务器验收，`TASK0029-008` evidence 保持为空。
+
+## 2026-10-18 公网真实 PDF 验收（D3/D4；产品验收，等待用户独立验收）
+
+**执行单元/TASK：** U08/U09/U10/U11/U12 的真实服务器证据；U13/U14 的部署/恢复演练。正式单元状态仍按依赖保留（U10 仍 in_progress，U08/U09/U12 planned），本节不替代用户独立验收。
+
+**目录、分支/HEAD：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；最终部署提交 `339155d6b4fba88b2ccf60e53d6617d0de561f57`（已推送 `origin/work/TASK-0027`）。
+
+### 1. 部署身份
+
+- 服务器：阿里云 ECS `i-j6ccqpfriae57w0hkskn`，`/opt/tender-review`，公网 `https://47.83.132.211`。
+- API 镜像 `tender-review-api:task0030-339155d`，镜像 ID `sha256:522c88ee5296c41ec910e50ac97478f6550b356a4557b19ba4739cda3baecea2`。
+- Web/nginx 镜像 `tender-review-web:task0030-339155d`，镜像 ID `sha256:9415c3715b9a93f620a07a886491d293a95ace9dd912159d49f233a900ceb29e`，构建期 `VITE_REVIEW_MODE=dec007-real-qwen`。
+- 隔离 parser 镜像 `tender-review-parser:demo`，镜像 ID `sha256:b20d0aea7f0905a7a4afca02f4909babe610751466fea003398a3e9d22e0ab98`（`PARSER_IMAGE` 已固定）。
+- 数据库迁移 `202610172000`；`review_model_call`、`document_external_authorization`、`model_execution_policy`、`model_budget_account`、`model_budget_reservation` 已存在。
+- 运行单元：api、review-worker、worker、nginx 均为 `task0030-339155d`；postgres/minio/clamav 保持原健康状态；api health 200。
+
+### 2. 迁移/恢复演练
+
+- 全量备份 `/opt/tender-review-backups/20261017T174508Z`：`database.dump`、`deploy-config.tgz`、`modelstate.tgz`、`miniodata.tgz`、`db-counts.txt`、`SHA256SUMS`；`sha256sum -c` 全部 OK。
+- 隔离 `postgres:16` 恢复：document=24、review_engine_run=15、review_result=9、review_decision=16、audit_event=358，与源库一致；28 张 RLS 表恢复。
+- 隔离迁移演练：恢复副本从 `202610151000` 升级到 `202610172000`，原计数不变，`review_model_call`/`document_external_authorization` 等新表出现；随后才应用到生产库。
+- 备份 modelstate 核对：LLM 25 次、Embedding 312 批、约 ¥0.1474435；索引 build `c7344cac…` 与线上一致。生产迁移后账本未重置。
+
+### 3. 公网浏览器真实 PDF 验收（最终运行）
+
+- 浏览器：Microsoft Edge（Playwright），真实公网 HTTPS；合成 PDF `evals` 外的本地样本 `.verification/acceptance/2026-10-18/synthetic-tender.pdf`（程序生成，不含真实企业/人员信息）。
+- 项目 `7e5c341e-6306-4f5b-ae88-baeab1b24665`（政府采购/工程/北京市/招标/政府机关/工程，制度勾选招标投标+政府采购）；文档 `bdaa24e1-9221-4ba1-992d-cbb86556b5ca`；SHA-256 `0db33351…`。
+- 流程：登录 200 → 上传 202 → `等待上下文确认` → 上下文确认 200 → `可用于审查` → 逐文件外发授权 201 → 发起审查 202（task `f47fa2d0-5ec0-5c7f-b408-a769cb8b8cb7`，run `33faaef9-9be9-50f2-835d-93c25c7a7113`）。
+- 真实模型：discovery 3 次（父批次饱和 + 2 个 section 子批次，均成功）+ semantic 2 次（11 个候选分 2 批）；5 次调用全部 `settled/reported`，无 unknown。输入/输出 tokens 5559/4213，估算 ¥0.015822。
+- 人工复核：6 条风险全部有服务端原文定位（citations 1–3 条/条），网页保存接受决定；发布结果 `6abcb16a-e125-4f08-8893-fc8ec6245122`。
+- 报告：Word `80e976fc-a2d9-41e8-9c88-9c7f71c7a7e7`、PDF `7dae4afe-a265-4110-b9aa-17935354636b`；浏览器下载 SHA-256 分别为 `fd5d0bb1…`、`e4d4463a…`，与服务端 `content_hash` 完全一致。
+- 报告内容核查（`check-report.py`，Word 10,376 字符 / PDF 10,726 字符）：标题、原文页码和 locator（`pdf/page/1/...`）、法规检索摘要（命中 160 项、可引用 0 项）、每条 3 个“检索候选”参考条款（含版本状态 `unverified` 和未确认原因）、部分完成/16 个未处理 section、真实模型 5 次/¥0.015822；未出现“构成违法/应认定为违法”。全部检查通过。
+- 法规状态：运行上下文完整（制度、采购方式、采购人、标的、地区），所以检索实际执行；`2019` 实施条例的核验期限已在 2026-10-14 到期，其余 42 个版本未核验，规则—法规 binding 未人工签署，因此 160 个命中全部为参考候选、可引用正式依据为 0；模型未选择任何 `legal_evidence_id`。报告明确“可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）”。这不是法律适用结论。
+- 账本（DEC-007，服务器）：验收前 25 LLM / 312 Embedding / 约 ¥0.1474435；最终 55 LLM / 312 Embedding / ¥0.2419564（30 次新增真实 LLM 调用覆盖 6 轮验收/排错，全部 settled，unknown=0）。额度仍为累计 2000/2000/¥200，未新增 scope/账户/额度。
+- 运行数据：15 个 `result_published`、5 个 `waiting_human`、1 个历史 `failed`；未删除/覆盖任何业务数据或账本。
+
+### 4. 权限、TLS 与运行状态
+
+- 真实 API 反向检查（同一公网入口）：reviewer 登录 200、auditor 登录 200；auditor 建项目 403；reviewer 创建法规草稿 403；reviewer 读取法规状态 200 且 `capabilities=[]`（只读，不能发布）；未知项目 404；匿名项目列表 401。未发现越权写入。
+- TLS：Let's Encrypt 证书 `notBefore=2026-10-15`、`notAfter=2026-10-22`，`tender-certbot-renew.timer` 与 `tender-certbot-expiry.timer` 均为 active/waiting；本轮未改证书或续期配置。
+- 容量：磁盘 40 GB 中已用 15 GB、可用 23 GB；内存 7.5 GiB、可用约 4.5 GiB；七容器运行，api/review-worker/worker/nginx 为新候选。
+- 告警：`deploy/.env` 未配置 alert/webhook/SMTP 渠道；系统内 health 与任务状态可查，但外部告警投递缺口保留，未假装已送达。
+
+### 5. 本轮观察到的限制
+
+- 正式法律支持仍为 0：核验期限过期、42 个版本未核验、规则—法规 binding 未签署（D2）。因此“法规依据”只以参考候选呈现，不能作为违法/合规结论。
+- 检索排名仍有噪声（例如付款期限命中招标投标法第二十二条、政府采购办法第二十八条、实施条例第五十七条）；报告限制为每条 3 个参考候选并标注“检索候选”，但 U09 的排序质量仍需冻结集评测。
+- 同名/同义风险跨不同原文行时仍可能保留两条（例如“时间逻辑矛盾”和“开标时间早于截止时间”）；已实现同 locator+quote 的确定性合并，跨段语义合并不做自动猜测。
+- 覆盖为 `partial`：16 个 section 因饱和/部分覆盖未完成；报告和网页均明确显示，不声称全部审查完成。
+- 本轮为原生文本 PDF，未验证真实扫描件 OCR、复杂多栏/跨页表格、DOCX/PNG/JPEG 的公网路径；U06 的合成 OCR 基线仍是已知上限。
+- 未执行多角色/越权/失败/取消/暂停/恢复的公网浏览器全矩阵；这些仍是 U11/U15 的条件。未配置外部告警渠道，D4 的告警投递缺口保留。
+
+### 6. 结论
+
+- 已在实际服务器网页完成“登录→上传受支持 PDF→解析/上下文→逐文件授权→真实模型审查→原文定位/参考法规→人工复核→发布→Word/PDF 下载”的端到端验收；报告哈希与服务器一致，数据/账本保留。
+- 这不等于用户独立验收，也不等于正式法规依据/专业效果达标；D2 内容和 U15/U16 仍待用户决定。
