@@ -79,8 +79,11 @@ def coverage_summary(
 ) -> dict[str, Any]:
     """Aggregate plan coverage; subdivision is neutral only when its children complete."""
     saturated = [item for item in batches if item.get("status") == "saturated"]
+    failed = [item for item in batches if item.get("status") == "failed"]
     partial = [
-        item for item in batches if item.get("status") in {"saturated", "partial"}
+        item
+        for item in batches
+        if item.get("status") in {"saturated", "partial", "failed"}
     ]
     subdivided = [item for item in batches if item.get("status") == "subdivided"]
     return {
@@ -95,6 +98,15 @@ def coverage_summary(
         ),
         "saturated_batches": len(saturated),
         "saturated_batch_indices": [item["batch_index"] for item in saturated],
+        "failed_batches": len(failed),
+        "failed_batch_indices": [item["batch_index"] for item in failed],
+        "failed_batch_codes": sorted(
+            {
+                str(item.get("failure_code"))
+                for item in failed
+                if item.get("failure_code")
+            }
+        ),
         "accepted_candidates": sum(int(item.get("accepted_count", 0)) for item in batches),
         "rejected_candidates": sum(int(item.get("rejected_count", 0)) for item in batches),
     }

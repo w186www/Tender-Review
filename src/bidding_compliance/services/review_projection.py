@@ -132,17 +132,21 @@ def project_product_execution(
         }
     saturated_batches = int(coverage.get("saturated_batches", 0))
     partial_batches = int(coverage.get("partial_batches", 0))
+    failed_batches = int(coverage.get("failed_batches", 0))
     unprocessed_sections = sum(
         int(item.get("section_count", 0) or 0)
         for item in batches or []
-        if isinstance(item, dict) and item.get("status") in {"saturated", "partial"}
+        if isinstance(item, dict)
+        and item.get("status") in {"saturated", "partial", "failed"}
     )
-    partial = saturated_batches > 0 or partial_batches > 0
+    partial = saturated_batches > 0 or partial_batches > 0 or failed_batches > 0
     reasons: list[str] = []
     if saturated_batches:
         reasons.append("discovery_saturated")
     if partial_batches:
         reasons.append("discovery_partial")
+    if failed_batches:
+        reasons.append("discovery_failed")
     if unknown_count:
         reasons.append("model_call_outcome_unknown")
     return {

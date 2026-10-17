@@ -768,24 +768,62 @@ def build_review_graph(
                         )
                     else:
                         response = None
-                if response is None:
-                    if row.retry_count:
-                        request = replace(
+                try:
+                    if response is None:
+                        if row.retry_count:
+                            request = replace(
+                                request,
+                                call_id=_retry_call_id(request.call_id, row.retry_count),
+                            )
+                        response = await gateway.generate_structured(
                             request,
-                            call_id=_retry_call_id(request.call_id, row.retry_count),
+                            schema,
+                            replace(model_policy, max_attempts=1, max_output_tokens=2048),
                         )
-                    response = await gateway.generate_structured(
-                        request,
-                        schema,
-                        replace(model_policy, max_attempts=1, max_output_tokens=2048),
+                    accepted, rejected = llm_discovery.validate_response(
+                        batch,
+                        response,
+                        expected_call_id=request.call_id,
+                        profile=model_policy.profile,
+                        schema=schema,
                     )
-                accepted, rejected = llm_discovery.validate_response(
-                    batch,
-                    response,
-                    expected_call_id=request.call_id,
-                    profile=model_policy.profile,
-                    schema=schema,
-                )
+                except (ModelGatewayError, ValidationError, ValueError) as exc:
+                    failure_code = (
+                        exc.code.value
+                        if isinstance(exc, ModelGatewayError)
+                        else "response_invalid"
+                    )
+                    failed_children: tuple[Any, ...] = ()
+                    if (
+                        len(batch.sections) >= 2
+                        and subdivision_batches + 2
+                        <= llm_discovery.MAX_SUBDIVISION_BATCHES
+                    ):
+                        failed_children = llm_discovery.subdivide_batch(batch, next_index)
+                    if failed_children:
+                        next_index += len(failed_children)
+                        subdivision_batches += len(failed_children)
+                        pending.extend(failed_children)
+                    batch_results.append(
+                        {
+                            "batch_index": batch.index,
+                            "parent_index": batch.parent_index,
+                            "depth": batch.depth,
+                            "section_count": len(batch.sections),
+                            "accepted_count": 0,
+                            "rejected_count": 0,
+                            "saturated": False,
+                            "subdivided": bool(failed_children),
+                            "status": "subdivided" if failed_children else "failed",
+                            "failure_code": failure_code,
+                            "artifact_ref": None,
+                            "response_hash": None,
+                            "subdivision_children": [
+                                child.index for child in failed_children
+                            ],
+                        }
+                    )
+                    continue
                 record = {
                     "snapshot_hash": row.snapshot_hash,
                     "input_hash": batch.input_hash,
@@ -844,6 +882,20 @@ def build_review_graph(
                         "subdivision_children": [child.index for child in children],
                     }
                 )
+            failed_batches = [
+                item for item in batch_results if item.get("status") == "failed"
+            ]
+            if failed_batches and not candidates and len(failed_batches) == len(batch_results):
+                last_failure = failed_batches[-1].get("failure_code")
+                raw_code = last_failure if isinstance(last_failure, str) else "response_invalid"
+                try:
+                    error_code = GatewayErrorCode(raw_code)
+                except ValueError:
+                    error_code = GatewayErrorCode.RESPONSE_INVALID
+                raise ModelGatewayError(
+                    error_code,
+                    "every model discovery batch failed; no coverage is available",
+                )
             joined = llm_discovery.merge_model_candidates(discovery, candidates)
             if len(joined.candidates) > MAX_CANDIDATES_FOR_REVIEW:
                 raise ValueError("LLM discovery exceeds the bounded review candidate limit")
@@ -857,7 +909,11 @@ def build_review_graph(
                     "llm_candidate_discovery",
                     {
                         **plan,
-                        "status": "completed",
+                        "status": (
+                            "completed_with_failures"
+                            if any(item.get("status") == "failed" for item in batch_results)
+                            else "completed"
+                        ),
                         "plan_ref": plan_ref,
                         "batches": batch_results,
                         "coverage": llm_discovery.coverage_summary(

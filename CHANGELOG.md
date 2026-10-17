@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### Added
+- 2026-10-18 真实文件发现失败恢复：单个 discovery 批次遇到 `response_invalid`/provider 错误时，不再让整次审查失败；有界拆分为子批次重扫，单 section 或预算耗尽时记录 `failed` 批次并继续，覆盖投影显示 `discovery_failed`。全部批次失败且无候选才失败关闭，保留原 provider 错误码。新增图级“首批失败→二分→子批次成功”测试；真实天津地铁文件首次运行暴露的 2048 输出/复杂表格批次问题由此获得恢复路径。
+
 - 2026-10-18 法规库采用政策（DEC-009/ADR-0022）：新增 `config/legal/adoption-policy.json` 冻结现有 43 版本/3120 片段与索引身份，新增 `config/legal/rule-law-bindings.json` 记录 11 条工程配置的规则—法规关联；法规命中新增 `adoption_status`，检索结果新增 `adopted_evidence`/`adoption_policy_id`，报告 v3 与网页标注“项目采用库内版本（未经独立法律核验）”。采用政策不改变 `verification`/`verified_through`，不把参考条款并入 `citable_evidence`，不伪造专家或人工签署；旧报告/快照不变。`EvidenceRef`/`LegalResult`/`ReviewReport` 加法字段，契约集升 v1alpha8。法规采用候选官方 Full 七阶段通过（924 passed、6 项既有 warning）。
 - 2026-10-18 摄取表格结构信号收敛：`TABLE_STRUCTURE_GAP` 不再因合并/标题行较少单元格而误报，改为系统性额外单元格（异常行占比≥1/4 且宽度差>1，或单行超过多数行 2 格以上）；保留真实表格结构缺失的人工复核信号，支持矩阵同步。真实天津地铁 DOCX 的复杂表格不再仅因合并单元格被整体阻断。
 

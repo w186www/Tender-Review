@@ -340,7 +340,7 @@ def test_model_and_exact_rule_duplicates_merge_with_truthful_provenance():
     assert result.skill_coverages == rules.skill_coverages
 
 
-def graph_harness(monkeypatch, *, fail=False, saturating=False):
+def graph_harness(monkeypatch, *, fail=False, saturating=False, fail_first=False):
     if saturating:
         items = tuple(
             located(
@@ -419,6 +419,10 @@ def graph_harness(monkeypatch, *, fail=False, saturating=False):
         async def generate_structured(self, request, schema, policy):
             self.calls += 1
             assert policy.max_attempts == 1
+            if fail_first and self.calls == 1:
+                raise ModelGatewayError(
+                    GatewayErrorCode.RESPONSE_INVALID, "synthetic invalid response"
+                )
             if fail:
                 raise ModelGatewayError(GatewayErrorCode.PROVIDER_ERROR, "unit test failure")
             if saturating:
@@ -580,3 +584,26 @@ def test_saturated_batches_are_subdivided_bounded_and_reused(monkeypatch):
     second = asyncio.run(nodes["llm_candidate_discovery"](state))
     assert second == first
     assert gateway.calls == 3
+
+
+def test_a_failed_discovery_batch_is_boundedly_split_instead_of_failing_the_run(monkeypatch):
+    nodes, state, artifacts, saved, gateway = graph_harness(
+        monkeypatch, saturating=True, fail_first=True
+    )
+    result = asyncio.run(nodes["llm_candidate_discovery"](state))
+    assert "errors" not in result
+    assert result["llm_discovery_ref"]
+    assert gateway.calls == 3
+    coverage_record = artifacts[result["llm_discovery_ref"]]
+    coverage = coverage_record["coverage"]
+    assert coverage["status"] == "complete"
+    assert coverage["subdivided_batches"] == 1
+    assert coverage["failed_batches"] == 0
+    parent = next(
+        item
+        for item in coverage_record["batches"]
+        if item.get("subdivision_children")
+    )
+    assert parent["status"] == "subdivided"
+    assert parent["failure_code"] == "response_invalid"
+    assert parent["subdivision_children"]
