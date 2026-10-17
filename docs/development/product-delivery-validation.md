@@ -582,7 +582,7 @@
 
 **执行单元/TASK：** U08/U09/U10/U11/U12 的真实服务器证据；U13/U14 的部署/恢复演练。正式单元状态仍按依赖保留（U10 仍 in_progress，U08/U09/U12 planned），本节不替代用户独立验收。
 
-**目录、分支/HEAD：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；最终源码 HEAD `c688232eb96ca42d5b10182566055420b0c42564`（已推送 `origin/work/TASK-0027`；CI run 39062695856 success；服务器 HEAD 已同步）。部署镜像源 `339155d6b4fba88b2ccf60e53d6617d0de561f57`；`339155d..c688232` 的 `src/contracts/deploy` 差异为 0。
+**目录、分支/HEAD：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；最终代码候选 `c688232eb96ca42d5b10182566055420b0c42564`（已推送 `origin/work/TASK-0027`；CI run 39062695856 success）；其后为文档/证据提交（CI 亦成功），服务器 HEAD 已同步到最新分支 HEAD。部署镜像源 `339155d6b4fba88b2ccf60e53d6617d0de561f57`；`339155d` 之后 `src/contracts/deploy` 差异为 0。
 
 ### 1. 部署身份
 
