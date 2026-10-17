@@ -53,6 +53,8 @@ x-api-build: &api-build
 #   DEC007_*                                  DEC-007 identity, ledger, audit and per-file
 #                                             registry of resolve_real_runtime_authorization
 #   DEC005_*                                  legacy DEC-005/006 identity and static allowlist
+#   PRODUCT_*                                 product-postgres tenant policy/account identity;
+#                                             mutually exclusive with DEC005_/DEC007_* at startup
 x-real-model-environment: &real-model-environment
   DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
   BAILIAN_WORKSPACE_ID: ${BAILIAN_WORKSPACE_ID:-}
@@ -72,6 +74,11 @@ x-real-model-environment: &real-model-environment
   DEC005_AUTHORIZATION_ID: ${DEC005_AUTHORIZATION_ID:-}
   DEC005_ALLOWED_DOCUMENT_SHA256: ${DEC005_ALLOWED_DOCUMENT_SHA256:-}
   DEC005_ALLOWED_SYNTHETIC_SHA256: ${DEC005_ALLOWED_SYNTHETIC_SHA256:-}
+  PRODUCT_TENANT_ID: ${PRODUCT_TENANT_ID:-}
+  PRODUCT_PROVIDER: ${PRODUCT_PROVIDER:-}
+  PRODUCT_PURPOSE: ${PRODUCT_PURPOSE:-external_review}
+  PRODUCT_MODEL: ${PRODUCT_MODEL:-qwen3.8-flash}
+  PRODUCT_BUDGET_AUTHORIZATION_ID: ${PRODUCT_BUDGET_AUTHORIZATION_ID:-}
 
 services:
   postgres:

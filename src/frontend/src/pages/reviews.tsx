@@ -560,8 +560,9 @@ export function ReviewPage() {
           execution.unknown_model_call_count > 0
             ? `；${execution.unknown_model_call_count} 次模型调用结果未知`
             : ""}
-          。这些 section
-          并非全部未处理；不得解释为全部内容已审查完成，请结合报告中的限制说明人工处理。
+          。上述覆盖限制不等于这些 section
+          完全未处理；不得解释为全部内容已审查完成，
+          请结合报告中的限制说明人工处理。
         </Notice>
       )}
       <section className="panel" aria-labelledby="findings-heading">

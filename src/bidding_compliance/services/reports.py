@@ -40,7 +40,7 @@ from bidding_compliance.services.review_persistence import (
 )
 from bidding_compliance.services.review_projection import project_product_execution
 
-TEMPLATE_VERSION = "task0010-v3.1"
+TEMPLATE_VERSION = "task0010-v3.2"
 ROOT = Path(__file__).resolve().parents[3]
 MAX_REPORT_BYTES = 20_000_000
 

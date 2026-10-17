@@ -15,9 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ROOT / "docker-compose.demo.yml"
 ENV_TEMPLATE = ROOT / "deploy" / "demo.env.example"
 
-# Exactly the variables the authorized-real path resolves:
+# Exactly the variables the two real-model paths resolve:
 # task0023_real_ai_app.py (credentials), resolve_real_runtime_authorization (identity,
-# ledger, audit, per-file registry, legacy allowlist) and the operator CLI actor.
+# ledger, audit, per-file registry, legacy allowlist), the operator CLI actor, and the
+# product-postgres assembly (tenant policy/account identity).
 REAL_MODEL_VARIABLES = frozenset(
     {
         "DASHSCOPE_API_KEY",
@@ -30,6 +31,11 @@ REAL_MODEL_VARIABLES = frozenset(
         "DEC005_AUTHORIZATION_ID",
         "DEC005_ALLOWED_DOCUMENT_SHA256",
         "DEC005_ALLOWED_SYNTHETIC_SHA256",
+        "PRODUCT_TENANT_ID",
+        "PRODUCT_PROVIDER",
+        "PRODUCT_PURPOSE",
+        "PRODUCT_MODEL",
+        "PRODUCT_BUDGET_AUTHORIZATION_ID",
     }
 )
 CREDENTIAL_VARIABLES = frozenset(
@@ -96,6 +102,14 @@ def test_env_template_documents_the_variables_without_a_real_value():
         assert uncommented.get(name) in (None, ""), name
     assert "#DEC007_AUTHORIZATION_ACTOR=" in text
     assert "#DEC007_AUTHORIZATION_ID=DEC-007-2026-10-16" in text
+    for name in (
+        "PRODUCT_TENANT_ID",
+        "PRODUCT_PROVIDER",
+        "PRODUCT_PURPOSE",
+        "PRODUCT_MODEL",
+        "PRODUCT_BUDGET_AUTHORIZATION_ID",
+    ):
+        assert f"#{name}=" in text, name
 
 
 def test_offline_entry_point_stays_offline_when_the_real_variables_are_blank():

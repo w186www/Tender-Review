@@ -124,8 +124,8 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
         coverage_status = product.get("coverage_status")
         if completion == "partial":
             lines.append(
-                "本次审查为部分完成：存在覆盖无法确认的 section、部分批次或结果未知的"
-                "模型调用，不得解释为全部内容已审查完成。"
+                "本次审查为部分完成：存在未提交、调用失败、覆盖无法确认或结果未知的"
+                "section，不得解释为全部内容已审查完成。"
             )
         elif completion == "complete" and coverage_status == "complete":
             lines.append("本次审查覆盖完整：所有计划单元均已处理，未发现饱和或结果未知的调用。")
