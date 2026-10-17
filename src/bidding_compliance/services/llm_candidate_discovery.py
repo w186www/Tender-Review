@@ -31,6 +31,53 @@ from bidding_compliance.model_gateway.contracts import ModelRequest, ModelRespon
 
 TASK0023_DISCOVERY_PROMPT_VERSION = "task0023-discovery-v1"
 MAX_DISCOVERY_BATCHES = 28
+# The response schema and prompt cap one batch at three findings. That is a per-call
+# bound, not a product coverage bound: a batch that returns the cap is marked saturated
+# and reported as partial, so a later bounded subdivision can rescan it.
+SATURATION_FINDING_LIMIT = 3
+
+
+def batch_coverage(
+    batch: DiscoveryBatch, accepted_count: int, rejected_count: int
+) -> dict[str, Any]:
+    """Per-batch coverage record; saturation is visible instead of being called complete."""
+    saturated = accepted_count >= SATURATION_FINDING_LIMIT
+    if saturated:
+        status = "saturated"
+    elif rejected_count:
+        status = "partial"
+    else:
+        status = "completed"
+    return {
+        "batch_index": batch.index,
+        "section_count": len(batch.sections),
+        "accepted_count": accepted_count,
+        "rejected_count": rejected_count,
+        "saturated": saturated,
+        "status": status,
+    }
+
+
+def coverage_summary(
+    batches: Sequence[dict[str, Any]],
+    *,
+    section_count: int,
+) -> dict[str, Any]:
+    """Aggregate plan coverage; any saturated/rejected batch makes the plan partial."""
+    saturated = [item for item in batches if item.get("saturated")]
+    partial = [item for item in batches if item.get("status") in {"saturated", "partial"}]
+    return {
+        "status": "partial" if partial else "complete",
+        "batch_count": len(batches),
+        "section_count": section_count,
+        "completed_batches": sum(item.get("status") == "completed" for item in batches),
+        "partial_batches": sum(item.get("status") == "partial" for item in batches),
+        "saturated_batches": len(saturated),
+        "saturated_batch_indices": [item["batch_index"] for item in saturated],
+        "accepted_candidates": sum(int(item.get("accepted_count", 0)) for item in batches),
+        "rejected_candidates": sum(int(item.get("rejected_count", 0)) for item in batches),
+    }
+
 # Batch capacity is deliberately set from the authorized input-token ceiling: the
 # gateway rejects any request above 65,536 input tokens, and the per-batch finding
 # limit is what bounds model output, so wider batches trade candidate count for calls.

@@ -682,6 +682,7 @@ def build_review_graph(
                 if input_snapshot != discovery.input_snapshot:
                     raise ValueError("discovery fragments no longer match the frozen input")
                 batches = llm_discovery.plan_discovery(located)
+                section_count = sum(len(batch.sections) for batch in batches)
                 plan = {
                     "snapshot_hash": row.snapshot_hash,
                     "status": "planned",
@@ -801,11 +802,8 @@ def build_review_graph(
                 candidates.extend(accepted)
                 batch_results.append(
                     {
-                        "batch_index": batch.index,
-                        "status": "completed",
+                        **llm_discovery.batch_coverage(batch, len(accepted), len(rejected)),
                         "artifact_ref": ref,
-                        "accepted_count": len(accepted),
-                        "rejected_count": len(rejected),
                         "response_hash": response.response_hash,
                     }
                 )
@@ -825,6 +823,9 @@ def build_review_graph(
                         "status": "completed",
                         "plan_ref": plan_ref,
                         "batches": batch_results,
+                        "coverage": llm_discovery.coverage_summary(
+                            batch_results, section_count=section_count
+                        ),
                         "candidate_count": len(candidates),
                     },
                 )

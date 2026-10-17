@@ -6,6 +6,8 @@
 
 ### Added
 
+- 2026-10-17 U08 离线准备（正式单元仍 planned）：新增每批饱和标记与覆盖摘要（`SATURATION_FINDING_LIMIT=3`、`batch_coverage`、`coverage_summary`），把每个发现批次的状态、接受/拒绝数、饱和索引和总覆盖写入 `llm_candidate_discovery` 运行制品；达到单批上限不再显示为 completed，而是 saturated/partial。新增 3 项纯测试，相关发现/语义/证据/持久网关回归 68 passed；最终候选 Full 七阶段通过（883 passed、6 项既有 warning）。真实模型质量评测、有界细分/重扫与冻结集效果仍待 U03/U06/D3，U08 不提前启动或完成。
+
 - 2026-10-17 U06 部分完成（进行中）：新增结构化质量信号，超出平均 OCR 置信度检查数字/日期、重复文本、页码覆盖、阅读顺序和表格行宽；质量失败统一进入 `needs_review`，并记录具体 `issue` 码。新增 `IngestionPolicy` 四个带默认值的结构阈值、`Issue` 六个质量码（OpenAPI/解析契约/前端类型同步）、支持矩阵文档、已 ready 文档校正后的上下文失效测试，以及冻结运行前的片段数/文本字节容量前检。合成 OCR 已知失败（低置信数字、重复页眉、表格缺口）有回归。定向 157 passed；最终候选官方 Full 七阶段通过（880 passed、6 项既有 warning）。TASK0029-002 evidence 保持为空：U03 冻结评测器/专家标签与 D1/D2 限制未满足，U06/TASK-0029 保持 in_progress。未调用真实 OCR/模型、未外发内容、未部署。
 - 2026-10-17 U05 完成：新增产品模式 `DEPLOY_REVIEW_MODE=product-postgres`，以 PostgreSQL 为租户策略、逐文件外发授权和预算的唯一权威源。新增迁移 `202610172000`（`model_execution_policy`、`document_external_authorization`、`model_budget_account`、`model_budget_reservation`、`ledger_import`，含 FORCE RLS、actor 策略与追加/状态触发器）；授权/撤销与审计同事务，绑定租户/项目/文档 SHA-256/parse_version/用途/供应商/期限/授权人；撤销优先且每次出站重新查库。新增多 Worker 原子预算预留/结算、重复结算拒绝、unknown 按上限保留、接管 Worker 同步未知预留、重启仅释放从未 dispatch 的过期预留。新增只读幂等历史账本/注册表导入（保留请求 ID、费用、未知预留、来源摘要与 scope 映射，异常整批失败）、跨段落/表格邻格隐私反例、策略/账户运维 CLI、ADR-0021 与授权矩阵；OpenAPI 0.9.0→0.10.0（加法授权字段与撤销操作）、契约集 v1alpha5→v1alpha6、Mypy 109 源文件。真实 PostgreSQL 专项（隔离 `postgres:16`）退出码 0，覆盖授权/RLS/审计/并发预算/历史导入与迁移升降级；U04 Docker/PostgreSQL 部署 E2E 5/5 兼容通过；官方 Full 七阶段通过（后端 868 passed、6 warnings：2 条既有 pypdf + 4 条既有测试脚本 PowerShell 输出解码警告，HTTP 与鉴权阶段通过）。TASK0028-004 evidence 已登记，U05 与 TASK-0028 置为 completed；产品模式未在生产启用，D3 真实调用/内容外发、D4 生产迁移/切换未获授权且未执行。未提交、推送、合并、部署。
 

@@ -411,3 +411,29 @@
 ### 6. 下一步
 
 - U06 剩余内容受 U03/D1/D2 限制，不以开发样例冒充冻结验收。按 roadmap 的 D3 注记，U08 的 Mock/离线覆盖实现可继续，但真实模型质量评测仍需 D3；先做 U08 的覆盖计划/饱和与截断/部分完成语义，再按依赖推进 U09/U10。
+
+## U08｜真实模型发现与覆盖控制（2026-10-17，离线准备成果；正式单元 planned）
+
+**执行单元/TASK：** U08 / TASK-0029（`TASK0029-004`）。正式前置 U03/U05/U06 中只有 U05 完成；U03/U06 仍未完成，D3 阻塞真实模型质量评测，因此 U08 正式状态保持 `planned`，本节只记录可离线准备的覆盖语义。
+
+### 1. 本次完成
+
+- **每批饱和可见**：新增 `SATURATION_FINDING_LIMIT=3`、`batch_coverage()` 与 `coverage_summary()`。一个批次返回 3 项（当前 schema/prompt 的单批上限）时标记 `saturated`，而不是 `completed`；有被拒绝候选时标记 `partial`；只有全部批次低于上限且无拒绝时才为 `complete`。
+- **覆盖摘要进入运行制品**：`llm_candidate_discovery` 图节点把每批的 `section_count/accepted_count/rejected_count/saturated/status` 和总覆盖摘要写入 `llm_candidate_discovery` artifact；饱和批次索引、完成/部分/饱和批次数、候选/拒绝数可见。它不改变模型调用、Schema 上限、候选合并或人工复核路径。
+- **测试**：新增 `tests/test_task0029_discovery_coverage.py`（3 项：达到上限为 saturated、拒绝候选为 partial、低于上限无拒绝为 complete）；相关发现/语义/证据/持久网关回归 68 passed。
+
+### 2. 未完成（因此不标 U08）
+
+- 有界细分/重扫：当前只识别饱和，尚未把饱和批次二分并限制深度/总批次预算；需要 U06 输入质量与 D3 真实模型评测配合。
+- 真实模型覆盖质量、冻结集前后对比、跨段/重复候选合并、饱和/截断的实际业务效果。
+- `TASK0029-004` evidence 保持为空；U08 不因覆盖摘要准备而启动/完成。
+
+### 3. 验证
+
+- 定向：`tests/test_task0029_discovery_coverage.py`、`test_task0022_zero_candidate_review.py`、`test_llm_candidate_discovery.py`、`test_semantic_batching.py`、`test_evidence_checker.py`、`test_task0028_persisted_model_gateway.py`：**68 passed**。
+- 最终候选官方 Full：`./scripts/verify.ps1 -Mode Full` 退出码 0，七阶段全过；后端 **883 passed, 6 warnings in 891.80s**；HTTP health=200/404、请求 ID、鉴权/项目生命周期通过。6 条 warning 为 2 条既有 pypdf 弃用 + 4 条既有 PowerShell 输出解码警告（测试通过）。证据：`.verification/u08-prep-full.log`、`.verification/pytest-result.xml`。
+- 未调用真实模型、未外发内容、未执行真实覆盖效果评测；本轮结果不能作为 U08 或产品验收。
+
+### 4. 结论与下一步
+
+- U08 仍为 `planned`；覆盖可见性是可复用的本地准备，不替代有界细分、真实模型质量和冻结集验收。D3 未批准前不进行真实模型质量评测；U03/U06 的冻结样本与输入质量仍缺。之后若继续，应先取得 D1—D4/U03 所需条件，再实现细分/重扫和真实评测，不以开发样例冒充产品完成。
