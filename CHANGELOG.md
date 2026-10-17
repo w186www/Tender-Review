@@ -6,6 +6,16 @@
 
 ### Added
 
+- 2026-10-18 D1—D4 受控交付授权与服务器备份/恢复演练：新增 `DEC-008` 记录用户批准的首版支持范围（自托管单机/多租户/人工复核、PDF/DOCX/PNG/JPEG、10 MiB/300 页/OCR 30 页）、D2 工程侧标签准备、D3 既有百炼供应商累计预算内的真实调用、D4 现有 ECS 备份/隔离演练/候选发布。服务器全量备份（PostgreSQL dump、部署配置、modelstate、MinIO 对象）带 SHA-256 清单；数据库在隔离 `postgres:16` 容器恢复后 24 文档/15 运行/9 结果/16 决定/358 审计事件与源库一致，28 张 RLS 表恢复；备份账本 25 LLM/312 Embedding/约 ¥0.1474435、索引 build `c7344cac…` 与线上一致。未删除业务数据、未覆盖账本。
+
+- 2026-10-18 U03 评测工具与标签材料恢复（任务从暂停恢复为 in_progress）：从 `_backups/worktrees-uncommitted-20261017T080625Z/task0019` 恢复评测器/测试/两份历史结果/原任务文件，原始 SHA-256 与暂停清单一致；评测器仅格式适配并记录原/新哈希。缺失法规报告用现有离线入口重新生成到新路径，核心指标（Recall@5/10=1.0、MRR@10=0.4867、nDCG@10=0.6141、77 个未核验参考命中）与历史一致。新增数据集登记、CRLF/LF 身份、开发/冻结/安全分区和逐案例待裁定标签草案；专家标签仍为 0，precision/recall 保持未测量。
+
+- 2026-10-18 U06 D1 范围验证（正式单元仍 planned）：支持矩阵记录已批准的首版格式/规模/OCR 页数范围；新增 10 项边界测试覆盖 PDF/DOCX/PNG/JPEG、>10 MiB、>300 页、>30 OCR 页、短文本和空 OCR 图像的拒绝/转人工行为。D1 范围可验证，但真实效果仍待 U03 冻结样本与 D2 标签。
+
+- 2026-10-18 U10/U12 真实 RAG 与覆盖投影（正式单元仍 planned）：语义请求现在包含每个候选前 6 条法规候选（ID/标题/条款/版本/原文/资格/原因），新 Prompt `task0030-semantic-rag-v1` 要求只引用暴露的 `evidence_id`，并保留旧 `task0023-semantic-v1` 以恢复历史在途运行；服务端用 `verify_legal_hit` 重核引用/发布/版本/资格，并拒绝引用未暴露 ID。报告升级 `task0010-report.v3`，新增 `assessment_scope.product_execution`（部分完成/覆盖/饱和/截断/unknown 调用），findings API（OpenAPI 0.10.1，契约集 v1alpha7）增加可选 `product_execution`，网页显示部分完成提示、原文页码/locator 与 `selected_by_model` 参考条款。新增 15 项真实 RAG 载荷测试和报告 v3 部分完成测试；真实服务器 E2E 与效果验收待执行。
+
+- 2026-10-18 部署入口修复：`deploy/bootstrap.sh up` 现在同时启动 `review-worker`，避免持久审查队列没有执行者；新增部署 compose 测试断言该启动命令包含 review-worker。
+
 - 2026-10-18 U08 有界细分/重扫准备（正式单元仍 planned）：饱和批次按 section 二分，深度上限 2、额外批次上限 8，子批次唯一 index/cache key，父批次 `subdivided`、只有子批次全部完成且无饱和/拒绝时覆盖才 `complete`；单 section/深度/预算耗尽保留 partial。新增图级 fake gateway 测试（饱和→二分→补扫→重启复用缓存）和纯边界测试；相关 75 passed，最终候选 Full 886 passed/6 项既有 warning。真实模型覆盖质量与冻结集效果仍需 U03/U06/D3。
 
 - 2026-10-17 U10 零候选路径准备（正式单元仍 planned）：修复 `graph/review.py` 在 discovery 候选为空时抛 `ValueError` 的已知 P1（AUD-01）。零候选现在不发起任何语义模型调用，写入显式空 `model_analysis` 制品（`findings: []`、`zero_candidate: true`、0 tokens/0 费用），交给既有合并/报告/人工确认路径。新增图级零调用回归；相关 73 passed，最终候选 Full 七阶段通过（884 passed、6 项既有 warning）。真实 RAG、法规资格重核和报告集成仍待 U07/U08/U09/D3，U10 不提前完成。

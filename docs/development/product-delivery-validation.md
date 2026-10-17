@@ -483,3 +483,96 @@
 ### 4. 结论
 
 - 零候选执行缺口（P1）已修复并有 Full 证据；这不表示 U10 完成或产品业务质量达标。U10 正式仍 `planned`，剩余工作受 U07/U08/U09 与 D3 限制。
+
+## U03｜冻结业务样本与可重复评测（2026-10-18，恢复与标签材料）
+
+**执行单元/TASK：** U03 / TASK-0019（`TASK0019-002` 已登记；任务从暂停语义 `blocked` 恢复为 `in_progress`）。
+
+**目录、分支/HEAD：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；恢复前 HEAD `2c6deaa84254192cbd8c1c7321bf555e6702c579`。原备份目录只读，未修改。
+
+### 1. 本次完成
+
+- 从 `_backups/worktrees-uncommitted-20261017T080625Z/task0019` 恢复评测器、测试、两份历史结果和原任务文件；四个文件 SHA-256 与暂停清单一致（评测器 `7b2c…`、测试 `e592…`、结果 `9031…`/`1696…`）。
+- 评测器仅做 Ruff 格式化/行宽换行，评测逻辑未改；当前哈希 `2888a44b2cf9d6b15ac2ca2bb92af654a119cb8084db8c9d60c27700a04ab3c9`，原始哈希并列记录在数据集登记中。
+- 缺失的法规检索报告用现有离线入口重新生成到 `.verification/task0019-legal/u03-character-baseline-20261018.json`（新路径，不覆盖旧结果）；核心指标与历史报告一致。
+- 新增 `evals/capability_baseline/dataset_registry.yaml`：五案例版本、SHA-256、CRLF/LF 身份、规则集、评测器、法规报告、OCR 报告、分区（开发/冻结验收/安全攻击）和指标边界。
+- 新增 `evals/capability_baseline/labels/pending-adjudication.yaml` 与 `docs/development/u03-label-adjudication-drafts.md`：逐案例原文位置、候选规则、拟用条文、适用前提、理由、不确定性和待确认问题，明确为待 D2 裁定草案。
+- TASK-0019 的暂停记录追加恢复记录；任务状态改为 `in_progress`；`TASK0019-002` evidence 指向数据集登记、标签草案、历史结果和五个案例。
+
+### 2. 验证
+
+- `PYTHONPATH=src ./.venv/Scripts/python.exe scripts/evaluate_legal_retrieval.py --output .verification/task0019-legal/u03-character-baseline-20261018.json`：Recall@5/10=1.0、MRR@10=0.4867、nDCG@10=0.6141、77 个未核验参考命中、10 条有效标签查询。
+- `PYTHONPATH=src ./.venv/Scripts/python.exe scripts/evaluate_review_capabilities.py --output .verification/task0019-reuse/u03-baseline-adapted-20261018.json --legal-retrieval-report ...`：fixture 模式 5/5、引文/定位 7/7、重复率 0、`external_model_calls=0`、`risk_precision`/`risk_recall=null`。
+- `python -m pytest tests/test_review_capability_evaluation.py`：2 passed。
+- 与历史结果比较：指标、计数、候选、引文/定位一致；差异仅为 CRLF 检出导致的案例/阈值/规则源哈希、历史 HEAD、法规报告路径/延迟/哈希；LF 规范化身份与原基线一致。
+
+### 3. 结论与缺口
+
+- 评测工具、可重复入口、数据身份、开发/冻结/安全分区和待裁定标签材料已具备；`TASK0019-002` 可查证。
+- 专家确认标签仍为 0，风险 precision/recall/false-positive rate 保持未测量；冻结验收集未建立；D2 逐条确认未发生。U03 仍为 `in_progress`，不能以五个开发候选冒充金标。
+
+## U06｜解析、OCR、结构化与人工校正（2026-10-18，D1 范围验证；正式 planned）
+
+**执行单元/TASK：** U06 / TASK-0029（`TASK0029-002` evidence 保持为空）。
+
+### 1. 本次完成
+
+- 将 DEC-008 批准的 D1 首版范围写入 `docs/development/ingestion-support-matrix.md`：PDF/DOCX/PNG/JPEG、10 MiB、300 页、OCR 30 页、五类审查能力；超限/不可靠输入必须拒绝或转人工，不得静默显示完成。
+- 新增 `tests/test_task0029_support_scope.py`（10 项）：策略常量与 D1 一致；四种格式（PDF/DOCX/PNG/JPEG）在合成样例上解析通过；>10 MiB、>300 页、>30 OCR 页分别返回 `SIZE_LIMIT`/`PAGE_LIMIT`/`OCR_LIMIT`；短文本和空 OCR 图像返回 `requires_review` + `LOW_QUALITY`，不伪装通过。
+- 既有结构质量信号、容量前检、已 ready 文档校正后的上下文失效和合成 OCR 回归保持不变。
+
+### 2. 验证
+
+- `python -m pytest tests/test_task0029_support_scope.py`：10 passed。
+- 官方 Focused（含本文件及相关回归）：57 passed，Ruff/Mypy/前端 14 项/build 通过。
+- 最终代码候选官方 Full 七阶段全部通过：后端 `916 passed, 6 warnings in 751.01s`，HTTP 与鉴权/项目生命周期阶段 PASS；D1 边界测试包含在 Full 中（`.verification/u10-u12-full-final.log`）。
+
+### 3. 结论与缺口
+
+- D1 范围已有可重复的工程边界证据；不表示真实 OCR 质量、复杂版面或冻结样本效果达标。
+- U03 冻结样本和 D2 专业标签仍未完成，`TASK0029-002` evidence 保持为空；U06 正式仍 `planned`，不因 D1 范围批准而提前完成。
+
+## U10｜真实 RAG、融合与证据（2026-10-18，法规候选进入模型与覆盖投影；正式 planned）
+
+**执行单元/TASK：** U10 / TASK-0029（`TASK0029-006` evidence 暂保持为空，待真实服务器端到端）。
+
+### 1. 本次完成
+
+- 语义请求现在包含每个候选的前 6 条法规候选：`evidence_id`、标题、条款、版本、原文摘录、版本状态、`eligible_for_confirmation` 和原因；原文只做长度截断，不改写。
+- 新 Prompt `task0030-semantic-rag-v1` 要求模型只能引用该候选 `legal_candidates` 中的 `evidence_id`，没有合适条款时返回空数组；保留 `task0023-semantic-v1` 旧 Prompt 和“无法规正文”载荷，保证历史在途运行可恢复。
+- 服务端继续用 `verify_legal_hit` 重核条文存在性、冻结发布/修订、引用哈希和版本/资格；新增“模型只能引用实际暴露给它的前 6 条”检查，超出暴露集合的 ID 记为无效引用，不成为正式证据。
+- `legal_references` 增加 `selected_by_model` 标记；网页区分“模型引用候选/检索候选”，并继续显示“适用性待确认、不能作为违反依据”。
+- 新增 `product_execution` 投影：饱和/部分批次、未处理 section、截断、unknown 模型调用会显示为 `partial`；报告 v3 和 findings API 都暴露该投影；旧真实运行缺少覆盖记录时标为 `unknown`，不冒充 complete。
+- 新 Prompt/载荷、旧 Prompt 兼容、截断、候选上限、字段拒绝、公开法规原文不改写等 15 项定向测试。
+
+### 2. 验证
+
+- `python -m pytest tests/test_task0030_real_rag.py tests/test_legal_evidence_classification.py tests/test_task0022_zero_candidate_review.py tests/test_llm_candidate_discovery.py`：57 passed。
+- 官方 Focused（含任务/隐私/报告/评测相关）：57 passed；最终代码候选官方 Full 七阶段全部通过：后端 `916 passed, 6 warnings in 751.01s`，HTTP 与鉴权/项目生命周期阶段 PASS（`.verification/u10-u12-full-final.log`）。
+- 未调用真实模型；真实 RAG 载荷、引用重核、覆盖/部分完成和报告集成需服务器 E2E（D3/D4）。
+
+### 3. 结论与缺口
+
+- U10 的“法规候选真实进入模型、服务端重核、部分完成可见”工程链路已实现；这不等于真实模型效果、法规适用正确或正式证据资格。
+- D2 法规内容核验/规则—法规绑定未签署；U03 冻结集未建立；`TASK0029-006` evidence 保持为空，U10 正式仍 `planned`。
+
+## U12｜报告、审计与交付一致性（2026-10-18，报告 v3 覆盖摘要）
+
+**执行单元/TASK：** U12 / TASK-0029（`TASK0029-008` evidence 暂保持为空，待真实报告下载验收）。
+
+### 1. 本次完成
+
+- 报告从 v2 升为 `task0010-report.v3`，`assessment_scope.product_execution` 记录 `pending/complete/partial`、覆盖状态、未处理 section、截断/饱和、原因码和 unknown 调用数；v1/v2 历史读取不变。
+- Word/PDF 渲染新增“部分完成/覆盖完整/未使用模型覆盖计划/未处理单元/饱和/截断/unknown 调用”中文说明；旧报告不会补造缺失信息。
+- findings API 增加可选 `product_execution`（OpenAPI 0.10.1，契约集 v1alpha7），网页显示部分完成提示；原文摘录块显示页码和 locator。
+- 新增报告 v3 部分完成披露测试和前端类型/构建检查。
+
+### 2. 验证
+
+- `python -m pytest tests/test_review_reports.py`：8 passed；v3 部分完成报告通过正式 schema 校验，Word/PDF 均含“部分完成/不得解释为全部内容已审查完成/未处理单元/饱和”。
+- 官方 Focused 和最终 Full 覆盖；前端 TypeScript、Biome、Vitest 14/14、Vite build 通过。
+- 真实 Word/PDF 报告下载与内容核对需服务器 E2E；当前未执行。
+
+### 3. 结论与缺口
+
+- 报告结构、覆盖披露和前端提示已实现；真实报告的文件可读性、下载鉴权、定位/法规/人工决定一致性和审计仍需 U11/U12 服务器验收，`TASK0029-008` evidence 保持为空。

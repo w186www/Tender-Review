@@ -3,21 +3,29 @@
   "product_delivery_units": [
     {"id": "U01", "title": "统一实施基线、任务归属和有效状态", "status": "completed", "depends_on": [], "tasks": ["TASK-0028"], "blocked_decisions": [], "blocked_activities": []},
     {"id": "U02", "title": "冻结产品契约、状态语义和兼容策略", "status": "completed", "depends_on": ["U01"], "tasks": ["TASK-0028", "TASK-0029"], "blocked_decisions": [], "blocked_activities": []},
-    {"id": "U03", "title": "冻结业务样本与可重复评测", "status": "in_progress", "depends_on": ["U02"], "tasks": ["TASK-0019", "TASK-0013"], "blocked_decisions": ["D1", "D2"], "blocked_activities": ["D1: 承诺支持范围与容量指标的最终结算", "D2: 未指定裁定人的专业法律与风险金标签署"]},
+    {"id": "U03", "title": "冻结业务样本与可重复评测", "status": "in_progress", "depends_on": ["U02"], "tasks": ["TASK-0019", "TASK-0013"], "blocked_decisions": ["D2"], "blocked_activities": ["D2: 未指定裁定人的专业法律与风险金标签署；D1 的范围已按 DEC-008 批准并进入支持矩阵验证"]},
     {"id": "U04", "title": "持久调度、重启接管与调用恢复", "status": "completed", "depends_on": ["U02"], "tasks": ["TASK-0028"], "blocked_decisions": ["D3"], "blocked_activities": ["D3: 真实供应商调用和外发故障演练"]},
     {"id": "U05", "title": "租户执行授权、外发、预算与隐私一致性", "status": "completed", "depends_on": ["U02", "U04"], "tasks": ["TASK-0028"], "blocked_decisions": ["D3"], "blocked_activities": ["D3: 真实内容外发和真实模型调用"]},
-    {"id": "U06", "title": "解析、OCR、结构化与人工校正", "status": "planned", "depends_on": ["U02", "U03"], "tasks": ["TASK-0029"], "blocked_decisions": ["D1"], "blocked_activities": ["D1: 支持格式、规模和版面范围的最终承诺"]},
+    {"id": "U06", "title": "解析、OCR、结构化与人工校正", "status": "planned", "depends_on": ["U02", "U03"], "tasks": ["TASK-0029"], "blocked_decisions": ["D2"], "blocked_activities": ["U03/D2: 冻结样本与专业标签验收；D1 的格式/规模/OCR 范围已批准并实现边界测试"]},
     {"id": "U07", "title": "法规、规则与配置可信生命周期", "status": "in_progress", "depends_on": ["U02"], "tasks": ["TASK-0029"], "blocked_decisions": ["D2"], "blocked_activities": ["D2: 承诺范围内法规核验及法律规则绑定的人工签署"]},
-    {"id": "U08", "title": "真实模型发现与覆盖控制", "status": "planned", "depends_on": ["U03", "U05", "U06"], "tasks": ["TASK-0029"], "blocked_decisions": ["D3"], "blocked_activities": ["D3: 真实模型质量评测；Mock/离线协议与覆盖实现可继续"]},
-    {"id": "U09", "title": "法规检索、Embedding 与索引", "status": "planned", "depends_on": ["U03", "U05", "U07"], "tasks": ["TASK-0029"], "blocked_decisions": ["D2", "D3"], "blocked_activities": ["D2: 法规内容核验和专家标签；D3: 真实语料或查询外发及付费构建"]},
-    {"id": "U10", "title": "真实 RAG、融合与证据", "status": "planned", "depends_on": ["U04", "U05", "U07", "U08", "U09"], "tasks": ["TASK-0029"], "blocked_decisions": ["D2", "D3"], "blocked_activities": ["D2: 法律资格结论签署；D3: 真实外发与真实模型效果验收"]},
+    {"id": "U08", "title": "真实模型发现与覆盖控制", "status": "planned", "depends_on": ["U03", "U05", "U06"], "tasks": ["TASK-0029"], "blocked_decisions": [], "blocked_activities": ["U03/U06: 冻结样本与覆盖质量验收；D3 已按 DEC-008 授权用于受控真实调用"]},
+    {"id": "U09", "title": "法规检索、Embedding 与索引", "status": "planned", "depends_on": ["U03", "U05", "U07"], "tasks": ["TASK-0029"], "blocked_decisions": ["D2"], "blocked_activities": ["D2: 法规内容核验和专家标签；D3 的真实语料/查询外发已按 DEC-008 授权"]},
+    {"id": "U10", "title": "真实 RAG、融合与证据", "status": "planned", "depends_on": ["U04", "U05", "U07", "U08", "U09"], "tasks": ["TASK-0029"], "blocked_decisions": ["D2"], "blocked_activities": ["D2: 法律资格结论签署；D3 的真实外发/模型调用已按 DEC-008 授权，效果验收仍待冻结集"]},
     {"id": "U11", "title": "前后端产品操作与异常闭环", "status": "planned", "depends_on": ["U04", "U05", "U06", "U10"], "tasks": ["TASK-0029"], "blocked_decisions": [], "blocked_activities": []},
     {"id": "U12", "title": "报告、审计与交付一致性", "status": "planned", "depends_on": ["U10", "U11"], "tasks": ["TASK-0029"], "blocked_decisions": ["D2", "D3"], "blocked_activities": ["D2: 将未签署法律结论作为正式依据；D3: 真实模型来源与用量验收"]},
-    {"id": "U13", "title": "安全部署、迁移、升级与恢复", "status": "planned", "depends_on": ["U04", "U05", "U06", "U07", "U08", "U09", "U10", "U11", "U12"], "tasks": ["TASK-0012"], "blocked_decisions": ["D4"], "blocked_activities": ["D4: 线上迁移、恢复、切换、发布和破坏性操作"]},
-    {"id": "U14", "title": "监控、容量、配额与运行支持", "status": "planned", "depends_on": ["U13"], "tasks": ["TASK-0012"], "blocked_decisions": ["D1", "D4"], "blocked_activities": ["D1: 生产服务档位及负载目标；D4: 线上告警投递、容量与运行演练"]},
-    {"id": "U15", "title": "产品级整体验收候选", "status": "planned", "depends_on": ["U03", "U04", "U05", "U06", "U07", "U08", "U09", "U10", "U11", "U12", "U13", "U14"], "tasks": ["TASK-0013"], "blocked_decisions": ["D1", "D2", "D3", "D4"], "blocked_activities": ["D1: 服务范围和容量签署；D2: 金标/法规责任；D3: 真实模型及数据外发；D4: 真实环境验收"]},
-    {"id": "U16", "title": "发布材料、独立接手与最终交付", "status": "planned", "depends_on": ["U15"], "tasks": ["TASK-0014"], "blocked_decisions": ["D4"], "blocked_activities": ["D4: 生产发布及远程分支/制品整合；本地交接材料可先准备"]}
+    {"id": "U13", "title": "安全部署、迁移、升级与恢复", "status": "planned", "depends_on": ["U04", "U05", "U06", "U07", "U08", "U09", "U10", "U11", "U12"], "tasks": ["TASK-0012"], "blocked_decisions": [], "blocked_activities": ["最终演练需 U04—U12 稳定候选；D4 已按 DEC-008 授权备份、隔离演练和候选发布"]},
+    {"id": "U14", "title": "监控、容量、配额与运行支持", "status": "planned", "depends_on": ["U13"], "tasks": ["TASK-0012"], "blocked_decisions": ["D1"], "blocked_activities": ["D1: 生产服务档位及负载目标需在测试前登记；D4 的线上告警/容量演练已按 DEC-008 授权"]},
+    {"id": "U15", "title": "产品级整体验收候选", "status": "planned", "depends_on": ["U03", "U04", "U05", "U06", "U07", "U08", "U09", "U10", "U11", "U12", "U13", "U14"], "tasks": ["TASK-0013"], "blocked_decisions": ["D1", "D2"], "blocked_activities": ["D1: 服务档位/容量实测结论；D2: 金标/法规责任；D3/D4 已按 DEC-008 授权受控执行"]},
+    {"id": "U16", "title": "发布材料、独立接手与最终交付", "status": "planned", "depends_on": ["U15"], "tasks": ["TASK-0014"], "blocked_decisions": [], "blocked_activities": ["等待 U15 与用户独立验收；D4 发布权限已按 DEC-008 授权"]}
   ],
+  "authorization_state": {
+    "updated_at": "2026-10-18",
+    "record": "docs/decisions/DEC-008-product-delivery-d1-d4-authorization-20261018.md",
+    "D1": {"state": "approved", "scope": "自托管单机/多租户/人工复核；PDF/DOCX/PNG/JPEG；10 MiB/300 页/OCR 30 页；保留五类审查能力"},
+    "D2": {"state": "engineering_support_approved_content_signoff_pending", "scope": "用户承担最终内容确认；工程侧准备来源可核对的待裁定材料，不冒充专家或代签"},
+    "D3": {"state": "approved_within_existing_budget", "scope": "既有无百炼北京供应商/模型；合成文档、测试必需公开法规正文、逐文件确认的自有文件；累计 200 元/2000 次/2000 批"},
+    "D4": {"state": "approved_for_controlled_drill_and_release", "scope": "现有 ECS；先备份并在隔离目标演练；禁止删除业务数据/破坏性降级/覆盖账本"}
+  },
   "milestones": [
     {
       "id": "M0",
