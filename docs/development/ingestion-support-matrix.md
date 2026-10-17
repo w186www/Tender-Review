@@ -56,6 +56,8 @@
 
 TASK-0018 的合成扫描件基线：CER 20.79%、关键标记 5/6、表格单元 7/14、重复短语定位 0/2；页面被旧门禁判为 passed 是已知缺陷。U06 的结构信号用于在类似情况下转人工，不声称已经修复 OCR 引擎或达到真实件质量。真实件效果、专业标签和最终支持范围仍受 D1/D2 与 U03 冻结评测资产限制。
 
+2026-10-18 真实/合成扫描验证补充：派生真实扫描 PDF（2 页）与合成高分辨率扫描 PDF 均实际执行 tesseract 5.3.0（chi_sim+eng），但分别产生 578/362 个碎片化 section，并触发 `LOW_CONFIDENCE_NUMERIC` 进入 `needs_review`；PNG/JPEG 上传 202、OCR 后同样转人工。当前门禁能阻止低质量文本进入审查，但中文扫描/图片的段落切分与数字置信度仍不满足“可直接审查”的质量要求，需人工校正或后续 OCR 改进。
+
 ## 6. 审查容量前检
 
 `review_management.document_requests` 在创建运行前检查所选文档的片段数（上限 `MAX_DISCOVERY_BATCHES × MAX_BATCH_SECTIONS`）和生效文本字节（上限 `MAX_DISCOVERY_BATCHES × MAX_BATCH_SOURCE_BYTES`，包含人工修订）。超出即拒绝，不进入排队或付费调用；图执行层仍保留自己的批次上限，二者不互相替代。

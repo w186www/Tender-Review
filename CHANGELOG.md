@@ -5,6 +5,10 @@
 ## [Unreleased]
 
 ### Added
+- 2026-10-18 product-postgres 生产启用：PostgreSQL 成为唯一授权/预算权威源。历史 DEC-007 账本导入 460 条 reservation（148 LLM/312 Embedding、¥0.9496789，全部 settled、unknown=0）；历史 JSONL registry 因 1 条无对应文档和 2 条重复 approve 整批拒绝，改为 API 逐文件授权。修复运行时角色缺少 `model_execution_policy`/`model_budget_account`/`model_budget_reservation`/`document_external_authorization` 权限导致的启动失败，并在 `deploy/demo_init.py` 固化授权与部署契约测试。派生真实文本 PDF（35 页）在公网网页完成 13 条风险、17 次真实 LLM、逐文件授权、人工接受、发布和 Word/PDF 下载，PG 记账 spent ¥1.0400702、reserved 0；撤销后发起审查返回 403，回退 authorized-real 后 DEC-007 账本仍为 148 LLM，再切回 product-postgres 正常。
+- 2026-10-18 真实天津地铁 DOCX v3.2 报告：41 条风险全部人工接受/发布，报告披露 111 条项目采用参考、258 饱和/503 候选拒绝/0 未提交、正式可引用依据 0，Word/PDF 下载哈希与服务端一致。
+- 2026-10-18 扫描/图片真实限制：派生真实扫描 PDF、合成扫描 PDF、PNG、JPEG 均上传成功并实际 OCR（tesseract 5.3.0），但产生碎片化 section 和 `LOW_CONFIDENCE_NUMERIC`，按质量门禁转 `needs_review`，未进入审查；扫描件/图片可用性不视为通过。
+- 2026-10-18 报告模板 v3.2：部分完成总述改为“未提交、调用失败、覆盖无法确认或结果未知的 section”，不再在 `unprocessed_units=0` 时暗示存在未处理单元；网页同步为“覆盖限制不等于完全未处理”。真实 DOCX 与文本 PDF 的新报告均使用 v3.2。
 - 2026-10-18 覆盖语义校正：`unprocessed_units` 只统计从未提交或调用失败的 section；饱和/部分批次改为 `saturated_units`/`rejected_units`，不再把“已提交模型但达到单批发现上限”称为“完全未处理”。`truncated` 仅在供应商 `finish_reason` 为 length/max_tokens 时为真，不再由饱和自动推导；报告 v3.1 和网页分别显示未提交/失败、饱和覆盖无法确认、候选被拒绝和响应截断。旧 `llm_candidate_discovery` 制品缺新字段时从批次记录兼容推导。
 
 - 2026-10-18 真实文件发现失败恢复：单个 discovery 批次遇到 `response_invalid`/provider 错误时，不再让整次审查失败；有界拆分为子批次重扫，单 section 或预算耗尽时记录 `failed` 批次并继续，覆盖投影显示 `discovery_failed`。全部批次失败且无候选才失败关闭，保留原 provider 错误码。新增图级“首批失败→二分→子批次成功”测试；真实天津地铁文件首次运行暴露的 2048 输出/复杂表格批次问题由此获得恢复路径。

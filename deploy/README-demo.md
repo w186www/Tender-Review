@@ -613,6 +613,9 @@ bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private
    `PRODUCT_BUDGET_AUTHORIZATION_ID`、`DASHSCOPE_API_KEY`、`BAILIAN_WORKSPACE_ID`。
    该模式**拒绝**同时存在 `DEC007_AUTHORIZATION_ID`/`DEC005_AUTHORIZATION_ID`，避免两套额度；
    也不再读取环境变量哈希白名单，逐文件授权是唯一放行依据。缺策略/预算账户/凭据时启动失败。
+   `docker-compose.demo.yml` 已把 `PRODUCT_*` 仅注入 api/review-worker；`deploy/demo_init.py`
+   的 `GRANTS` 同时授予运行时角色产品表的必要读写权限，部署后运行一次
+   `init storage` 即可幂等应用（缺少授权时产品模式会以 `InsufficientPrivilege` 启动失败）。
 2. **机构策略与预算账户**（受控管理连接执行；actor 必须是当前租户启用的 admin）：
    ```bash
    python scripts/manage_execution_policy.py set-policy \

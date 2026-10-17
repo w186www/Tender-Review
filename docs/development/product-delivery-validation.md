@@ -641,7 +641,7 @@
 
 ### 1. 本次完成
 
-- 新增 `config/legal/adoption-policy.json`：冻结清单 SHA-256 `7e96248b…`、43 个版本、3120 个片段、法规索引 `69d340d6…`，`policy_id=ADOPT-2026-10-18`，明确 `independent_legal_verification=false`。
+- 新增 `config/legal/adoption-policy.json`：冻结清单按 LF 规范化后的 SHA-256 `1cd46d8b…`（本地 CRLF 工作树与服务器 LF 检出曾暴露哈希差异，加载器已统一规范化）、43 个版本、3120 个片段、法规索引 `69d340d6…`，`policy_id=ADOPT-2026-10-18`，明确 `independent_legal_verification=false`。
 - 新增 `config/legal/rule-law-bindings.json`：11 条工程配置的规则—法规关联，覆盖五类规则的资格/技术/评分/合同/程序规则；每条记录库内版本、条文、理由和 `source_reviewed=true`，`asserted_by=engineering-config`，不是专家或人工裁定。
 - 新增 `legal/adoption.py`：加载并校验清单字节、版本集合、索引身份；政策/索引不一致失败关闭。规则—法规关联逐条检查规则 ID、版本、条文在冻结原文中出现。
 - 法规命中新增 `adoption_status=project_adopted/not_adopted`；检索结果新增 `adopted_evidence`/`adoption_policy_id`。`citable_evidence` 仍只含独立核验且资格满足的命中；采用条文不并入正式证据集合。
@@ -654,10 +654,51 @@
 - 新增 `tests/test_legal_adoption_policy.py`：政策/绑定身份、清单篡改拒绝、检索标注、快照不一致拒绝。
 - 官方 Focused（法规/质量/报告/契约等 12 个文件）：**235 passed in 191.90s**；Ruff/Mypy/前端检查通过。
 - 最终代码候选官方 Full 七阶段全部通过：后端 `924 passed, 6 warnings in 815.58s`，HTTP 与鉴权/项目生命周期阶段 PASS（`.verification/legal-adoption-full.log`）。
-- 真实天津地铁3号线 DOCX（已授权，SHA-256 `506e9ec1…`）已核对：689,683 字节、1,483 个 section、两处空 OCR 页脚（已按 OOXML PAGE=36 校正）、复杂表格行宽；真实文件的 OCR/表格质量路径仍需最终部署后重跑。
+- 真实天津地铁3号线 DOCX（已授权，SHA-256 `506e9ec1…`）已核对：689,683 字节、1,483 个 section、两处空 OCR 页脚（已按 OOXML PAGE=36 校正）、复杂表格行宽；最终部署后的完整公网审查与 v3.2 报告见下一节。
 
 ### 3. 边界
 
 - 采用政策不是独立法律核验：不改变任何 `verification`/`verified_through`，不生成专家标签，不把采用参考称为已核验依据。
 - 规则—法规关联是工程配置，质量需人工抽检；正式违法认定仍需人工复核，不由系统自动作出。
 - D2 的专业金标和用户独立验收仍未发生；U07/U09/U10 的正式状态不因采用政策自动提升。
+
+## 2026-10-18 product-postgres 切换、真实文件与覆盖语义验证
+
+**执行单元/TASK：** U05 产品权威源切换、U06 的真实扫描/图片路径、U08 覆盖语义、U10/U12 真实文件报告、U13/U14 备份/回滚/容量 smoke。正式单元状态不因这些证据提前提升；用户独立验收未发生。
+
+### 1. 最终候选与部署身份
+
+- 源码候选 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`（`work/TASK-0027`，已推送）；官方 Full 七阶段通过：后端 **928 passed, 6 warnings in 767.84s**，HTTP health=200/404 与登录/项目生命周期 PASS（本机日志 `.verification/final-full-d3cb613.log`，不随仓库提交）。
+- 部署镜像 `tender-review-api:task0030-d3cb613`、`tender-review-web:task0030-d3cb613`；parser 镜像 `sha256:be158f24…`；数据库迁移 `202610172000`。api/review-worker/nginx 运行新候选，health 200。
+- nginx 必须同时使用 `docker-compose.demo.yml` 与 `deploy/docker-compose.tls.yml`；只重建 base 服务会丢失 443 映射（本轮曾发生并由 TLS 叠加层恢复）。
+- 本机到公网 API 的 50 请求/并发 10 smoke：50×200，p95 744.4ms、19.26 rps；这是 TLS/列表路径 smoke，不是完整 NFR 压测。
+
+### 2. 备份、隔离恢复与 product-postgres 导入
+
+- 切换前全量备份 `/opt/tender-review-backups/20261017T213903Z`：`postgres.dump`（SHA-256 `5b67f9a7…`）、`miniodata.tar.gz`（`56559fd4…`）、`modelstate.tar.gz`（`746a8b59…`）、manifest。`restore.sh --verify` 通过：数据库计数与源库一致（tenant=1、app_user=3、project=20、document=30、ingestion_job=30、review_task=26、review_result=16、review_report=34、review_report_content=17、audit=978），MinIO/modelstate 卷归档校验通过。
+- 隔离库 `product_drill_20261017` 从该 dump 恢复后 provision 策略/账户并导入真实历史账本：460 条 reservation（148 LLM/312 Embedding、¥0.9496789）全部 settled、unknown=0；导入后账户 spent ¥0.9496789、reserved 0。演练库已删除，未影响生产。
+- 生产库 provision：tenant-a、provider bailian、purpose external_review、limit ¥200、单次 LLM ¥0.25、Embedding 批 ¥0.10、授权 TTL 3600s；正式导入同一 460 条历史 reservation，生成 1 条 ledger_import 记录。
+- 历史 JSONL registry 未导入：`dec007-synthetic-v1` 无对应文档，且同一真实 DOCX 有 2 条重复 approve；按整批失败关闭设计拒绝，未把陈旧/冲突授权写进产品库。产品模式的逐文件授权改由 API 新建，当前历史授权记录保持只读。
+- 首次 product 启动暴露运行时角色缺少新表权限（`model_execution_policy` 查询 `InsufficientPrivilege` 导致 502）。`deploy/demo_init.py` 已增加 `SELECT ON model_execution_policy`、`SELECT,UPDATE ON model_budget_account`、`SELECT,INSERT,UPDATE ON model_budget_reservation`、`SELECT,INSERT,UPDATE ON document_external_authorization`，新增部署契约测试；服务器 `init storage` 幂等应用后产品模式正常启动。
+
+### 3. product-postgres 真实文件验收
+
+- 真实天津地铁 3 号线 DOCX（已授权，SHA-256 `506e9ec1…`，689,683 字节）此前完成 41 条风险、人工接受/发布；本轮用 v3.2 模板重新生成 Word/PDF，报告含 111 条项目采用参考、258 饱和/503 拒绝/0 未提交、0 正式可引用依据；41 个标题全部出现在 Word/PDF，下载 SHA-256 `25c3569c…`/`83ab6475…` 与服务端 `content_hash` 一致。
+- 派生真实文本 PDF（35 页、1562 片段）在 product-postgres 下完成公网网页流程：项目 `35869b18-084e-43ea-9ebb-fabcf5667232`、文档 `21e20387-eb49-44d3-b2a0-7d05d98334f6`、task `a3e40c51-0547-5a0e-b40d-801ccbf707cf`、run `b05e858f-cd77-5c82-a2c3-3c9fb2b18bfc`、result `3227580c-f227-4387-9d3c-7f822b8ac847`。逐文件授权 201，13 条风险全部有服务端原文定位和采用法规参考，人工接受/发布；17 次真实 LLM 全部 succeeded/reported，Word/PDF 哈希 `87c8c15f…`/`96728496…` 与服务端一致；报告为 43 条采用参考、50 饱和/1423 拒绝/0 未提交、0 正式可引用依据。
+- 账本：PG 账户 limit ¥200、spent ¥1.0400702、reserved 0、477 条 reservation；历史 148 LLM + 产品运行新增 17 LLM，Embedding 312 批；unknown=0。DEC-007 SQLite 保持只读历史 148 LLM/¥0.9496789，未改写。
+
+### 4. 撤销、角色与回退
+
+- 对已 ready 的真实文本 PDF 文档执行撤销（200）后立即发起审查返回 **403 FORBIDDEN**；重新登记授权返回 201。未登记授权的文件在上下文未确认前返回 422（先被状态门禁拒绝），状态门禁优先于外发门禁。
+- auditor 创建项目 403；匿名项目列表 401；reviewer 访问法规只读能力与既有角色边界保持不变。
+- 回退演练：切回 `authorized-real` 后 api/review-worker 正常启动、DEC-007 账本仍为 148 LLM、health 200；随后切回 `product-postgres`，两个进程均打印 product 模式与 ¥200 账户身份，health 200。PostgreSQL 授权/预算记录保留，未删除/重置。
+
+### 5. 扫描与图片格式的真实限制
+
+- 派生真实扫描 PDF（2 页，tesseract 5.3.0 chi_sim+eng）实际上传/OCR，产生 578 个碎片 section 和 `LOW_CONFIDENCE_NUMERIC`，状态 `needs_review`；高分辨率合成扫描 PDF 同样 OCR 后 362 个碎片 section、`LOW_CONFIDENCE_NUMERIC`；PNG/JPEG 上传均 202、解析成功、OCR 后转 `needs_review`。未进入审查，未声称扫描件/图片可直接可用。
+- 这意味着中文扫描/图片的 OCR 段落切分与数字置信度仍需专门改进；质量门禁按设计阻止低质量文本进入真实审查。DOCX 的人工校正与上下文确认路径已在前一真实文件中验证。
+
+### 6. 结论与边界
+
+- product-postgres 已在实际服务器启用并完成真实文件端到端验收；PostgreSQL 是当前唯一授权/预算权威源，DEC-007 历史账本只读保留，回退路径可用。
+- 正式法律支持仍为 0（无独立核验、无人工规则—法规签署）；扫描/图片 OCR 质量不足；覆盖为 partial；外部告警与完整 U11/U15 矩阵未完成。以上不等于用户独立验收，也不构成专业法律结论。
