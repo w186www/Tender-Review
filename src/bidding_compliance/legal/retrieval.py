@@ -26,6 +26,10 @@ from .contracts import (
     VersionStatus,
 )
 from .corpus import index_hash
+
+# The exclusion list is diagnostic only; bounding it keeps a multi-candidate review from
+# producing an artifact larger than the review-artifact storage limit.
+MAX_EXCLUDED_ITEMS = 500
 from .embedding_provider import character_embedding_identity
 
 
@@ -453,7 +457,7 @@ class LegalRetriever:
             snapshot_hash=self.snapshot_hash,
             query=query,
             hits=tuple(hits),
-            excluded=tuple(excluded),
+            excluded=tuple(excluded[:MAX_EXCLUDED_ITEMS]),
             citable_evidence=tuple(
                 hit.evidence_id for hit in hits if hit.eligible_for_confirmation
             ),

@@ -372,3 +372,24 @@ def test_project_authorization_precedes_embedding_and_uses_database_scope(tmp_pa
             )
         assert adapter.calls == 1
     engine.dispose()
+
+
+def test_retrieval_exclusion_diagnostics_are_bounded_for_large_corpora():
+    from bidding_compliance.legal.retrieval import MAX_EXCLUDED_ITEMS
+
+    manifest = LegalManifest.model_validate_json(
+        (ROOT / "config/legal/manifest.json").read_bytes()
+    )
+    index = ingest(ROOT, manifest)
+    result = LegalRetriever(index).search(
+        query(
+            region="CN/天津",
+            procurement_type="enterprise",
+            project_type="services",
+            procurement_method="non_tender",
+            buyer_type="enterprise",
+            subject_type="services",
+            review_date="2026-10-17",
+        )
+    )
+    assert len(result.excluded) <= MAX_EXCLUDED_ITEMS
