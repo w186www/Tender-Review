@@ -1,0 +1,100 @@
+schema_version: u03-dataset-registry.v1
+updated_at: "2026-10-18"
+owner: "TASK-0019 / U03"
+adjudication_owner: "pending D2 (user final content confirmation)"
+
+identity:
+  evaluator_original_sha256: "7b2c2b0673b3f28c1c0cd7c33aea32163e4c42e3c3ea071428ad51307da5712e"
+  evaluator_adapted_sha256: "2888a44b2cf9d6b15ac2ca2bb92af654a119cb8084db8c9d60c27700a04ab3c9"
+  evaluator_adaptation: "ruff-format and line wrapping only; evaluation logic unchanged; original backup remains read-only"
+  ruleset_sha256: "a96326b3dc16e31cadb6bedcb243e3fc86b0dd6f1e77573816bb3e0c4721ceab"
+  rule_source_manifest_sha256_crlf: "9ae89e06942ed7a88b60519ff8bd2cf5f7a01787a8422a8160e4ac901554b9cf"
+  fixture_manifest_sha256_crlf: "78a99d196c6f998d6e427445fa472f9f0a7dd2207145042fb2d76bdba664ccdb"
+  fixture_manifest_sha256_lf_normalized: "ea888e9f9a587b478f3ac2461d00cb4ce45fd1320a47c2c2d2bf5b0ce0762052"
+  thresholds_sha256_crlf: "00194bbf1c7f764b2048ed1cd419d8cbd950f5605b0ef247c29d43e30958550f"
+  thresholds_sha256_lf_normalized: "c6ff96427ec97b6eaa3662e3b3d7afe8b96a75e0dfbdfdade54215ed35db2316"
+  legal_report_path: ".verification/task0019-legal/u03-character-baseline-20261018.json"
+  legal_report_sha256: "b4709ef2e7a3c44350bbb3c5879bfa1677e946c47275477af560ba8cbbc65d7b"
+  legal_index_sha256: "69d340d65f5e9114c8a2e76f8b3b524b67f47d0cbc0088c4e01d80b7db8729fd"
+  ocr_report_sha256: "04507576862982b346463eb18e98216ae2b259051b643fb03358ad2bd932c77b"
+  historical_results:
+    - "evals/capability_baseline/results/task0019-baseline-20261015.json"
+    - "evals/capability_baseline/results/task0019-baseline-final-20261015.json"
+
+partitions:
+  development:
+    status: "candidate_unconfirmed"
+    usage: "development and regression only; never an acceptance denominator"
+    frozen: false
+    cases:
+      - case_id: "GC-0001"
+        version: 1
+        path: "evals/golden_cases/GC-0001-region-restriction.json"
+        skill: "qualification_review"
+        candidate_rule_ids: ["TASK0007.QUAL.LOCAL-REGISTRATION"]
+        sha256_crlf: "269feffa0b62046475d1eeb7fcf044695bba34822831eb3c90c3ff11c8c49518"
+      - case_id: "GC-0002"
+        version: 1
+        path: "evals/golden_cases/GC-0002-exclusive-brand.json"
+        skill: "technical_review"
+        candidate_rule_ids: ["TASK0007.TECH.EXCLUSIVE-BRAND"]
+        sha256_crlf: "dcedec5130e79f8f9604e8a9fa36d74e93a1cec9da745e427c42fe96dd84ab24"
+      - case_id: "GC-0003"
+        version: 1
+        path: "evals/golden_cases/GC-0003-score-total-mismatch.json"
+        skill: "evaluation_review"
+        candidate_rule_ids: ["TASK0007.EVAL.SCORE-TOTAL"]
+        sha256_crlf: "931a5556c028e38223d1b787016d25d0bbe390fe807a5248cb937090d52d6462"
+      - case_id: "GC-0004"
+        version: 1
+        path: "evals/golden_cases/GC-0004-key-contract-placeholder.json"
+        skill: "contract_review"
+        candidate_rule_ids: ["TASK0007.CONTRACT.KEY-PLACEHOLDER"]
+        sha256_crlf: "a82358b72196b7420ba8da4233f9818d749d441338274a43049e9bde103faa79"
+      - case_id: "GC-0005"
+        version: 1
+        path: "evals/golden_cases/GC-0005-tender-time-order.json"
+        skill: "procedure_review"
+        candidate_rule_ids: ["TASK0007.PROCEDURE.TENDER-TIME"]
+        sha256_crlf: "5a1a4200b8a96f7fb6165b756fc4856a87532839dd5853a3ac605e515c82267c"
+
+  frozen_acceptance:
+    status: "blocked_on_expert_adjudication"
+    reason: "zero expert-confirmed risk/non-risk labels; D2 adjudicator not yet assigned; risk precision/recall must stay not_measured"
+    usage: "not available; do not move development cases here to manufacture a denominator"
+    frozen: false
+
+  security_attack:
+    status: "partially_covered_by_existing_tests"
+    reason: >
+      Malicious/encrypted/archive-bomb/oversize/tenant and authorization attacks are covered
+      by executable ingestion and API security tests, but there is no labeled adversarial
+      review-quality set with expected risk outcomes.
+    usage: "security regression only; not a risk-detection quality denominator"
+    frozen: false
+
+metrics_policy:
+  fixture_expected_pattern_capture:
+    numerator: 5
+    denominator: 5
+    interpretation: "deterministic fixture pattern coverage only; not expert risk recall"
+  risk_precision: null
+  risk_recall: null
+  false_positive_rate: null
+  legal_retrieval:
+    labeled_query_count: 10
+    eligible_label_denominator: 10
+    Recall@5: 1.0
+    Recall@10: 1.0
+    MRR@10: 0.4866666666666667
+    nDCG@10: 0.61409951840957
+    unverified_reference_hit_count: 77
+  caveat: "Retrieval ranking metrics are not legal applicability, legal correctness or risk-detection quality."
+
+reproduction:
+  commands:
+    - "PYTHONPATH=src ./.venv/Scripts/python.exe scripts/evaluate_legal_retrieval.py --output .verification/task0019-legal/u03-character-baseline-20261018.json"
+    - "PYTHONPATH=src ./.venv/Scripts/python.exe scripts/evaluate_review_capabilities.py --output .verification/task0019-reuse/u03-baseline-adapted-20261018.json --legal-retrieval-report .verification/task0019-legal/u03-character-baseline-20261018.json"
+    - "PYTHONPATH=src ./.venv/Scripts/python.exe -m pytest tests/test_review_capability_evaluation.py"
+  external_model_calls: 0
+  overwrite_policy: "the evaluator and generated reports refuse or avoid overwriting prior results; new paths are used per run"

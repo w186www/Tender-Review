@@ -2,7 +2,7 @@
   "schema_version": "v1alpha2",
   "task_id": "TASK-0019",
   "title": "招标文件审查能力离线基线评测",
-  "status": "blocked",
+  "status": "in_progress",
   "owner": "Codex",
   "depends_on": [
     "TASK-0005",
@@ -97,7 +97,18 @@
     {
       "id": "TASK0019-002",
       "description": "五个已有合成黄金案例具备固定清单、SHA-256、版本和分层标注；真实文件不存在或无授权时如实标为待补，金标统计分母不混入候选/未标注样本。",
-      "evidence": []
+      "evidence": [
+        "evals/capability_baseline/dataset_registry.yaml",
+        "evals/capability_baseline/labels/pending-adjudication.yaml",
+        "evals/capability_baseline/results/task0019-baseline-20261015.json",
+        "evals/capability_baseline/results/task0019-baseline-final-20261015.json",
+        "evals/golden_cases/GC-0001-region-restriction.json",
+        "evals/golden_cases/GC-0002-exclusive-brand.json",
+        "evals/golden_cases/GC-0003-score-total-mismatch.json",
+        "evals/golden_cases/GC-0004-key-contract-placeholder.json",
+        "evals/golden_cases/GC-0005-tender-time-order.json",
+        "docs/development/u03-label-adjudication-drafts.md"
+      ]
     },
     {
       "id": "TASK0019-003",
@@ -122,5 +133,5 @@
     "./.venv/Scripts/python.exe scripts/check_legal_publications.py",
     "./.venv/Scripts/python.exe scripts/check_ingestion_containers.py"
   ],
-  "handoff_notes": "TASK-0019 is temporarily blocked at the user direction while independent TASK-0022 runs the real-file offline diagnostic. The original TASK-0019 worktree, branch, HEAD, uncommitted code, reports, tests, and task file are preserved unchanged; see tasks/handoffs/TASK-0019-paused-20261015.md for the pre-pause SHA-256 manifest. TASK-0019 remains synthetic-only and is not expanded by the local source authorization granted exclusively to TASK-0022. No external model request is allowed until DEC-005 receives explicit approval."
+  "handoff_notes": "2026-10-18 the user explicitly authorized resuming TASK-0019 from the preserved backup. The evaluator, test, two historical results and the original TASK file were restored from _backups/worktrees-uncommitted-20261017T080625Z/task0019 into this working tree; all five SHA-256 values match the pause manifest. The evaluator received formatting-only adaptation (original 7b2c2b06…, adapted 2888a44b…); evaluation logic is unchanged. The missing legal retrieval report was regenerated to .verification/task0019-legal/u03-character-baseline-20261018.json (new path, not overwriting anything); core metrics match the historical report. U03 dataset partitions, identities and pending-adjudication label drafts are in evals/capability_baseline/dataset_registry.yaml, evals/capability_baseline/labels/pending-adjudication.yaml and docs/development/u03-label-adjudication-drafts.md. Expert-confirmed labels were never present and remain zero, so risk precision/recall stay not_measured; D2 adjudication is still required. The original backup directory remains read-only and unchanged. TASK-0019 remains synthetic-only; DEC-005/DEC-007 do not authorize any request outside the separate D3-approved real-model verification scope."
 }

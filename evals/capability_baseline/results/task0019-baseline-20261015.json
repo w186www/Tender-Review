@@ -1,0 +1,263 @@
+{
+  "schema_version": "task0019-capability-baseline-v1",
+  "evaluation_scope": "offline deterministic rule candidate discovery over checked-in synthetic fixtures",
+  "external_model_calls": 0,
+  "real_tender_or_law_text_transferred": false,
+  "candidate_source_identity": {
+    "repository_head": "00829851018612a275faca9ad6609e10fa38305d",
+    "ruleset_sha256": "a96326b3dc16e31cadb6bedcb243e3fc86b0dd6f1e77573816bb3e0c4721ceab",
+    "fixture_manifest_sha256": "ea888e9f9a587b478f3ac2461d00cb4ce45fd1320a47c2c2d2bf5b0ce0762052",
+    "thresholds_sha256": "c6ff96427ec97b6eaa3662e3b3d7afe8b96a75e0dfbdfdade54215ed35db2316"
+  },
+  "dataset": {
+    "version": "checked-in GC-0001 through GC-0005; no expert adjudication supplied",
+    "case_count": 5,
+    "expert_confirmed_risks": 0,
+    "expert_confirmed_nonrisks": 0,
+    "candidate_unconfirmed": 5,
+    "unlabelled": 0,
+    "regulatory_basis_pending_verification": true,
+    "manifest_sha256": "ea888e9f9a587b478f3ac2461d00cb4ce45fd1320a47c2c2d2bf5b0ce0762052",
+    "cases": [
+      {
+        "path": "evals/golden_cases/GC-0001-region-restriction.json",
+        "size_bytes": 529,
+        "sha256": "efc7d2f45c73b9e5b4221c6667ed4ceac5d568607f4eec21f8e65079fd726113",
+        "synthetic": true,
+        "label_status": "candidate_unconfirmed"
+      },
+      {
+        "path": "evals/golden_cases/GC-0002-exclusive-brand.json",
+        "size_bytes": 347,
+        "sha256": "80bb1894d38c8fdd0fb39d406bfbc755bf29126c495e8097f2b7124e64359101",
+        "synthetic": true,
+        "label_status": "candidate_unconfirmed"
+      },
+      {
+        "path": "evals/golden_cases/GC-0003-score-total-mismatch.json",
+        "size_bytes": 722,
+        "sha256": "66103204257295cce59c67d71904bf493c775dfd0d31ca0d9a395e0cf9eddc6e",
+        "synthetic": true,
+        "label_status": "candidate_unconfirmed"
+      },
+      {
+        "path": "evals/golden_cases/GC-0004-key-contract-placeholder.json",
+        "size_bytes": 338,
+        "sha256": "f6226c49a27393b54cbe2642cb7cf9e92142553aa0578189e01c655814947b65",
+        "synthetic": true,
+        "label_status": "candidate_unconfirmed"
+      },
+      {
+        "path": "evals/golden_cases/GC-0005-tender-time-order.json",
+        "size_bytes": 431,
+        "sha256": "9a2452b3666d1835cf1aa70c1f96d979c2971a9249a2fa15772a8a0e73ce0727",
+        "synthetic": true,
+        "label_status": "candidate_unconfirmed"
+      }
+    ]
+  },
+  "metrics": {
+    "fixture_expected_pattern_capture": {
+      "numerator": 5,
+      "denominator": 5,
+      "ratio": 1.0,
+      "interpretation": "deterministic fixture pattern coverage only; not expert risk recall"
+    },
+    "risk_precision": null,
+    "risk_recall": null,
+    "false_positive_rate": null,
+    "raw_rule_matches": 5,
+    "deduplicated_candidates": 5,
+    "duplicates_merged": 0,
+    "duplicate_rate": 0.0,
+    "candidate_quote_and_fixture_locator_correctness": {
+      "quote_hash_matches": 7,
+      "quote_count": 7,
+      "fixture_locator_matches": 7,
+      "fixture_locator_count": 7,
+      "source_file_locator_accuracy": null,
+      "interpretation": "validated against fixture excerpts; original source files are absent"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "GC-0001",
+      "fixture_path": "evals/golden_cases/GC-0001-region-restriction.json",
+      "fixture_sha256": "efc7d2f45c73b9e5b4221c6667ed4ceac5d568607f4eec21f8e65079fd726113",
+      "label_status": "candidate_unconfirmed",
+      "expert_confirmed_risk": false,
+      "expert_confirmed_nonrisk": false,
+      "target_skill": "qualification_review",
+      "expected_candidate_count": 1,
+      "actual_target_candidate_count": 1,
+      "actual_candidates_by_skill": {
+        "qualification_review": 1,
+        "technical_review": 0,
+        "evaluation_review": 0,
+        "contract_review": 0,
+        "procedure_review": 0
+      },
+      "deduplicated_candidate_count": 1,
+      "raw_rule_match_count": 1,
+      "coverage_status": "completed_with_candidates",
+      "expected_pattern_captured": true,
+      "candidate_rule_ids": [
+        "TASK0007.QUAL.LOCAL-REGISTRATION"
+      ],
+      "candidate_locators": [
+        "fixture/GC-0001/fragment/0"
+      ],
+      "candidate_quote_hashes_match_fixture": true,
+      "engine_result_sha256": "96c35002dd7914d6da6e6496b83f77eb6a32b3280a8d710685e9b9993677a9b9",
+      "fixture_excerpt_page": 10,
+      "source_file_parse_measured": false,
+      "legal_evidence_expected": true,
+      "human_review_expected": true
+    },
+    {
+      "case_id": "GC-0002",
+      "fixture_path": "evals/golden_cases/GC-0002-exclusive-brand.json",
+      "fixture_sha256": "80bb1894d38c8fdd0fb39d406bfbc755bf29126c495e8097f2b7124e64359101",
+      "label_status": "candidate_unconfirmed",
+      "expert_confirmed_risk": false,
+      "expert_confirmed_nonrisk": false,
+      "target_skill": "technical_review",
+      "expected_candidate_count": 1,
+      "actual_target_candidate_count": 1,
+      "actual_candidates_by_skill": {
+        "qualification_review": 0,
+        "technical_review": 1,
+        "evaluation_review": 0,
+        "contract_review": 0,
+        "procedure_review": 0
+      },
+      "deduplicated_candidate_count": 1,
+      "raw_rule_match_count": 1,
+      "coverage_status": "completed_with_candidates",
+      "expected_pattern_captured": true,
+      "candidate_rule_ids": [
+        "TASK0007.TECH.EXCLUSIVE-BRAND"
+      ],
+      "candidate_locators": [
+        "paragraph:4"
+      ],
+      "candidate_quote_hashes_match_fixture": true,
+      "engine_result_sha256": "80cbb8a8ed5b4a5416e53238b2611612e1e78db923678afb47c15119d3b612d6",
+      "fixture_excerpt_page": null,
+      "source_file_parse_measured": false,
+      "legal_evidence_expected": false,
+      "human_review_expected": true
+    },
+    {
+      "case_id": "GC-0003",
+      "fixture_path": "evals/golden_cases/GC-0003-score-total-mismatch.json",
+      "fixture_sha256": "66103204257295cce59c67d71904bf493c775dfd0d31ca0d9a395e0cf9eddc6e",
+      "label_status": "candidate_unconfirmed",
+      "expert_confirmed_risk": false,
+      "expert_confirmed_nonrisk": false,
+      "target_skill": "evaluation_review",
+      "expected_candidate_count": 1,
+      "actual_target_candidate_count": 1,
+      "actual_candidates_by_skill": {
+        "qualification_review": 0,
+        "technical_review": 0,
+        "evaluation_review": 1,
+        "contract_review": 0,
+        "procedure_review": 0
+      },
+      "deduplicated_candidate_count": 1,
+      "raw_rule_match_count": 1,
+      "coverage_status": "completed_with_candidates",
+      "expected_pattern_captured": true,
+      "candidate_rule_ids": [
+        "TASK0007.EVAL.SCORE-TOTAL"
+      ],
+      "candidate_locators": [
+        "cell:1:1",
+        "cell:2:1",
+        "cell:3:1"
+      ],
+      "candidate_quote_hashes_match_fixture": true,
+      "engine_result_sha256": "fa6c47997e5bdc72d3496ceab96215b01a729b36febc51f2428e36bae2824a7e",
+      "fixture_excerpt_page": null,
+      "source_file_parse_measured": false,
+      "legal_evidence_expected": false,
+      "human_review_expected": true
+    },
+    {
+      "case_id": "GC-0004",
+      "fixture_path": "evals/golden_cases/GC-0004-key-contract-placeholder.json",
+      "fixture_sha256": "f6226c49a27393b54cbe2642cb7cf9e92142553aa0578189e01c655814947b65",
+      "label_status": "candidate_unconfirmed",
+      "expert_confirmed_risk": false,
+      "expert_confirmed_nonrisk": false,
+      "target_skill": "contract_review",
+      "expected_candidate_count": 1,
+      "actual_target_candidate_count": 1,
+      "actual_candidates_by_skill": {
+        "qualification_review": 0,
+        "technical_review": 0,
+        "evaluation_review": 0,
+        "contract_review": 1,
+        "procedure_review": 0
+      },
+      "deduplicated_candidate_count": 1,
+      "raw_rule_match_count": 1,
+      "coverage_status": "completed_with_candidates",
+      "expected_pattern_captured": true,
+      "candidate_rule_ids": [
+        "TASK0007.CONTRACT.KEY-PLACEHOLDER"
+      ],
+      "candidate_locators": [
+        "paragraph:12"
+      ],
+      "candidate_quote_hashes_match_fixture": true,
+      "engine_result_sha256": "accb9b0127ab5421bfc03b3c08b355fe4a9adcaa091c0a93d0b8c7631c1c7cc0",
+      "fixture_excerpt_page": null,
+      "source_file_parse_measured": false,
+      "legal_evidence_expected": false,
+      "human_review_expected": true
+    },
+    {
+      "case_id": "GC-0005",
+      "fixture_path": "evals/golden_cases/GC-0005-tender-time-order.json",
+      "fixture_sha256": "9a2452b3666d1835cf1aa70c1f96d979c2971a9249a2fa15772a8a0e73ce0727",
+      "label_status": "candidate_unconfirmed",
+      "expert_confirmed_risk": false,
+      "expert_confirmed_nonrisk": false,
+      "target_skill": "procedure_review",
+      "expected_candidate_count": 1,
+      "actual_target_candidate_count": 1,
+      "actual_candidates_by_skill": {
+        "qualification_review": 0,
+        "technical_review": 0,
+        "evaluation_review": 0,
+        "contract_review": 0,
+        "procedure_review": 1
+      },
+      "deduplicated_candidate_count": 1,
+      "raw_rule_match_count": 1,
+      "coverage_status": "completed_with_candidates",
+      "expected_pattern_captured": true,
+      "candidate_rule_ids": [
+        "TASK0007.PROCEDURE.TENDER-TIME"
+      ],
+      "candidate_locators": [
+        "paragraph:2"
+      ],
+      "candidate_quote_hashes_match_fixture": true,
+      "engine_result_sha256": "b4d86bb5e50865480867ebf54f76b0a05cc10425952e79c3a33b4c9c62ff1f09",
+      "fixture_excerpt_page": null,
+      "source_file_parse_measured": false,
+      "legal_evidence_expected": false,
+      "human_review_expected": true
+    }
+  ],
+  "unmeasured_layers": {
+    "per_case_secure_file_parse_and_page_layout": "not_measured: golden cases contain JSON excerpts, not source files",
+    "ocr_quality_on_real_tenders": "not_measured: no authorized real files were found",
+    "expert_precision_recall": "not_measured: zero expert-confirmed risk and nonrisk labels",
+    "real_llm_semantic_quality": "not_measured: no Qwen/DeepSeek or other online model call",
+    "m5_acceptance_thresholds": "not_claimed"
+  }
+}
