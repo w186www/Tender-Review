@@ -4,7 +4,7 @@
 
 ## 当前有效进度：U01、U02、U04、U05 已完成；U03、U07 进行中；U06 是下一可执行单元
 
-- 固定目录：`D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；当前分支 `work/TASK-0027`，HEAD `62700aae6334c3d0058a51f799489a5e402fe8bb`，与 `origin/work/TASK-0027` 一致；其父 `7959d9cc9b526aec9269d7352784d89f1681807d` 是用户 2026-10-17 明确要求的 GitHub 备份（U05 完成 + U06 质量切片），`62700aa` 只更新本记录。未合并 main、未部署。
+- 固定目录：`D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；当前分支 `work/TASK-0027`，GitHub 备份提交 `7959d9cc9b526aec9269d7352784d89f1681807d`（U05 完成 + U06 质量切片），其后只有记录提交；`origin/work/TASK-0027` 与本地分支一致。未合并 main、未部署。
 - 开始时未提交内容：用户的 `docs/development/luna-execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` 均为未跟踪文件，SHA-256 分别为 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。备份提交 `7959d9c` 已包含前两份规划文件；`question.txt` 按用户私人记录处理，仍为未跟踪且未推送。文件内容未被改写。
 - 产品单元：U01/U02/U04/U05 已完成。U05 完成产品模式（`DEPLOY_REVIEW_MODE=product-postgres`）的 PostgreSQL 租户策略、版本绑定逐文件授权/撤销、授权/审计同事务、原子预算预留/结算、unknown 保留、历史 JSONL/SQLite 只读幂等导入和隐私反例；真实 PostgreSQL 专项退出码 0，U04 Docker/PostgreSQL 部署 E2E 5/5 兼容通过，最终官方 Full 七阶段 868 passed/6 warnings。U05 的产品模式没有在生产启用，当前部署仍为 `authorized-real`/DEC-007；D3 真实调用/内容外发、D4 生产迁移/切换未授权且未执行。U03 仍在进行：开发候选与标签边界已登记；冻结评测器/测试/结果来源未恢复，唯一已知备份 bundle 未找到 TASK-0019 来源且未导入/覆盖。U07 的本地生命周期与“无人工 binding 不支持违法结论”工程边界通过；法规核验及规则—法规人工绑定仍受 D2 限制。U06 的正式前置 U03 仍未完成，但其本地解析/质量工作可在现有合成资产和 D1 限制下推进；U08/U09 还依赖 U06/U07 等未完成单元。逐单元 G3 证据见 `docs/development/product-delivery-validation.md`。
 - 新任务映射：TASK-0028（U01/U02/U04/U05，`completed`）；TASK-0029（U02/U06—U12，`in_progress`）；U03→TASK-0019/TASK-0013，U13/U14→TASK-0012，U15→TASK-0013，U16→TASK-0014。用户原有任务的局部验收范围未被重写。
