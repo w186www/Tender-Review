@@ -582,11 +582,12 @@
 
 **执行单元/TASK：** U08/U09/U10/U11/U12 的真实服务器证据；U13/U14 的部署/恢复演练。正式单元状态仍按依赖保留（U10 仍 in_progress，U08/U09/U12 planned），本节不替代用户独立验收。
 
-**目录、分支/HEAD：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；最终部署提交 `339155d6b4fba88b2ccf60e53d6617d0de561f57`（已推送 `origin/work/TASK-0027`）。
+**目录、分支/HEAD：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；最终源码 HEAD `c688232eb96ca42d5b10182566055420b0c42564`（已推送 `origin/work/TASK-0027`；CI run 39062695856 success；服务器 HEAD 已同步）。部署镜像源 `339155d6b4fba88b2ccf60e53d6617d0de561f57`；`339155d..c688232` 的 `src/contracts/deploy` 差异为 0。
 
 ### 1. 部署身份
 
 - 服务器：阿里云 ECS `i-j6ccqpfriae57w0hkskn`，`/opt/tender-review`，公网 `https://47.83.132.211`。
+- 源码/CI：最终 HEAD `c688232` 对应 [GitHub Actions run 39062695856](https://github.com/w186www/Tender-Review/actions/runs/39062695856) completed/success；此前 339155d 等提交的失败由 TASK-0028 evidence 指向 gitignored `.verification` 导致，已改为仓库内可查证据后 CI 转绿。
 - API 镜像 `tender-review-api:task0030-339155d`，镜像 ID `sha256:522c88ee5296c41ec910e50ac97478f6550b356a4557b19ba4739cda3baecea2`。
 - Web/nginx 镜像 `tender-review-web:task0030-339155d`，镜像 ID `sha256:9415c3715b9a93f620a07a886491d293a95ace9dd912159d49f233a900ceb29e`，构建期 `VITE_REVIEW_MODE=dec007-real-qwen`。
 - 隔离 parser 镜像 `tender-review-parser:demo`，镜像 ID `sha256:b20d0aea7f0905a7a4afca02f4909babe610751466fea003398a3e9d22e0ab98`（`PARSER_IMAGE` 已固定）。
