@@ -35,14 +35,25 @@ MAX_DISCOVERY_BATCHES = 28
 # bound, not a product coverage bound: a batch that returns the cap is marked saturated
 # and reported as partial, so a later bounded subdivision can rescan it.
 SATURATION_FINDING_LIMIT = 3
+# Bounded subdivision: a saturated batch may be split at section boundaries, but only
+# within a fixed depth and a fixed number of additional calls. Hitting either bound
+# leaves the batch visibly saturated/partial; it never claims complete coverage.
+MAX_SUBDIVISION_DEPTH = 2
+MAX_SUBDIVISION_BATCHES = 8
 
 
 def batch_coverage(
-    batch: DiscoveryBatch, accepted_count: int, rejected_count: int
+    batch: DiscoveryBatch,
+    accepted_count: int,
+    rejected_count: int,
+    *,
+    subdivided: bool = False,
 ) -> dict[str, Any]:
     """Per-batch coverage record; saturation is visible instead of being called complete."""
     saturated = accepted_count >= SATURATION_FINDING_LIMIT
-    if saturated:
+    if subdivided:
+        status = "subdivided"
+    elif saturated:
         status = "saturated"
     elif rejected_count:
         status = "partial"
@@ -50,10 +61,13 @@ def batch_coverage(
         status = "completed"
     return {
         "batch_index": batch.index,
+        "parent_index": batch.parent_index,
+        "depth": batch.depth,
         "section_count": len(batch.sections),
         "accepted_count": accepted_count,
         "rejected_count": rejected_count,
         "saturated": saturated,
+        "subdivided": subdivided,
         "status": status,
     }
 
@@ -63,15 +77,22 @@ def coverage_summary(
     *,
     section_count: int,
 ) -> dict[str, Any]:
-    """Aggregate plan coverage; any saturated/rejected batch makes the plan partial."""
-    saturated = [item for item in batches if item.get("saturated")]
-    partial = [item for item in batches if item.get("status") in {"saturated", "partial"}]
+    """Aggregate plan coverage; subdivision is neutral only when its children complete."""
+    saturated = [item for item in batches if item.get("status") == "saturated"]
+    partial = [
+        item for item in batches if item.get("status") in {"saturated", "partial"}
+    ]
+    subdivided = [item for item in batches if item.get("status") == "subdivided"]
     return {
         "status": "partial" if partial else "complete",
         "batch_count": len(batches),
         "section_count": section_count,
         "completed_batches": sum(item.get("status") == "completed" for item in batches),
         "partial_batches": sum(item.get("status") == "partial" for item in batches),
+        "subdivided_batches": len(subdivided),
+        "subdivision_calls": sum(
+            item.get("parent_index") is not None for item in batches
+        ),
         "saturated_batches": len(saturated),
         "saturated_batch_indices": [item["batch_index"] for item in saturated],
         "accepted_candidates": sum(int(item.get("accepted_count", 0)) for item in batches),
@@ -304,6 +325,8 @@ class DiscoverySection:
 class DiscoveryBatch:
     index: int
     sections: tuple[DiscoverySection, ...]
+    parent_index: int | None = None
+    depth: int = 0
 
     def payload(self) -> dict[str, Any]:
         return {"discovery_sections": [item.request_payload() for item in self.sections]}
@@ -311,6 +334,31 @@ class DiscoveryBatch:
     @property
     def input_hash(self) -> str:
         return _hash(self.payload())
+
+
+def subdivide_batch(batch: DiscoveryBatch, next_index: int) -> tuple[DiscoveryBatch, ...]:
+    """Split a saturated batch at section boundaries, bounded by depth.
+
+    A one-section batch cannot be subdivided at this layer; the caller must leave it
+    saturated/partial instead of pretending the rescan was exhaustive.
+    """
+    if len(batch.sections) < 2 or batch.depth >= MAX_SUBDIVISION_DEPTH:
+        return ()
+    midpoint = len(batch.sections) // 2
+    return (
+        DiscoveryBatch(
+            next_index,
+            batch.sections[:midpoint],
+            parent_index=batch.index,
+            depth=batch.depth + 1,
+        ),
+        DiscoveryBatch(
+            next_index + 1,
+            batch.sections[midpoint:],
+            parent_index=batch.index,
+            depth=batch.depth + 1,
+        ),
+    )
 
 
 def source_excerpt(item: LocatedFragment) -> SourceExcerpt:

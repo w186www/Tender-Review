@@ -340,8 +340,18 @@ def test_model_and_exact_rule_duplicates_merge_with_truthful_provenance():
     assert result.skill_coverages == rules.skill_coverages
 
 
-def graph_harness(monkeypatch, *, fail=False):
-    snapshot, mapping = freeze((located("采购款项在设备验收且收到发票后支付。"),))
+def graph_harness(monkeypatch, *, fail=False, saturating=False):
+    if saturating:
+        items = tuple(
+            located(
+                f"第{index + 1}条 付款条款需要核验，金额、期限和验收条件应当明确。",
+                locator=f"paragraph:{index}",
+            )
+            for index in range(3)
+        )
+    else:
+        items = (located("采购款项在设备验收且收到发票后支付。"),)
+    snapshot, mapping = freeze(items)
     rules = discover(snapshot, mapping)
     artifacts = {"rules": rules.model_dump(mode="json")}
     saved = []
@@ -411,6 +421,31 @@ def graph_harness(monkeypatch, *, fail=False):
             assert policy.max_attempts == 1
             if fail:
                 raise ModelGatewayError(GatewayErrorCode.PROVIDER_ERROR, "unit test failure")
+            if saturating:
+                sections = request.input_payload["discovery_sections"]
+                content = {
+                    "schema_version": "v1alpha1",
+                    "findings": [
+                        {
+                            "section_key": section["section_key"],
+                            "quote": section["text"][:12],
+                            "category": "contract",
+                            "description": "细分重扫候选",
+                        }
+                        for section in sections[:3]
+                    ],
+                }
+                return ModelResponse(
+                    call_id=request.call_id,
+                    provider="unit-test-provider",
+                    model="unit-test-model",
+                    profile="test",
+                    content=content,
+                    usage=ModelUsage(8, 8, 0.0),
+                    latency_ms=0,
+                    response_hash=digest(content),
+                    finish_reason="stop",
+                )
             (batch,) = llm.plan_discovery(mapping)
             return response_for(batch)
 
@@ -529,3 +564,19 @@ def test_graph_discovery_contract_failure_keeps_the_generic_code(monkeypatch):
     assert result["status"] == "failed"
     assert result["errors"][0]["code"] == "llm_discovery_failed"
     assert result["errors"][0]["retryable"] is False
+
+
+def test_saturated_batches_are_subdivided_bounded_and_reused(monkeypatch):
+    nodes, state, artifacts, saved, gateway = graph_harness(monkeypatch, saturating=True)
+    first = asyncio.run(nodes["llm_candidate_discovery"](state))
+    assert gateway.calls == 3
+    coverage = artifacts[first["llm_discovery_ref"]]["coverage"]
+    assert coverage["status"] == "complete"
+    assert coverage["subdivided_batches"] == 1
+    assert coverage["subdivision_calls"] == 2
+    assert coverage["saturated_batches"] == 0
+    assert coverage["batch_count"] == 3
+    assert len([row for row in saved if row.kind.startswith("llm_discovery_batch_")]) == 3
+    second = asyncio.run(nodes["llm_candidate_discovery"](state))
+    assert second == first
+    assert gateway.calls == 3

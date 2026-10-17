@@ -703,7 +703,11 @@ def build_review_graph(
                 session.commit()
             candidates: list[CandidateFinding] = []
             batch_results = []
-            for batch in batches:
+            pending = list(batches)
+            next_index = len(batches)
+            subdivision_batches = 0
+            while pending:
+                batch = pending.pop(0)
                 request = llm_discovery.make_discovery_request(
                     batch,
                     tenant_id=principal.tenant_id,
@@ -800,11 +804,29 @@ def build_review_graph(
                     )
                     session.commit()
                 candidates.extend(accepted)
+                coverage = llm_discovery.batch_coverage(
+                    batch, len(accepted), len(rejected)
+                )
+                children: tuple[Any, ...] = ()
+                if (
+                    coverage["saturated"]
+                    and subdivision_batches + 2
+                    <= llm_discovery.MAX_SUBDIVISION_BATCHES
+                ):
+                    children = llm_discovery.subdivide_batch(batch, next_index)
+                    if children:
+                        coverage = llm_discovery.batch_coverage(
+                            batch, len(accepted), len(rejected), subdivided=True
+                        )
+                        next_index += len(children)
+                        subdivision_batches += len(children)
+                        pending.extend(children)
                 batch_results.append(
                     {
-                        **llm_discovery.batch_coverage(batch, len(accepted), len(rejected)),
+                        **coverage,
                         "artifact_ref": ref,
                         "response_hash": response.response_hash,
+                        "subdivision_children": [child.index for child in children],
                     }
                 )
             joined = llm_discovery.merge_model_candidates(discovery, candidates)

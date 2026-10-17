@@ -11,10 +11,9 @@
 
 ## U08｜有界细分/重扫
 
-- **当前已做**：每批 3 项上限被标记为 `saturated`，覆盖摘要进入 `llm_candidate_discovery` 制品；拒绝候选标记 `partial`。
-- **可离线做（无外部授权）**：把饱和批次按 section 二分，受 `MAX_SUBDIVISION_DEPTH` 和总批次预算限制；为子批次分配唯一 index/cache key；在覆盖摘要中记录父子关系；用 fake gateway 测试“饱和→细分→补扫”“预算耗尽→partial”“单 section 不细分”。
-- **实际阻塞**：正式 U08 状态仍依赖 U03/U06 完成；真实模型覆盖质量/冻结集效果需要 D3。**这些不阻止离线实现与测试**；实现时不能声称真实效果已达标。
-- **建议**：作为 U08 preparation 实施，完成后仍保持 `planned`，只记录准备证据。
+- **已完成（离线准备）**：每批 3 项上限标记 `saturated`；`subdivide_batch()` 按 section 二分，`MAX_SUBDIVISION_DEPTH=2`、`MAX_SUBDIVISION_BATCHES=8` 限制深度/额外调用；子批次唯一 index/cache key；父批次 `subdivided`，只有子批次全部完成且无饱和/拒绝时覆盖才为 `complete`；单 section/深度/预算耗尽保留 partial。图级 fake gateway 测试覆盖“饱和→二分→补扫→重启复用缓存”，Full 886 passed。
+- **实际阻塞**：正式 U08 状态仍依赖 U03/U06 完成；真实模型覆盖质量/冻结集效果需要 D3。**这些不阻止离线实现与测试**；不能声称真实效果已达标。
+- **建议**：保持 `planned`，只记录准备证据；下一步可做 U09 离线双层检索回归或 U13 备份/恢复隔离演练准备。
 
 ## U09｜检索准备
 

@@ -6,6 +6,8 @@
 
 ### Added
 
+- 2026-10-18 U08 有界细分/重扫准备（正式单元仍 planned）：饱和批次按 section 二分，深度上限 2、额外批次上限 8，子批次唯一 index/cache key，父批次 `subdivided`、只有子批次全部完成且无饱和/拒绝时覆盖才 `complete`；单 section/深度/预算耗尽保留 partial。新增图级 fake gateway 测试（饱和→二分→补扫→重启复用缓存）和纯边界测试；相关 75 passed，最终候选 Full 886 passed/6 项既有 warning。真实模型覆盖质量与冻结集效果仍需 U03/U06/D3。
+
 - 2026-10-17 U10 零候选路径准备（正式单元仍 planned）：修复 `graph/review.py` 在 discovery 候选为空时抛 `ValueError` 的已知 P1（AUD-01）。零候选现在不发起任何语义模型调用，写入显式空 `model_analysis` 制品（`findings: []`、`zero_candidate: true`、0 tokens/0 费用），交给既有合并/报告/人工确认路径。新增图级零调用回归；相关 73 passed，最终候选 Full 七阶段通过（884 passed、6 项既有 warning）。真实 RAG、法规资格重核和报告集成仍待 U07/U08/U09/D3，U10 不提前完成。
 
 - 2026-10-17 U08 离线准备（正式单元仍 planned）：新增每批饱和标记与覆盖摘要（`SATURATION_FINDING_LIMIT=3`、`batch_coverage`、`coverage_summary`），把每个发现批次的状态、接受/拒绝数、饱和索引和总覆盖写入 `llm_candidate_discovery` 运行制品；达到单批上限不再显示为 completed，而是 saturated/partial。新增 3 项纯测试，相关发现/语义/证据/持久网关回归 68 passed；最终候选 Full 七阶段通过（883 passed、6 项既有 warning）。真实模型质量评测、有界细分/重扫与冻结集效果仍待 U03/U06/D3，U08 不提前启动或完成。

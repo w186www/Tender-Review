@@ -47,3 +47,19 @@ def test_all_accepted_batches_below_the_cap_are_complete():
     assert summary["completed_batches"] == 1
     assert summary["partial_batches"] == 0
     assert summary["saturated_batches"] == 0
+
+
+def test_subdivision_splits_at_section_boundaries_and_respects_depth_and_size():
+    batch = one_batch()
+    children = llm.subdivide_batch(batch, 10)
+    assert [child.index for child in children] == [10, 11]
+    assert [len(child.sections) for child in children] == [1, 2]
+    assert all(
+        child.parent_index == batch.index and child.depth == 1 for child in children
+    )
+    deep = llm.DiscoveryBatch(
+        20, batch.sections, parent_index=0, depth=llm.MAX_SUBDIVISION_DEPTH
+    )
+    assert llm.subdivide_batch(deep, 30) == ()
+    single = llm.DiscoveryBatch(21, batch.sections[:1])
+    assert llm.subdivide_batch(single, 30) == ()
