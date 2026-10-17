@@ -1,0 +1,83 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0011",
+  "title": "前端完整业务操作与管理界面",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0010"
+  ],
+  "related_requirements": [
+    "FR-001",
+    "FR-003",
+    "FR-010",
+    "FR-013",
+    "FR-014",
+    "NFR-010"
+  ],
+  "related_acceptance": [
+    "AC-005",
+    "AC-006",
+    "AC-008"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "选择前端技术栈并记录ADR，依据API契约生成客户端",
+    "实现上传、进度、原文证据、人工复核、报告、版本发布与审计界面",
+    "对接真实FastAPI/数据库并执行隔离授权离线审查器的浏览器E2E",
+    "补齐并验收FR-013法规、规则、Skill及模型配置版本管理范围"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0011-001",
+      "description": "关键业务无需开发者操作终端即可完成",
+      "evidence": [
+        "docs/development/TASK-0011-validation.md",
+        "src/frontend/e2e/workbench.spec.ts",
+        "scripts/run_task0011_e2e.py",
+        "scripts/assert_task0011_e2e.py",
+        "src/frontend/src/pages/project.tsx",
+        "src/frontend/src/pages/reviews.tsx"
+      ]
+    },
+    {
+      "id": "TASK0011-002",
+      "description": "核心操作支持键盘、中文状态和错误，权限以服务端为准",
+      "evidence": [
+        "docs/development/TASK-0011-validation.md",
+        "src/frontend/e2e/workbench.spec.ts",
+        "src/frontend/src/auth.tsx",
+        "tests/test_identity_projects.py"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "TASK0011-001/002本地证据通过；源码候选57d2515c6e4f2d6816bf94c2ed04e82759acd6c4的源码CI 38600922153、验收记录提交750833cf1ffdd99f889676ec93575498479d1851的Quick CI 38603582949、归档提交05c2b91655a7152b28692c7f5216de3ace3d7ff8的CI 38604186570均成功（归档impact/quick/verify-required成功）。真实Edge/FastAPI/PostgreSQL/MinIO/ClamAV/离线ReviewEngine E2E为5/5，FR-013配置版本服务/API/页面、PostgreSQL专项及ReviewEngine冻结快照绑定通过；详见 docs/development/TASK-0011-validation.md。DEC-002未批准在线模型，默认无ReviewEngine时返回503；本任务完成不代表相关全局AC或M3完成。"
+}

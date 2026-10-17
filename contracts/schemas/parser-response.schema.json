@@ -226,6 +226,80 @@
       "title": "Fragment",
       "type": "object"
     },
+    "JsonValue": {},
+    "OCRRuntimeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "engine_id": {
+          "const": "tesseract",
+          "default": "tesseract",
+          "title": "Engine Id",
+          "type": "string"
+        },
+        "engine_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "model_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Model Ids",
+          "type": "array"
+        },
+        "model_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Model Sha256",
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "parser_image_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Image Sha256"
+        },
+        "identity_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Identity Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "engine_version",
+        "model_ids",
+        "model_sha256",
+        "parameters",
+        "identity_sha256"
+      ],
+      "title": "OCRRuntimeIdentity",
+      "type": "object"
+    },
     "ParsedDocument": {
       "additionalProperties": false,
       "properties": {
@@ -307,6 +381,17 @@
           "maxItems": 20,
           "title": "Issues",
           "type": "array"
+        },
+        "ocr_runtime": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OCRRuntimeIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -317,6 +402,47 @@
         "issues"
       ],
       "title": "ParsedDocument",
+      "type": "object"
+    },
+    "ParserExecutionMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "integer"
+        },
+        "process_peak_rss_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Process Peak Rss Bytes"
+        },
+        "container_memory_peak_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Container Memory Peak Bytes"
+        }
+      },
+      "required": [
+        "elapsed_ms"
+      ],
+      "title": "ParserExecutionMetrics",
       "type": "object"
     }
   },
@@ -392,6 +518,17 @@
       ],
       "default": null,
       "title": "Error"
+    },
+    "metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ParserExecutionMetrics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "title": "ParserResponse",

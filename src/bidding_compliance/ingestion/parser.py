@@ -28,7 +28,9 @@ from .schemas import (
     FileFormat,
     Fragment,
     IngestionPolicy,
+    OCRRuntimeIdentity,
     ParsedDocument,
+    ParserExecutionMetrics,
     ParserRequest,
     ParserResponse,
 )
@@ -39,17 +41,62 @@ class OCR(Protocol):
 
 
 class TesseractOCR:
+    def runtime_identity(self) -> OCRRuntimeIdentity:
+        try:
+            result = subprocess.run(
+                ["/usr/bin/tesseract", "--version"],
+                capture_output=True,
+                check=False,
+                timeout=5,
+                env={"OMP_THREAD_LIMIT": "1"},
+            )
+            if result.returncode != 0:
+                raise IngestionError("PARSE_FAILED")
+            version = result.stdout.decode("utf-8").splitlines()[0].strip()
+            data_dirs = sorted(Path("/usr/share/tesseract-ocr").glob("*/tessdata"))
+            hashes: dict[str, str] = {}
+            for model in ("chi_sim", "eng"):
+                path = next(
+                    (
+                        folder / f"{model}.traineddata"
+                        for folder in data_dirs
+                        if (folder / f"{model}.traineddata").is_file()
+                    ),
+                    None,
+                )
+                if path is None:
+                    raise IngestionError("PARSE_FAILED")
+                hashes[model] = hashlib.sha256(path.read_bytes()).hexdigest()
+            return OCRRuntimeIdentity.create(
+                engine_version=version,
+                model_ids=("chi_sim", "eng"),
+                model_sha256=hashes,
+                parameters={
+                    "language": "chi_sim+eng",
+                    "tesseract_config": "tsv",
+                    "omp_thread_limit": 1,
+                    "ocr_timeout_seconds": 25,
+                },
+            )
+        except (OSError, subprocess.TimeoutExpired, UnicodeError, IndexError) as exc:
+            raise IngestionError("PARSE_FAILED") from exc
+
     def recognize(self, image: Image.Image) -> list[dict[str, Any]]:
         with tempfile.TemporaryDirectory(prefix="ocr-") as folder:
             path = Path(folder) / "page.png"
             image.save(path, format="PNG")
-            result = subprocess.run(  # noqa: S603 - fixed binary inside the isolated container
-                ["/usr/bin/tesseract", str(path), "stdout", "-l", "chi_sim+eng", "tsv"],
-                capture_output=True,
-                check=False,
-                timeout=25,
-                env={**os.environ, "OMP_THREAD_LIMIT": "1"},
-            )
+            try:
+                result = subprocess.run(  # noqa: S603 - fixed binary inside the isolated container
+                    ["/usr/bin/tesseract", str(path), "stdout", "-l", "chi_sim+eng", "tsv"],
+                    capture_output=True,
+                    check=False,
+                    timeout=25,
+                    env={**os.environ, "OMP_THREAD_LIMIT": "1"},
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise IngestionError("PARSE_TIMEOUT") from exc
+            except OSError as exc:
+                raise IngestionError("PARSE_FAILED") from exc
             if result.returncode != 0 or len(result.stdout) > 2000000:
                 raise IngestionError("PARSE_FAILED")
             rows = csv.DictReader(io.StringIO(result.stdout.decode("utf-8")), delimiter="\t")
@@ -421,6 +468,9 @@ def parse(
     if not payload or len(payload) > policy.max_upload_bytes:
         raise IngestionError("SIZE_LIMIT")
     recognizer = ocr if ocr is not None else TesseractOCR()
+    runtime_identity = (
+        recognizer.runtime_identity() if isinstance(recognizer, TesseractOCR) else None
+    )
     page_count = None
     if format == "pdf":
         fragments, page_count = parse_pdf(payload, policy, recognizer)
@@ -449,10 +499,21 @@ def parse(
         fragments=fragments,
         quality="passed" if passed else "requires_review",
         issues=[] if passed else ["LOW_QUALITY"],
+        ocr_runtime=runtime_identity,
     )
 
 
 def main() -> None:
+    import time
+
+    try:
+        import resource
+    except (
+        ImportError
+    ):  # pragma: no cover - parser image is Linux; keep local unit harness portable
+        resource = None  # type: ignore[assignment]
+
+    started = time.perf_counter()
     logging.disable(logging.CRITICAL)
     try:
         raw = sys.stdin.buffer.read(15000001)
@@ -466,6 +527,26 @@ def main() -> None:
         response = ParserResponse(error=exc.code)
     except Exception:
         response = ParserResponse(error="INVALID_FILE")
+    rss = None
+    if resource is not None:
+        try:
+            getrusage = getattr(resource, "getrusage", None)
+            usage_self = getattr(resource, "RUSAGE_SELF", None)
+            if callable(getrusage) and usage_self is not None:
+                rss = int(getrusage(usage_self).ru_maxrss) * 1024
+        except (OSError, ValueError):
+            rss = None
+    cgroup_peak = None
+    try:
+        cgroup_peak = int(Path("/sys/fs/cgroup/memory.peak").read_text(encoding="ascii").strip())
+    except (OSError, ValueError):
+        pass
+    metrics = ParserExecutionMetrics(
+        elapsed_ms=max(0, round((time.perf_counter() - started) * 1000)),
+        process_peak_rss_bytes=rss,
+        container_memory_peak_bytes=cgroup_peak,
+    )
+    response = response.model_copy(update={"metrics": metrics})
     sys.stdout.write(json.dumps(response.model_dump(), ensure_ascii=False))
 
 

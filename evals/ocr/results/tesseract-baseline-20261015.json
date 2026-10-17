@@ -1,0 +1,111 @@
+{
+  "schema_version": "task0018.tesseract-ocr-report.v1",
+  "run": {
+    "parser_image_sha256": "9a090472592108af6cfd1d894d1cd00bbee9964a74b5e04b0da508a0e88bad13",
+    "font_sha256": "1526ac24375f51f6eb73bc2d3f8072dbe4a80a3a65217677c9d9a84f67dab2ab",
+    "network_calls": false,
+    "provider_calls": false,
+    "fixtures_generated": true
+  },
+  "cases": [
+    {
+      "fixture_type": "multi_column_table_numbers_repeated_text",
+      "pdf_sha256": "d0e9e471ccff5b0fb0437e25b5f26765a1e5daec6b5046e86dbd59ae72204ad0",
+      "page_count": 3,
+      "ocr_fragment_count": 184,
+      "quality": "passed",
+      "issues": [],
+      "character_error_rate": 0.6171617161716172,
+      "critical_tokens": {
+        "correct": 0,
+        "total": 6,
+        "details": {
+          "5000元": false,
+          "2026年11月1日": false,
+          "125600.00": false,
+          "第二十六条": false,
+          "第十七条": false,
+          "第十八条": false
+        }
+      },
+      "table_cell_completeness": {
+        "correct": 4,
+        "total": 14,
+        "details": {
+          "第一条": false,
+          "履约保证金": false,
+          "5000": true,
+          "5": true,
+          "第二条": false,
+          "最高限价": false,
+          "125600.00": false,
+          "10": false,
+          "第三条": false,
+          "服务期限": true,
+          "90日": false,
+          "8": false,
+          "130600.00": false,
+          "23": true
+        }
+      },
+      "page_marker_hits": {},
+      "page_marker_total": 6,
+      "valid_page_locator_ratio": 1.0,
+      "repeated_text_occurrences_located": 0,
+      "repeated_text_y_positions_pdf_points": [],
+      "wall_latency_ms": 2899.3674000084866,
+      "parser_metrics": null,
+      "ocr_runtime": null,
+      "expected_low_quality_downgrade": false,
+      "low_quality_downgrade_observed": null,
+      "failed_closed": false
+    },
+    {
+      "fixture_type": "blank_low_quality",
+      "pdf_sha256": "ebbc9da9e735bd4c53f50f727cc64594120078a580853f0563a5d80b4befa555",
+      "page_count": 1,
+      "ocr_fragment_count": 0,
+      "quality": "requires_review",
+      "issues": [
+        "LOW_QUALITY"
+      ],
+      "character_error_rate": null,
+      "critical_tokens": {
+        "correct": 0,
+        "total": 0,
+        "details": {}
+      },
+      "table_cell_completeness": {
+        "correct": 0,
+        "total": 0,
+        "details": {}
+      },
+      "page_marker_hits": {},
+      "page_marker_total": 0,
+      "valid_page_locator_ratio": 1.0,
+      "repeated_text_occurrences_located": null,
+      "repeated_text_y_positions_pdf_points": [],
+      "wall_latency_ms": 1278.051500004949,
+      "parser_metrics": null,
+      "ocr_runtime": null,
+      "expected_low_quality_downgrade": true,
+      "low_quality_downgrade_observed": true,
+      "failed_closed": false
+    },
+    {
+      "fixture_type": "malformed_synthetic_pdf",
+      "pdf_sha256": "4e95bac85fdbe646a6f8363ddf222732b0cb32c9fcbd1fb59ba25d30d9fbafb0",
+      "error": "INVALID_FILE",
+      "wall_latency_ms": 1027.5713999872096,
+      "parser_metrics": null,
+      "failed_closed": true
+    }
+  ],
+  "observed_timeouts": 0,
+  "observed_parser_failures": 1,
+  "observed_low_quality_downgrades": 1,
+  "limitations": [
+    "OCR quality measurements are only from synthetic fixtures and do not estimate real tender-document quality.",
+    "PaddleOCR is not installed, downloaded, benchmarked, or selected."
+  ]
+}

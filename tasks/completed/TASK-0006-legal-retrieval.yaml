@@ -1,0 +1,106 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0006",
+  "title": "法规版本摄取与适用范围检索",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0004"
+  ],
+  "related_requirements": [
+    "FR-006",
+    "NFR-008",
+    "SEC-009"
+  ],
+  "related_acceptance": [
+    "AC-002",
+    "AC-004"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md",
+    "docs/decisions/ADR-0010-legal-snapshots.md",
+    "contracts/schemas/legal-manifest.schema.json",
+    "contracts/schemas/legal-index.schema.json",
+    "contracts/schemas/legal-query.schema.json",
+    "contracts/schemas/legal-result.schema.json",
+    "tasks/reviews/TASK-0006.md",
+    "docs/development/development-workflow.md",
+    "docs/decisions/ADR-0011-development-and-validation.md",
+    "docs/decisions/ADR-0012-legal-lifecycle-and-provenance.md",
+    "docs/development/TASK-0006-validation.md",
+    "docs/development/testing-standard.md",
+    "contracts/schemas/legal-corpus-bundle.schema.json",
+    "contracts/schemas/legal-publication-request.schema.json"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example",
+    "knowledge/legal/**",
+    ".gitattributes",
+    ".github/workflows/verify.yml"
+  ],
+  "must_not_change": [
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "核验法规元数据，定义生效时间、地区和快照契约",
+    "建立摄取、条款切分、版本索引和混合检索"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0006-001",
+      "description": "无法核实版本的资料不作为确定结论依据",
+      "evidence": [
+        "tests/test_legal_retrieval.py",
+        "docs/development/TASK-0006-validation.md",
+        "config/legal/manifest.json",
+        "docs/development/legal-retrieval-start.md",
+        "tests/test_legal_evidence.py",
+        "contracts/schemas/legal-result.schema.json",
+        "tests/test_legal_lifecycle.py",
+        "tests/test_legal_applicability.py",
+        "tests/test_legal_sources.py",
+        "tests/test_legal_publications.py",
+        "scripts/check_legal_publications.py",
+        "scripts/check_legal_sources.py"
+      ]
+    },
+    {
+      "id": "TASK0006-002",
+      "description": "按审查基准日、地区和采购类型返回原文、条号和来源",
+      "evidence": [
+        "tests/test_legal_retrieval.py",
+        "docs/development/TASK-0006-validation.md",
+        "config/legal/manifest.json",
+        "docs/development/legal-retrieval-start.md",
+        "tests/test_legal_evidence.py",
+        "contracts/schemas/legal-result.schema.json",
+        "tests/test_legal_lifecycle.py",
+        "tests/test_legal_applicability.py",
+        "tests/test_legal_sources.py",
+        "tests/test_legal_publications.py",
+        "scripts/check_legal_publications.py",
+        "scripts/check_legal_sources.py"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "依据ADR-0011/0012由当前Codex独立实施/自检。D01未知上界/局部废止、D02不可变核验/来源/双CAS发布回滚、D04方式/双框架/条款范围、D05独立全局能力、D07HTML/PDF原始映射本期缺陷全部关闭；D03正式引用/D06无缓存边界保持。源码5347b110a8c3561c72086afd455755810de59abf本地Full413/0/0/0，Ruff/Mypy54与两个真实HTTP通过；真实PostgreSQL迁移/RLS/并发/撤权/审计失败回滚、固定Docker官方PDF84条15页及MinIO/ClamAV/OCR/HTTP均通过。远程https://github.com/w186www/Tender-Review/actions/runs/38510406707所有适用作业与汇总success，下载JUnit413/0/0/0。后续纯记录Quick，无重复Full；归档不代表全库效力/神经召回/生产AC验收，旧42法规仍unverified、有限地区/工程范围及核验截止保留。main/stash未动，后续建议TASK-0007，未启动。"
+}

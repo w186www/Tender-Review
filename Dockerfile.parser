@@ -5,6 +5,7 @@ COPY requirements-parser.lock /tmp/requirements-parser.lock
 RUN pip install --no-cache-dir -r /tmp/requirements-parser.lock
 COPY src/bidding_compliance /app/bidding_compliance
 COPY scripts/parser_entry.py /app/parser_entry.py
+COPY scripts/legal_source_entry.py /app/legal_source_entry.py
 ENV PYTHONDONTWRITEBYTECODE=1 OMP_THREAD_LIMIT=1
 USER 65532:65532
 ENTRYPOINT ["python", "-I", "/app/parser_entry.py"]

@@ -1,0 +1,19 @@
+# API/worker build context: source, checked-in contracts, legal corpus and pinned lock only.
+# Never include secrets, local virtualenvs, verification data or build caches.
+**
+!requirements-dev.lock
+!pyproject.toml
+!src/bidding_compliance/**
+!config/**
+!contracts/**
+!knowledge/**
+!scripts/**
+!deploy/**
+
+# Explicit exclusions that would otherwise slip through the allowlist above.
+**/__pycache__/**
+**/*.py[cod]
+**/.env
+**/.env.*
+**/*.log
+src/frontend/**

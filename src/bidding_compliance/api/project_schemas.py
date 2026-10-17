@@ -43,6 +43,14 @@ class ProjectCreate(ClosedModel):
     industry: str | None = Field(default=None, max_length=200)
     budget_amount: float | None = Field(default=None, ge=0, allow_inf_nan=False, strict=True)
     applicable_system: str | None = Field(default=None, max_length=1000)
+    procurement_method: Literal["tender", "non_tender", "unknown"] = "unknown"
+    buyer_type: Literal["government_entity", "enterprise", "other", "unknown"] = "unknown"
+    subject_type: Literal[
+        "works", "works_related_goods", "works_related_services", "goods", "services", "unknown",
+    ] = "unknown"
+    legal_frameworks: tuple[Literal["tendering", "government_procurement"], ...] = Field(
+        default=(), max_length=2,
+    )
 
 
 class ProjectUpdate(ProjectCreate):

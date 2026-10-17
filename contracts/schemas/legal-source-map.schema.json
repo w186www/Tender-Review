@@ -1,0 +1,213 @@
+{
+  "$defs": {
+    "SourceExclusion": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "bbox": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Bbox",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "reason": {
+          "const": "page_number",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "page",
+        "bbox",
+        "text",
+        "reason"
+      ],
+      "title": "SourceExclusion",
+      "type": "object"
+    },
+    "SourceSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "exclusiveMinimum": 0,
+          "title": "End",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "html_text",
+            "html_entity",
+            "pdf_glyph",
+            "header",
+            "separator"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "byte_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte Start"
+        },
+        "byte_end": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte End"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "kind"
+      ],
+      "title": "SourceSpan",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "law_id": {
+      "title": "Law Id",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "source_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Source Hash",
+      "type": "string"
+    },
+    "text_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Text Hash",
+      "type": "string"
+    },
+    "extraction_version": {
+      "enum": [
+        "identity-1",
+        "moj-html-map-1",
+        "pdf-glyph-map-1"
+      ],
+      "title": "Extraction Version",
+      "type": "string"
+    },
+    "spans": {
+      "items": {
+        "$ref": "#/$defs/SourceSpan"
+      },
+      "maxItems": 200000,
+      "minItems": 1,
+      "title": "Spans",
+      "type": "array"
+    },
+    "raw_exclusions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceExclusion"
+      },
+      "title": "Raw Exclusions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "law_id",
+    "version",
+    "source_hash",
+    "text_hash",
+    "extraction_version",
+    "spans"
+  ],
+  "title": "SourceMap",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-source-map.schema.json"
+}

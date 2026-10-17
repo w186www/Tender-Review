@@ -1,0 +1,91 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0025",
+  "title": "证据分类修复、账本回滚防护与 Windows CI 超时",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0024"
+  ],
+  "related_requirements": [
+    "FR-006",
+    "FR-008",
+    "SEC-009",
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-005",
+    "AC-006"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/testing-standard.md",
+    "docs/development/TASK-0024-validation.md"
+  ],
+  "allowed_paths": [
+    ".github/workflows/verify.yml",
+    "src/bidding_compliance/graph/**",
+    "src/bidding_compliance/services/**",
+    "src/bidding_compliance/legal/**",
+    "src/frontend/src/**",
+    "contracts/**",
+    "tests/**",
+    "docs/development/TASK-0025-validation.md",
+    "docs/index.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "tasks/active/TASK-0025-evidence-and-ledger-hardening.yaml",
+    "tasks/active/TASK-0024-ai-legal-correspondence.yaml",
+    ".verification/private/TASK-0025/**"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "config/legal/**",
+    "docs/reference/**",
+    "docs/decisions/DEC-005-real-tender-qwen-evaluation-authorization.md",
+    "docs/decisions/DEC-006-semantic-batch-authorization.md",
+    "tasks/completed/**",
+    "tasks/active/TASK-0022-real-tender-offline-evaluation.yaml",
+    "requirements-dev.lock"
+  ],
+  "steps": [
+    "修复 merge_findings 的证据分类：区分引用真实性核验与法律有效性、适用性确认，未核验法规不得进入正式法律证据。",
+    "审计预算账本的文件丢失与快照回滚风险，实施最小连续性检测并如实报告仍需部署级支持的部分。",
+    "将 Windows baseline 作业超时从 10 分钟调整为 20 分钟，不跳过任何测试。",
+    "新增回归测试覆盖未核验、超期、适用性未知、被篡改引用、真正确认、无选择六类场景。",
+    "运行 Focused、Ruff、Mypy、前端与仓库契约校验，提交并观察 Full CI。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0025-001",
+      "description": "未核验、超期或适用性未知的法规即使被模型选中也不进入正式法律证据，只作为参考并标明原因。",
+      "evidence": [
+        "tests/test_legal_evidence_classification.py",
+        "docs/development/TASK-0025-validation.md::证据分类修复"
+      ]
+    },
+    {
+      "id": "TASK0025-002",
+      "description": "账本缺失或不可读且存在审计记录时失败关闭，不恢复额度；正常重启与首次初始化不受影响。",
+      "evidence": [
+        "tests/test_authorized_runtime.py",
+        "docs/development/TASK-0025-validation.md::账本回滚防护"
+      ]
+    },
+    {
+      "id": "TASK0025-003",
+      "description": "Windows baseline 作业超时足以完成全量测试，且未跳过、屏蔽或减少任何测试。",
+      "evidence": [
+        ".github/workflows/verify.yml",
+        "docs/development/TASK-0025-validation.md::CI超时"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_legal_evidence_classification.py",
+    "./scripts/verify.ps1 -Mode Quick"
+  ],
+  "handoff_notes": "2026-10-16 完成。证据分类：仅通过确认链（eligible_for_confirmation）的法条进入 finding.evidence，其余转入 legal_references 并标注原因、版本状态与 applicable=false；引用不可验证时两处都不进入。账本防护：verify_ledger_continuity 在审计非空而账本缺失/为空/不可读时失败关闭；两文件协同回滚仍属部署阻断，需外部不可变存储，未宣称已解决。CI：jobs.baseline.timeout-minutes 由 10 改为 20，Full CI 全绿（baseline/postgres/ingestion/verify-required 均 success）。回归：新增 7 项证据分类测试与 3 项账本测试。详见 docs/development/TASK-0025-validation.md。后续进入部署准备阶段。"
+}

@@ -31,5 +31,13 @@ Embedding、Reranker、OCR 使用各自协议，禁止假设与 LLM 使用相同
 
 ## 当前实现范围
 
-当前只有统一Protocol、请求/响应数据类和边界校验测试；尚未实现供应商调用、脱敏、路由、预算或两个适配器合规测试。TASK-0008负责实际实现和AC-010验收。接口存在不等于可替换能力已经通过验收。
+TASK-0008实现了统一 `ModelGatewayService`、OpenAI Responses 与 Anthropic Messages 两个独立 REST 适配器、profile 路由、授权、Schema 校验、成本预留/结算、有限重试/熔断、脱敏入口及元数据审计。适配器端点固定为供应商 HTTPS URL，禁用重定向和环境代理；没有工具接口，也不从业务输入接受地址。
+
+TASK-0021 增加独立百炼 Qwen Chat Completions 适配器，不复用 Embedding Provider 或 OpenAI 地址。其严格 JSON Schema 请求只接受官方支持的子集，完整本地 Schema 校验保持不变。在线演示配置需明确隔离于默认路由；其 provider allowlist、合成数据 minimizer、单次调用/预算 guard 和元数据审计不得被视作生产预算或生产授权。外发正文、区域、费用与运行限制只能在明确 DEC 授权范围内启用；TASK-0021 的 DEC-002 单次演示授权已消耗，不授权额外模型调用。详见[ADR-0017](../decisions/ADR-0017-bailian-qwen-chat-adapter.md)、[DEC-002](../decisions/DEC-002-qwen-demo-authorization.md)和[在线演示指南](../development/model-gateway-online-demo.md)。
+
+外发默认关闭。服务端必须配置路由、tenant 的 provider allowlist、provider 的可处理数据分类、批准的 Prompt 版本、具体模型、价格版本/费率/调用上限、预算账本和可信调用绑定（call_id→tenant/task/node）。请求 metadata 不参与授权。非 public 输入必须有服务端 minimizer；DEC-002 批准前不得配置 confidential/restricted 外发授权。官方结构化输出不是本地校验替代品，输出仍执行完整 Draft 2020-12 Schema 检查，拒绝远程 `$ref`。
+
+UTF-8 字节上界（含系统 Prompt、输入、Schema 和包装开销）用于保守限制输入，供应商报告的 token 数用于后验上限检查、计费及审计。费率未知、token ceiling 缺失或预算 ledger 不可用时失败关闭。重试或降级前重新鉴权并重新预留；费用不确定的失败尝试按预留上界结算。Profile 未显式允许 fallback 时只使用首个候选。
+
+`InMemoryBudgetLedger` 使用进程锁原子预留，仅用于单进程验证。它没有多进程一致性，也不适用于生产部署。生产路由保持禁用，直到持久化共享 ledger 提供事务/原子预留并通过并发集成验收。真实供应商 smoke test 未执行，不代表 DEC-002、生产供应商、模型型号、价格、驻留或跨境传输获批。局部验收与在线验证分别记录于 `docs/development/TASK-0008-validation.md`。
 

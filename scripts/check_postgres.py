@@ -3,7 +3,7 @@
 import io
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,16 +20,23 @@ from sqlalchemy.orm import Session
 
 from bidding_compliance.api import create_app
 from bidding_compliance.core.config import Settings
+from bidding_compliance.legal.contracts import LegalManifest
+from bidding_compliance.legal.corpus import ingest, resolve_evidence
+from bidding_compliance.legal.retrieval import LegalRetriever
 from bidding_compliance.persistence.database import make_engine, migrate, set_tenant
 from bidding_compliance.persistence.models import (
     Base,
     Document,
     IngestionJob,
+    LegalOperatorGrant,
+    LegalRetrievalRun,
     Project,
     Tenant,
     User,
 )
-from bidding_compliance.services.identity import PASSWORDS
+from bidding_compliance.services.identity import PASSWORDS, authenticate
+from bidding_compliance.services.legal import read_run, retrieve_for_project
+from bidding_compliance.services.legal_authorization import require_legal_operation
 
 
 def main() -> None:
@@ -46,10 +53,7 @@ def main() -> None:
     admin = make_engine(settings)
     if "tenant" in inspect(admin).get_table_names():
         raise RuntimeError("Verification database must be empty; never clear existing data")
-    migrate(admin)
-    migrate(admin)
-    with admin.connect() as connection:
-        assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
+    migrate(admin, "202610131300")
     password = str(uuid4())
     with Session(admin) as db:
         db.add_all(
@@ -72,6 +76,17 @@ def main() -> None:
                 )
             )
         db.commit()
+    migrate(admin)
+    migrate(admin)
+    with Session(admin) as db:
+        db.add(
+            LegalOperatorGrant(
+                tenant_id="a", user_id="reviewer", active=True, capabilities=["ingest"]
+            )
+        )
+        db.commit()
+    with admin.connect() as connection:
+        assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
     runtime_password = str(uuid4())
     with admin.begin() as connection:
         # Password is an internally generated UUID, never external SQL input or a real secret.
@@ -87,6 +102,17 @@ def main() -> None:
             text("GRANT SELECT, INSERT, UPDATE ON auth_session, project TO task4_runtime")
         )
         connection.execute(text("GRANT SELECT, INSERT, UPDATE ON ingestion_job TO task4_runtime"))
+        connection.execute(text("GRANT SELECT, INSERT ON legal_retrieval_run TO task4_runtime"))
+        connection.execute(text("GRANT SELECT ON legal_operator_grant TO task4_runtime"))
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT ON review_configuration_revision, "
+                "review_configuration_event TO task4_runtime"
+            )
+        )
+        connection.execute(
+            text("GRANT SELECT, INSERT, UPDATE ON review_configuration_state TO task4_runtime")
+        )
         connection.execute(
             text(
                 "GRANT SELECT, INSERT ON document_section, section_revision, "
@@ -97,14 +123,32 @@ def main() -> None:
             text(
                 "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class "
                 "WHERE relname IN ('ingestion_job','document_section','section_revision',"
-                "'document_context_version')"
+                "'document_context_version','legal_retrieval_run',"
+                "'review_configuration_revision','review_configuration_event',"
+                "'review_configuration_state')"
             )
         ).all()
-        assert len(policies) == 4 and all(p[1] and p[2] for p in policies)
+        assert len(policies) == 8 and all(p[1] and p[2] for p in policies)
         connection.execute(
             text(
                 "GRANT SELECT, INSERT ON project_version, idempotency_record, "
                 "document, review_task, audit_event TO task4_runtime"
+            )
+        )
+        connection.execute(
+            text("GRANT SELECT, INSERT, UPDATE ON review_engine_run TO task4_runtime")
+        )
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT ON review_artifact, review_decision, review_result "
+                "TO task4_runtime"
+            )
+        )
+        connection.execute(text("GRANT SELECT ON checkpoint_migrations TO task4_runtime"))
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON checkpoints, checkpoint_blobs, "
+                "checkpoint_writes TO task4_runtime"
             )
         )
     runtime_settings = settings.model_copy(
@@ -118,7 +162,13 @@ def main() -> None:
     )
     runtime = make_engine(runtime_settings)
     body = dict(
-        name="synthetic", procurement_type="government", project_type="works", region="synthetic"
+        name="synthetic",
+        procurement_type="government",
+        project_type="works",
+        region="福建省福州市",
+        procurement_method="tender",
+        buyer_type="government_entity",
+        subject_type="works",
     )
     with TestClient(create_app(runtime_settings)) as client:
 
@@ -171,8 +221,96 @@ def main() -> None:
             set_tenant(db, "a")
             jobs = list(db.scalars(select(IngestionJob)))
             assert len(jobs) == 1 and jobs[0].document_id == document_id
+        root = Path(__file__).resolve().parents[1]
+        manifest = LegalManifest.model_validate_json(
+            (root / "config/legal/manifest.json").read_bytes()
+        )
+        retriever = LegalRetriever(ingest(root, manifest))
+        with Session(runtime) as db:
+            who = authenticate(db, runtime_settings, a["Authorization"].split(" ", 1)[1])
+            result = retrieve_for_project(
+                db,
+                who,
+                project["project_id"],
+                retriever,
+                text="投标保证金",
+                review_date=date(2026, 10, 14),
+            )
+            assert result.hits and result.run_snapshot is not None
+            assert result.query is not None
+            assert result.citable_evidence == tuple(h.evidence_id for h in result.hits)
+            for hit in result.hits:
+                assert resolve_evidence(root, retriever.index, hit, result.query) == hit.quote
+            run_id = result.run_snapshot.run_id
+        with Session(runtime) as db:
+            who = authenticate(db, runtime_settings, a["Authorization"].split(" ", 1)[1])
+            assert read_run(db, who, run_id) == result
+            require_legal_operation(db, who, "ingest")
+            try:
+                require_legal_operation(db, who, "publish")
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Ingest capability escalated to global publication")
+            require_legal_operation(db, who, "ingest")
+            assert db.execute(
+                text(
+                    "SELECT has_table_privilege(current_user,'legal_operator_grant','INSERT'), "
+                    "has_table_privilege(current_user,'legal_operator_grant','UPDATE'), "
+                    "has_table_privilege(current_user,'legal_operator_grant','DELETE')"
+                )
+            ).one() == (False, False, False)
+            try:
+                db.execute(text("UPDATE legal_operator_grant SET active = true"))
+            except DBAPIError:
+                db.rollback()
+            else:
+                raise AssertionError("Runtime role changed its global legal grant")
+            require_legal_operation(db, who, "ingest")
+            assert db.execute(
+                text(
+                    "SELECT has_table_privilege(current_user,'legal_retrieval_run','UPDATE'), "
+                    "has_table_privilege(current_user,'legal_retrieval_run','DELETE')"
+                )
+            ).one() == (False, False)
+            set_tenant(db, "b")
+            assert list(db.scalars(select(LegalRetrievalRun))) == []
+            who_b = authenticate(db, runtime_settings, b["Authorization"].split(" ", 1)[1])
+            try:
+                read_run(db, who_b, run_id)
+            except LookupError:
+                pass
+            else:
+                raise AssertionError("Cross-tenant retrieval run leaked")
+            db.add(
+                LegalRetrievalRun(
+                    tenant_id="a",
+                    run_id=str(uuid4()),
+                    project_id=project["project_id"],
+                    actor_id="reviewer",
+                    context_version=2,
+                    request_snapshot={},
+                    request_hash="0" * 64,
+                    result={},
+                    result_hash="0" * 64,
+                    created_at=datetime.now(),
+                )
+            )
+            try:
+                db.flush()
+            except DBAPIError:
+                db.rollback()
+            else:
+                raise AssertionError("Retrieval RLS allowed a cross-tenant insert")
         assert client.post("/api/v1/auth/logout", headers=a).status_code == 200
         assert client.get(path, headers=a).status_code == 401
+        with Session(runtime) as db:
+            try:
+                read_run(db, who, run_id)
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Revoked session read retrieval run")
 
     # RLS must also prevent mistakes in raw queries, writes and pooled connection reuse.
     with Session(runtime) as db:
@@ -218,7 +356,7 @@ def main() -> None:
         else:
             raise AssertionError("Composite FK allowed a cross-tenant document")
     with Session(admin) as db:
-        for table in ("project_version", "audit_event"):
+        for table in ("project_version", "audit_event", "legal_retrieval_run"):
             try:
                 # Fixed table names only; trigger must reject even privileged history changes.
                 db.execute(text("DELETE FROM " + table))  # noqa: S608
@@ -226,6 +364,12 @@ def main() -> None:
                 db.rollback()
             else:
                 raise AssertionError("Append-only trigger failed")
+        try:
+            db.execute(text("UPDATE legal_retrieval_run SET context_version = 9"))
+        except DBAPIError:
+            db.rollback()
+        else:
+            raise AssertionError("Append-only update trigger failed")
     with TestClient(create_app(settings)) as client:
         assert (
             client.post(
@@ -247,7 +391,9 @@ def main() -> None:
     migrate(admin)
     runtime.dispose()
     admin.dispose()
-    print("PASS: PostgreSQL migration, API, RLS, tenant FKs, concurrency and rollback")
+    print(
+        "PASS: PostgreSQL migration, API, RLS, tenant FKs, concurrency, retrieval runs and rollback"
+    )
 
 
 if __name__ == "__main__":

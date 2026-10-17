@@ -1,0 +1,78 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "request_id": {
+      "maxLength": 64,
+      "minLength": 16,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "expected_sequence": {
+      "minimum": 0,
+      "title": "Expected Sequence",
+      "type": "integer"
+    },
+    "operation": {
+      "enum": [
+        "publish",
+        "disable",
+        "rollback"
+      ],
+      "title": "Operation",
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "revision_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revision Id"
+    },
+    "expected_draft_sequence": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Draft Sequence"
+    },
+    "target_publication_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Publication Id"
+    }
+  },
+  "required": [
+    "request_id",
+    "expected_sequence",
+    "operation",
+    "reason"
+  ],
+  "title": "PublicationRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-publication-request.schema.json"
+}

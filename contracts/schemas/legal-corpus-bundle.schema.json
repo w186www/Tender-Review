@@ -1,0 +1,966 @@
+{
+  "$defs": {
+    "Applicability": {
+      "additionalProperties": false,
+      "properties": {
+        "procurement_methods": {
+          "items": {
+            "enum": [
+              "tender",
+              "non_tender"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Procurement Methods",
+          "type": "array"
+        },
+        "buyer_types": {
+          "items": {
+            "enum": [
+              "government_entity",
+              "enterprise",
+              "other"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Buyer Types",
+          "type": "array"
+        },
+        "subject_types": {
+          "items": {
+            "enum": [
+              "works",
+              "works_related_goods",
+              "works_related_services",
+              "goods",
+              "services"
+            ],
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Subject Types",
+          "type": "array"
+        },
+        "legal_frameworks": {
+          "items": {
+            "enum": [
+              "tendering",
+              "government_procurement"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Legal Frameworks",
+          "type": "array"
+        },
+        "jurisdictions": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Jurisdictions"
+        },
+        "procurement_types": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "government",
+                  "enterprise",
+                  "other"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Procurement Types"
+        },
+        "project_types": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "works",
+                  "goods",
+                  "services"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Types"
+        }
+      },
+      "required": [
+        "procurement_methods",
+        "buyer_types",
+        "subject_types",
+        "legal_frameworks"
+      ],
+      "title": "Applicability",
+      "type": "object"
+    },
+    "ClauseEffect": {
+      "additionalProperties": false,
+      "properties": {
+        "article": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Article",
+          "type": "string"
+        },
+        "effective_from": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective From"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective To"
+        },
+        "end_status": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "unknown",
+            "confirmed_open",
+            "confirmed_end"
+          ],
+          "title": "End Status",
+          "type": "string"
+        },
+        "verification": {
+          "enum": [
+            "verified",
+            "unverified"
+          ],
+          "title": "Verification",
+          "type": "string"
+        },
+        "note": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "article",
+        "verification",
+        "note"
+      ],
+      "title": "ClauseEffect",
+      "type": "object"
+    },
+    "ClauseScope": {
+      "additionalProperties": false,
+      "properties": {
+        "article": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Article",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Applicability"
+        },
+        "note": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "article",
+        "scope",
+        "note"
+      ],
+      "title": "ClauseScope",
+      "type": "object"
+    },
+    "LegalArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "data_base64": {
+          "maxLength": 2666668,
+          "title": "Data Base64",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "data_base64"
+      ],
+      "title": "LegalArtifact",
+      "type": "object"
+    },
+    "LegalClause": {
+      "additionalProperties": false,
+      "properties": {
+        "clause_id": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Clause Id",
+          "type": "string"
+        },
+        "law_id": {
+          "title": "Law Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "article": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Article"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "exclusiveMinimum": 0,
+          "title": "End",
+          "type": "integer"
+        },
+        "quote": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "quote_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Quote Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "clause_id",
+        "law_id",
+        "version",
+        "article",
+        "start",
+        "end",
+        "quote",
+        "quote_hash"
+      ],
+      "title": "LegalClause",
+      "type": "object"
+    },
+    "LegalIndex": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha4",
+          "default": "v1alpha4",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "pipeline_version": {
+          "const": "legal-ingestion-4",
+          "default": "legal-ingestion-4",
+          "title": "Pipeline Version",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/LegalManifest"
+        },
+        "clauses": {
+          "items": {
+            "$ref": "#/$defs/LegalClause"
+          },
+          "maxItems": 50000,
+          "minItems": 1,
+          "title": "Clauses",
+          "type": "array"
+        },
+        "source_maps": {
+          "items": {
+            "$ref": "#/$defs/SourceMap"
+          },
+          "title": "Source Maps",
+          "type": "array"
+        },
+        "text_exclusions": {
+          "items": {
+            "$ref": "#/$defs/TextExclusion"
+          },
+          "title": "Text Exclusions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "manifest",
+        "clauses",
+        "source_maps",
+        "text_exclusions"
+      ],
+      "title": "LegalIndex",
+      "type": "object"
+    },
+    "LegalManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha3",
+          "default": "v1alpha3",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/LegalVersion"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Versions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "versions"
+      ],
+      "title": "LegalManifest",
+      "type": "object"
+    },
+    "LegalVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "law_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Law Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "text_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Text Path",
+          "type": "string"
+        },
+        "text_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Text Hash",
+          "type": "string"
+        },
+        "source_uri": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "source_snapshot_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Snapshot Path",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "captured_on": {
+          "format": "date",
+          "title": "Captured On",
+          "type": "string"
+        },
+        "verification": {
+          "enum": [
+            "verified",
+            "unverified"
+          ],
+          "title": "Verification",
+          "type": "string"
+        },
+        "verified_through": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Verified Through"
+        },
+        "effective_from": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Effective From"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Effective To"
+        },
+        "end_status": {
+          "default": "unknown",
+          "enum": [
+            "unknown",
+            "confirmed_open",
+            "confirmed_end"
+          ],
+          "title": "End Status",
+          "type": "string"
+        },
+        "clause_effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClauseEffect"
+          },
+          "title": "Clause Effects",
+          "type": "array"
+        },
+        "source_format": {
+          "default": "text",
+          "enum": [
+            "text",
+            "moj_html",
+            "pdf"
+          ],
+          "title": "Source Format",
+          "type": "string"
+        },
+        "extraction_header": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Extraction Header",
+          "type": "string"
+        },
+        "expected_articles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Articles"
+        },
+        "applicability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Applicability"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "clause_scopes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClauseScope"
+          },
+          "title": "Clause Scopes",
+          "type": "array"
+        },
+        "jurisdictions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Jurisdictions",
+          "type": "array"
+        },
+        "procurement_types": {
+          "items": {
+            "enum": [
+              "government",
+              "enterprise",
+              "other"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Procurement Types",
+          "type": "array"
+        },
+        "project_types": {
+          "items": {
+            "enum": [
+              "works",
+              "goods",
+              "services"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Project Types",
+          "type": "array"
+        },
+        "authority": {
+          "enum": [
+            "law",
+            "regulation",
+            "department_rule",
+            "policy",
+            "reference"
+          ],
+          "title": "Authority",
+          "type": "string"
+        },
+        "verification_note": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Verification Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "law_id",
+        "title",
+        "version",
+        "text_path",
+        "text_hash",
+        "source_uri",
+        "source_snapshot_path",
+        "source_hash",
+        "captured_on",
+        "verification",
+        "verified_through",
+        "effective_from",
+        "effective_to",
+        "jurisdictions",
+        "procurement_types",
+        "project_types",
+        "authority",
+        "verification_note"
+      ],
+      "title": "LegalVersion",
+      "type": "object"
+    },
+    "SourceExclusion": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "bbox": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Bbox",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "reason": {
+          "const": "page_number",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "page",
+        "bbox",
+        "text",
+        "reason"
+      ],
+      "title": "SourceExclusion",
+      "type": "object"
+    },
+    "SourceMap": {
+      "additionalProperties": false,
+      "properties": {
+        "law_id": {
+          "title": "Law Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "text_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Text Hash",
+          "type": "string"
+        },
+        "extraction_version": {
+          "enum": [
+            "identity-1",
+            "moj-html-map-1",
+            "pdf-glyph-map-1"
+          ],
+          "title": "Extraction Version",
+          "type": "string"
+        },
+        "spans": {
+          "items": {
+            "$ref": "#/$defs/SourceSpan"
+          },
+          "maxItems": 200000,
+          "minItems": 1,
+          "title": "Spans",
+          "type": "array"
+        },
+        "raw_exclusions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceExclusion"
+          },
+          "title": "Raw Exclusions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "law_id",
+        "version",
+        "source_hash",
+        "text_hash",
+        "extraction_version",
+        "spans"
+      ],
+      "title": "SourceMap",
+      "type": "object"
+    },
+    "SourceSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "exclusiveMinimum": 0,
+          "title": "End",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "html_text",
+            "html_entity",
+            "pdf_glyph",
+            "header",
+            "separator"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "byte_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte Start"
+        },
+        "byte_end": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte End"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "kind"
+      ],
+      "title": "SourceSpan",
+      "type": "object"
+    },
+    "TextExclusion": {
+      "additionalProperties": false,
+      "properties": {
+        "law_id": {
+          "title": "Law Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "exclusiveMinimum": 0,
+          "title": "End",
+          "type": "integer"
+        },
+        "reason": {
+          "enum": [
+            "preamble",
+            "chapter",
+            "whitespace",
+            "toc"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "law_id",
+        "version",
+        "start",
+        "end",
+        "reason"
+      ],
+      "title": "TextExclusion",
+      "type": "object"
+    },
+    "VerificationSource": {
+      "additionalProperties": false,
+      "properties": {
+        "law_id": {
+          "title": "Law Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "source_uri": {
+          "pattern": "^https://[^/@]+\\.gov\\.cn/",
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "captured_on": {
+          "format": "date",
+          "title": "Captured On",
+          "type": "string"
+        }
+      },
+      "required": [
+        "law_id",
+        "version",
+        "source_uri",
+        "path",
+        "source_hash",
+        "captured_on"
+      ],
+      "title": "VerificationSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "v1alpha1",
+      "default": "v1alpha1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "index": {
+      "$ref": "#/$defs/LegalIndex"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/LegalArtifact"
+      },
+      "maxItems": 3000,
+      "minItems": 1,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "verification_sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/VerificationSource"
+      },
+      "title": "Verification Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "index",
+    "artifacts"
+  ],
+  "title": "CorpusBundle",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-corpus-bundle.schema.json"
+}

@@ -27,6 +27,8 @@ from bidding_compliance.persistence.models import (
     Base,
     Document,
     Project,
+    ReviewEngineRun,
+    ReviewTask,
     Tenant,
     User,
 )
@@ -159,6 +161,33 @@ def test_cross_tenant_read_update_history_list_and_forged_header(system):
     assert client.get("/api/v1/projects", headers=b).json()["items"] == []
     assert create(client, b, tenant_id="a").status_code == 422
     assert create(client, b).json()["tenant_id"] == "b"
+
+
+def test_configuration_management_requires_tenant_admin_and_authentication(system):
+    client, engine, _, _ = system
+    catalog_url = "/api/v1/admin/configurations/catalog"
+    state_url = "/api/v1/admin/configurations"
+    assert client.get(catalog_url).status_code == 401
+
+    reviewer = sign_in(system)
+    assert client.get(catalog_url, headers=reviewer).status_code == 403
+    assert client.get(state_url, headers=reviewer).status_code == 403
+
+    admin = sign_in(system, role="admin")
+    catalog = client.get(catalog_url, headers=admin)
+    assert catalog.status_code == 200, catalog.text
+    payload = catalog.json()
+    assert payload["skills"]
+    assert "api_key" not in payload["model_policy"]
+    assert "provider" not in payload["model_policy"]
+    assert client.get(state_url, headers=admin).json()["items"] == []
+    with Session(engine) as db:
+        denied = list(
+            db.scalars(
+                select(AuditEvent).where(AuditEvent.action == "configuration.operation_denied")
+            )
+        )
+        assert len(denied) == 2
 
 
 @pytest.mark.parametrize("role", ["admin", "auditor", "operator"])
@@ -323,6 +352,128 @@ def test_missing_key_fail_closed_and_production_rejects_sqlite(system):
         validate("Error", response.json())
     with pytest.raises(RuntimeError, match="SQLite"):
         make_engine(settings.model_copy(update={"app_env": "production"}))
+
+
+def test_task0011_project_workbench_lists_documents_and_durable_review_status(system):
+    client, engine, _, _ = system
+    headers = sign_in(system)
+    project = create(client, headers).json()
+    document_id = str(uuid4())
+    review_task_id = str(uuid4())
+    run_id = str(uuid4())
+    now = datetime.now(UTC)
+    with Session(engine) as db:
+        set_tenant(db, "a")
+        db.add(
+            Document(
+                tenant_id="a",
+                project_id=project["project_id"],
+                document_id=document_id,
+                status="ready",
+                sha256="a" * 64,
+                object_ref="fixture://document",
+                file_format="pdf",
+                media_type="application/pdf",
+                size_bytes=4096,
+                parse_version=2,
+                context_version=1,
+                issues=[],
+            )
+        )
+        db.add(
+            ReviewTask(
+                tenant_id="a",
+                review_task_id=review_task_id,
+                project_id=project["project_id"],
+                run_id=run_id,
+                status="running",
+            )
+        )
+        db.flush()
+        db.add(
+            ReviewEngineRun(
+                tenant_id="a",
+                review_task_id=review_task_id,
+                run_id=run_id,
+                project_id=project["project_id"],
+                actor_id="reviewer",
+                status="running",
+                snapshot={"document_requests": [{"document_id": document_id}]},
+                snapshot_hash="b" * 64,
+                request_hash="c" * 64,
+                retry_count=0,
+                failure_code=None,
+                publication_id=None,
+                revision_id=None,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        db.commit()
+
+    docs = client.get(f"/api/v1/projects/{project['project_id']}/documents", headers=headers)
+    assert docs.status_code == 200, docs.text
+    validate("DocumentList", docs.json())
+    assert docs.json()["items"][0]["document_id"] == document_id
+    assert docs.json()["items"][0]["file_format"] == "pdf"
+
+    reviews = client.get(f"/api/v1/projects/{project['project_id']}/reviews", headers=headers)
+    assert reviews.status_code == 200, reviews.text
+    validate("ReviewList", reviews.json())
+    assert reviews.json()["items"][0]["status"] == "running"
+    status = client.get(f"/api/v1/reviews/{review_task_id}", headers=headers)
+    assert status.status_code == 200, status.text
+    validate("ReviewTask", status.json())
+    assert status.json()["run_id"] == run_id
+
+    auditor_resume = client.post(
+        f"/api/v1/review-tasks/{review_task_id}/runs/{run_id}/resume",
+        headers=sign_in(system, role="auditor"),
+    )
+    assert auditor_resume.status_code == 403
+    retry_unavailable = client.post(
+        f"/api/v1/review-tasks/{review_task_id}/runs/{run_id}/retry",
+        headers=headers,
+    )
+    assert retry_unavailable.status_code == 503
+
+    unavailable = client.post(
+        f"/api/v1/projects/{project['project_id']}/reviews",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={"document_ids": [document_id]},
+    )
+    assert unavailable.status_code == 503
+
+
+def test_task0011_audit_query_is_tenant_scoped_and_auditor_only(system):
+    client, engine, _, _ = system
+    now = datetime.now(UTC)
+    with Session(engine) as db:
+        for tenant, action in (("a", "synthetic.audit"), ("b", "synthetic.audit")):
+            db.add(
+                AuditEvent(
+                    tenant_id=tenant,
+                    event_id=str(uuid4()),
+                    actor_id="auditor",
+                    action=action,
+                    resource_id="project-example",
+                    request_id=str(uuid4()),
+                    occurred_at=now,
+                )
+            )
+        db.commit()
+
+    reviewer = client.get("/api/v1/audit/events", headers=sign_in(system, role="reviewer"))
+    assert reviewer.status_code == 403
+    auditor = client.get(
+        "/api/v1/audit/events",
+        params={"action": "synthetic.audit", "resource_id": "project-example"},
+        headers=sign_in(system, role="auditor"),
+    )
+    assert auditor.status_code == 200, auditor.text
+    validate("AuditEventList", auditor.json())
+    assert auditor.json()["total"] == 1
+    assert all(item["action"] == "synthetic.audit" for item in auditor.json()["items"])
 
 
 def test_anonymous_and_input_boundaries(system):

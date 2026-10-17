@@ -1,0 +1,282 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0027",
+  "title": "DEC-007 完整能力：真实 Qwen 语义分析、全量法规向量索引与逐文件授权",
+  "status": "in_progress",
+  "owner": "ZCode",
+  "depends_on": [
+    "TASK-0026"
+  ],
+  "related_requirements": [
+    "FR-007",
+    "FR-009",
+    "FR-013",
+    "SEC-005",
+    "SEC-009",
+    "SEC-011",
+    "NFR-007",
+    "NFR-008",
+    "NFR-011",
+    "NFR-012"
+  ],
+  "related_acceptance": [
+    "AC-003",
+    "AC-004",
+    "AC-005",
+    "AC-006",
+    "AC-007"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/decisions/DEC-007-demo-real-qwen-authorization.md",
+    "docs/development/TASK-0023-validation.md",
+    "docs/development/TASK-0026-validation.md"
+  ],
+  "allowed_paths": [
+    "src/bidding_compliance/services/real_embedding_runtime.py",
+    "src/bidding_compliance/services/real_ai_runtime.py",
+    "src/bidding_compliance/model_gateway/authorized_runtime.py",
+    "src/bidding_compliance/legal/vector_index.py",
+    "src/frontend/src/app.tsx",
+    "src/bidding_compliance/api/documents.py",
+    "src/bidding_compliance/api/schemas.py",
+    "src/frontend/src/api/client.ts",
+    "src/frontend/src/api/operations.ts",
+    "src/frontend/src/pages/project.tsx",
+    "src/frontend/src/pages/project.test.tsx",
+    "src/frontend/src/test-setup.ts",
+    "scripts/**",
+    "deploy/**",
+    "docker-compose.demo.yml",
+    "Dockerfile.web",
+    "tests/**",
+    "docs/decisions/DEC-007-demo-real-qwen-authorization.md",
+    "docs/development/TASK-0027-validation.md",
+    "docs/index.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "tasks/active/TASK-0027-real-ai-full-capability.yaml",
+    ".gitignore"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "config/legal/**",
+    "contracts/**",
+    "src/frontend/src/api/schema.d.ts",
+    "src/frontend/src/pages/audit.tsx",
+    "src/frontend/src/pages/configuration.tsx",
+    "src/frontend/src/pages/login.tsx",
+    "src/frontend/src/pages/projects.tsx",
+    "src/frontend/src/pages/reviews.tsx",
+    "src/frontend/package.json",
+    "src/frontend/package-lock.json",
+    "docs/reference/**",
+    "requirements-dev.lock",
+    "requirements-parser.lock",
+    "tasks/completed/**",
+    "src/bidding_compliance/legal/retrieval.py",
+    "src/bidding_compliance/services/evidence_checker.py"
+  ],
+  "steps": [
+    "新增 DEC-007-2026-10-16 授权条目（LLM 300 / Embedding 800 / ¥30，2026-10-16 修订自 400），独立账本路径，不重置 DEC-005/006 计数；建库与查询共用同一账本。",
+    "去掉全量向量索引的 [:10] 硬编码切片，改为覆盖全部符合字节约束的条款，并报告无法嵌入的超长条款数量。",
+    "将 ScopedEmbeddingGuard 从枚举组合改为按已批准语料文本集合的线性成员校验，保持只允许批准语料与脱敏查询文本外发的语义。",
+    "分批改为同时受每批最大条数与 UTF-8 字节上限约束，并验证断点续建、缓存命中与索引完整性。",
+    "实现 DEC-007 主授权范围加独立逐文件批准记录：授权记录持久化、可审计、演示账号不可修改，且不得通过修改白名单重置账本。",
+    "新增逐文件授权 CLI，登记文件 SHA-256 与理由并写审计；未登记文件一律拒绝外发并给出明确提示。",
+    "验收前阻断问题：compose 只向 api 注入真实模型变量（worker 等零注入，全部留空仍可离线启动），并以解析 compose YAML 的测试固定。",
+    "验收前阻断问题：服务端 retriever 工厂增加显式 allow_build 开关（API 传 False，维护命令走直接构建），缺索引/未完成/校验失败直接拒绝且零供应商调用；用 planned_build_id 与 manifest 身份校验发布版本与 embedding 身份一致性。",
+    "验收前阻断问题：逐文件注册表按 mtime/size 重读，授权判定点（_freeze_run/_invoke 与出站 minimizer）每次重解析，使撤销对运行中进程即时生效；测试证明外部撤销后外发被拒。",
+    "验收前阻断问题：前端新增 dec007-real-qwen 模式说明并更新 Dockerfile.web 与 env 模板注释；800/801 批次边界、¥30 耗尽与失败预留保留均补边界测试。",
+    "以 MockTransport 与离线 provider 完成单元测试、集成测试；确认失败路径不产生任何合成结论、无静默回退。",
+    "运行 Focused 与 Full 及必需专项检查，记录真实命令与数字；开发期间不切换线上 API。",
+    "离线实测建库批数与查询消耗，据此提交首次真实调用申请（批次、费用、文件哈希、外发数据范围），等待批准。",
+    "第六轮（用户 2026-10-16 指令）：只提高 DEC-007 的硬上限数值为 2000 次 LLM / 2000 批 Embedding / ¥200（授权 ID、账本文件与历史行不变，防失控机制不放宽），同步测试期望与文档。",
+    "第六轮（用户 2026-10-16 指令）：允许审核员对**当前上传的单个文件**做逐文件外发授权——受鉴权 API 端点（confirmed 服务端校验、SHA-256 由服务端解析、无全部放行开关、每次登记写追加式注册表一行与租户审计行、不触碰账本）与前端一次性显式确认；offline 装配一律 503；CLI 继续可用；本轮不改 contracts/**（端点未登记进 OpenAPI 契约，如实记录）。",
+    "第七轮（用户 2026-10-16 指令，目标：任意自有文件上传后能在网页里走到审查）：给 needs_review 文档补最小修复路径（查看/校正文本 → correctDocumentText → 若通过则接着确认上下文 → ready），不放宽任何质量门禁；复验并修正逐文件外发授权流程（未登记文件的审查必须在冻结前被拒且错误语义可区分）；用本机回环 compose 栈 + 真实浏览器走通「上传自有合成 DOCX → 修复到 ready → 登记外发授权 → 发起审查/被拒」，记录真实数字。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0027-001",
+      "description": "DEC-007 为独立授权条目与独立账本，DEC-005/006 历史计数与费用不被重置或合并；Embedding 上限 800、LLM 300、¥30 同时生效。",
+      "evidence": [
+        "src/bidding_compliance/model_gateway/authorized_runtime.py",
+        "tests/test_task0027_per_file_authorization.py",
+        "tests/test_task0027_budget_boundaries.py",
+        "docs/decisions/DEC-007-demo-real-qwen-authorization.md"
+      ]
+    },
+    {
+      "id": "TASK0027-002",
+      "description": "全量索引覆盖全部可嵌入条款，明确报告未能嵌入的超长条款数量；不再使用任意 10 条切片；服务端缺预构建索引时拒绝。",
+      "evidence": [
+        "src/bidding_compliance/services/real_embedding_runtime.py",
+        "scripts/prebuild_legal_vectors.py",
+        "tests/test_task0027_full_vector_index.py"
+      ]
+    },
+    {
+      "id": "TASK0027-003",
+      "description": "分批同时受最大条数与 UTF-8 字节上限约束；断点续建、缓存命中与索引完整性均有测试证据；预构建与 API 的嵌入身份、发布版本、卷与账本一致性分别被拒绝。",
+      "evidence": [
+        "src/bidding_compliance/legal/vector_index.py",
+        "tests/test_task0027_full_vector_index.py",
+        "tests/test_task0027_budget_boundaries.py"
+      ]
+    },
+    {
+      "id": "TASK0027-004",
+      "description": "未授权文件在任何情况下都不外发；撤销对运行中进程即时生效；真实模型失败进入 failed 且不产生合成结论。",
+      "evidence": [
+        "src/bidding_compliance/services/real_ai_runtime.py",
+        "tests/test_task0027_per_file_authorization.py",
+        "tests/test_real_ai_runtime.py"
+      ]
+    },
+    {
+      "id": "TASK0027-005",
+      "description": "逐文件授权记录持久化、可审计，且不能通过修改白名单重置账本。",
+      "evidence": [
+        "deploy/manage_authorization.py",
+        "deploy/README-demo.md",
+        "tests/test_task0027_per_file_authorization.py"
+      ]
+    },
+    {
+      "id": "TASK0027-006",
+      "description": "法规现行有效性与适用性校验规则未改变；未核验法条仍不能成为确认违法的依据。",
+      "evidence": [
+        "tests/test_legal_applicability.py",
+        "tests/test_legal_evidence_classification.py"
+      ]
+    },
+    {
+      "id": "TASK0027-007",
+      "description": "Focused、Full 与必需专项检查通过；开发期间线上 API 未被切换（远程 CI 需提交后观察，尚未发生）。",
+      "evidence": [
+        "docs/development/TASK-0027-validation.md",
+        "docker-compose.demo.yml",
+        "tests/test_task0027_deploy_compose.py"
+      ]
+    },
+    {
+      "id": "TASK0027-008",
+      "description": "本轮硬门禁：装配层可显式传入 llm_limit/embedding_limit/total_cny 并透传到同一账本（DEC-007 授权上限不变）；隔离验证入口把 4/322/累计¥2 固定为代码常量（环境变量与命令行都无法放宽），第 5 次 LLM、第 11 次新增 Embedding、累计 ¥2 耗尽均在供应商请求前被原子拒绝；账本基线只读核对（0/312/¥0.1035070/未结算 0，不一致即停止且不重置）；方案 A 的多实例边界如实记录。",
+      "evidence": [
+        "src/bidding_compliance/services/real_ai_runtime.py",
+        "scripts/task0027_real_ai_validation_app.py",
+        "scripts/task0027_ledger_baseline.py",
+        "tests/test_task0027_round_limits.py",
+        "tests/test_task0027_validation_entry.py",
+        "deploy/README-demo.md"
+      ]
+    },
+    {
+      "id": "TASK0027-009",
+      "description": "验证入口强制索引身份与宿主机侧离线证据（第三轮最小修正）：① --publication-id/--revision-id 为必需项，缺失即非零退出，不打印 prebuilt index verified、零供应商请求；② 预检查把两者与 modelstate 卷内 vector-manifest.json 记录值逐一比对，并校验 legal_snapshot_sha256、embedding_identity.identity_sha256、item_count（3112）、source_item_count（3120）与索引库中该构建的完整性/条目数，全部一致才打印含 build_id 与 item_count 的 prebuilt index verified 行；③ 人工标志保留但不再单独成立：--preflight 同时要求新鲜的 verdict=ok 宿主机证据（deploy/verify_api_offline_mode.sh 产出，默认 600 秒窗口、可配 60–3600 秒），证据中的 api 容器 ID 与 compose 项目必须与当前部署一致；缺失/过期/unknown/untrusted/不一致/只有标志无证据一律拒绝；④ 宿主机脚本只用只读 docker compose ps / docker ps / docker inspect，不挂 socket、不给容器 Docker 权限，判定 ok/untrusted/unknown 并写证据文件，且只输出白名单字段（DEPLOY_REVIEW_MODE、APP_ENV、镜像与进程信息），绝不输出完整环境变量或密钥；发现第二个 authorized-real 实例即 untrusted，无法确定执行模式即 unknown，两者均立即停止、不发起供应商调用。",
+      "evidence": [
+        "scripts/task0027_real_ai_validation_app.py",
+        "deploy/verify_api_offline_mode.sh",
+        "deploy/verify_api_offline_mode.py",
+        "docker-compose.demo.yml",
+        "tests/test_task0027_host_offline_evidence.py",
+        "tests/test_task0027_validation_entry.py",
+        "deploy/README-demo.md",
+        "docs/development/TASK-0027-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0027-010",
+      "description": "第四轮最小修正（用户 2026-10-16 指定的两处修正）：① 第二个真实模型实例的检测覆盖实际启动命令与镜像，不再只看 DEPLOY_REVIEW_MODE——宿主上由只读 docker ps -aq 枚举、逐个 docker inspect 的运行容器中，入口/命令出现 task0023_real_ai_app（authorized-real 装配）或 task0027_real_ai_validation_app（隔离验证入口，即使该容器仍是 offline）、命令为 api_entry.py 且 mode 为 authorized-real、镜像引用带 task0027-validation 标签，任一成立即 untrusted（保留原有 authorized-real 判定；按容器 ID 排除预期的线上 api 容器）；② 无法读取执行身份（inspect 失败、无 JSON、容器 ID/镜像引用/入口命令/运行状态读不到，或命令为 api_entry.py 而 mode 读不到）时判 unknown 并新增检查 all_running_containers_identified=false，绝不声称不存在第二个真实模型实例；证据升版 schema_version=v1alpha2（second_real_model_instances 带 reason）；③ 反例测试：offline 模式下运行且命令指向 task0027_real_ai_validation_app.py → untrusted、task0023 命令（.py 与 :app 两种写法）→ untrusted、验证镜像标签 → untrusted、api_entry.py+authorized-real → untrusted、四类身份不可读 → unknown；④ README 逐文件授权 CLI（approve/list/revoke）改用已构建的 task0027-validation 镜像 + 一次性容器 + 同一 modelstate 卷执行，不再依赖未更新的公网 :demo 镜像，且写明不影响运行中的线上容器与 offline 模式、标签独立不覆盖 :demo。",
+      "evidence": [
+        "deploy/verify_api_offline_mode.py",
+        "deploy/verify_api_offline_mode.sh",
+        "tests/test_task0027_host_offline_evidence.py",
+        "deploy/README-demo.md",
+        "docs/development/TASK-0027-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0027-011",
+      "description": "阶段二调整后的交付项（用户 2026-10-16 指令；不动数据、零付费调用、未触碰线上服务器）：① 统一 modelstate 正式部署路径——正式装配与部署默认 private root 改为阶段一实际存放数据的卷根 /app/.verification/private（task0023_real_ai_app.py、task0027_real_ai_validation_app.py、prebuild_legal_vectors.py、task0027_ledger_baseline.py、deploy/manage_authorization.py 默认注册表），并写入 deploy/demo.env.example、docker-compose.demo.yml、deploy/README-demo.md；不得移动/删除/重置任何已有数据。② 只读一致性核对手段与实测：新增 scripts/task0027_identity_check.py（授权 ID、账本 scope、注册表路径、模型审计文件、法规 publication/revision、向量索引 build_id、覆盖率与缓存向量完整性；全只读，缺失即报告绝不创建，退出码 0/2）与 scripts/task0027_index_plan.py（从冻结语料离线重算 build id 并给出快照增删/缓存命中）；实测 build_id=c7344cac…/snapshot=69d340d6…/3112/3120/312 批/在线 embedding 身份一致，容器内 --print-scope 解析为卷根路径、scope=a3d2e9d0…，本机无数据时失败关闭；账本基线期望同步为阶段二 LLM 2 / Embedding 312 / ¥0.1062161 / 未结算 0 并同步 README。③ 120 秒超时找回与幂等（证明，不重构后台）：tests/test_task0027_timeout_recovery.py 覆盖超时中断后任务仍可查询（running→result_published）、同幂等键重复提交不新增任务/不新增账本记录（账本字节与摘要不变）、同键不同文档集 409、新键才是新任务，并断言前端 120_000 ms 常量；前端仅在 AbortError 分支做最小引导（REVIEW_TIMEOUT_NOTICE + 立即刷新持久化任务列表），不重构后台任务系统、不改幂等语义；内部验证实例（本机回环 compose、离线）真实输出 task_found_after_abort=true、同键重提同一任务、跨项目同键 409。④ 部署与回滚方案（文档，不执行）：README 8.5 覆盖 api 与 nginx 分别构建同提交镜像、VITE_REVIEW_MODE=dec007-real-qwen 为构建期参数、切换 authorized-real 的前置（索引 pinned 校验、宿主 offline 证据、账本基线、注册表路径）、回滚（改回 offline 并重建 api、账本不重置、revoke 立即生效、索引与卷保留、HTTPS 与 certbot 定时器与审计/数据库不动），并明确新上传文件不得自动授权、未核验法规保持待核验。⑤ 内容验收：内部实例 Microsoft Edge 全流程 8 张截图（登录→项目→上传→上下文→审查详情→风险与服务端精确定位→人工复核历史→发布→Word/PDF 下载→任务列表 结果已发布）；对下载的 Word/PDF 抽正文断言风险标题、原文摘录、证据状态 insufficient_evidence、适用性未经确认提示与无违法认定，并声明该报告是阶段一服务器报告的替代品。",
+      "evidence": [
+        "scripts/task0023_real_ai_app.py",
+        "scripts/task0027_real_ai_validation_app.py",
+        "scripts/prebuild_legal_vectors.py",
+        "scripts/task0027_ledger_baseline.py",
+        "scripts/task0027_identity_check.py",
+        "scripts/task0027_index_plan.py",
+        "deploy/manage_authorization.py",
+        "deploy/demo.env.example",
+        "docker-compose.demo.yml",
+        "deploy/README-demo.md",
+        "tests/test_task0027_timeout_recovery.py",
+        "tests/test_task0027_identity_check.py",
+        "tests/test_task0027_index_plan.py",
+        "src/frontend/src/utils.ts",
+        "src/frontend/src/pages/project.tsx",
+        "src/frontend/src/utils.test.ts",
+        "docs/development/TASK-0027-validation.md"
+      ]
+    }
+    ,
+    {
+      "id": "TASK0027-012",
+      "description": "第六轮（用户 2026-10-16 指令）：① DEC-007 硬上限只提数值为 2000/2000/¥200，授权 ID DEC-007-2026-10-16、账本文件与全部历史行不变，单次全额预留、max_attempts=1、并发 1、失败与未知用量保留预留且不自动补发、构造期拒绝超限参数等防失控机制全部保持；测试期望（budget_boundaries 的 2000/2001 与 ¥200 耗尽、per_file_authorization 的授权上限字典、round_limits 的宽上限断言、validation_entry 的严格更紧对比）与文档同步。② 逐文件授权的受鉴权端点 POST /projects/{projectId}/documents/{documentId}/external-authorization 只对当前上传文件的 SHA-256 生效：confirmed 必须为 true（服务端校验）、SHA-256 由服务端从数据库解析（请求体 extra=forbid，不接受调用方哈希）、无全部放行开关、未确认文件只做本地处理；每次登记写追加式注册表一行（哈希/文档标识/理由/时间/操作人）并写租户审计事件；不触碰账本、不读文件内容、不发起供应商调用；仅 authorized-real 装配与验证实例提供注册表（offline 一律 503），权限仅 reviewer；前端在 dec007-real-qwen 构建中新增「登记外发授权」一次性显式确认（固定声明 + 必填理由 + 必选确认框）。③ 本轮按底线不改 contracts/**：端点未登记进 contracts/openapi.yaml，前端未使用生成类型而走显式鉴权 JSON 调用（postJson），如实记录该偏离；deploy/manage_authorization.py CLI 未改动。",
+      "evidence": [
+        "src/bidding_compliance/model_gateway/authorized_runtime.py",
+        "src/bidding_compliance/api/documents.py",
+        "src/bidding_compliance/api/schemas.py",
+        "src/frontend/src/api/client.ts",
+        "src/frontend/src/api/operations.ts",
+        "src/frontend/src/pages/project.tsx",
+        "tests/test_task0027_budget_boundaries.py",
+        "tests/test_task0027_per_file_authorization.py",
+        "tests/test_task0027_round_limits.py",
+        "tests/test_task0027_validation_entry.py",
+        "tests/test_task0027_external_authorization_api.py",
+        "docs/development/TASK-0027-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0027-013",
+      "description": "第七轮（用户 2026-10-16 指令，目标：任意自有文件上传后能在网页里走到审查；修复期间不放宽任何门禁、不触碰线上、不 git 提交；**交付阶段由用户 2026-10-16 另行指令提交、合并远端 README、推送、更新公网并验收**）：① 修复 1——前端新增「查看/校正文本」最小修复路径（仅 reviewer 且 needs_review 时显示；GET sections → 只提交改动片段 + 必填理由 → POST corrections；按 schema.d.ts 契约实现，未猜字段），服务端重新判定通过后自动接着走既有上下文确认（expected_version 取自 GET context 的 version）到 ready；不通过则弹窗保持打开、如实提示并重读片段；needs_review 仍不能直接确认上下文、仍只有 ready 可勾选，ingestion/quality.py 与 ingestion_worker 的质量判定、病毒扫描、租户与鉴权一律未改（后端无需改动即支持该路径）。② 修复 2——逐文件外发授权复验：上传→未授权拒绝→端点登记→同一运行中装配放行该文件哈希（引擎门 + 出站最小化器）、注册表一行含 actor/时间/理由/哈希、无账本；并修正「未登记文件的审查」被 _translate 误映射为 409 的缺陷（拒发消息改为含 authorized → 403），前端 403 分支给出授权指引；修掉两个弹窗 key 重复的 React 同键告警。③ 端到端（本机回环 compose 栈、本 Worktree 镜像、仅 127.0.0.1:8090、独立项目名与 VOLUME_PREFIX）：Phase A（offline + offline-deterministic 前端）上传 scripts/generate_demo_fixture.py 生成的合成 DOCX（质量通过）与一份质量不足的合成 DOCX（needs_review）→ 新入口转录到 ready → 发起审查（202）→ 等待人工复核 → 记录决定 → 发布结果；Phase B（authorized-real + dec007-real-qwen 前端，占位凭据从未被调用）登记该文件外发授权（201，注册表追加一行）→ 对另一份未登记且 ready 的文件发起审查被冻结前拒绝（403），无任务行；账本 0/0/¥0/未结算 0，模型审计与嵌入审计 0 字节，日志零供应商主机名。④ 测试与门禁：新增 tests/test_task0027_needs_review_repair.py（6 项）与扩展 tests/test_task0027_external_authorization_api.py（6 项），新增前端 src/frontend/src/pages/project.test.tsx（6 项）与 jsdom <dialog> 测试替身；ruff/mypy/verify_repo/官方 Focused（三个改动测试文件 26 passed）通过，前端 biome/tsc/vitest/build 通过，官方 Full 退出码 0（818 passed，JUnit 818/0/0/0）。⑤ 交付与公网：修复提交 3b0df81、合并远端 README 后 HEAD 61a0185（CI run 38931207073 全部适用作业 success）；公网重建为 task0027-61a0185 （nginx 构建期 VITE_REVIEW_MODE=dec007-real-qwen，旧镜像保留可回滚，deploy/.env、账本、注册表、索引、HTTPS 未动）；公网冻结样本验收 passed（provider=bailian、execution_mode=real-qwen、2 次调用、1009/699 tokens、¥0.0026945、Word/PDF 哈希一致）；公网 needs_review 闭环 passed（低质量样本 needs_review/LOW_QUALITY → 校正 → needs_confirmation → 上下文 → ready → 未登记文件 403 → 登记 201 → 审查 202 → waiting_human，真实 Qwen 2 次调用、1165/821 tokens、¥0.0031487）；账本累计 25 次 LLM / 312 批 Embedding / ¥0.1474435 / 未结算 0；另记录一个既有、范围外未修缺口：候选数为 0 时 semantic_analysis 会在调用模型前 ValueError 失败（运行 review_execution_failed、API 422）。",
+      "evidence": [
+        "src/frontend/src/api/operations.ts",
+        "src/frontend/src/pages/project.tsx",
+        "src/frontend/src/pages/project.test.tsx",
+        "src/frontend/src/test-setup.ts",
+        "src/bidding_compliance/services/real_ai_runtime.py",
+        "tests/test_task0027_needs_review_repair.py",
+        "tests/test_task0027_external_authorization_api.py",
+        "tests/test_task0027_per_file_authorization.py",
+        "docs/development/TASK-0027-validation.md",
+        "PROJECT_STATE.md",
+        "CHANGELOG.md"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Full"
+  ],
+  "handoff_notes": "DEC-007 全能力实施的代码与离线测试任务。首次真实调用需在离线测试与 CI 完成后单独提交申请并等待批准；批准前不得产生任何付费调用。线上仍运行 TASK-0026 的离线确定性模式。\n\n【ScopedEmbeddingGuard 线性化的设计结论，实现前必须按此进行】\n现状：approve(texts) 对整批 payload 取摘要存入 allowed_hashes；reserve_external 只做摘要成员校验。工厂原本为 10 条预批准其全部子集（1023 个摘要）以兼容断点续建时批次构成可变。\n\n冲突：provider 调 reserve_external 时只传 request_hash，看不到文本，因此 guard 无法按条校验。若把 3120 条照搬旧办法枚举子集，摘要数约 312 批 × 1023 ≈ 32 万，不可接受。\n\n采用的方案（二选一，倾向前者，实现时择一并写测试）：\n  A. 让 build() 以「整片发送」代替「只发缺失子集」：批的构成只由 clause_ids 的顺序与批大小决定，因此摘要确定且只有 ceil(N/10) ≈ 312 个；已缓存整片的批直接跳过。代价是某一整片部分命中时会重发少量已缓存条目（费用可忽略，因为总量不足 1 元）。guard 侧只需把「枚举子集」换成「按当前 clause_ids 依序切片并逐片 approve」，保持逐摘要校验语义不变。\n  B. 若不想改 build() 的发送粒度，则在 guard 上增加按条目的批准集合，并让 provider 在 reserve 前把本批文本交给 guard 校验成员资格；这需要改动 legal/embedding_provider.py 的调用签名，改动面更大。\n\n两种方案都不得退化为「批准任意文本」——按条或按片校验必须保留，否则等于删除外发门禁。实现后必须有不通过批准即 PermissionError 的反例测试。\n\n【2026-10-16 验收前阻断问题处置（9 项）】\n1) compose：新增 x-real-model-environment 锚点，仅合并进 api.environment（worker/init 不注入）；全部值为 ${VAR:-} 可选，留空即离线启动。测试 tests/test_task0027_deploy_compose.py 解析 YAML 固定该边界。\n2) 预构建索引：real_embedding_runtime 新增 require_prebuilt_vector_index；AuthorizedRetrieverFactory.allow_build 默认 False（API 装配显式传 False），维护命令 scripts/prebuild_legal_vectors.py 直接调用 build_authorized_vector_index 继续支持建库与断点续建。缺索引/未完成/校验失败 → 拒绝且零供应商调用。\n3) 身份一致性：planned_build_id 绑定 embedding 身份+发布版本+条款覆盖；API 侧再校验 manifest 的 identity/publication/revision/coverage；测试覆盖身份、发布版本、卷与账本 scope 不一致各自被拒。\n4) 撤销即时生效：FileAuthorizationRegistry 按文件 mtime/size 重读（线程锁保护），RealRuntimeAuthorization 暴露 allowed_document_source 可调用视图，_freeze_run/_invoke 与 AuthorizedTenderMinimizer 每次判定重解析；测试用「进程已启动 → 外部 revoke → 再次外发被拒」证明（含 gateway 级反例）。\n5) 前端：新增 dec007-real-qwen 模式文案（授权范围与逐文件白名单），保留既有模式；Dockerfile.web 与 demo.env.example 注释同步。\n6) 上限：Embedding 400 → 800；边界测试 800 允许 / 801 拒绝、¥30 耗尽即拒绝（批次有余量）、失败与未知用量保留预留且不自动补发。\n7) 文档：docs/development/TASK-0027-validation.md（本轮命令与结果）、DEC-007 修订、deploy/README-demo.md 逐文件授权运维步骤、PROJECT_STATE.md、CHANGELOG.md。\n\n仍未完成：git 提交与远程 CI 观察（用户自行提交）；线上部署与首次付费调用（需单独批准）。
+
+【2026-10-16 本轮：硬门禁接线 + 独立隔离验证入口（未调用供应商）】
+- 装配层：`create_dec005_gateway` 新增 `llm_limit` / `embedding_limit` / `total_cny` 参数并透传到 `Dec005BudgetLedger`（同一账本文件、同一 authorization_id，计数累计）；`AUTHORIZATION_LIMITS[DEC-007]` 的 300/800/¥30 不变，只作构造期上界，省略参数即等于授权上限。
+- 本轮上限（用户 2026-10-16 批准，选项 A）：`llm_limit=4`、`embedding_limit=322`（312 已用 + 10）、`total_cny=Decimal(2)`（含已结算 ¥0.1035070 的累计口径）。固定为 `scripts/task0027_real_ai_validation_app.py` 的代码常量：环境变量/命令行/演示账号都无法放宽；装配时拒绝「不比 DEC-007 授权更严」的取值。
+- 隔离验证入口：`scripts/task0027_real_ai_validation_app.py`（独立镜像标签 `IMAGE_TAG=task0027-validation`、同一 modelstate 卷读写挂载、同一发布/修订与 embedding 身份与授权 scope、`allow_build=False` 默认复用预构建索引）；`--preflight` 只做本地/只读检查（基线、scope、公网 API 可达性、操作者 offline 确认、可选预构建索引校验），零预留零写入零外发。
+- 账本基线只读核对：`scripts/task0027_ledger_baseline.py`（`mode=ro`，不创建/不修改/不重置），期望 0/312/¥0.1035070/未结算 0，不一致退出码 2 并要求停止上报。
+- 方案 A 的边界（用户明确要求如实记录）：账本只存计数、上限是进程内参数，宽上限实例理论上仍可打开同一账本；本轮必须确保只有一个真实模型验证实例运行，不得宣称跨任意进程的全局收紧锁。
+- 反例测试：`tests/test_task0027_round_limits.py`（8 项）与 `tests/test_task0027_validation_entry.py`（16 项），覆盖第 5 次 LLM/第 11 次新增 Embedding/¥2 耗尽（次数仍有余量）/失败与未知用量保留且不补发/跨实例重启计数不减/两实例竞争最后一个名额原子拒绝/宽窄实例差异与账本不被写入收紧值/环境与 CLI 无法放宽/基线只读与漂移停止。
+- 文档：`deploy/README-demo.md` 新增 8.4（三步顺序、独立镜像命令、基线核对、边界说明）。\n\n【2026-10-16 第三轮最小修正：验证入口强制索引身份 + 宿主机侧离线证据（未调用供应商）】\n- 预构建索引校验不再可选：`--publication-id/--revision-id` 为 argparse 必需项（缺失退出码 2），`verify_prebuilt_index` 把两者与 `modelstate` 卷内 `vector-manifest.json` 逐一比对，并校验 `legal_snapshot_sha256`、`embedding_identity.identity_sha256`、`item_count`（常量 3112）、`source_item_count`（常量 3120）、覆盖率与索引库内该构建的完整性/条目数；索引库以 SQLite `mode=ro` 打开，不创建不写入。全部一致才打印一行 `prebuilt index verified build_id=... item_count=3112 ...`；任一项不一致 → 退出码 2、不启动、不打印该行、零供应商请求。`EXPECTED_PREBUILT_ITEM_COUNT`/`EXPECTED_PREBUILT_SOURCE_ITEM_COUNT` 是冻结语料常量，语料变更必须重新测量后改常量，不得让预检查自动放宽。\n- 人工标志 `--online-api-offline-verified` 保留但不再单独成立：`--preflight` 同时要求新鲜的 `verdict: \"ok\"` 证据文件（`--host-offline-evidence` 或 `DEC007_HOST_OFFLINE_EVIDENCE`，默认窗口 600 秒、可配 60–3600 秒），证据里的 api 容器 ID 与 compose 项目必须与当前部署一致（`DEC007_API_CONTAINER_ID`/`--api-container-id`；compose 注入的 `DEPLOY_COMPOSE_PROJECT`/`--compose-project`）。缺失/过期/unknown/untrusted/不一致/只有标志无证据一律退出码 2。\n- 宿主机侧脚本 `deploy/verify_api_offline_mode.sh`（逻辑在 `verify_api_offline_mode.py`，标准库 only、兼容宿主 python3.10）：只用只读 `docker compose ps`/`docker ps`/`docker inspect`，不挂 socket、不给容器 Docker 权限，唯一写入是 `--evidence-dir` 下的证据 JSON；判定 ok=0 / untrusted=3 / unknown=2，两种非 ok 都立即停止且不得发起供应商调用；证据只含白名单字段（DEPLOY_REVIEW_MODE、APP_ENV、镜像与进程信息），绝不输出完整环境变量或密钥。`--fixture-dir` 为测试/离线复核的回放模式（`docker_binary` 记为 `fixture:<dir>`），线上不要用。\n- 已知边界（不得宣称超出）：证据是**内容不是签名**——能运行宿主脚本的人也能写出同样的 JSON，操作者仍是信任链的一环（与人工标志同一信任假设）；容器内无法读取宿主 Docker 状态，当前 api 容器 ID/compose 项目由操作者声明与 compose 常量提供；未在真实宿主运行该脚本（本机仅 fixture 回放）。\n- 验证：ruff `All checks passed!`、mypy `Success: no issues found in 104 source files`、`verify_repo.py` PASS、新增/相关 pytest 55 passed / 79 passed / 90 passed，官方 Focused 82 passed in 115.46s（另一次 82 passed in 125.00s）；按用户指令未重跑 Full。命令与数字见 `docs/development/TASK-0027-validation.md` 第三轮。
+
+【2026-10-16 第四轮最小修正：第二实例检测覆盖启动命令/镜像 + 逐文件授权 CLI 改用验证镜像】
+- 盲区修复：判定不再只看容器环境里的 DEPLOY_REVIEW_MODE。检查对象为宿主上由只读 docker ps -aq --no-trunc 枚举、逐个只读 docker inspect 的容器（按容器 ID 排除预期的线上 api 容器本身；不挂 socket、不给容器 Docker 权限）。除原有 authorized-real 外，入口/命令出现 task0023_real_ai_app（覆盖 .py 与 :app 写法）、出现 task0027_real_ai_validation_app（即使该容器仍是 offline）、命令为 api_entry.py 且 mode 为 authorized-real、或镜像引用带 task0027-validation 标签，任一成立即 untrusted，证据每条带 reason。
+- 失败关闭：任一容器的执行身份读不到（inspect 失败/无 JSON、容器 ID、镜像引用、入口命令、State.Running，或命令是 api_entry.py 而 DEPLOY_REVIEW_MODE 读不到）→ unknown（退出码 2，提示立即停止、不发起供应商调用）且新增检查 all_running_containers_identified=false；不再声称\"不存在第二个真实模型实例\"。已证明未在运行的容器不在范围内（Running=false）。证据升版 v1alpha1→v1alpha2：execution_instances.second_real_model_instances（每条 {container_name, container_id, reason}）、检查键 no_second_real_model_instance；加载器同步改名，旧版证据按 schema_version 明确拒绝。
+- 测试：tests/test_task0027_host_offline_evidence.py 20→28 项，含用户指定必测反例（offline 的第二容器指向 task0027_real_ai_validation_app.py → untrusted；task0023 命令两种写法 → untrusted；验证镜像标签 → untrusted；api_entry.py+authorized-real → untrusted；四类身份不可读 → unknown）；边界：另一个 offline 的 api_entry.py → ok，已停止的验证入口容器 → ok。
+- 文档：deploy/README-demo.md 8.2 与 8.4 第二步的 manage_authorization.py approve/list/revoke 改为 IMAGE_TAG=task0027-validation $D build api + docker compose run --rm --no-deps api ...（一次性容器、复用 api 环境变量/网络/modelstate 读写挂载；不改动运行中的 api/worker/nginx 与 offline 模式；IMAGE_TAG 只作用于该条命令、$D up -d 仍解析为 :demo），并提示先 approve/revoke、确认一次性容器已退出再跑宿主证据脚本。
+- 验证（本机、零付费调用、未触碰线上服务器、未挂 Docker Socket）：ruff All checks passed!（src scripts tests；deploy/verify_api_offline_mode.py 额外检查亦通过）、mypy Success: no issues found in 104 source files、verify_repo.py PASS、新增测试 28 passed in 0.66s、相关 6 文件 90 passed in 121.54s、相关 8 文件 90 passed in 6.50s、官方 Focused 90 passed in 127.74s（[1/7]–[5/7]，Focused 按设计不跑 [6/7]/[7/7]）；按用户指令未重跑 Full、未 git 提交。命令与数字见 docs/development/TASK-0027-validation.md 第四轮。
+- 边界（不得宣称超出）：判定是启动命令/镜像的子串匹配（改名或间接 exec 会漏）；验证镜像标签规则会同时命中一次性辅助容器（有意的失败关闭）；全文仍为 fixture 回放，未在真实宿主执行；证据仍是内容不是签名。同类未改项：README 8.1 第 3 条预构建命令仍用 $D exec api（按用户本轮范围未改），线上切新镜像时应一并处理。"
+}

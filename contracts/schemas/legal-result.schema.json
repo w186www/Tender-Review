@@ -1,0 +1,1004 @@
+{
+  "$defs": {
+    "EmbeddingModelIdentity": {
+      "additionalProperties": false,
+      "description": "Pinned provider/model contract used to keep vector spaces isolated.",
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "provider": {
+          "pattern": "^[a-z][a-z0-9_-]{0,49}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "region": {
+          "pattern": "^[a-z][a-z0-9-]{0,49}$",
+          "title": "Region",
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_revision": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Model Revision",
+          "type": "string"
+        },
+        "dimensions": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dimensions"
+        },
+        "tokenizer_identity": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Tokenizer Identity",
+          "type": "string"
+        },
+        "weights_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weights Sha256"
+        },
+        "tokenizer_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tokenizer Sha256"
+        },
+        "api_contract_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Api Contract Version",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "identity_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Identity Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "region",
+        "model_id",
+        "model_revision",
+        "tokenizer_identity",
+        "api_contract_version",
+        "identity_sha256"
+      ],
+      "title": "EmbeddingModelIdentity",
+      "type": "object"
+    },
+    "Excluded": {
+      "additionalProperties": false,
+      "properties": {
+        "law_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Law Id"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        },
+        "article": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Article"
+        },
+        "reasons": {
+          "items": {
+            "enum": [
+              "not_yet_effective",
+              "expired",
+              "jurisdiction_mismatch",
+              "procurement_mismatch",
+              "project_type_mismatch",
+              "unverified",
+              "outside_verification_horizon",
+              "unlocated",
+              "no_text_match",
+              "context_incomplete",
+              "unknown_end",
+              "clause_unverified",
+              "extraction_unverified",
+              "applicability_unverified",
+              "method_mismatch",
+              "buyer_mismatch",
+              "subject_mismatch",
+              "framework_mismatch"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Reasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reasons"
+      ],
+      "title": "Excluded",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "LegalHit": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "reason": {
+                "enum": [
+                  "unverified",
+                  "outside_verification_horizon",
+                  "unlocated",
+                  "unknown_end",
+                  "clause_unverified",
+                  "extraction_unverified",
+                  "applicability_unverified"
+                ]
+              },
+              "version_status": {
+                "const": "unverified"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "eligible_for_confirmation": {
+                "const": true
+              }
+            },
+            "required": [
+              "eligible_for_confirmation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "const": "valid"
+              },
+              "version_status": {
+                "const": "verified_current"
+              },
+              "article": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "effective_from": {
+                "format": "date",
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "evidence_id": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "law_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Law Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "article": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Article"
+        },
+        "version": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "quote_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Quote Hash",
+          "type": "string"
+        },
+        "source_uri": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "text_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Text Hash",
+          "type": "string"
+        },
+        "locator": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        },
+        "effective_from": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Effective From"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Effective To"
+        },
+        "version_status": {
+          "enum": [
+            "verified_current",
+            "verified_historical",
+            "unverified"
+          ],
+          "title": "Version Status",
+          "type": "string"
+        },
+        "eligible_for_confirmation": {
+          "title": "Eligible For Confirmation",
+          "type": "boolean"
+        },
+        "reason": {
+          "enum": [
+            "valid",
+            "unverified",
+            "outside_verification_horizon",
+            "unlocated",
+            "unknown_end",
+            "clause_unverified",
+            "extraction_unverified",
+            "applicability_unverified"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "applicable_frameworks": {
+          "items": {
+            "enum": [
+              "tendering",
+              "government_procurement"
+            ],
+            "type": "string"
+          },
+          "title": "Applicable Frameworks",
+          "type": "array"
+        },
+        "score": {
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "evidence": {
+          "$ref": "https://bidding-compliance.local/schemas/evidence.schema.json"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "law_id",
+        "title",
+        "article",
+        "version",
+        "quote",
+        "quote_hash",
+        "source_uri",
+        "source_hash",
+        "text_hash",
+        "locator",
+        "effective_from",
+        "effective_to",
+        "version_status",
+        "eligible_for_confirmation",
+        "reason",
+        "applicable_frameworks",
+        "score",
+        "evidence"
+      ],
+      "title": "LegalHit",
+      "type": "object"
+    },
+    "RetrievalQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "review_date": {
+          "format": "date",
+          "title": "Review Date",
+          "type": "string"
+        },
+        "limit": {
+          "default": 10,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "include_references": {
+          "default": false,
+          "title": "Include References",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "v1alpha3",
+          "default": "v1alpha3",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "region": {
+          "enum": [
+            "CN",
+            "CN/上海",
+            "CN/云南",
+            "CN/内蒙古",
+            "CN/北京",
+            "CN/台湾",
+            "CN/吉林",
+            "CN/四川",
+            "CN/天津",
+            "CN/宁夏",
+            "CN/安徽",
+            "CN/山东",
+            "CN/山西",
+            "CN/广东",
+            "CN/广东/广州",
+            "CN/广东/深圳",
+            "CN/广西",
+            "CN/新疆",
+            "CN/江苏",
+            "CN/江西",
+            "CN/河北",
+            "CN/河南",
+            "CN/浙江",
+            "CN/海南",
+            "CN/湖北",
+            "CN/湖南",
+            "CN/澳门",
+            "CN/甘肃",
+            "CN/福建",
+            "CN/福建/三明",
+            "CN/福建/南平",
+            "CN/福建/厦门",
+            "CN/福建/宁德",
+            "CN/福建/泉州",
+            "CN/福建/漳州",
+            "CN/福建/福州",
+            "CN/福建/莆田",
+            "CN/福建/龙岩",
+            "CN/西藏",
+            "CN/贵州",
+            "CN/辽宁",
+            "CN/重庆",
+            "CN/陕西",
+            "CN/青海",
+            "CN/香港",
+            "CN/黑龙江"
+          ],
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Region",
+          "type": "string"
+        },
+        "procurement_type": {
+          "enum": [
+            "government",
+            "enterprise",
+            "other"
+          ],
+          "title": "Procurement Type",
+          "type": "string"
+        },
+        "project_type": {
+          "enum": [
+            "works",
+            "goods",
+            "services"
+          ],
+          "title": "Project Type",
+          "type": "string"
+        },
+        "procurement_method": {
+          "enum": [
+            "tender",
+            "non_tender"
+          ],
+          "title": "Procurement Method",
+          "type": "string"
+        },
+        "buyer_type": {
+          "enum": [
+            "government_entity",
+            "enterprise",
+            "other"
+          ],
+          "title": "Buyer Type",
+          "type": "string"
+        },
+        "subject_type": {
+          "enum": [
+            "works",
+            "works_related_goods",
+            "works_related_services",
+            "goods",
+            "services"
+          ],
+          "title": "Subject Type",
+          "type": "string"
+        },
+        "legal_frameworks": {
+          "default": [],
+          "items": {
+            "enum": [
+              "tendering",
+              "government_procurement"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "title": "Legal Frameworks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "review_date",
+        "region",
+        "procurement_type",
+        "project_type",
+        "procurement_method",
+        "buyer_type",
+        "subject_type"
+      ],
+      "title": "RetrievalQuery",
+      "type": "object"
+    },
+    "RetrievalRankingTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "clause_id": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Clause Id",
+          "type": "string"
+        },
+        "bm25_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bm25 Rank"
+        },
+        "bm25_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bm25 Score"
+        },
+        "vector_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Rank"
+        },
+        "vector_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Score"
+        },
+        "fused_score": {
+          "minimum": 0,
+          "title": "Fused Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "clause_id",
+        "fused_score"
+      ],
+      "title": "RetrievalRankingTrace",
+      "type": "object"
+    },
+    "RetrievalRuntimeSnapshot": {
+      "additionalProperties": false,
+      "description": "Algorithm settings frozen with a retrieval run; this is not call-level audit.",
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "algorithm": {
+          "default": "bm25-char-cosine-rrf-5",
+          "enum": [
+            "bm25-char-cosine-rrf-5",
+            "bm25-dense-cosine-rrf-1"
+          ],
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "top_k": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Top K",
+          "type": "integer"
+        },
+        "rrf_k": {
+          "default": 60,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "bm25_weight": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Bm25 Weight",
+          "type": "number"
+        },
+        "embedding_weight": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Embedding Weight",
+          "type": "number"
+        },
+        "reranker_enabled": {
+          "default": false,
+          "title": "Reranker Enabled",
+          "type": "boolean"
+        },
+        "reranker_version": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reranker Version"
+        },
+        "embedding_identity": {
+          "$ref": "#/$defs/EmbeddingModelIdentity"
+        },
+        "vector_index_build_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Index Build Id"
+        },
+        "vector_index_item_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Index Item Count"
+        },
+        "vector_source_item_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vector Source Item Count"
+        }
+      },
+      "required": [
+        "top_k",
+        "embedding_identity"
+      ],
+      "title": "RetrievalRuntimeSnapshot",
+      "type": "object"
+    },
+    "RunSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "maxLength": 36,
+          "minLength": 36,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "tenant_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "project_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "actor_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "context_version": {
+          "minimum": 1,
+          "title": "Context Version",
+          "type": "integer"
+        },
+        "context_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Context Hash",
+          "type": "string"
+        },
+        "request_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Request Hash",
+          "type": "string"
+        },
+        "review_date": {
+          "format": "date",
+          "title": "Review Date",
+          "type": "string"
+        },
+        "review_date_source": {
+          "const": "explicit_actor_input",
+          "default": "explicit_actor_input",
+          "title": "Review Date Source",
+          "type": "string"
+        },
+        "runtime": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetrievalRuntimeSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "tenant_id",
+        "project_id",
+        "actor_id",
+        "context_version",
+        "context_hash",
+        "request_hash",
+        "review_date",
+        "created_at"
+      ],
+      "title": "RunSnapshot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "context_incomplete"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "query": {
+            "type": "null"
+          },
+          "hits": {
+            "maxItems": 0
+          },
+          "context_error": {
+            "enum": [
+              "REGION_UNMAPPED",
+              "CONTEXT_INVALID"
+            ]
+          },
+          "excluded": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "context_error",
+          "excluded"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "complete"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "query": {
+            "type": "object"
+          },
+          "context_error": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "v1alpha5",
+      "default": "v1alpha5",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "snapshot_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Snapshot Hash",
+      "type": "string"
+    },
+    "retrieval_version": {
+      "default": "bm25-char-cosine-rrf-5",
+      "enum": [
+        "bm25-char-cosine-rrf-5",
+        "bm25-dense-cosine-rrf-1"
+      ],
+      "title": "Retrieval Version",
+      "type": "string"
+    },
+    "normalization_version": {
+      "const": "cn-regions-1",
+      "default": "cn-regions-1",
+      "title": "Normalization Version",
+      "type": "string"
+    },
+    "status": {
+      "default": "complete",
+      "enum": [
+        "complete",
+        "context_incomplete"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "context_error": {
+      "anyOf": [
+        {
+          "enum": [
+            "REGION_UNMAPPED",
+            "CONTEXT_INVALID"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context Error"
+    },
+    "query": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RetrievalQuery"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hits": {
+      "items": {
+        "$ref": "#/$defs/LegalHit"
+      },
+      "title": "Hits",
+      "type": "array"
+    },
+    "citable_evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citable Evidence",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "excluded": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Excluded"
+      },
+      "title": "Excluded",
+      "type": "array"
+    },
+    "run_snapshot": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RunSnapshot"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "ranking_trace": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RetrievalRankingTrace"
+      },
+      "title": "Ranking Trace",
+      "type": "array"
+    }
+  },
+  "required": [
+    "snapshot_hash",
+    "query",
+    "hits",
+    "citable_evidence"
+  ],
+  "title": "RetrievalResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-result.schema.json"
+}

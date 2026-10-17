@@ -1,0 +1,85 @@
+{
+  "schema_version": "task0018.applicability-cases.v1",
+  "cases": [
+    {
+      "id": "F001",
+      "category": "scope",
+      "context": {
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works",
+        "legal_frameworks": ["tendering", "government_procurement"]
+      },
+      "review_date": "2026-10-14",
+      "expected_eligible": true,
+      "expected_reason": null
+    },
+    {
+      "id": "F002",
+      "category": "scope",
+      "context": {
+        "region": "CN/福建/福州",
+        "procurement_type": "other",
+        "project_type": "goods",
+        "procurement_method": "tender",
+        "buyer_type": "other",
+        "subject_type": "goods",
+        "legal_frameworks": ["tendering"]
+      },
+      "review_date": "2026-10-14",
+      "expected_eligible": false,
+      "expected_reason": "subject_mismatch"
+    },
+    {
+      "id": "F003",
+      "category": "scope",
+      "context": {
+        "region": "CN/福建/福州",
+        "procurement_type": "other",
+        "project_type": "works",
+        "procurement_method": "non_tender",
+        "buyer_type": "other",
+        "subject_type": "works",
+        "legal_frameworks": ["tendering"]
+      },
+      "review_date": "2026-10-14",
+      "expected_eligible": false,
+      "expected_reason": "method_mismatch"
+    },
+    {
+      "id": "F004",
+      "category": "scope",
+      "context": {
+        "region": "CN/福建/福州",
+        "procurement_type": "other",
+        "project_type": "works",
+        "procurement_method": "tender",
+        "buyer_type": "other",
+        "subject_type": "works",
+        "legal_frameworks": ["government_procurement"]
+      },
+      "review_date": "2026-10-14",
+      "expected_eligible": false,
+      "expected_reason": "framework_mismatch"
+    },
+    {
+      "id": "F005",
+      "category": "validity",
+      "context": {
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works",
+        "legal_frameworks": ["tendering", "government_procurement"]
+      },
+      "review_date": "2026-10-15",
+      "expected_eligible": false,
+      "expected_reason": "outside_verification_horizon"
+    }
+  ]
+}

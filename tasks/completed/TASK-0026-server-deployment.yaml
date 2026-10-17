@@ -1,0 +1,134 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0026",
+  "title": "Linux 单机容器化部署：编排、持久化、反向代理与本地部署验收",
+  "status": "completed",
+  "owner": "ZCode",
+  "depends_on": [
+    "TASK-0025"
+  ],
+  "related_requirements": [
+    "SEC-001",
+    "SEC-004",
+    "SEC-007",
+    "SEC-008",
+    "NFR-006",
+    "NFR-011"
+  ],
+  "related_acceptance": [
+    "AC-001",
+    "AC-005",
+    "AC-006",
+    "AC-007"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/DEPLOYMENT-DEMO.md",
+    "docs/development/secure-ingestion-start.md",
+    "docs/development/identity-data-start.md"
+  ],
+  "allowed_paths": [
+    "deploy/**",
+    "Dockerfile.api",
+    "Dockerfile.api.dockerignore",
+    "Dockerfile.web",
+    "Dockerfile.web.dockerignore",
+    "docker-compose.demo.yml",
+    "docs/development/TASK-0026-validation.md",
+    "docs/development/DEPLOYMENT-DEMO.md",
+    "docs/index.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "tasks/active/TASK-0026-server-deployment.yaml",
+    ".gitignore",
+    ".gitattributes",
+    "docs/development/TASK-0026-cloud-runbook.md",
+    "docs/decisions/DEC-007-demo-real-qwen-authorization.md"
+  ],
+  "must_not_change": [
+    "src/bidding_compliance/**",
+    "src/frontend/src/**",
+    "contracts/**",
+    "knowledge/legal/**",
+    "config/legal/**",
+    "tests/**",
+    "requirements-dev.lock",
+    "requirements-parser.lock",
+    "scripts/**",
+    "docs/decisions/**",
+    "tasks/completed/**",
+    "tasks/active/TASK-0019-offline-capability-baseline.yaml",
+    "tasks/active/TASK-0022-real-tender-offline-evaluation.yaml"
+  ],
+  "steps": [
+    "核查现有运行时装配链路，确定容器化部署的最小改动面，不重写 Agent、不重做数据库。",
+    "编写 docker-compose.demo.yml：PostgreSQL 16、MinIO、ClamAV、API、Ingestion Worker、Nginx 反向代理，全部使用显式命名卷或宿主机持久化目录。",
+    "编写 deploy/Dockerfile.api 复用 requirements-dev.lock 与项目源码，保持版本锁定。",
+    "编写 deploy/nginx.conf，托管 React 静态产物并正确反代实际 API 路径，保持鉴权头与上传体积限制。",
+    "编写 deploy/demo.env.example、初始化与健康检查脚本、备份与恢复脚本、部署说明。",
+    "在本机 Docker Linux 引擎上实际拉起全部服务，逐项验证健康、登录、上传、扫描、解析、审查、复核、报告下载。",
+    "验证数据持久化：重启与容器重建后项目、文件、审查任务与报告仍然存在，并完成一次备份/恢复演练。",
+    "给出阿里云 ECS 部署步骤、资源规格建议、所需服务器信息清单与未解决阻断，写入验证文档。",
+    "运行仓库验证与提交，观察远程 CI。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0026-001",
+      "description": "部署文件不修改业务代码：src/、contracts/、tests/、scripts/、锁文件保持基线一致。",
+      "evidence": [
+        "docs/development/TASK-0026-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0026-002",
+      "description": "本地 Docker 环境全部服务健康，前端可打开，API 经反向代理可达且登录鉴权正常。",
+      "evidence": [
+        "docs/development/TASK-0026-validation.md",
+        "docs/development/TASK-0026-cloud-runbook.md"
+      ]
+    },
+    {
+      "id": "TASK0026-003",
+      "description": "合成标书完成上传、ClamAV 扫描、隔离解析、审查任务、人工复核与 Word/PDF 下载全链路。",
+      "evidence": [
+        "docs/development/TASK-0026-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0026-004",
+      "description": "显式数据卷覆盖 PostgreSQL/Checkpoint、MinIO、ClamAV 病毒库与运行账本；容器重建后数据仍在。",
+      "evidence": [
+        "docs/development/TASK-0026-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0026-005",
+      "description": "备份与恢复脚本可实际执行并验证恢复结果，不通过删除现有数据完成验证。",
+      "evidence": [
+        "docs/development/TASK-0026-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0026-006",
+      "description": "PostgreSQL、MinIO、ClamAV 与解析执行能力不对公网暴露；仅反向代理端口对外。",
+      "evidence": [
+        "docker-compose.demo.yml",
+        "docs/development/TASK-0026-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0026-007",
+      "description": "真实 Qwen 在线审查的授权、白名单、预算与数据策略阻断被如实核查并记录，不发生未授权外发。",
+      "evidence": [
+        "docs/decisions/DEC-007-demo-real-qwen-authorization.md",
+        "docs/development/TASK-0026-validation.md"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Quick"
+  ],
+  "handoff_notes": "部署实施完成。本地与本机 Docker 验收见 docs/development/TASK-0026-validation.md；上线与运维步骤见 docs/development/TASK-0026-cloud-runbook.md；日常运维见 deploy/README-demo.md。线上地址 https://47.83.132.211（IP 证书，shortlived，160 小时，自动续期已就绪）。未解决问题：无外部告警渠道；限流仅覆盖登录接口；22 端口对公网开放；真实 Qwen 待 DEC-007 批准。"
+}

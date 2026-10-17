@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily check that the Tender-Review certificate is not about to expire
+Documentation=file:/opt/tender-review/docs/development/TASK-0026-cloud-runbook.md
+
+[Timer]
+# Once a day is enough: the renewal timer runs more often, and this is the independent
+# guard that notices when renewal has stopped working.
+OnCalendar=*-*-* 09:30:00
+Persistent=true
+Unit=tender-certbot-expiry.service
+
+[Install]
+WantedBy=timers.target

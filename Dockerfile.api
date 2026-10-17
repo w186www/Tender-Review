@@ -1,0 +1,38 @@
+# Deployment image for the FastAPI API and the ingestion worker.
+# No business code is modified: the image only packages the repository as it is.
+FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
+
+# The ingestion worker spawns the isolated parser through the Docker API
+# (src/bidding_compliance/ingestion/sandbox.py). CLI 27 still negotiates with older
+# daemons, while Daemon 25+ rejects the API version of distribution packages.
+COPY --from=docker:27-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c /usr/local/bin/docker /usr/local/bin/docker
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements-dev.lock /tmp/requirements-dev.lock
+RUN pip install --no-cache-dir -r /tmp/requirements-dev.lock
+
+# The application resolves its own root through Path(__file__).parents[3], so the
+# repository layout below is a runtime requirement, not a packaging preference.
+COPY pyproject.toml /app/pyproject.toml
+COPY src/bidding_compliance /app/src/bidding_compliance
+COPY config /app/config
+COPY contracts /app/contracts
+COPY knowledge /app/knowledge
+COPY scripts /app/scripts
+COPY deploy /app/deploy
+
+ENV PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    HOME=/tmp
+
+# The authorized real-model ledger and audit trail live under /app/.verification/private.
+RUN mkdir -p /app/.verification/private && chown -R 65532:65532 /app/.verification
+
+USER 65532:65532
+
+WORKDIR /app
