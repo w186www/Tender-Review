@@ -68,6 +68,7 @@ from bidding_compliance.services.review_persistence import (
 from bidding_compliance.services.review_persistence import (
     publish_result as persist_result,
 )
+from bidding_compliance.services.review_projection import merge_duplicate_findings
 from bidding_compliance.services.risk_language import unverified_risk_text
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -1572,6 +1573,7 @@ def build_review_graph(
                     )[:4000]
                 risk_validator.validate(finding)
                 findings.append(finding)
+            findings = merge_duplicate_findings(findings)
             findings.sort(key=lambda item: item["finding_id"])
             artifact_payload = {
                 "snapshot_hash": row.snapshot_hash,

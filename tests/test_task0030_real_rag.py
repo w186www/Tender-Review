@@ -166,3 +166,90 @@ def test_public_legal_text_is_bounded_but_not_pii_rewritten():
     # The legal source is public and must stay verbatim for server-side revalidation; only
     # the tender document excerpt is subject to privacy redaction.
     assert hit["quote"] == legal_quote
+
+
+def _finding(**overrides):
+    value = {
+        "finding_id": overrides.pop("finding_id", "f" * 64),
+        "category": "qualification",
+        "title": "candidate",
+        "severity": "medium",
+        "evidence_status": "insufficient_evidence",
+        "review_status": "pending",
+        "sources": ["model"],
+        "rule_ids": [],
+        "evidence": [],
+        "legal_references": [],
+        "confidence": 0.5,
+        "source_excerpt": {
+            "source_hash": DOCUMENT,
+            "locator": "pdf/page/1/line/11",
+            "quote": QUOTE,
+        },
+    }
+    value.update(overrides)
+    return value
+
+
+def test_duplicate_findings_on_the_same_excerpt_merge_sources_and_evidence():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    model_one = _finding(
+        evidence=[{"evidence_id": "1" * 64, "source_hash": DOCUMENT}],
+        legal_references=[
+            {"evidence_id": EVIDENCE, "selected_by_model": False, "title": "law"}
+        ],
+    )
+    model_two = _finding(
+        title="same issue from the subdivided child batch",
+        evidence=[{"evidence_id": "1" * 64, "source_hash": DOCUMENT}],
+        legal_references=[
+            {"evidence_id": EVIDENCE, "selected_by_model": True, "title": "law"}
+        ],
+    )
+    rule = _finding(
+        severity="high",
+        evidence_status="suspected",
+        sources=["rule"],
+        rule_ids=["TASK0007.QUAL.LOCAL-REGISTRATION"],
+        evidence=[{"evidence_id": "2" * 64, "source_hash": DOCUMENT}],
+    )
+    other = _finding(
+        source_excerpt={
+            "source_hash": DOCUMENT,
+            "locator": "pdf/page/1/line/12",
+            "quote": "另一条不同的原文。",
+        }
+    )
+
+    first = merge_duplicate_findings([model_one, model_two, rule, other])
+    second = merge_duplicate_findings([other, rule, model_two, model_one])
+
+    assert len(first) == 2
+    merged = next(item for item in first if item["source_excerpt"]["locator"].endswith("11"))
+    assert merged["sources"] == ["model", "rule"]
+    assert merged["rule_ids"] == ["TASK0007.QUAL.LOCAL-REGISTRATION"]
+    assert merged["severity"] == "high"
+    assert merged["evidence_status"] == "insufficient_evidence"
+    assert {item["evidence_id"] for item in merged["evidence"]} == {"1" * 64, "2" * 64}
+    assert merged["legal_references"][0]["selected_by_model"] is True
+    assert merged["finding_id"] == next(
+        item for item in second if item["source_excerpt"]["locator"].endswith("11")
+    )["finding_id"]
+    assert merged["finding_id"] in {item["finding_id"] for item in (model_one, model_two, rule)}
+    assert merged["review_status"] == "pending"
+
+
+def test_findings_on_different_excerpts_are_not_merged():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    one = _finding()
+    two = _finding(
+        source_excerpt={
+            "source_hash": DOCUMENT,
+            "locator": "pdf/page/1/line/23",
+            "quote": "开标时间：2026年10月20日 08:30。",
+        }
+    )
+    merged = merge_duplicate_findings([one, two])
+    assert len(merged) == 2

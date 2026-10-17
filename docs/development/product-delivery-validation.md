@@ -525,7 +525,7 @@
 
 - `python -m pytest tests/test_task0029_support_scope.py`：10 passed。
 - 官方 Focused（含本文件及相关回归）：57 passed，Ruff/Mypy/前端 14 项/build 通过。
-- 最终代码候选官方 Full 七阶段全部通过：后端 `916 passed, 6 warnings in 751.01s`，HTTP 与鉴权/项目生命周期阶段 PASS；D1 边界测试包含在 Full 中（`.verification/u10-u12-full-final.log`）。
+- 最终代码候选官方 Full 七阶段全部通过：后端 `918 passed, 6 warnings in 757.44s`，HTTP 与鉴权/项目生命周期阶段 PASS；D1 边界测试包含在 Full 中（`.verification/u10-u12-full-final3.log`）。
 
 ### 3. 结论与缺口
 
@@ -543,12 +543,13 @@
 - 服务端继续用 `verify_legal_hit` 重核条文存在性、冻结发布/修订、引用哈希和版本/资格；新增“模型只能引用实际暴露给它的前 6 条”检查，超出暴露集合的 ID 记为无效引用，不成为正式证据。
 - `legal_references` 增加 `selected_by_model` 标记；网页区分“模型引用候选/检索候选”，并继续显示“适用性待确认、不能作为违反依据”。
 - 新增 `product_execution` 投影：饱和/部分批次、未处理 section、截断、unknown 模型调用会显示为 `partial`；报告 v3 和 findings API 都暴露该投影；旧真实运行缺少覆盖记录时标为 `unknown`，不冒充 complete。
+- 新增确定性重复合并：同一原文摘录（category + source hash + locator + quote）上的规则/模型/子批次候选合并为一条，保留 sources、rule_ids、evidence、legal_references、conflicts 的并集，取最高严重度和最保守证据状态；不同 locator 的相似标题不合并（避免语义猜测）。合并结果保留基础候选的 `finding_id`，使其仍能通过 `_resolve_source_locations` 绑定冻结原文。
 - 新 Prompt/载荷、旧 Prompt 兼容、截断、候选上限、字段拒绝、公开法规原文不改写等 15 项定向测试。
 
 ### 2. 验证
 
 - `python -m pytest tests/test_task0030_real_rag.py tests/test_legal_evidence_classification.py tests/test_task0022_zero_candidate_review.py tests/test_llm_candidate_discovery.py`：57 passed。
-- 官方 Focused（含任务/隐私/报告/评测相关）：57 passed；最终代码候选官方 Full 七阶段全部通过：后端 `916 passed, 6 warnings in 751.01s`，HTTP 与鉴权/项目生命周期阶段 PASS（`.verification/u10-u12-full-final.log`）。
+- 官方 Focused（含任务/隐私/报告/评测相关）：57 passed；最终代码候选官方 Full 七阶段全部通过：后端 `918 passed, 6 warnings in 757.44s`，HTTP 与鉴权/项目生命周期阶段 PASS（`.verification/u10-u12-full-final3.log`）。
 - 未调用真实模型；真实 RAG 载荷、引用重核、覆盖/部分完成和报告集成需服务器 E2E（D3/D4）。
 
 ### 3. 结论与缺口
