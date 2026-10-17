@@ -13,13 +13,20 @@ from bidding_compliance.domain.identity import Principal, Role
 from bidding_compliance.domain.rules.models import DiscoveryDocumentRequest
 from bidding_compliance.persistence.models import (
     Document,
+    DocumentSection,
     ReviewArtifact,
     ReviewDecision,
     ReviewEngineRun,
     ReviewResult,
+    SectionRevision,
 )
 from bidding_compliance.services.identity import audit
 from bidding_compliance.services.legal import require_identity
+from bidding_compliance.services.llm_candidate_discovery import (
+    MAX_BATCH_SECTIONS,
+    MAX_BATCH_SOURCE_BYTES,
+    MAX_DISCOVERY_BATCHES,
+)
 from bidding_compliance.services.projects import find_project
 from bidding_compliance.services.review_persistence import (
     authorized_run,
@@ -55,6 +62,34 @@ def document_requests(
     by_id = {row.document_id: row for row in rows}
     if len(by_id) != len(document_ids):
         raise LookupError("one or more documents are unavailable")
+    selected = list(by_id)
+    sections = list(
+        session.scalars(
+            select(DocumentSection).where(
+                DocumentSection.tenant_id == principal.tenant_id,
+                DocumentSection.document_id.in_(selected),
+            )
+        )
+    )
+    if len(sections) > MAX_DISCOVERY_BATCHES * MAX_BATCH_SECTIONS:
+        raise ValueError("selected documents exceed the review discovery capacity")
+    effective: dict[tuple[str, str], dict[str, Any]] = {}
+    for revision in session.scalars(
+        select(SectionRevision).where(
+            SectionRevision.tenant_id == principal.tenant_id,
+            SectionRevision.document_id.in_(selected),
+        )
+    ):
+        key = (revision.document_id, revision.section_id)
+        current = effective.get(key)
+        if current is None or revision.revision > int(current.get("revision", 0)):
+            effective[key] = revision.payload
+    total_bytes = 0
+    for section in sections:
+        payload = effective.get((section.document_id, section.section_id), section.automatic)
+        total_bytes += len(str(payload.get("text", "")).encode())
+    if total_bytes > MAX_DISCOVERY_BATCHES * MAX_BATCH_SOURCE_BYTES:
+        raise ValueError("selected documents exceed the review discovery capacity")
     requests = []
     for document_id in sorted(document_ids):
         row = by_id[document_id]

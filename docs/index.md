@@ -19,7 +19,7 @@
 | 里程碑与依赖 | `development/roadmap.yaml`、`development/roadmap.md` | 任务或验收阶段改变时 |
 | 接口与数据 | `../contracts/` | 编码前，且与实现同步 |
 | 身份与数据库启动 | `development/identity-data-start.md` | 认证、权限、迁移、引导与数据库部署变化时 |
-| 安全文件接入启动 | `development/secure-ingestion-start.md` | 上传、扫描、解析、OCR、存储和人工确认变化时 |
+| 安全文件接入启动 | `development/secure-ingestion-start.md`、`development/ingestion-support-matrix.md` | 上传、扫描、解析、OCR、质量信号、支持范围、人工校正和容量前检变化时 |
 | 单Codex开发与验证 | `development/development-workflow.md`、`development/testing-standard.md` | 实施、验证档位与验收规则变化时 |
 | 法规摄取与检索 | `development/legal-retrieval-start.md` | 来源核验、有效区间、范围、快照和检索算法变化时 |
 | 前端工作台 | `development/frontend-workbench.md`、`development/TASK-0011-validation.md` | 前端启动、契约客户端和 TASK-0011 验收状态变化时 |
@@ -43,7 +43,7 @@ TASK-0026 已完成单机容器化部署的编排、持久化、反向代理与�
 
 TASK-0027 第七轮实现、Full、CI 及经单独授权的公网真实路径已有记录，但正式 TASK 仍为 `in_progress`：零候选执行缺口与外发授权端点的 OpenAPI 漂移仍须按产品路线收尾，不以一次真实运行证明产品质量达标。见 [TASK-0027 验证记录](development/TASK-0027-validation.md)。
 
-2026-10-17 产品交付进度：U01/U02/U04/U05 已完成，U03/U07 进行中；U06/U08—U12 尚未启动。U05 已完成产品模式的 PostgreSQL 租户策略、版本绑定逐文件授权/撤销、授权/审计同事务、原子预算预留/结算、unknown 保留、历史账本只读幂等导入和隐私反例；真实 PostgreSQL 专项退出码 0，U04 Docker/PostgreSQL 部署 E2E 5/5 通过，官方 Full 七阶段通过（后端 868 passed、6 项 warning）。D3 真实模型/内容外发与 D4 生产迁移/切换仍未授权，产品模式尚未在生产启用，当前部署仍为 `authorized-real`/DEC-007。U03 冻结评测资产来源尚未恢复；U07 的法规核验/人工绑定仍受 D2 限制。D1/D2/D3/D4 只阻塞各自相关签署或真实环境活动。后续按 U01—U16 依赖推进；U05 之后可执行的本地工作优先 U06 的解析/质量/校正（D1 仅阻塞支持范围/容量承诺）。机读依赖与 TASK 映射见 [`roadmap.yaml`](development/roadmap.yaml)，逐单元 G3 证据见 [产品交付验证记录](development/product-delivery-validation.md)，规划正文见 [完整产品交付规划](development/product-delivery-plan.md)。不据 DEC-002/007 既有记录发起新的真实调用、数据外发或线上操作。
+2026-10-17 产品交付进度：U01/U02/U04/U05 已完成，U03/U07 进行中；U06 已有本地准备成果，但正式状态仍为 planned（U03 前置未完成）；U08—U12 尚未启动。U06 的准备成果包括结构质量信号、容量前检、校正版本失效和合成 OCR 回归，Full 通过（880 passed、6 warnings）；冻结样本/专家标签（U03）和 D1 最终范围承诺仍未满足。U08 的 Mock/离线覆盖准备可在 D3 限制下进行，但正式状态不变。U05 已完成产品模式的 PostgreSQL 租户策略、版本绑定逐文件授权/撤销、授权/审计同事务、原子预算预留/结算、unknown 保留、历史账本只读幂等导入和隐私反例；真实 PostgreSQL 专项退出码 0，U04 Docker/PostgreSQL 部署 E2E 5/5 通过，官方 Full 七阶段通过（后端 868 passed、6 项 warning）。D3 真实模型/内容外发与 D4 生产迁移/切换仍未授权，产品模式尚未在生产启用，当前部署仍为 `authorized-real`/DEC-007。U03 冻结评测资产来源尚未恢复；U07 的法规核验/人工绑定仍受 D2 限制。D1/D2/D3/D4 只阻塞各自相关签署或真实环境活动。后续按 U01—U16 依赖推进；U05 之后可执行的本地工作优先 U06 的解析/质量/校正（D1 仅阻塞支持范围/容量承诺）。机读依赖与 TASK 映射见 [`roadmap.yaml`](development/roadmap.yaml)，逐单元 G3 证据见 [产品交付验证记录](development/product-delivery-validation.md)，规划正文见 [完整产品交付规划](development/product-delivery-plan.md)。不据 DEC-002/007 既有记录发起新的真实调用、数据外发或线上操作。
 
 - 功能：`FR-###`
 - 安全：`SEC-###`

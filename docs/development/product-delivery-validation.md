@@ -366,3 +366,48 @@
 - 证据目录 `.verification/` 为 gitignore；不写入提交。真实密钥、生产数据、历史账本原件未进入本轮证据。
 
 **最终候选指纹：** 38 个实现/契约/测试/部署/设计相关文件，按路径排序后将“相对路径、制表符、该文件 SHA-256”逐行以 UTF-8/LF 组成清单，再对清单计算 SHA-256，摘要为 `35142b888cea2f27c409f175ed23848a8cc90e3e37567c20602a7dd2eb655e8f`。该指纹识别 U05 工作区候选（不含本 G3、任务/状态/变更记录本身），不代表提交或集成。
+
+## U06｜解析、OCR、结构化与人工校正（2026-10-17，本地准备成果；正式单元 planned）
+
+**执行单元/TASK：** U06 / TASK-0029（`TASK0029-002`）。正式前置 U02 已完成；U03 仍未完成（冻结评测器/专家标签来源缺失），因此 U06 的正式单元状态保持 `planned`，本节的成果是本地准备而不是单元完成。
+
+**目录、分支/HEAD：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；GitHub 备份提交 `7959d9cc9b526aec9269d7352784d89f1681807d`（U05 完成 + U06 初版切片），其后只有记录提交。本轮 U06 代码候选在 Full 后提交（见本节结论）。
+
+### 1. 本次完成
+
+- **结构质量信号（超出平均 OCR 置信度）**：`quality_issues()` 新增 `LOW_CONFIDENCE_NUMERIC`（OCR 数字/日期片段置信度低于 `min_numeric_confidence`）、`INVALID_DATE`（不存在的日历日期）、`DUPLICATE_TEXT`（重复片段字符占比达到阈值，按出现次数计）、`PAGE_COVERAGE_GAP`（去重页码/最大页码低于覆盖率阈值）、`READING_ORDER_GAP`（页码倒退）和 `TABLE_STRUCTURE_GAP`（表格行宽与多数行相差超过阈值）。失败统一进入 `needs_review`，不丢弃文本、不伪装成功。
+- **质量信号落库**：摄取 worker 与人工校正使用 `quality_issues()`，`Document.issues` 记录具体信号，而不是只写 `LOW_QUALITY`；原有平均置信度、空 OCR、`(cid:)`/替换字符、最短文本门禁保持不变。
+- **支持矩阵与人工处理**：新增 `docs/development/ingestion-support-matrix.md`，列出格式/页数/OCR/体积硬限制、已知不支持项、每个质量信号的人工处理方式、TASK-0018 合成 OCR 已知失败（CER 20.79%、表格 7/14、重复定位 0/2）以及 D1/D2/D3/U03 边界。
+- **版本失效**：新增测试证明已 `ready` 文档在校正后递增 `parse_version`/`context_version`，生成未确认的新上下文；旧上下文确认失效，旧审查不能创建运行。
+- **审查容量前检**：`review_management.document_requests` 在冻结运行前检查所选文档的片段数（`MAX_DISCOVERY_BATCHES × MAX_BATCH_SECTIONS`）和生效文本字节（含最新人工修订，`MAX_DISCOVERY_BATCHES × MAX_BATCH_SOURCE_BYTES`）；超出即拒绝，不进入排队或付费调用。图执行层的批次上限仍保留。
+- **已知 OCR 失败回归**：合成扫描件夹具的重复文本、低置信数字、表格缺口被显式转为人工复核信号；不更换 Tesseract、不修改既有 OCR 期望。
+
+### 2. 实际变更
+
+- 策略/契约：`config/ingestion.yaml`、`src/bidding_compliance/ingestion/schemas.py`（`IngestionPolicy` 新增 4 个带默认值的结构阈值、`Issue` 新增 6 个质量码）、`contracts/openapi.yaml`（Document.issues 枚举加法）、生成文件 `contracts/schemas/parsed-document.schema.json`、`parser-request.schema.json`、`parser-response.schema.json`、`legal-source-request.schema.json`、`src/frontend/src/api/schema.d.ts`。
+- 实现：`src/bidding_compliance/ingestion/quality.py`、`services/ingestion_worker.py`、`services/documents.py`、`services/review_management.py`。
+- 前端：`src/frontend/src/pages/project.tsx` 为 6 个新质量码增加中文说明（仅展示，不改变权限或状态判断）。
+- 测试：`tests/test_task0029_quality_structure.py`、`tests/test_task0029_review_capacity.py`、`tests/test_tesseract_evaluation_fixtures.py` 扩展；`tests/test_ingestion.py` 与 `tests/test_task0027_needs_review_repair.py` 的校正夹具改为逐片段唯一文本，避免测试自身的重复文本触发新信号；`tests/test_ingestion.py` 的并发校正测试改为 patch `quality_issues`。
+- 文档：`docs/development/ingestion-support-matrix.md`、`docs/index.md`。
+
+### 3. 设计与授权
+
+- 依据 U06 计划、U02 契约、ADR-0011 单写者规则；阈值是版本化 `IngestionPolicy` 的默认值，新增字段均有默认值，旧配置仍可读取。没有放宽任何既有质量/安全门禁，没有修改 OCR 引擎、`knowledge/legal/**`、法规核验状态或真实文件。
+- D1 未批准支持范围/容量承诺，D2 未批准专业标签，U03 冻结评测器/专家标签来源仍缺失；这些阻止 U06 的最终样本/效果验收，不阻止本轮合成结构验证。
+
+### 4. 验证
+
+- 定向回归：`tests/test_ingestion.py`、`test_task0027_needs_review_repair.py`、`test_task0029_quality_structure.py`、`test_task0029_review_capacity.py`、`test_tesseract_evaluation_fixtures.py`、`test_contract_validation.py`、`test_repository_checks.py`，共 **157 passed, 1 warning**（既有 pypdf `add_js` 弃用提示）。
+- 官方 Focused：`./scripts/verify.ps1 -Mode Focused -TestPaths @(...)` 退出码 0；后端 **157 passed in 275.26s**；Quick、Ruff、Mypy 109 源文件、前端 OpenAPI 生成/一致性、Biome 23 文件、TypeScript、Vitest **14/14**、Vite build 均通过。
+- 最终代码候选官方 Full：`./scripts/verify.ps1 -Mode Full`，退出码 0，七阶段全过；后端 **880 passed, 6 warnings in 772.91s**；HTTP health=200/404 与 request ID、登录/项目生命周期通过。6 条 warning 为 2 条既有 pypdf 弃用 + 4 条既有 `test_verification_modes` PowerShell 输出解码警告（测试通过）。证据：`.verification/u06-full.log`、`.verification/pytest-result.xml`。
+- 未执行：真实 OCR 质量评测、真实模型调用、真实文件/法规内容外发、生产部署。TASK-0018 的合成 OCR 指标是既有基线，不因本轮结构信号改变。
+
+### 5. 集成、风险与结论
+
+- U06 代码候选在 Full 后提交/推送为 GitHub 备份；不合并 main、不部署。
+- **U06 正式单元仍为 `planned`**：结构信号、容量前检、版本失效、支持矩阵和合成回归已实施；但"由冻结样本/专家标签专项验证"（TASK0029-002）仍缺 U03 冻结资产和 D2 专业标签，且 D1 未批准最终格式/规模/容量承诺。`TASK0029-002` evidence 保持为空；TASK-0029 保持 `in_progress`，U06 不因本地成果而提前启动或完成。
+- 风险：结构阈值可能对合并单元格、重复页眉产生人工复核（这是失败关闭而非自动放行）；阈值调整必须走版本化配置。Tesseract 已知失败未被声称修复。
+
+### 6. 下一步
+
+- U06 剩余内容受 U03/D1/D2 限制，不以开发样例冒充冻结验收。按 roadmap 的 D3 注记，U08 的 Mock/离线覆盖实现可继续，但真实模型质量评测仍需 D3；先做 U08 的覆盖计划/饱和与截断/部分完成语义，再按依赖推进 U09/U10。

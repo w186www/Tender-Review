@@ -10,7 +10,7 @@ from .schemas import Fragment, IngestionPolicy, Issue
 _DATE = re.compile(
     r"(?<!\d)(\d{4})\s*(?:年|[-/.])\s*(\d{1,2})\s*(?:月|[-/.])\s*(\d{1,2})\s*日?(?!\d)"
 )
-_MIN_DUPLICATE_FRAGMENT_CHARS = 20
+_MIN_DUPLICATE_FRAGMENT_CHARS = 8
 
 
 def digest(text: str) -> str:
@@ -54,7 +54,7 @@ def _duplicate_ratio(fragments: list[Fragment]) -> float:
     counts: dict[str, int] = defaultdict(int)
     for text in texts:
         counts[text] += 1
-    duplicated = sum(len(text) for text, count in counts.items() if count > 1)
+    duplicated = sum(len(text) * count for text, count in counts.items() if count > 1)
     return duplicated / total
 
 

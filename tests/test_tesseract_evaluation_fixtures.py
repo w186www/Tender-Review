@@ -11,6 +11,7 @@ from evaluate_tesseract_ocr import (
 from pypdf import PdfReader
 
 from bidding_compliance.ingestion.policy import load_policy
+from bidding_compliance.ingestion.quality import quality_issues
 from bidding_compliance.ingestion.schemas import Fragment, OCRRuntimeIdentity
 
 
@@ -67,3 +68,38 @@ def test_ocr_text_reconstruction_preserves_visual_lines_and_columns():
     ]
     observed, _ = ordered_ocr_page_text(fragments)
     assert observed == "甲乙丙丁戊己"
+
+
+def _ocr_fragment(text, *, page=1, table=None, row=None, column=None, confidence=0.95):
+    return Fragment(
+        locator=f"pdf/page/{page}/ocr/{table}-{row}-{column}/{hashlib.sha256(text.encode()).hexdigest()[:8]}",
+        page=page,
+        bbox=[0, 0, 100, 100],
+        coordinate_system="pdf_points",
+        kind="table_cell" if table is not None else "ocr",
+        section="synthetic",
+        text=text,
+        text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+        source="ocr",
+        confidence=confidence,
+        table=table,
+        row=row,
+        column=column,
+    )
+
+
+def test_known_synthetic_ocr_failure_classes_are_routed_to_manual_review():
+    """The TASK-0018 fixture's known weak areas become explicit quality signals."""
+    repeat = "资格审查合格后进入详细评审。"
+    fragments = [
+        _ocr_fragment("投标报价 125600.00 元", confidence=0.70),
+        _ocr_fragment("重复页眉", page=1),
+        _ocr_fragment(repeat, page=1),
+        _ocr_fragment("资格", table=1, row=0, column=0),
+        _ocr_fragment("要求", table=1, row=0, column=1),
+        _ocr_fragment("备注", table=1, row=0, column=2),
+        _ocr_fragment("仅剩一格", table=1, row=1, column=0),
+        _ocr_fragment(repeat, page=2),
+    ]
+    issues = set(quality_issues(fragments, load_policy()))
+    assert {"LOW_CONFIDENCE_NUMERIC", "DUPLICATE_TEXT", "TABLE_STRUCTURE_GAP"} <= issues
