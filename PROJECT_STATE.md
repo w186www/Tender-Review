@@ -4,7 +4,7 @@
 
 ## 当前有效进度：U01/U02/U04/U05 已完成；U03/U07/U10 进行中；U06/U08/U09/U11/U12 有真实交付证据但正式单元仍待 D2/冻结评测；服务器已切换到 product-postgres，PostgreSQL 是唯一授权/预算权威源
 
-- 固定目录与分支：`D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`，`work/TASK-0027`；当前 HEAD `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`，已推送 `origin/work/TASK-0027`。未合并 main。`question.txt` 保持未跟踪私人文件。
+- 固定目录与分支：`D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`，`work/TASK-0027`；当前文档/证据 HEAD `006afc029709171e1585a7599afd84eafaf551f0`，运行时代码候选 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`，均已推送 `origin/work/TASK-0027`。未合并 main。`question.txt` 保持未跟踪私人文件。
 - 授权：用户 2026-10-18 以 [DEC-008](docs/decisions/DEC-008-product-delivery-d1-d4-authorization-20261018.md) 批准 D1 首版范围、D2 工程侧核验/标签准备、D3 既有百炼供应商受控真实调用（累计 200 元/2000 次/2000 批，不新增额度）、D4 现有 ECS 备份/隔离演练/候选发布，以及必要的提交/推送/合并。用户同日的夜间指令进一步要求完成 product-postgres 切换与真实文件验证；D2 的逐条内容确认、专家金标和用户独立验收仍未发生。
 - U03（in_progress）：评测器/测试/两份历史结果已恢复，原始 SHA-256 与暂停清单一致；缺失法规报告已重新生成。五案例/阈值/OCR/检索身份、开发/冻结/安全分区和待裁定标签材料见 `evals/capability_baseline/`。专家确认标签仍为 0，precision/recall 未测量。
 - U06（planned，真实文件证据已补充）：D1 范围（PDF/DOCX/PNG/JPEG、10 MiB、300 页、OCR 30 页）由 `tests/test_task0029_support_scope.py` 覆盖。真实天津地铁 DOCX 已完成校正/上下文/审查；派生真实扫描 PDF 实际执行 tesseract 5.3.0 OCR（`LOW_CONFIDENCE_NUMERIC`，578 个低质量片段）并按设计转人工检查；PNG/JPEG 上传 202、解析成功、同样转人工检查。扫描/图片 OCR 的字符切分质量不足，不能声称扫描件可直接进入审查；正式 U06 仍待 U03 冻结样本与 D2 标签。
@@ -18,10 +18,10 @@
 - 公网验收（真实文件）：天津地铁 3 号线 DOCX（SHA-256 `506e9ec1…`，689,683 字节）41 条风险、全部人工接受/发布，Word/PDF v3.2 报告下载哈希与服务端一致（docx `25c3569c…`、pdf `83ab6475…`）；派生真实文本 PDF（35 页/1562 片段）在 product-postgres 下 13 条风险、17 次真实 LLM、全部有原文定位、人工接受/发布，Word/PDF 哈希 `87c8c15f…`/`96728496…` 与服务端一致；项目 `35869b18-084e-43ea-9ebb-fabcf5667232`、文档 `21e20387-eb49-44d3-b2a0-7d05d98334f6`、run `b05e858f-cd77-5c82-a2c3-3c9fb2b18bfc`、result `3227580c-f227-4387-9d3c-7f822b8ac847`。
 - 真实扫描/图片限制：派生真实扫描 PDF（2 页）与合成高分辨率扫描 PDF 均实际 OCR，但因 `LOW_CONFIDENCE_NUMERIC` 和碎片化段落（578/362 个 section）进入 `needs_review`，未进入审查；PNG/JPEG 同样上传成功并 OCR 后转人工检查。这是质量门禁按设计工作，不是扫描件可用性验收通过。
 - 账本（PostgreSQL 为当前权威源，DEC-007 SQLite 保持只读历史）：历史导入 148 LLM/312 Embedding/¥0.9496789；产品模式新增 17 次 LLM/¥0.0903913；当前 PG 账户 limit ¥200、spent ¥1.0400702、reserved 0，477 条 reservation，真实调用全部 settled、unknown=0。额度仍为累计 2000 次/2000 批/¥200，未新增额度或账户。
-- 验证：最终候选 `d3cb613` 官方 Full 七阶段全部通过：后端 `928 passed, 6 warnings in 767.84s`，HTTP health=200/404、登录/项目生命周期 PASS（`.verification/final-full-d3cb613.log`）。此前 `667f956` Full 为 `927 passed`，`8b4a690` 为 `927 passed`。前端 OpenAPI/Biome/TypeScript/Vitest 14/14/build 通过。6 条 warning 为 2 条既有 pypdf 弃用 + 4 条既有 PowerShell 输出解码警告。
+- 验证：最终运行时代码候选 `d3cb613` 官方 Full 七阶段全部通过：后端 `928 passed, 6 warnings in 767.84s`，HTTP health=200/404、登录/项目生命周期 PASS（`.verification/final-full-d3cb613.log`）；GitHub Actions run 39074476065 success。后续仅文档/任务元数据变化，HEAD `006afc0` 的 CI run 39075809619 success，本地 Quick 通过。此前 `667f956` Full 为 `927 passed`，`8b4a690` 为 `927 passed`。前端 OpenAPI/Biome/TypeScript/Vitest 14/14/build 通过。6 条 warning 为 2 条既有 pypdf 弃用 + 4 条既有 PowerShell 输出解码警告。
 - 容量/监控：50 次并发 10 的 API 列表请求全部 200，p95 744.4ms、19.26 rps（本机到公网 TLS smoke，不是完整 NFR 压测）；磁盘 40G 用 15G/可用 23G，内存 7.5GiB/可用约 5.1GiB；TLS 证书 notAfter 2026-10-22 10:10:41 GMT，certbot renew/expiry timer 均 active；外部告警渠道仍未配置，只有系统内 health/审计。
 - 已知问题与未满足条件：正式法律支持仍为 0（无独立核验、无规则—法规人工签署），参考检索仍有噪声；跨不同原文行的同义风险可能保留两条；真实 DOCX/文本 PDF 覆盖为 partial（饱和/拒绝，非全部未处理）；扫描/图片 OCR 质量不足，需人工校正；U11 的失败/取消/恢复/多角色/多租户完整矩阵和 U15 的故障/供应链/告警矩阵未完成；外部告警渠道未配置；专家金标与用户独立验收未发生。
-- 下一步：等待 GitHub Actions 对最终候选的 CI 结果；向用户提供服务器验收地址、账号交接方式、真实/合成样本与步骤、最终 SHA/镜像/迁移身份、U01—U16 状态、D2 待确认材料、费用/剩余额度、备份恢复与回滚说明、已知限制和独立验收清单。不得登记“用户验收通过”或正式交付完成。
+- 下一步：向用户提供服务器验收地址、账号交接方式、真实/合成样本与步骤、最终 SHA/镜像/迁移身份、U01—U16 状态、D2 待确认材料、费用/剩余额度、备份恢复与回滚说明、已知限制和独立验收清单。用户独立验收未发生，不得登记“用户验收通过”或正式交付完成。
 
 ## TASK-0027 第七轮交付快照（第七轮实现已完成；TASK-0027 总体仍 in_progress）
 
