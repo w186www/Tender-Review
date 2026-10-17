@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, date, datetime
@@ -1051,7 +1052,19 @@ def build_review_graph(
             result = with_session(action)(state)
         except PermissionError:
             raise
-        except Exception:
+        except Exception as exc:
+            # Log only the exception type and field paths; never the query/document text.
+            diagnostic = type(exc).__name__
+            error_method = getattr(exc, "errors", None)
+            if callable(error_method):
+                paths = [
+                    ".".join(str(part) for part in item.get("loc", ()))
+                    for item in error_method()
+                ]
+                paths = [path for path in paths if path]
+                if paths:
+                    diagnostic += ":" + ",".join(paths)
+            print(f"legal_retrieval_failed {diagnostic}", file=sys.stderr, flush=True)
             return {
                 "status": "failed",
                 "errors": [
