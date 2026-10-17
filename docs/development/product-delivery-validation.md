@@ -149,6 +149,29 @@
 - 本次为文档/样本身份记录，无运行时实现、契约、测试、配置、依赖或阈值变化；官方 `./scripts/verify.ps1 -Mode Quick` 退出码 0，契约、示例、State、任务证据、仓库与秘密检查通过；按文档范围未运行 Pytest 或服务启动。U03 当前目录仅含本次证据/状态记录变化，故 Quick 为对应档位。
 - U03 部分完成，仍在进行：开发候选清单与标签边界已建立；冻结评测器来源恢复、可重复指标/差异报告、冻结验收/攻击分区、专家标签与最终范围签署未完成。未知原来源未被覆盖；后续可在来源可用时按哈希接续，其他 U04 等依赖 U02 的单元可继续。
 
+### 2026-10-18 来源判断纠正（用户指出，只读核验）
+
+用户指出 `D:\自由项目\招标审核\_backups\worktrees-uncommitted-20261017T080625Z	ask0019` 存在。此前“唯一已知备份 bundle 未找到来源”的结论只对 `repo-20261017T081226Z.bundle` 成立，遗漏了同目录的未提交工作树备份，现纠正：
+
+| 类别 | 核验结果 |
+|---|---|
+| 评测工具/测试 | `evaluate_review_capabilities.py` SHA-256 `7b2c2b0673b3f28c1c0cd7c33aea32163e4c42e3c3ea071428ad51307da5712e`；`test_review_capability_evaluation.py` `e59247e9a47b84b8cd4c25a77b5a2405fb1fda714122003b2893c25a8cafd640`；均与 `TASK-0019-paused-20261015.md` 一致 |
+| 原结果/TASK 文件 | 两份 capability baseline 结果 `9031…`/`1696…` 与原 TASK YAML `faf9…` 均与暂停清单一致 |
+| 五个黄金案例 | 当前为 CRLF 检出；LF 规范化后的逐文件哈希及清单哈希 `ea888e9f9a587b478f3ac2461d00cb4ce45fd1320a47c2c2d2bf5b0ce0762052` 与原基线完全一致 |
+| 阈值/OCR | 阈值 LF 规范化 `c6ff964…` 与原基线一致；OCR 报告原始 SHA-256 `045075768…` 与原基线一致 |
+| 法规检索 | 查询集/适用性/快照数据在当前仓库；当前 `character-baseline-20261015.json` 的核心指标（Recall@5/10=1.0、MRR@10=0.4867、nDCG@10=0.6141、77 个未核验参考命中）与原基线一致；原 `.verification/task0019-legal/character-baseline-20261015.json`（`47df…`）文件缺失 |
+| 专家确认标签 | 原结果明确 `expert_confirmed_risks=0`、`expert_confirmed_nonrisks=0`、`candidate_unconfirmed=5`；从未具备专家标签 |
+
+**只读复用验证：** 用备份中的原脚本（哈希未变）加载当前仓库资产，输出到 `.verification/task0019-reuse/current-baseline-readonly.json`；`external_model_calls=0`、fixture 期望模式 5/5、引文/定位 7/7、专家确认 0、法规指标与原基线一致。未覆盖原结果、未复制评测器进正式路径、未修改备份/阈值/任务状态。
+
+**分类与最小复用方案：**
+
+1. **已找回且来源匹配**：评测脚本、测试、两份结果、原 TASK 文件、五个合成案例、阈值、OCR 报告、法规检索数据与等价报告。
+2. **尚缺**：原 `.verification/task0019-legal/character-baseline-20261015.json` 精确文件；当前 CRLF 检出导致原始字节清单/阈值哈希与历史 LF 不同。前者可在获准恢复时用现有离线法规检索入口重新生成到**新路径**，不覆盖旧结果；后者用 LF 规范化视图或干净 LF 检出复现。
+3. **从未具备**：专家风险/非风险标签；五个案例仍是 `development_candidate`，风险 precision/recall 为 `not_measured`，需 D2 指定裁定人。
+
+**边界与下一步：** TASK-0019 仍 `blocked`，本次没有解包/导入/覆盖备份、没有解除暂停、没有改状态或降低验收；U03 仍为 `in_progress`。最小复用限定为只读验证；正式恢复需用户明确授权并按原任务允许路径接入原脚本/测试、记录新资产身份。此次为文档/证据纠正，未改代码/契约/测试，未因来源核对重跑 Full；后续按用户要求只做必要的 Quick 和证据记录。
+
 ## U04｜持久调度、重启接管与调用恢复（进行中）
 
 正式 TASK：TASK-0028（`TASK0028-003`）；前置 U02 已完成。
