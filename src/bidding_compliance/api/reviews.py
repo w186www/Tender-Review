@@ -113,7 +113,7 @@ async def create_review(
             prompt_version=getattr(request.app.state, "review_prompt_version", "task0011-ui-v1"),
             model_profile=engine.model_policy.profile,
         )
-        await engine.start(principal, review)
+        engine.create_run(principal, review)
         session.expire_all()
         return _task_response(review_management.get_review_status(session, principal, task_id))
     except HTTPException:
@@ -146,7 +146,7 @@ def _translate(exc: Exception) -> HTTPException:
     if isinstance(exc, (FileExistsError, IntegrityError)):
         return HTTPException(409)
     if isinstance(exc, ValueError):
-        conflict_terms = ("conflict", "eligible", "waiting", "status", "approved")
+        conflict_terms = ("conflict", "eligible", "waiting", "status", "approved", "published")
         return HTTPException(409 if any(term in str(exc) for term in conflict_terms) else 422)
     return HTTPException(500)
 
@@ -338,7 +338,7 @@ async def resume(
         engine = getattr(request.app.state, "review_engine", None)
         if engine is None:
             raise HTTPException(503, detail="review execution worker is unavailable")
-        await engine.resume(principal, reviewTaskId, runId)
+        engine.schedule_resume(principal, reviewTaskId, runId)
         session.expire_all()
         return _task_response(
             review_management.get_review_status(session, principal, reviewTaskId)
@@ -368,7 +368,37 @@ async def retry(
         engine = getattr(request.app.state, "review_engine", None)
         if engine is None:
             raise HTTPException(503, detail="review execution worker is unavailable")
-        await engine.retry(principal, reviewTaskId, runId)
+        engine.schedule_retry(principal, reviewTaskId, runId)
+        session.expire_all()
+        return _task_response(
+            review_management.get_review_status(session, principal, reviewTaskId)
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.post(
+    "/review-tasks/{reviewTaskId}/runs/{runId}/cancel",
+    response_model=ReviewTaskResponse,
+    operation_id="cancelReviewRun",
+)
+async def cancel(
+    reviewTaskId: str,
+    runId: str,
+    request: Request,
+    principal: User,
+    session: DB,
+) -> ReviewTaskResponse:
+    try:
+        review_management.authorize_review_control(
+            session, principal, reviewTaskId, runId, "cancel"
+        )
+        engine = getattr(request.app.state, "review_engine", None)
+        if engine is None:
+            raise HTTPException(503, detail="review execution worker is unavailable")
+        engine.cancel(principal, reviewTaskId, runId)
         session.expire_all()
         return _task_response(
             review_management.get_review_status(session, principal, reviewTaskId)

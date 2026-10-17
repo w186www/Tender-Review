@@ -296,9 +296,9 @@ def test_low_quality_manual_correction_rechecks_quality_and_preserves_automatic(
         "corrections": [
             {
                 "section_id": item["section_id"],
-                "text": "Synthetic manually verified source transcription.",
+                "text": f"Synthetic manually verified source transcription {index}.",
             }
-            for item in items
+            for index, item in enumerate(items, 1)
         ],
     }
     fixed = client.post(path + "/corrections", headers=headers, json=correction)
@@ -507,7 +507,7 @@ def test_text_correction_racing_context_confirmation_returns_conflict(system, mo
     headers = sign_in(system)
     path = f"/api/v1/projects/{project}/documents/{document}"
     items = client.get(path + "/sections", headers=headers).json()["items"]
-    original_quality = documents.quality
+    original_quality = documents.quality_issues
 
     def confirm_during_correction(fragments, policy):
         confirmation = client.post(
@@ -527,7 +527,7 @@ def test_text_correction_racing_context_confirmation_returns_conflict(system, mo
         assert confirmation.status_code == 200
         return original_quality(fragments, policy)
 
-    monkeypatch.setattr(documents, "quality", confirm_during_correction)
+    monkeypatch.setattr(documents, "quality_issues", confirm_during_correction)
     correction = client.post(
         path + "/corrections",
         headers=headers,

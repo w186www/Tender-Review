@@ -1,6 +1,7 @@
 """Core persistence contracts. No relationships silently load unscoped business data."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -14,10 +15,12 @@ from sqlalchemy import (
     Index,
     Integer,
     LargeBinary,
+    Numeric,
     String,
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -297,6 +300,11 @@ class ReviewEngineRun(Base):
         CheckConstraint("length(snapshot_hash) = 64"),
         CheckConstraint("length(request_hash) = 64"),
         CheckConstraint("retry_count BETWEEN 0 AND 2"),
+        CheckConstraint(
+            "execution_generation >= 0", name="ck_review_engine_run_execution_generation"
+        ),
+        CheckConstraint("action IN ('start','resume','retry')", name="ck_review_engine_run_action"),
+        Index("review_engine_run_queue_idx", "tenant_id", "status", "scheduled_at"),
     )
     tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     review_task_id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -311,6 +319,61 @@ class ReviewEngineRun(Base):
     failure_code: Mapped[str | None] = mapped_column(String(100))
     publication_id: Mapped[str | None] = mapped_column(String(36))
     revision_id: Mapped[str | None] = mapped_column(String(36))
+    action: Mapped[str] = mapped_column(String(12), default="start", server_default="start")
+    scheduled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    lease_id: Mapped[str | None] = mapped_column(String(36))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    execution_generation: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReviewModelCall(Base):
+    """Durable call identity and outcome; request/response bodies live in artifacts."""
+
+    __tablename__ = "review_model_call"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "review_task_id", "run_id"],
+            [
+                "review_engine_run.tenant_id",
+                "review_engine_run.review_task_id",
+                "review_engine_run.run_id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "actor_id"], ["app_user.tenant_id", "app_user.user_id"]
+        ),
+        Index("review_model_call_run_idx", "tenant_id", "review_task_id", "run_id"),
+        CheckConstraint(
+            "state IN ('prepared','reserved','dispatched','succeeded','failed','unknown')"
+        ),
+        CheckConstraint("attempt >= 1 AND execution_generation >= 0"),
+        CheckConstraint("length(request_hash) = 64"),
+        CheckConstraint("response_hash IS NULL OR length(response_hash) = 64"),
+        CheckConstraint(
+            "usage_status IN ('not_applicable','reported','unknown')"
+        ),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    call_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    review_task_id: Mapped[str] = mapped_column(String(64))
+    run_id: Mapped[str] = mapped_column(String(36))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    node_run_id: Mapped[str] = mapped_column(String(200))
+    attempt: Mapped[int] = mapped_column(Integer)
+    request_hash: Mapped[str] = mapped_column(String(64))
+    document_hashes: Mapped[list[str]] = mapped_column(JSON)
+    usage_status: Mapped[str] = mapped_column(String(20))
+    state: Mapped[str] = mapped_column(String(20))
+    response_ref: Mapped[str | None] = mapped_column(String(1000))
+    response_hash: Mapped[str | None] = mapped_column(String(64))
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    execution_generation: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -731,3 +794,231 @@ class LegalLawIdentity(Base):
     actor_tenant: Mapped[str] = mapped_column(String(64))
     actor_id: Mapped[str] = mapped_column(String(64))
     operation: Mapped[str] = mapped_column(String(20))
+
+
+class ModelExecutionPolicy(Base):
+    """Tenant-wide provider, purpose, budget and authorization-lifetime policy."""
+
+    __tablename__ = "model_execution_policy"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id"], ["tenant.tenant_id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "updated_by"], ["app_user.tenant_id", "app_user.user_id"]
+        ),
+        CheckConstraint("policy_version >= 1", name="ck_model_execution_policy_version"),
+        CheckConstraint("budget_cny >= 0", name="ck_model_execution_policy_budget"),
+        CheckConstraint("max_call_cny > 0", name="ck_model_execution_policy_call"),
+        CheckConstraint(
+            "max_embedding_batch_cny > 0", name="ck_model_execution_policy_embedding"
+        ),
+        CheckConstraint(
+            "max_authorization_ttl_seconds BETWEEN 60 AND 2592000",
+            name="ck_model_execution_policy_ttl",
+        ),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    policy_version: Mapped[int] = mapped_column(Integer)
+    allowed_providers: Mapped[list[str]] = mapped_column(JSON)
+    allowed_purposes: Mapped[list[str]] = mapped_column(JSON)
+    budget_cny: Mapped[Decimal] = mapped_column(Numeric(18, 8))
+    max_call_cny: Mapped[Decimal] = mapped_column(Numeric(18, 8))
+    max_embedding_batch_cny: Mapped[Decimal] = mapped_column(Numeric(18, 8))
+    max_authorization_ttl_seconds: Mapped[int] = mapped_column(Integer)
+    active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    updated_by: Mapped[str] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class DocumentExternalAuthorization(Base):
+    """One reviewer's per-file, version-bound external-processing approval."""
+
+    __tablename__ = "document_external_authorization"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id"], ["tenant.tenant_id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id"], ["project.tenant_id", "project.project_id"]
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id", "document_id"],
+            ["document.tenant_id", "document.project_id", "document.document_id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "approved_by"], ["app_user.tenant_id", "app_user.user_id"]
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "revoked_by"], ["app_user.tenant_id", "app_user.user_id"]
+        ),
+        CheckConstraint(
+            "state IN ('active','revoked')",
+            name="ck_document_external_authorization_state",
+        ),
+        CheckConstraint(
+            "length(document_sha256) = 64 AND parse_version >= 1",
+            name="ck_document_external_authorization_identity",
+        ),
+        CheckConstraint(
+            "expires_at > approved_at",
+            name="ck_document_external_authorization_expiry",
+        ),
+        CheckConstraint(
+            "(state = 'active' AND revoked_by IS NULL AND revoked_at IS NULL "
+            "AND revocation_reason IS NULL) OR (state = 'revoked' "
+            "AND revoked_by IS NOT NULL AND revoked_at IS NOT NULL "
+            "AND revocation_reason IS NOT NULL)",
+            name="ck_document_external_authorization_revocation",
+        ),
+        Index(
+            "document_external_authorization_active_idx",
+            "tenant_id",
+            "document_id",
+            "document_sha256",
+            "parse_version",
+            "purpose",
+            "provider",
+            unique=True,
+            postgresql_where=text("state = 'active'"),
+            sqlite_where=text("state = 'active'"),
+        ),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    authorization_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64))
+    document_id: Mapped[str] = mapped_column(String(64))
+    document_sha256: Mapped[str] = mapped_column(String(64))
+    parse_version: Mapped[int] = mapped_column(Integer)
+    purpose: Mapped[str] = mapped_column(String(64))
+    provider: Mapped[str] = mapped_column(String(64))
+    policy_version: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(16))
+    reason: Mapped[str] = mapped_column(String(500))
+    approved_by: Mapped[str] = mapped_column(String(64))
+    approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_by: Mapped[str | None] = mapped_column(String(64))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revocation_reason: Mapped[str | None] = mapped_column(String(500))
+    source: Mapped[str] = mapped_column(String(32), server_default="api")
+    source_record_id: Mapped[str | None] = mapped_column(String(128))
+
+
+class ModelBudgetAccount(Base):
+    """One tenant budget account; PostgreSQL is the multi-worker authority."""
+
+    __tablename__ = "model_budget_account"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id"], ["tenant.tenant_id"]),
+        CheckConstraint(
+            "limit_cny >= 0 AND reserved_cny >= 0 AND spent_cny >= 0 "
+            "AND reserved_cny + spent_cny <= limit_cny",
+            name="ck_model_budget_account_balance",
+        ),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    authorization_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    limit_cny: Mapped[Decimal] = mapped_column(Numeric(18, 8))
+    reserved_cny: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), server_default="0"
+    )
+    spent_cny: Mapped[Decimal] = mapped_column(Numeric(18, 8), server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ModelBudgetReservation(Base):
+    """Durable reservation, settlement and unknown-outcome record per paid call."""
+
+    __tablename__ = "model_budget_reservation"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id"], ["tenant.tenant_id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "authorization_id"],
+            ["model_budget_account.tenant_id", "model_budget_account.authorization_id"],
+        ),
+        CheckConstraint("kind IN ('llm','embedding')", name="ck_model_budget_reservation_kind"),
+        CheckConstraint(
+            "status IN ('reserved','dispatched','settled','unknown','released')",
+            name="ck_model_budget_reservation_status",
+        ),
+        CheckConstraint(
+            "ceiling_cny > 0 AND (charge_cny IS NULL OR "
+            "(charge_cny >= 0 AND charge_cny <= ceiling_cny))",
+            name="ck_model_budget_reservation_charge",
+        ),
+        CheckConstraint(
+            "length(request_hash) = 64", name="ck_model_budget_reservation_request"
+        ),
+        CheckConstraint(
+            "(kind = 'llm' AND (review_task_id IS NOT NULL OR source = 'ledger_import')) "
+            "OR kind = 'embedding'",
+            name="ck_model_budget_reservation_task",
+        ),
+        Index(
+            "model_budget_reservation_call_idx",
+            "tenant_id",
+            "call_id",
+            unique=True,
+            postgresql_where=text("call_id IS NOT NULL"),
+            sqlite_where=text("call_id IS NOT NULL"),
+        ),
+        Index(
+            "model_budget_reservation_status_idx",
+            "tenant_id",
+            "status",
+            "updated_at",
+        ),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reservation_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    authorization_id: Mapped[str] = mapped_column(String(64))
+    review_task_id: Mapped[str | None] = mapped_column(String(64))
+    review_run_id: Mapped[str | None] = mapped_column(String(36))
+    call_id: Mapped[str | None] = mapped_column(String(128))
+    kind: Mapped[str] = mapped_column(String(16))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    ceiling_cny: Mapped[Decimal] = mapped_column(Numeric(18, 8))
+    charge_cny: Mapped[Decimal | None] = mapped_column(Numeric(18, 8))
+    status: Mapped[str] = mapped_column(String(16))
+    source: Mapped[str] = mapped_column(String(16), server_default="product")
+    source_ref: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LedgerImport(Base):
+    """Append-only provenance and reconciliation record for a historical import."""
+
+    __tablename__ = "ledger_import"
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id"], ["tenant.tenant_id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "authorization_id"],
+            ["model_budget_account.tenant_id", "model_budget_account.authorization_id"],
+        ),
+        CheckConstraint(
+            "length(source_ledger_sha256) = 64",
+            name="ck_ledger_import_ledger_digest",
+        ),
+        CheckConstraint(
+            "source_registry_sha256 IS NULL OR length(source_registry_sha256) = 64",
+            name="ck_ledger_import_registry_digest",
+        ),
+        Index(
+            "ledger_import_source_idx",
+            "tenant_id",
+            "authorization_id",
+            "source_ledger_sha256",
+            "source_registry_sha256",
+            unique=True,
+        ),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    import_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    authorization_id: Mapped[str] = mapped_column(String(64))
+    source_ledger_sha256: Mapped[str] = mapped_column(String(64))
+    source_registry_sha256: Mapped[str | None] = mapped_column(String(64))
+    source_counts: Mapped[dict[str, Any]] = mapped_column(JSON)
+    source_sums: Mapped[dict[str, Any]] = mapped_column(JSON)
+    imported_counts: Mapped[dict[str, Any]] = mapped_column(JSON)
+    imported_sums: Mapped[dict[str, Any]] = mapped_column(JSON)
+    report_sha256: Mapped[str] = mapped_column(String(64))
+    imported_by: Mapped[str] = mapped_column(String(64))
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

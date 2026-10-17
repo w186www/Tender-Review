@@ -62,6 +62,12 @@ const issueLabels: Record<string, string> = {
   TEXT_LIMIT: "解析文本超过处理限制",
   OCR_LIMIT: "OCR 处理超过限制",
   LOW_QUALITY: "解析质量不足，需要人工检查",
+  LOW_CONFIDENCE_NUMERIC: "OCR 数字或日期置信度不足，需要人工核对",
+  DUPLICATE_TEXT: "检测到重复文本，可能缺页或重复解析",
+  PAGE_COVERAGE_GAP: "页码覆盖不完整，可能缺页",
+  READING_ORDER_GAP: "阅读顺序异常，需要人工检查",
+  TABLE_STRUCTURE_GAP: "表格结构不完整，需要人工核对",
+  INVALID_DATE: "日期格式或日历值异常，需要人工核对",
   SCANNER_UNAVAILABLE: "安全扫描服务不可用",
   SCANNER_STALE: "安全扫描结果已过期",
   PARSE_TIMEOUT: "文档解析超时",
@@ -227,14 +233,9 @@ export function ProjectPage() {
         `审查任务 ${task.review_task_id} 已由服务端接收，当前状态：${apiEnumLabel(task.status)}。`,
       );
       reload();
-      if (
-        task.status === "waiting_human" ||
-        task.status === "result_published"
-      ) {
-        navigate(
-          `/reviews/${encodeURIComponent(task.review_task_id)}/${encodeURIComponent(task.run_id)}`,
-        );
-      }
+      navigate(
+        `/reviews/${encodeURIComponent(task.review_task_id)}/${encodeURIComponent(task.run_id)}`,
+      );
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === "AbortError") {
         // The 120 s client abort is not a lost task: reload the persisted task list and

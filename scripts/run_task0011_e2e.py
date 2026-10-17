@@ -12,15 +12,16 @@ import socket
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 from uuid import uuid4
 
 import httpx
+from check_review_engine import verify_durable_review_queue
 from defusedxml import ElementTree as ET
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from bidding_compliance.core.config import Settings
@@ -28,7 +29,13 @@ from bidding_compliance.ingestion.ports import IngestionError
 from bidding_compliance.ingestion.scanner import ClamAVScanner
 from bidding_compliance.ingestion.storage import S3ObjectStore
 from bidding_compliance.persistence.database import make_engine, migrate
-from bidding_compliance.persistence.models import LegalOperatorGrant, Tenant, User
+from bidding_compliance.persistence.models import (
+    LegalOperatorGrant,
+    ReviewEngineRun,
+    ReviewModelCall,
+    Tenant,
+    User,
+)
 from bidding_compliance.services.identity import PASSWORDS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -230,6 +237,7 @@ def _create_runtime_role(admin_url: str, password: str) -> None:
                 "document_context_version TO task0011_runtime",
                 "GRANT UPDATE (revision) ON document_section TO task0011_runtime",
                 "GRANT SELECT, INSERT, UPDATE ON review_engine_run TO task0011_runtime",
+                "GRANT SELECT, INSERT, UPDATE ON review_model_call TO task0011_runtime",
                 "GRANT SELECT, INSERT ON review_artifact, review_decision, review_result, "
                 "review_report_content, review_report TO task0011_runtime",
                 "GRANT SELECT, INSERT ON review_configuration_revision, "
@@ -254,6 +262,7 @@ def _seed_identities(admin_url: str) -> dict[str, dict[str, str]]:
                 [
                     Tenant(tenant_id="tenant-a", name="TASK-0011 合成租户甲", active=True),
                     Tenant(tenant_id="tenant-b", name="TASK-0011 合成租户乙", active=True),
+                    Tenant(tenant_id="tenant-queue", name="TASK-0028 合成队列租户", active=True),
                 ]
             )
             session.flush()
@@ -263,6 +272,7 @@ def _seed_identities(admin_url: str) -> dict[str, dict[str, str]]:
                 ("tenant-a", "auditor"),
                 ("tenant-a", "operator"),
                 ("tenant-b", "reviewer"),
+                ("tenant-queue", "reviewer"),
             ]
             for tenant, username in accounts:
                 password = secrets.token_urlsafe(24)
@@ -334,6 +344,88 @@ def _stop_process(process: subprocess.Popen[bytes]) -> None:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
         process.kill()
+        process.wait(timeout=5)
+
+
+def _latest_review_checkpoint(engine: Any) -> dict[str, Any] | None:
+    with Session(engine) as session:
+        row = session.scalar(
+            select(ReviewEngineRun)
+            .where(ReviewEngineRun.tenant_id == "tenant-a")
+            .order_by(ReviewEngineRun.created_at.desc())
+            .limit(1)
+        )
+        if row is None:
+            return None
+        call_ids = sorted(
+            session.scalars(
+                select(ReviewModelCall.call_id).where(
+                    ReviewModelCall.tenant_id == row.tenant_id,
+                    ReviewModelCall.review_task_id == row.review_task_id,
+                    ReviewModelCall.run_id == row.run_id,
+                )
+            )
+        )
+        return {
+            "tenant_id": row.tenant_id,
+            "review_task_id": row.review_task_id,
+            "run_id": row.run_id,
+            "status": row.status,
+            "action": row.action,
+            "execution_generation": row.execution_generation,
+            "call_ids": call_ids,
+        }
+
+
+def _review_run_snapshot(
+    engine: Any, task_id: str, run_id: str | None = None
+) -> dict[str, Any]:
+    with Session(engine) as session:
+        row = (
+            session.get(ReviewEngineRun, ("tenant-a", task_id, run_id))
+            if run_id is not None
+            else session.scalar(
+                select(ReviewEngineRun)
+                .where(
+                    ReviewEngineRun.tenant_id == "tenant-a",
+                    ReviewEngineRun.review_task_id == task_id,
+                )
+                .order_by(ReviewEngineRun.created_at.desc())
+                .limit(1)
+            )
+        )
+        if row is None:
+            raise AssertionError(f"deployment review run is missing: {task_id}/{run_id}")
+        run_id = row.run_id
+        calls = list(
+            session.scalars(
+                select(ReviewModelCall).where(
+                    ReviewModelCall.tenant_id == "tenant-a",
+                    ReviewModelCall.review_task_id == task_id,
+                    ReviewModelCall.run_id == run_id,
+                )
+            )
+        )
+        return {
+            "run_id": row.run_id,
+            "status": row.status,
+            "action": row.action,
+            "failure_code": row.failure_code,
+            "execution_generation": row.execution_generation,
+            "lease_id": row.lease_id,
+            "lease_until": row.lease_until,
+            "call_ids": sorted(item.call_id for item in calls),
+            "calls": [
+                {
+                    "call_id": item.call_id,
+                    "state": item.state,
+                    "execution_generation": item.execution_generation,
+                    "response_ref": item.response_ref,
+                    "response_hash": item.response_hash,
+                }
+                for item in calls
+            ],
+        }
 
 
 def _junit_summary(path: Path) -> dict[str, int]:
@@ -418,6 +510,7 @@ def main() -> int:
     folder.mkdir(parents=True)
     logs: dict[str, Any] = {"folder": folder, "streams": [], "processes": []}
     containers: list[str] = []
+    review_workers: list[subprocess.Popen[bytes]] = []
     success = False
     credentials: dict[str, dict[str, str]] = {}
     state: dict[str, Any] = {
@@ -559,6 +652,26 @@ def main() -> int:
             admin_engine.dispose()
         _create_runtime_role(admin_url, runtime_password)
         credentials = _seed_identities(admin_url)
+        queue_admin_engine = make_engine(admin_settings)
+        runtime_settings = Settings(
+            _env_file=None,
+            app_env="test",
+            database_url=runtime_url,
+            auth_signing_key=secrets.token_urlsafe(48),
+        )
+        queue_runtime_engine = make_engine(runtime_settings)
+        try:
+            state["review_queue_postgres"] = verify_durable_review_queue(
+                queue_admin_engine,
+                queue_runtime_engine,
+                runtime_settings,
+                ROOT,
+                tenant_id="tenant-queue",
+                actor_id="reviewer",
+            )
+        finally:
+            queue_runtime_engine.dispose()
+            queue_admin_engine.dispose()
 
         store = S3ObjectStore(admin_settings)
         store.client.create_bucket(Bucket=admin_settings.object_storage_bucket)
@@ -597,6 +710,12 @@ def main() -> int:
         api_port, no_review_api_port = _port(), _port()
         ui_port, no_review_ui_port = _port(), _port()
         signing_key = secrets.token_urlsafe(48)
+        gate_directory = folder / "task0028-worker-gate"
+        if not online_qwen and not real_ai:
+            gate_directory.mkdir()
+            (gate_directory / "fail-first-pending").write_text(
+                "synthetic transient timeout", encoding="utf-8"
+            )
         server_env = os.environ.copy()
         server_env.update(
             {
@@ -648,19 +767,23 @@ def main() -> int:
                     "TASK0021_MODEL_AUDIT_PATH": str(folder / "qwen-model-audit.jsonl"),
                 }
             )
+        elif not real_ai:
+            # Shared one-shot gate exercises retry once across concurrent worker processes.
+            server_env["TASK0028_E2E_GATE_DIR"] = str(gate_directory)
+        review_app_module = (
+            "scripts.task0023_real_ai_app"
+            if real_ai
+            else "scripts.task0021_online_e2e_app"
+            if online_qwen
+            else "scripts.task0011_e2e_app"
+        )
         api_process = _start_process(
             "api-review-engine",
             [
                 python,
                 str(ROOT / "scripts/task0011_e2e_server.py"),
                 "--app",
-                (
-                    "scripts.task0023_real_ai_app:app"
-                    if real_ai
-                    else "scripts.task0021_online_e2e_app:app"
-                    if online_qwen
-                    else "scripts.task0011_e2e_app:app"
-                ),
+                review_app_module + ":app",
                 "--port",
                 str(api_port),
             ],
@@ -707,6 +830,23 @@ def main() -> int:
             no_review_process,
             folder / "api-no-review-executor.log",
         )
+        review_worker_command = [
+            python,
+            str(ROOT / "scripts/run_review_worker.py"),
+            "--assembly",
+            review_app_module,
+        ]
+        worker_count = 2 if not online_qwen and not real_ai else 1
+        for index in range(worker_count):
+            review_workers.append(
+                _start_process(
+                    f"review-worker-{index + 1}",
+                    review_worker_command,
+                    server_env,
+                    ROOT,
+                    logs,
+                )
+            )
         safe_service_env = server_env.copy()
         for secret_name in (
             "DASHSCOPE_API_KEY",
@@ -829,6 +969,8 @@ def main() -> int:
                 "E2E_OUTPUT_DIR": str(browser_output),
             }
         )
+        if not online_qwen and not real_ai:
+            e2e_env["E2E_MODEL_GATE_DIR"] = str(gate_directory)
         if online_qwen:
             e2e_env["E2E_EXPECT_PROVIDER"] = "bailian"
             e2e_env["E2E_MODEL_AUDIT_PATH"] = str(folder / "qwen-model-audit.jsonl")
@@ -853,26 +995,280 @@ def main() -> int:
         command = [node, str(playwright_cli), "test", "--workers=1"]
         e2e_log = (folder / "playwright.log").open("wb")
         logs["streams"].append(e2e_log)
-        result = subprocess.run(  # noqa: S603 -- fixed Node executable and local Playwright CLI
+        browser_process = subprocess.Popen(  # noqa: S603 -- fixed Node executable and local Playwright CLI
             command,
             cwd=FRONTEND,
             env=e2e_env,
             stdout=e2e_log,
             stderr=subprocess.STDOUT,
-            timeout=1800,
-            check=False,
             shell=False,
         )
+        state["deployment_worker_recovery"] = {
+            "checkpoint_worker_stopped": False,
+            "resume_action_observed": False,
+            "replacement_worker_started": False,
+        }
+        state["deployment_queue_recovery"] = {
+            "unknown_call_restart": {"entered": False, "old_workers_stopped": False},
+            "expired_lease_takeover": {
+                "entered": False,
+                "old_generation_rejected": False,
+            },
+            "cancellation_competition": {"entered": False},
+        }
+        monitor_engine = make_engine(admin_settings)
+        deadline = time.monotonic() + 1800
+        while browser_process.poll() is None:
+            if time.monotonic() >= deadline:
+                browser_process.kill()
+                browser_process.wait(timeout=10)
+                raise TimeoutError("Playwright browser E2E exceeded 30 minutes")
+            checkpoint = _latest_review_checkpoint(monitor_engine)
+            recovery = state["deployment_worker_recovery"]
+            if checkpoint is not None and not recovery["checkpoint_worker_stopped"]:
+                if checkpoint["status"] == "waiting_human":
+                    recovery.update(
+                        {
+                            "checkpoint_worker_stopped": True,
+                            "checkpoint_task_id": checkpoint["review_task_id"],
+                            "checkpoint_run_id": checkpoint["run_id"],
+                            "checkpoint_generation": checkpoint["execution_generation"],
+                            "checkpoint_model_call_ids": checkpoint["call_ids"],
+                            "stopped_worker_pids": [item.pid for item in review_workers],
+                        }
+                    )
+                    for process in review_workers:
+                        _stop_process(process)
+                    review_workers.clear()
+            elif (
+                checkpoint is not None
+                and recovery["checkpoint_worker_stopped"]
+                and not recovery["replacement_worker_started"]
+                and checkpoint["review_task_id"] == recovery["checkpoint_task_id"]
+                and checkpoint["status"] == "queued"
+                and checkpoint["action"] == "resume"
+            ):
+                recovery["resume_action_observed"] = True
+                recovery["resume_queued_generation"] = checkpoint["execution_generation"]
+                for index in range(worker_count):
+                    review_workers.append(
+                        _start_process(
+                            f"review-worker-after-checkpoint-restart-{index + 1}",
+                            review_worker_command,
+                            server_env,
+                            ROOT,
+                            logs,
+                        )
+                    )
+                recovery["replacement_worker_started"] = True
+                recovery["replacement_worker_pids"] = [item.pid for item in review_workers]
+
+            queue_recovery = state["deployment_queue_recovery"]
+            for stage in ("model-call", "pre-invoke"):
+                entry_path = gate_directory / f"entered-{stage}.json"
+                marker_key = (
+                    "unknown_call_restart"
+                    if stage == "model-call"
+                    else "expired_lease_takeover"
+                )
+                stage_result = queue_recovery[marker_key]
+                if not entry_path.is_file() or stage_result["entered"]:
+                    continue
+                marker = json.loads(entry_path.read_text(encoding="utf-8"))
+                task_id = marker["task_id"]
+                run_id = marker.get("run_id") or None
+                snapshot = _review_run_snapshot(monitor_engine, task_id, run_id)
+                run_id = snapshot["run_id"]
+                if snapshot["status"] != "running" or snapshot["lease_id"] is None:
+                    raise AssertionError(f"{stage} gate was not held by an active PostgreSQL lease")
+                stage_result.update(
+                    {
+                        "entered": True,
+                        "task_id": task_id,
+                        "run_id": run_id,
+                        "old_generation": snapshot["execution_generation"],
+                        "old_worker_pid": marker["process_id"],
+                    }
+                )
+                if stage == "model-call":
+                    if (
+                        len(snapshot["calls"]) != 1
+                        or snapshot["calls"][0]["state"] != "dispatched"
+                    ):
+                        raise AssertionError(
+                            "model-call crash gate did not capture a persisted dispatch"
+                        )
+                    for name, process in logs["processes"]:
+                        if name.startswith("review-worker"):
+                            _stop_process(process)
+                    review_workers.clear()
+                    stage_result["old_workers_stopped"] = True
+
+                with Session(monitor_engine) as session:
+                    row = session.get(ReviewEngineRun, ("tenant-a", task_id, run_id))
+                    if row is None or row.lease_id is None:
+                        raise AssertionError("gated review lost its PostgreSQL lease before expiry")
+                    row.lease_until = datetime.now(UTC) - timedelta(seconds=1)
+                    session.commit()
+
+                replacement_workers = [
+                    _start_process(
+                        f"review-worker-after-{stage}-expiry-{index + 1}",
+                        review_worker_command,
+                        server_env,
+                        ROOT,
+                        logs,
+                    )
+                    for index in range(worker_count)
+                ]
+                review_workers.extend(replacement_workers)
+                stage_result["replacement_worker_pids"] = [item.pid for item in replacement_workers]
+                stage_result["lease_expired_in_postgres"] = True
+
+                if stage == "pre-invoke":
+                    takeover_deadline = time.monotonic() + 180
+                    while time.monotonic() < takeover_deadline:
+                        current = _review_run_snapshot(monitor_engine, task_id, run_id)
+                        if (
+                            current["status"] == "waiting_human"
+                            and current["execution_generation"] == 2
+                        ):
+                            break
+                        time.sleep(0.25)
+                    else:
+                        raise TimeoutError(
+                            "replacement worker did not take over the expired lease"
+                        )
+                    stage_result["call_ids_after_takeover"] = current["call_ids"]
+                    stage_result["calls_after_takeover"] = current["calls"]
+                    (gate_directory / "release-pre-invoke").write_text("release", encoding="utf-8")
+                    rejection_path = gate_directory / "stale-worker-rejected.json"
+                    rejection_deadline = time.monotonic() + 30
+                    while time.monotonic() < rejection_deadline and not rejection_path.is_file():
+                        time.sleep(0.1)
+                    if not rejection_path.is_file():
+                        raise TimeoutError(
+                            "superseded deployment worker was not rejected after takeover"
+                        )
+                    final_snapshot = _review_run_snapshot(monitor_engine, task_id, run_id)
+                    if (
+                        final_snapshot["status"] != "waiting_human"
+                        or final_snapshot["execution_generation"] != 2
+                        or final_snapshot["call_ids"] != current["call_ids"]
+                        or final_snapshot["calls"] != current["calls"]
+                    ):
+                        raise AssertionError("old execution generation changed the recovered run")
+                    stage_result.update(
+                        {
+                            "new_generation": final_snapshot["execution_generation"],
+                            "status_after_stale_rejection": final_snapshot["status"],
+                            "stale_worker_rejected": True,
+                        }
+                    )
+                    stage_result["old_generation_rejected"] = True
+                else:
+                    unknown_deadline = time.monotonic() + 180
+                    while time.monotonic() < unknown_deadline:
+                        current = _review_run_snapshot(monitor_engine, task_id, run_id)
+                        if current["status"] == "failed":
+                            break
+                        time.sleep(0.25)
+                    else:
+                        raise TimeoutError("replacement worker did not resolve the unknown call")
+                    if (
+                        current["failure_code"] != "model_call_outcome_unknown"
+                        or len(current["calls"]) != 1
+                        or current["calls"][0]["state"] != "unknown"
+                        or current["calls"][0]["response_ref"] is not None
+                    ):
+                        raise AssertionError(
+                            "replacement worker replayed or falsified the unknown call"
+                        )
+                    stage_result.update(
+                        {
+                            "status_after_restart": current["status"],
+                            "failure_code": current["failure_code"],
+                            "generation_after_restart": current["execution_generation"],
+                            "call_state_after_restart": current["calls"][0]["state"],
+                            "response_absent_after_restart": (
+                                current["calls"][0]["response_ref"] is None
+                            ),
+                            "not_replayed": True,
+                        }
+                    )
+            time.sleep(0.25)
+        browser_return_code = browser_process.returncode
+        final_checkpoint = _review_run_snapshot(
+            monitor_engine,
+            recovery["checkpoint_task_id"],
+            recovery["checkpoint_run_id"],
+        )
+        monitor_engine.dispose()
+        recovery = state["deployment_worker_recovery"]
+        if final_checkpoint is not None and recovery["checkpoint_worker_stopped"]:
+            recovery["final_status"] = final_checkpoint["status"]
+            recovery["final_generation"] = final_checkpoint["execution_generation"]
+            recovery["final_model_call_ids"] = final_checkpoint["call_ids"]
+            recovery["model_calls_unchanged_after_resume"] = (
+                final_checkpoint["call_ids"] == recovery["checkpoint_model_call_ids"]
+            )
+        if not (
+            recovery["checkpoint_worker_stopped"]
+            and recovery["resume_action_observed"]
+            and recovery["replacement_worker_started"]
+            and recovery.get("final_status") == "result_published"
+            and recovery.get("final_generation", 0) > recovery.get("checkpoint_generation", 0)
+            and recovery.get("model_calls_unchanged_after_resume") is True
+        ):
+            raise AssertionError(
+                "deployment worker restart did not recover the persisted human checkpoint"
+            )
+        queue_recovery = state["deployment_queue_recovery"]
+        unknown_recovery = queue_recovery["unknown_call_restart"]
+        takeover_recovery = queue_recovery["expired_lease_takeover"]
+        cancellation_evidence_path = gate_directory / "cancel-evidence.json"
+        if cancellation_evidence_path.is_file():
+            cancellation_evidence = json.loads(
+                cancellation_evidence_path.read_text(encoding="utf-8")
+            )
+            queue_recovery["cancellation_competition"] = {
+                **cancellation_evidence,
+                "entered": True,
+                "active_worker_rejected": (
+                    gate_directory / "cancel-worker-rejected.json"
+                ).is_file(),
+            }
+        cancellation_recovery = queue_recovery["cancellation_competition"]
+        if not (
+            unknown_recovery.get("entered")
+            and unknown_recovery.get("old_workers_stopped")
+            and unknown_recovery.get("lease_expired_in_postgres")
+            and unknown_recovery.get("not_replayed")
+            and takeover_recovery.get("entered")
+            and takeover_recovery.get("lease_expired_in_postgres")
+            and takeover_recovery.get("new_generation") == 2
+            and takeover_recovery.get("old_generation_rejected")
+            and cancellation_recovery.get("entered")
+            and cancellation_recovery.get("http_status") == 200
+            and cancellation_recovery.get("status") == "cancelled"
+            and cancellation_recovery.get("lease_cleared") is True
+            and cancellation_recovery.get("active_worker_rejected") is True
+            and cancellation_recovery.get("model_call_count") == 0
+            and cancellation_recovery.get("cancel_audit_count") == 1
+        ):
+            raise AssertionError(
+                "deployment queue restart, lease fencing or unknown-call recovery was incomplete"
+            )
         junit_summary = _junit_summary(junit)
         state["browser_execution"] = {
             **junit_summary,
-            "exit_code": result.returncode,
+            "exit_code": browser_return_code,
             "report": str(junit),
             "log": str(folder / "playwright.log"),
             "artifact_directory": str(browser_output),
         }
         if (
-            result.returncode != 0
+            browser_return_code != 0
             or junit_summary["tests"] == 0
             or any(junit_summary[key] for key in ("failures", "errors", "skipped"))
         ):

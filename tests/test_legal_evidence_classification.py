@@ -43,7 +43,14 @@ def _hit(*, eligible: bool, reason: str, version_status: str) -> SimpleNamespace
     )
 
 
-def _merge(monkeypatch, *, selected: bool, verified, hits=None):
+def _merge(
+    monkeypatch,
+    *,
+    selected: bool,
+    verified,
+    hits=None,
+    description="需人工核对原文与适用法规。",
+):
     """Run merge_findings with one model candidate and a controlled retrieval result."""
     from test_llm_candidate_discovery import graph_harness
 
@@ -55,7 +62,7 @@ def _merge(monkeypatch, *, selected: bool, verified, hits=None):
         "candidate_id": candidate["candidate_id"],
         "assessment": "potential_issue",
         "title": "待核验疑点",
-        "description": "需人工核对原文与适用法规。",
+        "description": description,
         "severity": "medium",
         "source_quote_sha256": [source["quote_sha256"]],
         "legal_evidence_ids": ["e" * 64] if selected else [],
@@ -119,16 +126,34 @@ def test_unconfirmed_clause_selected_by_model_stays_reference_only(
     assert finding["evidence_status"] == "insufficient_evidence"
 
 
-def test_confirmed_clause_becomes_formal_evidence(monkeypatch):
-    """Only a clause that passed the confirmation chain enters formal evidence."""
+def test_verified_clause_without_rule_binding_stays_reference_only(monkeypatch):
+    """A verified clause needs a separately approved rule binding before supporting a claim."""
     hit = _hit(eligible=True, reason="valid", version_status="verified_current")
     finding = _merge(monkeypatch, selected=True, verified=(hit, hit.quote))
 
-    laws = [item for item in finding["evidence"] if item["kind"] == "law"]
-    assert len(laws) == 1
-    assert laws[0]["version_status"] == "verified_current"
-    assert finding["legal_references"] == []
-    assert "retrieval" in finding["sources"]
+    assert all(item["kind"] == "document" for item in finding["evidence"])
+    assert len(finding["legal_references"]) == 1
+    reference = finding["legal_references"][0]
+    assert reference["version_status"] == "verified_current"
+    assert reference["confirmation_reason"] == "rule_law_binding_unreviewed"
+    assert reference["applicable"] is False
+    assert "retrieval" not in finding["sources"]
+    assert finding["evidence_status"] == "insufficient_evidence"
+
+
+def test_verified_clause_does_not_let_model_claim_illegality_without_rule_binding(monkeypatch):
+    hit = _hit(eligible=True, reason="valid", version_status="verified_current")
+    finding = _merge(
+        monkeypatch,
+        selected=True,
+        verified=(hit, hit.quote),
+        description="该行为违法，应依法处罚。",
+    )
+
+    assert "该行为违法" not in finding["description"]
+    assert "依法处罚" not in finding["description"]
+    assert "尚无法律违法认定依据" in finding["description"]
+    assert finding["evidence_status"] == "insufficient_evidence"
 
 
 @pytest.mark.parametrize("failure", ["unreadable_run", "quote_mismatch"])

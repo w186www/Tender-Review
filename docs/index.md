@@ -27,6 +27,11 @@
 | 合成数据真实 Qwen 在线演示 | `development/model-gateway-online-demo.md`、`decisions/DEC-002-qwen-demo-authorization.md`、`decisions/ADR-0017-bailian-qwen-chat-adapter.md` | 百炼 Chat 适配、在线路由、合成数据外发授权、模型预算与审计发生变化时 |
 | 真实文件离线诊断与待批 Qwen 外发提案 | `development/TASK-0022-validation.md`、`decisions/DEC-005-real-tender-qwen-evaluation-authorization.md` | 单个经授权本地招标文件的安全解析、离线规则/法规/证据检查及其独立在线授权时 |
 | 离线检索评测、Mock-only云Embedding与Tesseract OCR | `development/TASK-0018-validation.md`、`decisions/ADR-0015-offline-retrieval-ocr-provenance.md`、`decisions/ADR-0016-task-0018-cloud-embedding-contract.md` | 法规召回、云Provider接口、隔离OCR基线或运行版本追溯变化时 |
+| 产品租户执行授权与预算 | `decisions/ADR-0021-tenant-execution-authorization-and-budget.md`、`architecture/authorization-matrix.md`、`development/product-contract-baseline.md` | 产品模式供应商/用途策略、逐文件外发授权/撤销、PostgreSQL 预算或历史账本导入变化时 |
+
+产品交付新增的状态与兼容语义见 [产品契约基线](development/product-contract-baseline.md)，FR/SEC/NFR/AC 至实施单元及 G3 记录的映射见 [产品交付追踪表](development/product-delivery-traceability.yaml)。
+
+产品评测样本分区、候选标注状态和复用边界见 [产品评测数据基线与标签协议](development/product-evaluation-protocol.md)。
 
 ## 需求追踪规则
 
@@ -36,7 +41,9 @@ TASK-0025 已完成证据分类加固、账本连续性防护与 CI 超时修复
 
 TASK-0026 已完成单机容器化部署的编排、持久化、反向代理与本地端到端验收（未改业务代码）；部署与运维见 [`deploy/README-demo.md`](../deploy/README-demo.md)，实测证据、资源数据与真实 Qwen 阻断见 [TASK-0026 验证记录](development/TASK-0026-validation.md)；上云前的审计与测算保留在[面试演示部署方案](development/DEPLOYMENT-DEMO.md)。目标 ECS 上尚未部署。
 
-TASK-0027（DEC-007 完整能力）进行中：验收前 9 项阻断问题已处置（compose 只向 api 注入真实模型变量、服务端强制复用预构建索引、预构建与 API 身份一致性校验、撤销授权即时生效、前端 `dec007-real-qwen` 说明、800 批/¥30 边界测试、文档补齐）；代码与测试未提交，首次真实调用仍待批准，线上保持离线模式。命令与真实数字见 [TASK-0027 验证记录](development/TASK-0027-validation.md)。
+TASK-0027 第七轮实现、Full、CI 及经单独授权的公网真实路径已有记录，但正式 TASK 仍为 `in_progress`：零候选执行缺口与外发授权端点的 OpenAPI 漂移仍须按产品路线收尾，不以一次真实运行证明产品质量达标。见 [TASK-0027 验证记录](development/TASK-0027-validation.md)。
+
+2026-10-17 产品交付进度：U01/U02/U04/U05 已完成，U03/U07 进行中；U06/U08—U12 尚未启动。U05 已完成产品模式的 PostgreSQL 租户策略、版本绑定逐文件授权/撤销、授权/审计同事务、原子预算预留/结算、unknown 保留、历史账本只读幂等导入和隐私反例；真实 PostgreSQL 专项退出码 0，U04 Docker/PostgreSQL 部署 E2E 5/5 通过，官方 Full 七阶段通过（后端 868 passed、6 项 warning）。D3 真实模型/内容外发与 D4 生产迁移/切换仍未授权，产品模式尚未在生产启用，当前部署仍为 `authorized-real`/DEC-007。U03 冻结评测资产来源尚未恢复；U07 的法规核验/人工绑定仍受 D2 限制。D1/D2/D3/D4 只阻塞各自相关签署或真实环境活动。后续按 U01—U16 依赖推进；U05 之后可执行的本地工作优先 U06 的解析/质量/校正（D1 仅阻塞支持范围/容量承诺）。机读依赖与 TASK 映射见 [`roadmap.yaml`](development/roadmap.yaml)，逐单元 G3 证据见 [产品交付验证记录](development/product-delivery-validation.md)，规划正文见 [完整产品交付规划](development/product-delivery-plan.md)。不据 DEC-002/007 既有记录发起新的真实调用、数据外发或线上操作。
 
 - 功能：`FR-###`
 - 安全：`SEC-###`

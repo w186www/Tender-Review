@@ -172,7 +172,7 @@ class Dec005BudgetLedger:
             ).fetchone()
             if (
                 record is None
-                or record[1] != "reserved"
+                or record[1] not in {"reserved", "dispatched"}
                 or not actual.is_finite()
                 or actual < 0
                 or actual > Decimal(record[0])
@@ -183,14 +183,42 @@ class Dec005BudgetLedger:
                 (str(actual), reservation),
             )
 
-    def reserve(self, tenant_id: str, task_id: str, amount: Decimal) -> BudgetReservation:
+    def mark_dispatched_external(self, reservation: str) -> None:
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            record = connection.execute(
+                "SELECT status FROM requests WHERE id=? AND authorization_id=?",
+                (reservation, self.authorization_id),
+            ).fetchone()
+            if record is None or record[0] != "reserved":
+                raise _reject("External reservation is not eligible for dispatch.")
+            connection.execute(
+                "UPDATE requests SET status='dispatched' WHERE id=?", (reservation,)
+            )
+
+    def reserve(
+        self,
+        tenant_id: str,
+        task_id: str,
+        amount: Decimal,
+        *,
+        call_id: str | None = None,
+        kind: str = "llm",
+        run_id: str | None = None,
+        request_hash: str | None = None,
+    ) -> BudgetReservation:
         if not amount.is_finite() or not 0 <= amount <= LLM_RESERVATION_CNY:
             raise _reject("LLM quote exceeds its fixed reservation.")
-        request_hash = hashlib.sha256(f"{tenant_id}:{task_id}".encode()).hexdigest()
+        digest = request_hash or hashlib.sha256(f"{tenant_id}:{task_id}".encode()).hexdigest()
         identifier = self.reserve_external(
-            kind="llm", request_hash=request_hash, ceiling=LLM_RESERVATION_CNY
+            kind="llm", request_hash=digest, ceiling=LLM_RESERVATION_CNY
         )
-        return BudgetReservation(identifier, tenant_id, task_id, LLM_RESERVATION_CNY)
+        return BudgetReservation(
+            identifier, tenant_id, task_id, LLM_RESERVATION_CNY, kind, call_id
+        )
+
+    def mark_dispatched(self, reservation: BudgetReservation) -> None:
+        self.mark_dispatched_external(reservation.reservation_id)
 
     def settle(self, reservation: BudgetReservation, actual: Decimal) -> None:
         self.settle_external(reservation.reservation_id, actual)
@@ -222,7 +250,7 @@ class Dec005BudgetLedger:
             "llm_calls": sum(row[0] == "llm" for row in rows),
             "embedding_batches": sum(row[0] == "embedding" for row in rows),
             "charged_or_reserved_cny": str(sum((Decimal(row[1]) for row in rows), Decimal(0))),
-            "unsettled_requests": sum(row[2] == "reserved" for row in rows),
+            "unsettled_requests": sum(row[2] in {"reserved", "dispatched"} for row in rows),
             "limits": {
                 "llm_calls": self.llm_limit,
                 "embedding_batches": self.embedding_limit,

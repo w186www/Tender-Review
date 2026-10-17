@@ -71,6 +71,8 @@ State 中的 findings 只保存有界摘要；完整候选、逐条证据和审�
 
 Schema 中非必填字段生成 NotRequired，nullable 字段生成 `| None`；GraphError 中可选字段遵循相同规则。State 初始版本为 v1alpha2。
 
+U02 产品化状态契约（`product-review-execution.v1alpha1`）是与 LangGraph checkpoint 分离的持久运行摘要：它补充执行身份、当前授权检查、覆盖、模型调用结果未知及业务完整度，不替换或重解释 `ComplianceReviewState v1alpha2`。运行生命周期继续由 `review_engine_run`/ReviewTask API 负责；`result_published` 不表示报告渲染成功。详见 `docs/development/product-contract-baseline.md` 与 ADR-0019。
+
 ## Checkpoint、重试与版本
 
 - Checkpoint 使用 LangGraph PostgreSQL `AsyncPostgresSaver`；隔离键由 tenant_id、review_task_id 和 run_id 组成，PostgreSQL RLS 再按tenant线程前缀隔离。每个run使用PostgreSQL session advisory lock防止多个Worker同时恢复；恢复前重新校验身份、任务权限和冻结输入。

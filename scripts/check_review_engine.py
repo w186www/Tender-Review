@@ -52,6 +52,7 @@ from bidding_compliance.persistence.models import (
     ReviewArtifact,
     ReviewDecision,
     ReviewEngineRun,
+    ReviewModelCall,
     ReviewReportContent,
     ReviewResult,
     ReviewTask,
@@ -69,6 +70,7 @@ from bidding_compliance.services.review_persistence import (
     RESULT_PENDING_ID,
     approved_findings,
     authorized_run,
+    cancel_review,
     publish_result,
     submit_decision,
 )
@@ -184,6 +186,196 @@ class NoCallGateway(ModelGateway):
         policy: ModelPolicy,
     ) -> ModelResponse:
         raise AssertionError("recovered interrupt must not repeat model analysis")
+
+
+def verify_durable_review_queue(
+    admin_engine: Engine,
+    runtime_engine: Engine,
+    runtime_settings: Settings,
+    repository_root: Path,
+    *,
+    tenant_id: str,
+    actor_id: str,
+) -> dict[str, object]:
+    """Exercise durable claim, fencing, cancellation and unknown-call handling on PostgreSQL."""
+    if repository_root.resolve() != ROOT.resolve():
+        raise ValueError("verification must run from this repository root")
+    worker = ReviewEngine(
+        settings=runtime_settings,
+        session_factory=sessionmaker(runtime_engine, expire_on_commit=False),
+        gateway=NoCallGateway(),
+        model_policy=_policy(),
+        legal_root=repository_root,
+    )
+
+    def seed_run(*, status: str = "queued", generation: int = 0, lease_id: str | None = None):
+        task_id = "task0028-queue-" + uuid4().hex[:20]
+        run_id = str(uuid4())
+        project_id = "task0028-project-" + uuid4().hex[:18]
+        now = datetime.now(UTC)
+        with Session(admin_engine) as session:
+            session.add(
+                Project(
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    version=1,
+                    context={"name": "synthetic durable queue probe"},
+                    created_by=actor_id,
+                    created_at=now,
+                )
+            )
+            session.flush()
+            session.add(
+                ReviewTask(
+                    tenant_id=tenant_id,
+                    review_task_id=task_id,
+                    project_id=project_id,
+                    run_id=run_id,
+                    status=status,
+                )
+            )
+            session.flush()
+            session.add(
+                ReviewEngineRun(
+                    tenant_id=tenant_id,
+                    review_task_id=task_id,
+                    run_id=run_id,
+                    project_id=project_id,
+                    actor_id=actor_id,
+                    status=status,
+                    snapshot={"document_requests": []},
+                    snapshot_hash="a" * 64,
+                    request_hash="b" * 64,
+                    retry_count=0,
+                    failure_code=None,
+                    publication_id=None,
+                    revision_id=None,
+                    action="start",
+                    scheduled_at=now,
+                    lease_id=lease_id,
+                    lease_until=(now - timedelta(seconds=1) if lease_id else None),
+                    execution_generation=generation,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            session.commit()
+        return task_id, run_id, project_id
+
+    claim_task, claim_run, _ = seed_run()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        claims = list(pool.map(lambda _: worker._claim_next(60), range(2)))
+    winners = [item for item in claims if item is not None]
+    if len(winners) != 1 or sum(item is None for item in claims) != 1:
+        raise AssertionError("concurrent PostgreSQL workers did not claim exactly once")
+    first_claim = winners[0]
+    if first_claim.execution_generation != 1 or first_claim.lease_id is None:
+        raise AssertionError("first queue claim did not persist its generation and lease")
+
+    with Session(admin_engine) as session:
+        row = session.get(ReviewEngineRun, (tenant_id, claim_task, claim_run))
+        if row is None:
+            raise AssertionError("claimed queue run disappeared")
+        row.lease_until = datetime.now(UTC) - timedelta(seconds=1)
+        session.commit()
+    takeover = worker._claim_next(60)
+    if (
+        takeover is None
+        or takeover.lease_id is None
+        or takeover.lease_id == first_claim.lease_id
+        or takeover.execution_generation != first_claim.execution_generation + 1
+    ):
+        raise AssertionError("expired queue lease was not fenced by a new generation")
+
+    stale_principal = Principal(
+        tenant_id,
+        actor_id,
+        actor_id,
+        Role.REVIEWER,
+        "worker",
+        background_worker=True,
+        execution_lease_id=first_claim.lease_id,
+        execution_generation=first_claim.execution_generation,
+    )
+    with Session(runtime_engine) as session:
+        try:
+            authorized_run(session, stale_principal, claim_task, claim_run)
+        except FileExistsError:
+            session.rollback()
+        else:
+            raise AssertionError("superseded worker retained write authority")
+
+    current_principal = worker._background_principal(takeover)
+    with Session(runtime_engine) as session:
+        cancel_review(session, current_principal, claim_task, claim_run)
+    if worker._renew_lease(takeover, 60):
+        raise AssertionError("cancelled run renewed its worker lease")
+    worker._finish_claim(takeover)
+    with Session(runtime_engine) as session:
+        set_tenant(session, tenant_id)
+        cancelled = session.get(ReviewEngineRun, (tenant_id, claim_task, claim_run))
+        if (
+            cancelled is None
+            or cancelled.status != "cancelled"
+            or cancelled.lease_id is not None
+            or cancelled.lease_until is not None
+        ):
+            raise AssertionError("cancellation did not win the worker lease race")
+
+    unknown_task, unknown_run, _ = seed_run(
+        status="running", generation=1, lease_id=str(uuid4())
+    )
+    call_id = hashlib.sha256(f"{unknown_task}:{unknown_run}".encode()).hexdigest()
+    now = datetime.now(UTC)
+    with Session(admin_engine) as session:
+        session.add(
+            ReviewModelCall(
+                tenant_id=tenant_id,
+                call_id=call_id,
+                review_task_id=unknown_task,
+                run_id=unknown_run,
+                actor_id=actor_id,
+                node_run_id="semantic_analysis",
+                attempt=1,
+                request_hash="c" * 64,
+                document_hashes=[],
+                usage_status="unknown",
+                state="dispatched",
+                response_ref=None,
+                response_hash=None,
+                error_code=None,
+                execution_generation=1,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        session.commit()
+    if _run_async(worker.run_once()):
+        raise AssertionError("expired unknown model call was incorrectly executed")
+    with Session(runtime_engine) as session:
+        set_tenant(session, tenant_id)
+        unknown = session.get(ReviewEngineRun, (tenant_id, unknown_task, unknown_run))
+        call = session.get(ReviewModelCall, (tenant_id, call_id))
+        if (
+            unknown is None
+            or unknown.status != "failed"
+            or unknown.failure_code != "model_call_outcome_unknown"
+            or call is None
+            or call.state != "unknown"
+        ):
+            raise AssertionError("expired dispatched model call was not held as unknown")
+    result = {
+        "concurrent_winners": 1,
+        "lease_takeover_generation": takeover.execution_generation,
+        "superseded_worker_fenced": True,
+        "cancellation_preserved": True,
+        "unknown_call_not_replayed": True,
+    }
+    print(
+        "PASS: PostgreSQL review queue concurrency, lease takeover, cancellation "
+        "and unknown-call recovery"
+    )
+    return result
 
 
 def _principal(session_factory: sessionmaker[Session]) -> Principal:

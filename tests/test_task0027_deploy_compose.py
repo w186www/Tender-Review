@@ -1,4 +1,4 @@
-"""Deployment wiring: real-model variables reach the api service and nothing else.
+"""Deployment wiring: real-model variables reach only model-calling services.
 
 The compose file and the env template are deployment configuration, not business logic, so
 these checks parse them instead of starting anything: a supplier credential must never be
@@ -53,36 +53,38 @@ def environment(document: dict, service: str) -> dict[str, str]:
     return value
 
 
-def test_api_receives_every_real_model_variable_as_an_optional_interpolation():
+def test_api_and_review_worker_receive_every_real_model_variable_as_optional_interpolations():
     document = compose()
-    api = environment(document, "api")
-    assert REAL_MODEL_VARIABLES <= set(api)
-    for name in REAL_MODEL_VARIABLES:
-        value = api[name]
-        # `${NAME:-...}` resolves from deploy/.env (600, gitignored) and stays optional:
-        # a blank value is a legal, non-fatal configuration.
-        assert re.fullmatch(r"\$\{" + name + r":-([^}]*)\}", value), (name, value)
-        assert value.count(":-") == 1
-    # The deployment default remains the offline mode.
-    assert api["DEPLOY_REVIEW_MODE"] == "${DEPLOY_REVIEW_MODE:-offline}"
+    for service in ("api", "review-worker"):
+        merged = environment(document, service)
+        assert REAL_MODEL_VARIABLES <= set(merged), service
+        for name in REAL_MODEL_VARIABLES:
+            value = merged[name]
+            # `${NAME:-...}` resolves from deploy/.env (600, gitignored) and stays optional:
+            # a blank value is a legal, non-fatal configuration.
+            assert re.fullmatch(r"\$\{" + name + r":-([^}]*)\}", value), (service, name, value)
+            assert value.count(":-") == 1
+        # The deployment default remains the offline mode.
+        assert merged["DEPLOY_REVIEW_MODE"] == "${DEPLOY_REVIEW_MODE:-offline}"
 
 
-def test_worker_and_every_other_service_never_receive_the_model_variables():
+def test_ingestion_worker_and_every_other_non_model_service_never_receive_model_variables():
     document = compose()
     for name in document["services"]:
-        if name == "api":
+        if name in {"api", "review-worker"}:
             continue
         merged = environment(document, name)
         leaked = REAL_MODEL_VARIABLES & set(merged)
         assert not leaked, (name, sorted(leaked))
         assert not (CREDENTIAL_VARIABLES & set(merged)), name
-    # The shared anchor merged into worker and init must stay free of them as well; only
-    # the api-only anchor carries them.
+    # The shared anchor merged into worker and init must stay free of them; the model-call
+    # anchor is merged only into api and review-worker.
     assert not (REAL_MODEL_VARIABLES & set(document["x-app-environment"]))
     assert REAL_MODEL_VARIABLES <= set(document["x-real-model-environment"])
-    # No service but the api decides the review mode.
+    # Only the model-calling services decide the review mode.
     assert "DEPLOY_REVIEW_MODE" not in environment(document, "worker")
     assert "DEPLOY_REVIEW_MODE" not in environment(document, "init")
+    assert "DEPLOY_REVIEW_MODE" not in environment(document, "nginx")
 
 
 def test_env_template_documents_the_variables_without_a_real_value():
@@ -115,6 +117,7 @@ def test_the_api_container_carries_its_compose_project_name_for_the_controlled_r
     document = compose()
     api = environment(document, "api")
     assert api["DEPLOY_COMPOSE_PROJECT"] == document["name"] == "tender-review-demo"
+    assert "DEPLOY_COMPOSE_PROJECT" not in environment(document, "review-worker")
     for name in document["services"]:
         if name == "api":
             continue

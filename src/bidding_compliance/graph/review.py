@@ -220,6 +220,13 @@ def _semantic_batch_kind(index: int, *, single: bool) -> str:
     return "model_analysis" if single else f"semantic_analysis_batch_{index}"
 
 
+def _retry_call_id(call_id: str, retry_count: int) -> str:
+    if retry_count <= 0:
+        return call_id
+    retry_identity = f"{call_id}\0retry:{retry_count}".encode()
+    return hashlib.sha256(retry_identity).hexdigest()
+
+
 def _semantic_response(record: Mapping[str, Any]) -> ModelResponse:
     """Rebuild exactly what the provider returned so a cached batch needs no new call."""
     return ModelResponse(
@@ -742,6 +749,11 @@ def build_review_graph(
                     else:
                         response = None
                 if response is None:
+                    if row.retry_count:
+                        request = replace(
+                            request,
+                            call_id=_retry_call_id(request.call_id, row.retry_count),
+                        )
                     response = await gateway.generate_structured(
                         request,
                         schema,
@@ -1092,11 +1104,17 @@ def build_review_graph(
                         if (
                             content_hash(cached.content) != cached.content_hash
                             or cached.content.get("snapshot_hash") != snapshot_hash
-                            or cached.content.get("call_id") != request.call_id
+                            or cached.content.get("semantic_batch") != index
+                            or not isinstance(cached.content.get("call_id"), str)
                         ):
                             raise ValueError("semantic batch cache provenance mismatch")
                         response = _semantic_response(cached.content)
                 if response is None:
+                    if row.retry_count:
+                        request = replace(
+                            request,
+                            call_id=_retry_call_id(request.call_id, row.retry_count),
+                        )
                     response = await _run_semantic_batch(
                         gateway, request, analysis_schema, model_policy
                     )
@@ -1342,9 +1360,14 @@ def build_review_graph(
                             "summary": "Unknown or duplicate model candidate reference.",
                         }
                     )
-                # Only clauses that passed the full confirmation chain can support legal
-                # validity; unconfirmed references never count here.
-                legal_valid = has_confirmable_legal_support(confirmable_laws, invalid=law_invalid)
+                # Citation authenticity and applicability do not approve a rule-to-law binding.
+                # No such binding has been manually approved for this release (D2 is pending),
+                # so keep even verified clauses as references and do not emit a legal conclusion.
+                rule_law_binding_confirmed = False
+                legal_valid = (
+                    rule_law_binding_confirmed
+                    and has_confirmable_legal_support(confirmable_laws, invalid=law_invalid)
+                )
                 evidence_status = evidence_status_for_support(
                     document_valid=document_valid, legal_valid=legal_valid
                 )
@@ -1368,8 +1391,13 @@ def build_review_graph(
                         "jurisdiction": None,
                     }
                 )
-                # Formal legal evidence holds only clauses that passed the confirmation chain.
-                legal_evidence = [hit.evidence.model_dump(mode="json") for hit in confirmable_laws]
+                # A verified citation is not formal support for a finding until its rule binding
+                # has a separate human confirmation.
+                legal_evidence = (
+                    [hit.evidence.model_dump(mode="json") for hit in confirmable_laws]
+                    if rule_law_binding_confirmed
+                    else []
+                )
                 # Genuine but unconfirmed clauses stay visible as references, so the report never
                 # hides that law was found without verified applicability. Clauses the model
                 # selected are included here too when they are not confirmable, which keeps the
@@ -1383,6 +1411,16 @@ def build_review_graph(
                     }
                     for hit in unconfirmed_laws
                 ]
+                if not rule_law_binding_confirmed:
+                    legal_references.extend(
+                        {
+                            **hit.evidence.model_dump(mode="json"),
+                            "confirmation_reason": "rule_law_binding_unreviewed",
+                            "version_status": hit.version_status,
+                            "applicable": False,
+                        }
+                        for hit in confirmable_laws
+                    )
                 if candidate_result is not None:
                     for hit_payload in candidate_result["result"]["hits"]:
                         if hit_payload["evidence_id"] in selected_laws:
@@ -1545,7 +1583,12 @@ def build_review_graph(
 
         def action(session: Session) -> dict[str, Any]:
             row = _load_run(session, principal, state)
-            if row.status != "waiting_human":
+            worker_resume = (
+                principal.background_worker
+                and row.status == "running"
+                and row.action == "resume"
+            )
+            if row.status != "waiting_human" and not worker_resume:
                 raise ValueError("review is no longer waiting for human review")
             _snapshot_inputs(session, principal, row, model_policy)
             merged = read_artifact(

@@ -1,5 +1,6 @@
 """File APIs share the authenticated tenant principal; all parsing runs in a worker."""
 
+import logging
 from typing import Annotated, cast
 
 from fastapi import APIRouter, File, Header, HTTPException, Query, Request, Response, UploadFile
@@ -17,11 +18,18 @@ from bidding_compliance.ingestion.schemas import (
     SectionsResponse,
 )
 from bidding_compliance.ingestion.storage import make_store
-from bidding_compliance.services import documents, reports
+from bidding_compliance.services import documents, execution_authorization, reports
 from bidding_compliance.services.identity import audit
 
 from .projects import DB, User
-from .schemas import ErrorResponse, ExternalAuthorizationRecord, ExternalAuthorizationRequest
+from .schemas import (
+    ErrorResponse,
+    ExternalAuthorizationRecord,
+    ExternalAuthorizationRequest,
+    ExternalAuthorizationRevocationRequest,
+)
+
+LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/projects/{projectId}/documents",
@@ -158,6 +166,7 @@ def corrections(
     "/{documentId}/external-authorization",
     status_code=201,
     response_model=ExternalAuthorizationRecord,
+    response_model_exclude_none=True,
     operation_id="authorizeDocumentExternalProcessing",
 )
 def authorize_external_processing(
@@ -170,21 +179,51 @@ def authorize_external_processing(
 ) -> ExternalAuthorizationRecord:
     """Record one reviewer's explicit confirmation that a single uploaded file may be sent.
 
-    This is the per-file half of the DEC-007 authorization: the reviewer asserts, per
-    document, that they are entitled to have the file processed and agree that its
-    necessary (minimized) content may be sent to Alibaba Cloud Bailian. The row appended to
-    the append-only registry is the same audited record the operator CLI writes, so the
-    running API observes it on the next egress decision. Only the SHA-256 the server
-    resolves for *this* document is authorized -- there is deliberately no "allow
-    everything" switch, no caller-supplied hash and no content upload; files that were
-    never confirmed stay local-only (the review executor and the outbound minimizer both
-    refuse them). Every request also writes a tenant audit event.
+    Product mode writes the version-bound authorization and its audit event in one
+    PostgreSQL transaction; the running egress gate re-reads it before every outbound
+    request. The legacy local validation assembly keeps its append-only registry, but every
+    optional product field is rejected there so a caller cannot mistake a registry row for
+    a policy-bound production authorization. The endpoint never accepts a file hash or
+    content from the caller: the server resolves the hash and parse version for *this*
+    authenticated document.
     """
+    product_mode = getattr(request.app.state, "external_authorization_mode", None) == "postgres"
     registry = getattr(request.app.state, "external_authorization_registry", None)
-    if registry is None:
+    if not product_mode and registry is None:
         # Offline deployments have no external-processing authorization: fail closed
         # instead of pretending the confirmation was recorded somewhere.
         raise HTTPException(503, detail="external processing authorization is unavailable")
+    if product_mode:
+        purpose = body.purpose or getattr(
+            request.app.state, "external_authorization_purpose", None
+        )
+        provider = body.provider or getattr(
+            request.app.state, "external_authorization_provider", None
+        )
+        if purpose is None or provider is None:
+            raise HTTPException(503, detail="external authorization policy is unavailable")
+        try:
+            row = execution_authorization.approve_document(
+                session,
+                principal,
+                projectId,
+                documentId,
+                reason=body.reason,
+                purpose=purpose,
+                provider=provider,
+                expires_at=body.expires_at,
+            )
+        except (PermissionError, LookupError, FileExistsError, ValueError) as exc:
+            raise translate(exc) from exc
+        return ExternalAuthorizationRecord.model_validate(
+            execution_authorization.authorization_response(row)
+        )
+    if body.purpose is not None or body.provider is not None or body.expires_at is not None:
+        raise HTTPException(
+            422,
+            detail="purpose, provider and expiry require the PostgreSQL product authorization",
+        )
+    assert registry is not None
     try:
         documents.require_reviewer(session, principal)
         document = documents.find_document(session, principal, projectId, documentId)
@@ -194,14 +233,29 @@ def authorize_external_processing(
             reason=body.reason,
             approved_by=principal.user_id,
         )
-        audit(
-            session,
-            principal.tenant_id,
-            principal.user_id,
-            "document.external_authorization_approved",
-            document.document_id,
-        )
-        session.commit()
+        # The append is not transactional. If the audit commit fails, immediately append a
+        # revoke so the registry does not keep an effective approval without an audit row.
+        try:
+            audit(
+                session,
+                principal.tenant_id,
+                principal.user_id,
+                "document.external_authorization_approved",
+                document.document_id,
+            )
+            session.commit()
+        except Exception:
+            session.rollback()
+            try:
+                registry.revoke(
+                    sha256=document.sha256,
+                    document_id=document.document_id,
+                    reason="authorization audit commit failed",
+                    approved_by=principal.user_id,
+                )
+            except Exception:
+                LOGGER.warning("authorization_compensation_failed")
+            raise
     except (PermissionError, LookupError, FileExistsError, ValueError) as exc:
         raise translate(exc) from exc
     return ExternalAuthorizationRecord.model_validate(
@@ -211,6 +265,101 @@ def authorize_external_processing(
             "action": record["action"],
             "approved_at": record["approved_at"],
             "approved_by": record["approved_by"],
+        }
+    )
+
+
+@router.post(
+    "/{documentId}/external-authorization/revoke",
+    response_model=ExternalAuthorizationRecord,
+    response_model_exclude_none=True,
+    operation_id="revokeDocumentExternalProcessing",
+)
+def revoke_external_processing(
+    projectId: str,
+    documentId: str,
+    body: ExternalAuthorizationRevocationRequest,
+    request: Request,
+    principal: User,
+    session: DB,
+) -> ExternalAuthorizationRecord:
+    """Revoke one file's approval; the next egress decision observes the revocation."""
+    product_mode = getattr(request.app.state, "external_authorization_mode", None) == "postgres"
+    registry = getattr(request.app.state, "external_authorization_registry", None)
+    if not product_mode and registry is None:
+        raise HTTPException(503, detail="external processing authorization is unavailable")
+    if product_mode:
+        purpose = body.purpose or getattr(
+            request.app.state, "external_authorization_purpose", None
+        )
+        provider = body.provider or getattr(
+            request.app.state, "external_authorization_provider", None
+        )
+        if purpose is None or provider is None:
+            raise HTTPException(503, detail="external authorization policy is unavailable")
+        try:
+            row = execution_authorization.revoke_document(
+                session,
+                principal,
+                projectId,
+                documentId,
+                reason=body.reason,
+                purpose=purpose,
+                provider=provider,
+            )
+        except (PermissionError, LookupError, FileExistsError, ValueError) as exc:
+            raise translate(exc) from exc
+        return ExternalAuthorizationRecord.model_validate(
+            execution_authorization.authorization_response(row)
+        )
+    if body.purpose is not None or body.provider is not None:
+        raise HTTPException(
+            422,
+            detail="purpose and provider require the PostgreSQL product authorization",
+        )
+    assert registry is not None
+    try:
+        documents.require_reviewer(session, principal)
+        document = documents.find_document(session, principal, projectId, documentId)
+        record = registry.revoke(
+            sha256=document.sha256,
+            document_id=document.document_id,
+            reason=body.reason,
+            approved_by=principal.user_id,
+        )
+        try:
+            audit(
+                session,
+                principal.tenant_id,
+                principal.user_id,
+                "document.external_authorization_revoked",
+                document.document_id,
+            )
+            session.commit()
+        except Exception:
+            session.rollback()
+            try:
+                registry.approve(
+                    sha256=document.sha256,
+                    document_id=document.document_id,
+                    reason="authorization audit commit failed",
+                    approved_by=principal.user_id,
+                )
+            except Exception:
+                LOGGER.warning("authorization_compensation_failed")
+            raise
+    except (PermissionError, LookupError, FileExistsError, ValueError) as exc:
+        raise translate(exc) from exc
+    return ExternalAuthorizationRecord.model_validate(
+        {
+            "document_id": record["document_id"],
+            "sha256": record["sha256"],
+            "action": record["action"],
+            "approved_at": record["approved_at"],
+            "approved_by": record["approved_by"],
+            "revoked_at": record["approved_at"],
+            "revoked_by": record["approved_by"],
+            "revocation_reason": record["reason"],
         }
     )
 

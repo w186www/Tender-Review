@@ -38,8 +38,12 @@ def require_identity(session: Session, principal: Principal) -> None:
     set_tenant(session, principal.tenant_id)
     tenant = session.get(Tenant, principal.tenant_id, populate_existing=True)
     user = session.get(User, (principal.tenant_id, principal.user_id), populate_existing=True)
-    auth = session.get(
-        AuthSession, (principal.tenant_id, principal.session_id), populate_existing=True
+    auth = (
+        None
+        if principal.background_worker
+        else session.get(
+            AuthSession, (principal.tenant_id, principal.session_id), populate_existing=True
+        )
     )
     if (
         tenant is None
@@ -47,10 +51,15 @@ def require_identity(session: Session, principal: Principal) -> None:
         or user is None
         or not user.active
         or user.role != principal.role.value
-        or auth is None
-        or auth.revoked
-        or auth.user_id != principal.user_id
-        or auth.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC)
+        or (
+            not principal.background_worker
+            and (
+                auth is None
+                or auth.revoked
+                or auth.user_id != principal.user_id
+                or auth.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC)
+            )
+        )
     ):
         raise PermissionError("legal retrieval identity unavailable")
     if session.get_bind().dialect.name == "postgresql":

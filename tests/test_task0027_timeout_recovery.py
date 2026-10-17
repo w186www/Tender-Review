@@ -1,5 +1,4 @@
-"""TASK-0027: a 120-second client abort must not lose a review task, and a repeated
-submission with the same ``Idempotency-Key`` must never start a second paid execution.
+"""TASK-0027/U04: queue submission is durable and idempotent across API restarts.
 
 The frontend aborts ``POST /projects/{id}/reviews`` after 120 seconds
 (``src/frontend/src/api/client.ts``). The backend keeps executing the persisted run and the
@@ -13,12 +12,10 @@ prove, on the real HTTP route, the real service layer and the real tables:
    key is a 409 conflict, still with no second execution);
 3. a new key is a new task (control: the suppression is the key, not a global block).
 
-The executor is a recording double at the exact boundary the API calls
-(``engine.start``): it persists the same ``ReviewTask`` + ``ReviewEngineRun`` rows the real
-``ReviewEngine`` writes and spends a real ``Dec005BudgetLedger`` reservation when invoked, so
-"no duplicate execution" is directly observable as "no second reservation". The real
-LangGraph engine itself is not started here: its durable checkpoints require PostgreSQL,
-which this offline test does not provision.
+The executor double persists the same queued ReviewTask + ReviewEngineRun rows the real
+ReviewEngine writes. The API does not invoke worker execution; a process restart can read the
+pending row without replaying a model call. PostgreSQL worker claim, checkpoint recovery and
+lease fencing are covered by the deployment-path U04 check.
 
 Everything is loopback/local: the one real socket is the in-process Uvicorn server below.
 No supplier, credential or external service is involved.
@@ -53,6 +50,7 @@ from bidding_compliance.model_gateway.authorized_runtime import (
 from bidding_compliance.model_gateway.contracts import DataPolicy, ModelPolicy
 from bidding_compliance.persistence.database import make_engine, migrate
 from bidding_compliance.persistence.models import (
+    AuditEvent,
     Document,
     ReviewEngineRun,
     ReviewTask,
@@ -60,6 +58,7 @@ from bidding_compliance.persistence.models import (
     User,
 )
 from bidding_compliance.services.identity import PASSWORDS
+from bidding_compliance.services.review_persistence import cancel_review as persist_cancel
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_CLIENT = ROOT / "src/frontend/src/api/client.ts"
@@ -98,10 +97,57 @@ class RecordingExecutor:
         )
         self.hold = hold
         self.starts = 0
+        self.creations = 0
         self.model_policy = policy()
 
     def prompt_sha256(self, version: str) -> str:
         return "a" * 64
+
+    def create_run(self, principal, request) -> dict[str, object]:
+        self.creations += 1
+        now = datetime.now(UTC)
+        documents = [item.model_dump(mode="json") for item in request.document_requests]
+        with self.session_factory() as session:
+            session.add(
+                ReviewTask(
+                    tenant_id=principal.tenant_id,
+                    review_task_id=request.review_task_id,
+                    project_id=request.project_id,
+                    run_id=request.run_id,
+                    status="queued",
+                )
+            )
+            session.flush()
+            session.add(
+                ReviewEngineRun(
+                    tenant_id=principal.tenant_id,
+                    review_task_id=request.review_task_id,
+                    run_id=request.run_id,
+                    project_id=request.project_id,
+                    actor_id=principal.user_id,
+                    status="queued",
+                    action="start",
+                    scheduled_at=now,
+                    lease_id=None,
+                    lease_until=None,
+                    execution_generation=0,
+                    snapshot={"document_requests": documents},
+                    snapshot_hash="b" * 64,
+                    request_hash="c" * 64,
+                    retry_count=0,
+                    failure_code=None,
+                    publication_id=None,
+                    revision_id=None,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            session.commit()
+        return {
+            "review_task_id": request.review_task_id,
+            "run_id": request.run_id,
+            "status": "queued",
+        }
 
     async def start(self, principal, request) -> dict[str, object]:
         self.starts += 1
@@ -164,6 +210,10 @@ class RecordingExecutor:
             "run_id": request.run_id,
             "status": "result_published",
         }
+
+    def cancel(self, principal, review_task_id: str, run_id: str) -> None:
+        with self.session_factory() as session:
+            persist_cancel(session, principal, review_task_id, run_id)
 
 
 class System:
@@ -306,10 +356,12 @@ def test_the_same_idempotency_key_returns_the_task_and_executes_once(system):
         assert first.status_code == 202, first.text
         expected_id = task_identity("a", key)
         assert first.json()["review_task_id"] == expected_id
-        assert first.json()["status"] == "result_published"
-        assert system.executor.starts == 1
+        assert first.json()["status"] == "queued"
+        assert system.executor.creations == 1
+        assert system.executor.starts == 0
         ledger_after_first = system.ledger_bytes()
         summary_after_first = system.ledger_summary()
+        assert summary_after_first["llm_calls"] == 0
 
         duplicate = client.post(
             f"/api/v1/projects/{project_id}/reviews",
@@ -318,20 +370,84 @@ def test_the_same_idempotency_key_returns_the_task_and_executes_once(system):
         )
         assert duplicate.status_code == 202, duplicate.text
         assert duplicate.json() == first.json()  # the persisted task, not a new one
-        assert system.executor.starts == 1  # the executor was never invoked again
+        assert system.executor.creations == 1  # the persisted queue row was not duplicated
+        assert system.executor.starts == 0
         assert len(system.run_rows()) == 1
         assert system.ledger_bytes() == ledger_after_first  # no new ledger record
         assert system.ledger_summary() == summary_after_first
-        assert summary_after_first["llm_calls"] == 1
+        assert summary_after_first["llm_calls"] == 0
 
         listed = client.get(f"/api/v1/projects/{project_id}/reviews", headers=headers)
         assert listed.status_code == 200, listed.text
         assert [item["review_task_id"] for item in listed.json()["items"]] == [expected_id]
-        assert listed.json()["items"][0]["status"] == "result_published"
+        assert listed.json()["items"][0]["status"] == "queued"
 
         single = client.get(f"/api/v1/reviews/{expected_id}", headers=headers)
         assert single.status_code == 200, single.text
         assert single.json() == first.json()
+
+
+def test_cancel_review_is_idempotent_reviewer_only_and_audited_once(system):
+    with TestClient(system.app) as client:
+        reviewer_headers = {"Authorization": "Bearer " + system.token(client)}
+        operator_login = client.post(
+            "/api/v1/auth/token",
+            json={"tenant_id": "a", "username": "operator", "password": system.password},
+        )
+        assert operator_login.status_code == 200, operator_login.text
+        operator_headers = {
+            "Authorization": "Bearer " + operator_login.json()["access_token"]
+        }
+        project_id = system.project(client, reviewer_headers)
+        document_id = system.document(project_id)
+        created = client.post(
+            f"/api/v1/projects/{project_id}/reviews",
+            headers={**reviewer_headers, "Idempotency-Key": str(uuid4())},
+            json={"document_ids": [document_id]},
+        )
+        assert created.status_code == 202, created.text
+        review_task_id = created.json()["review_task_id"]
+        run_id = created.json()["run_id"]
+        endpoint = f"/api/v1/review-tasks/{review_task_id}/runs/{run_id}/cancel"
+        ledger_before = system.ledger_bytes()
+
+        denied = client.post(endpoint, headers=operator_headers)
+        assert denied.status_code == 403
+        assert client.get(
+            f"/api/v1/reviews/{review_task_id}", headers=reviewer_headers
+        ).json()["status"] == "queued"
+
+        cancelled = client.post(endpoint, headers=reviewer_headers)
+        assert cancelled.status_code == 200, cancelled.text
+        assert cancelled.json()["status"] == "cancelled"
+        repeated = client.post(endpoint, headers=reviewer_headers)
+        assert repeated.status_code == 200, repeated.text
+        assert repeated.json()["status"] == "cancelled"
+        assert system.ledger_bytes() == ledger_before
+        assert system.executor.starts == 0
+
+        with Session(system.engine) as session:
+            run = session.scalar(
+                select(ReviewEngineRun).where(
+                    ReviewEngineRun.tenant_id == "a",
+                    ReviewEngineRun.review_task_id == review_task_id,
+                    ReviewEngineRun.run_id == run_id,
+                )
+            )
+            task = session.get(ReviewTask, ("a", review_task_id))
+            cancel_events = list(
+                session.scalars(
+                    select(AuditEvent).where(
+                        AuditEvent.tenant_id == "a",
+                        AuditEvent.action == "review.cancel",
+                        AuditEvent.resource_id == review_task_id,
+                    )
+                )
+            )
+            assert run is not None and run.status == "cancelled"
+            assert run.lease_id is None and run.lease_until is None
+            assert task is not None and task.status == "cancelled"
+            assert len(cancel_events) == 1
 
 
 def test_the_same_key_with_a_different_document_set_is_a_conflict_and_executes_once(system):
@@ -356,7 +472,8 @@ def test_the_same_key_with_a_different_document_set_is_a_conflict_and_executes_o
             json={"document_ids": [second_document]},
         )
         assert conflict.status_code == 409, conflict.text
-        assert system.executor.starts == 1
+        assert system.executor.creations == 1
+        assert system.executor.starts == 0
         assert len(system.run_rows()) == 1
         assert system.ledger_bytes() == ledger_bytes
 
@@ -368,7 +485,8 @@ def test_the_same_key_with_a_different_document_set_is_a_conflict_and_executes_o
         )
         assert other.status_code == 202, other.text
         assert other.json()["review_task_id"] != accepted.json()["review_task_id"]
-        assert system.executor.starts == 2
+        assert system.executor.creations == 2
+        assert system.executor.starts == 0
 
 
 # ------------------------------------------------------------------ the real HTTP timeout
@@ -394,17 +512,13 @@ def _free_port() -> int:
         return int(reservation.getsockname()[1])
 
 
-def test_a_client_timeout_still_finds_the_running_task_and_its_result(tmp_path):
-    """The 120 s abort scaled down: the client gives up, the server finishes the task.
-
-    The client timeout is shortened (0.25 s against a 1.5 s execution) so the suite stays
-    fast; the *semantics* are the browser's 120 s abort: the client stops waiting, the
-    server keeps working and the task stays recoverable through the list endpoint.
-    """
+def test_queue_submission_survives_api_restart_without_starting_model_execution(tmp_path):
+    """The real HTTP route commits a queue row and returns before worker execution."""
     system = System(tmp_path, hold=1.5)
     port = _free_port()
     server = _Server(system.app, port)
     server.start()
+    restarted = None
     base = f"http://127.0.0.1:{port}"
     try:
         deadline = time.monotonic() + 20
@@ -423,42 +537,46 @@ def test_a_client_timeout_still_finds_the_running_task_and_its_result(tmp_path):
             document_id = system.document(project_id)
             key = str(uuid4())
 
-            # The browser aborts here; httpx raises the same class of error (a timeout).
-            with pytest.raises(httpx.TimeoutException):
-                setup.post(
-                    f"/api/v1/projects/{project_id}/reviews",
-                    headers={**headers, "Idempotency-Key": key},
-                    json={"document_ids": [document_id]},
-                )
+            accepted = setup.post(
+                f"/api/v1/projects/{project_id}/reviews",
+                headers={**headers, "Idempotency-Key": key},
+                json={"document_ids": [document_id]},
+            )
+            assert accepted.status_code == 202, accepted.text
+            assert accepted.json()["status"] == "queued"
+            assert system.executor.creations == 1
+            assert system.executor.starts == 0
+            assert system.ledger_summary()["llm_calls"] == 0
 
-            # The user's recovery path: reload the project page's task list.
+            # The persisted queue row remains readable after the API process restarts.
+            server.stop()
+            server = _Server(system.app, _free_port())
+            server.start()
+            base = f"http://127.0.0.1:{server.server.config.port}"
+            restarted = httpx.Client(base_url=base, trust_env=False, timeout=0.25)
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                try:
+                    if restarted.get("/api/v1/health", timeout=1.0).status_code == 200:
+                        break
+                except httpx.TransportError:
+                    time.sleep(0.1)
+            else:
+                raise AssertionError("the restarted in-process server did not become healthy")
+
             task_id = task_identity("a", key)
-            listed = setup.get(
+            listed = restarted.get(
                 f"/api/v1/projects/{project_id}/reviews", headers=headers, timeout=5.0
             )
             assert listed.status_code == 200, listed.text
             items = {item["review_task_id"]: item for item in listed.json()["items"]}
             assert task_id in items, listed.text
-            assert items[task_id]["status"] == "running"  # real, intermediate state
-            assert system.executor.starts == 1
+            assert items[task_id]["status"] == "queued"
+            assert system.executor.creations == 1
+            assert system.executor.starts == 0
 
-            deadline = time.monotonic() + 20
-            final = None
-            while time.monotonic() < deadline:
-                listed = setup.get(
-                    f"/api/v1/projects/{project_id}/reviews", headers=headers, timeout=5.0
-                )
-                items = {item["review_task_id"]: item for item in listed.json()["items"]}
-                final = items.get(task_id)
-                if final is not None and final["status"] == "result_published":
-                    break
-                time.sleep(0.2)
-            assert final is not None and final["status"] == "result_published", final
-            assert system.executor.starts == 1  # exactly one execution for one task
-
-            # The duplicate submission (same key, e.g. the user pressing the button again)
-            # returns the same completed task and still does not execute anything.
-            duplicate = setup.post(
+            # Duplicate submission returns the same pending row after restart.
+            duplicate = restarted.post(
                 f"/api/v1/projects/{project_id}/reviews",
                 headers={**headers, "Idempotency-Key": key},
                 json={"document_ids": [document_id]},
@@ -466,8 +584,11 @@ def test_a_client_timeout_still_finds_the_running_task_and_its_result(tmp_path):
             )
             assert duplicate.status_code == 202, duplicate.text
             assert duplicate.json()["review_task_id"] == task_id
-            assert duplicate.json()["status"] == "result_published"
-            assert system.executor.starts == 1
+            assert duplicate.json()["status"] == "queued"
+            assert system.executor.creations == 1
+            assert system.executor.starts == 0
     finally:
+        if restarted is not None:
+            restarted.close()
         server.stop()
         system.close()

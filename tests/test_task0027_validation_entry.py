@@ -378,11 +378,9 @@ class Round:
         }
 
     def serving_arguments(self) -> dict[str, Any]:
-        return {
-            key: value
-            for key, value in self.arguments().items()
-            if key not in {"now"}
-        }
+        # Keep the preflight on the same frozen clock as the evidence fixture; the suite
+        # can run for more than the evidence freshness window.
+        return self.arguments()
 
     def preflight(self, **overrides) -> validation.PreflightOutcome:
         recorder = ProbeRecorder()
@@ -499,6 +497,12 @@ def cli_deployment(round_: Round, monkeypatch) -> None:
     for name, value in round_.environment.items():
         monkeypatch.setenv(name, value)
     monkeypatch.setenv(validation.HOST_OFFLINE_EVIDENCE_VARIABLE, str(round_.evidence))
+    # The CLI tests do not assert the default window; a longer test-only window keeps
+    # the module-import evidence valid while the full suite runs.
+    monkeypatch.setenv(
+        validation.HOST_OFFLINE_EVIDENCE_MAX_AGE_VARIABLE,
+        str(validation.HOST_OFFLINE_EVIDENCE_MAX_AGE_CEILING_SECONDS),
+    )
 
 
 def cli_context(round_: Round, monkeypatch) -> ProbeRecorder:

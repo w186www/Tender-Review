@@ -69,7 +69,17 @@ class OneShotBudgetLedger(BudgetLedger):
         self._lock = threading.Lock()
         self._reserved_once = False
 
-    def reserve(self, tenant_id: str, task_id: str, amount: Decimal) -> BudgetReservation:
+    def reserve(
+        self,
+        tenant_id: str,
+        task_id: str,
+        amount: Decimal,
+        *,
+        call_id: str | None = None,
+        kind: str = "llm",
+        run_id: str | None = None,
+        request_hash: str | None = None,
+    ) -> BudgetReservation:
         with self._lock:
             if self._reserved_once or amount > self._max_budget:
                 raise ModelGatewayError(
@@ -79,9 +89,14 @@ class OneShotBudgetLedger(BudgetLedger):
             self._inner.set_limit(tenant_id, task_id, self._max_budget)
             # Reserve the full hard cap, covering the provider's documented token-count
             # tolerance as well as unknown usage after an invoked request fails.
-            reservation = self._inner.reserve(tenant_id, task_id, self._max_budget)
+            reservation = self._inner.reserve(
+                tenant_id, task_id, self._max_budget, call_id=call_id, kind=kind
+            )
             self._reserved_once = True
             return reservation
+
+    def mark_dispatched(self, reservation: BudgetReservation) -> None:
+        self._inner.mark_dispatched(reservation)
 
     def settle(self, reservation: BudgetReservation, actual: Decimal) -> None:
         self._inner.settle(reservation, actual)

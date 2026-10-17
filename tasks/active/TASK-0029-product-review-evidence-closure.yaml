@@ -1,0 +1,146 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0029",
+  "title": "产品审查内核、证据与报告闭环",
+  "status": "in_progress",
+  "owner": "Codex",
+  "depends_on": [],
+  "related_requirements": [
+    "FR-002",
+    "FR-004",
+    "FR-005",
+    "FR-006",
+    "FR-008",
+    "FR-009",
+    "FR-010",
+    "FR-011",
+    "SEC-001",
+    "SEC-003",
+    "SEC-004",
+    "SEC-005",
+    "SEC-009",
+    "SEC-012",
+    "NFR-001",
+    "NFR-002",
+    "NFR-003",
+    "NFR-004",
+    "NFR-006",
+    "NFR-007",
+    "NFR-008",
+    "NFR-009",
+    "NFR-011"
+  ],
+  "related_acceptance": [
+    "AC-001",
+    "AC-002",
+    "AC-003",
+    "AC-004",
+    "AC-005",
+    "AC-006",
+    "AC-007",
+    "AC-008",
+    "AC-009",
+    "AC-010",
+    "AC-011"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/product-delivery-plan.md",
+    "docs/development/product-delivery-validation.md",
+    "docs/development/development-workflow.md",
+    "docs/development/testing-standard.md",
+    "docs/architecture/security.md",
+    "docs/architecture/data-flow.md",
+    "docs/architecture/model-gateway.md",
+    "contracts/VERSION.md",
+    "tasks/active/TASK-0022-real-tender-offline-evaluation.yaml",
+    "tasks/active/TASK-0027-real-ai-full-capability.yaml"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "scripts/**",
+    "contracts/**",
+    "migrations/**",
+    "evals/**",
+    "docs/**",
+    "tasks/**",
+    "deploy/**",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "src/frontend/**"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx",
+    "tests/completed/**",
+    "deploy/.env",
+    ".verification/private/**"
+  ],
+  "steps": [
+    "消费 U02 冻结契约，按 U06—U12 依赖完成输入质量、法规/规则生命周期、候选覆盖、双层检索、RAG 融合、前端异常处理及报告证据闭环。",
+    "复用 TASK-0019 保全评测工具与 TASK-0022 离线诊断；不将其真实文件或历史结果混入新的评测集。",
+    "保持未核验法规、缺失金标、Mock/离线模型与真实模型的边界；按 D1—D3 状态阻断相关最终验收，其他可执行工作继续。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0029-001",
+      "description": "U02 状态、引用、证据资格、覆盖、部分完成、零候选、错误和未知调用语义由契约及兼容测试固定。",
+      "evidence": [
+        "contracts/schemas/product-review-execution.schema.json",
+        "contracts/schemas/review-report.schema.json",
+        "contracts/examples/manifest.yaml",
+        "contracts/openapi.yaml",
+        "contracts/VERSION.md",
+        "docs/development/product-contract-baseline.md",
+        "docs/decisions/ADR-0019-product-execution-and-review-contracts.md",
+        "docs/development/product-delivery-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0029-002",
+      "description": "U06 支持范围、质量信号、人工校正、版本失效和原文定位由冻结样本/专项验证；失败输入不能继续审查。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0029-003",
+      "description": "U07 法规、规则和配置保留来源、范围、版本、复核、发布及回退；未核验资料始终不能成为确定性结论依据。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0029-004",
+      "description": "U08 对所有应审非空输入记录覆盖；分批、饱和、截断、失败及人工处理可见；Mock 协议测试与真实效果证据分别标注。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0029-005",
+      "description": "U09 检索相关性排名与法定证据资格分离，索引/模型/快照身份可核验，损坏或身份冲突失败关闭。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0029-006",
+      "description": "U10 实际法规候选进入受限 RAG；服务端复核原文、版本、引用与适用资格，并正确处理零候选、证据不足和冲突。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0029-007",
+      "description": "U11 浏览器覆盖正常、失败、部分完成、校正、找回、授权和多角色租户分支；OpenAPI 与生成客户端一致。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0029-008",
+      "description": "U12 结构化、Word、PDF、审计与下载鉴权引用同一不可变结果；内容、定位、证据状态和人工决定一致。",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "D1—D3 分别限制支持范围/容量承诺、专业法规与业务标签签署、真实模型和数据外发；只有相关验收活动暂停。U07 已强化无人工 rule-law binding 时不以模型文本形成违法结论；来源核验和 binding 签署仍受 D2 限制，U07 保持 in_progress。当前代码候选官方 Full 七阶段全部通过（后端 843 passed、2 项既有弃用 warning；HTTP 启动及鉴权项目生命周期通过），但这不构成 U07 的 D2 内容验收。D2 不批准实际法规材料或内容核验。U03 的冻结评测器/测试/结果来源仍缺失；只读核对的唯一已知备份 bundle 未包含 TASK-0019 来源，未解包或导入。DEC-002 与 DEC-007 历史授权不可复用或扩展。用户独立验收不由本任务状态替代。"
+}

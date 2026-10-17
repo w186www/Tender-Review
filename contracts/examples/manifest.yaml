@@ -1393,6 +1393,386 @@
         "context_version": 1
       },
       "expected_valid": false
+    },
+    {
+      "id": "product-execution-zero-candidate-complete",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000001",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "result_published",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": []
+        },
+        "completion_status": "complete",
+        "coverage": {
+          "status": "complete",
+          "planned_units": 0,
+          "completed_units": 0,
+          "failed_units": 0,
+          "unprocessed_units": 0,
+          "truncated": false,
+          "saturated": false
+        },
+        "candidate_count": 0,
+        "no_findings_confirmation": "confirm_no_findings",
+        "citable_legal_evidence_count": 0,
+        "model_calls": []
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "product-execution-partial-coverage-visible",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000008",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "result_published",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic-partial",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": []
+        },
+        "completion_status": "partial",
+        "coverage": {
+          "status": "partial",
+          "planned_units": 2,
+          "completed_units": 1,
+          "failed_units": 0,
+          "unprocessed_units": 1,
+          "truncated": true,
+          "saturated": false,
+          "reason_codes": ["provider_output_truncated"]
+        },
+        "candidate_count": 0,
+        "no_findings_confirmation": null,
+        "citable_legal_evidence_count": 0,
+        "model_calls": []
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "product-execution-complete-with-unknown-call-invalid",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000002",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "result_published",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic-2",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+        },
+        "completion_status": "complete",
+        "coverage": {
+          "status": "complete",
+          "planned_units": 1,
+          "completed_units": 1,
+          "failed_units": 0,
+          "unprocessed_units": 0,
+          "truncated": false,
+          "saturated": false
+        },
+        "candidate_count": 1,
+        "no_findings_confirmation": null,
+        "citable_legal_evidence_count": 0,
+        "model_calls": [{
+          "call_id": "call-synthetic",
+          "state": "unknown",
+          "attempt": 1,
+          "request_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "document_hashes": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+          "usage_status": "unknown"
+        }]
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "product-execution-complete-coverage-count-mismatch-invalid",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000006",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "result_published",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic-3",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": []
+        },
+        "completion_status": "complete",
+        "coverage": {
+          "status": "complete",
+          "planned_units": 2,
+          "completed_units": 1,
+          "failed_units": 0,
+          "unprocessed_units": 0,
+          "truncated": false,
+          "saturated": false
+        },
+        "candidate_count": 1,
+        "no_findings_confirmation": null,
+        "citable_legal_evidence_count": 0,
+        "model_calls": []
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "product-execution-dispatched-call-unapproved-document-invalid",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000007",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "failed",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic-4",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": []
+        },
+        "completion_status": "failed",
+        "coverage": {
+          "status": "failed",
+          "planned_units": 1,
+          "completed_units": 0,
+          "failed_units": 1,
+          "unprocessed_units": 0,
+          "truncated": false,
+          "saturated": false
+        },
+        "candidate_count": 0,
+        "no_findings_confirmation": null,
+        "citable_legal_evidence_count": 0,
+        "model_calls": [{
+          "call_id": "call-synthetic-unapproved",
+          "state": "dispatched",
+          "attempt": 1,
+          "request_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "document_hashes": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+          "usage_status": "unknown"
+        }]
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "report-v1-historical-contract-valid",
+      "schema": "contracts/schemas/review-report.schema.json",
+      "data": {
+        "schema_version": "task0010-report.v1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000013",
+        "result_id": "00000000-0000-4000-8000-000000000014",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "report_id": "00000000-0000-4000-8000-000000000015",
+        "template_version": "legacy-v1",
+        "generated_at": "2025-10-17T00:00:00Z",
+        "input_snapshot": {},
+        "findings": []
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "report-v2-historical-zero-candidate-unconfirmed-valid",
+      "schema": "contracts/schemas/review-report.schema.json",
+      "data": {
+        "schema_version": "task0010-report.v2",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000023",
+        "result_id": "00000000-0000-4000-8000-000000000024",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "report_id": "00000000-0000-4000-8000-000000000025",
+        "template_version": "legacy-v2",
+        "generated_at": "2025-10-17T00:00:00Z",
+        "input_snapshot": {},
+        "findings": [],
+        "assessment_scope": {
+          "candidate_discovery_status": "completed_no_candidates",
+          "candidate_count": 0,
+          "skill_coverage": [],
+          "legal_framework_confirmed": false,
+          "retrieval_status_counts": {},
+          "retrieval_context_errors": {},
+          "retrieval_hit_count": 0,
+          "citable_legal_evidence_count": 0,
+          "retrieval_algorithms": [],
+          "model_provider": "none",
+          "model_name": "none",
+          "no_findings_confirmation": null,
+          "source_artifact_hashes": {
+            "candidate_discovery": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "legal_retrieval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "model_analysis": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "project_context": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        }
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "report-v3-complete-zero-candidates",
+      "schema": "contracts/schemas/review-report.schema.json",
+      "data": {
+        "schema_version": "task0010-report.v3",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000003",
+        "result_id": "00000000-0000-4000-8000-000000000004",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "report_id": "00000000-0000-4000-8000-000000000005",
+        "template_version": "v1",
+        "generated_at": "2026-10-17T00:00:00Z",
+        "input_snapshot": {},
+        "findings": [],
+        "assessment_scope": {
+          "candidate_discovery_status": "completed_no_candidates",
+          "candidate_count": 0,
+          "skill_coverage": [],
+          "legal_framework_confirmed": false,
+          "retrieval_status_counts": {},
+          "retrieval_context_errors": {},
+          "retrieval_hit_count": 0,
+          "citable_legal_evidence_count": 0,
+          "retrieval_algorithms": [],
+          "model_provider": "none",
+          "model_name": "none",
+          "no_findings_confirmation": "confirm_no_findings",
+          "source_artifact_hashes": {
+            "candidate_discovery": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "legal_retrieval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "model_analysis": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "project_context": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "product_execution": {
+            "completion_status": "complete",
+            "coverage_status": "complete",
+            "unprocessed_units": 0,
+            "truncated": false,
+            "saturated": false,
+            "unknown_model_call_count": 0
+          }
+        }
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "report-v3-complete-with-partial-coverage-invalid",
+      "schema": "contracts/schemas/review-report.schema.json",
+      "data": {
+        "schema_version": "task0010-report.v3",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000003",
+        "result_id": "00000000-0000-4000-8000-000000000004",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "report_id": "00000000-0000-4000-8000-000000000005",
+        "template_version": "v1",
+        "generated_at": "2026-10-17T00:00:00Z",
+        "input_snapshot": {},
+        "findings": [],
+        "assessment_scope": {
+          "candidate_discovery_status": "completed_no_candidates",
+          "candidate_count": 0,
+          "skill_coverage": [],
+          "legal_framework_confirmed": false,
+          "retrieval_status_counts": {},
+          "retrieval_context_errors": {},
+          "retrieval_hit_count": 0,
+          "citable_legal_evidence_count": 0,
+          "retrieval_algorithms": [],
+          "model_provider": "none",
+          "model_name": "none",
+          "no_findings_confirmation": "confirm_no_findings",
+          "source_artifact_hashes": {
+            "candidate_discovery": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "legal_retrieval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "model_analysis": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "project_context": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "product_execution": {
+            "completion_status": "complete",
+            "coverage_status": "partial",
+            "unprocessed_units": 1,
+            "truncated": true,
+            "saturated": false,
+            "reason_codes": ["provider_output_truncated"],
+            "unknown_model_call_count": 0
+          }
+        }
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "external-authorization-request-valid",
+      "schema": "contracts/openapi.yaml#/components/schemas/ExternalAuthorizationRequest",
+      "data": {"reason": "合成验证样本", "confirmed": true},
+      "expected_valid": true
+    },
+    {
+      "id": "external-authorization-request-cannot-self-authorize",
+      "schema": "contracts/openapi.yaml#/components/schemas/ExternalAuthorizationRequest",
+      "data": {"reason": "合成验证样本", "confirmed": false, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "expected_valid": false
     }
   ]
 }

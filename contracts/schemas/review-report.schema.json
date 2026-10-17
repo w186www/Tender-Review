@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "tenant_id", "project_id", "review_task_id", "run_id", "result_id", "snapshot_hash", "report_id", "template_version", "generated_at", "input_snapshot", "findings"],
   "properties": {
-    "schema_version": {"enum": ["task0010-report.v1", "task0010-report.v2"]},
+    "schema_version": {"enum": ["task0010-report.v1", "task0010-report.v2", "task0010-report.v3"]},
     "tenant_id": {"type": "string", "minLength": 1, "maxLength": 64},
     "project_id": {"type": "string", "minLength": 1, "maxLength": 64},
     "project_name": {"type": ["string", "null"], "maxLength": 300},
@@ -97,6 +97,7 @@
         "retrieval_context_errors": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
         "retrieval_hit_count": {"type": "integer", "minimum": 0},
         "citable_legal_evidence_count": {"type": "integer", "minimum": 0},
+        "product_execution": {"$ref": "product-review-execution.schema.json#/$defs/report_projection"},
         "retrieval_algorithms": {"type": "array", "uniqueItems": true, "items": {"type": "string", "maxLength": 100}},
         "model_provider": {"type": "string", "maxLength": 100},
         "model_name": {"type": "string", "maxLength": 100},
@@ -119,6 +120,35 @@
     {
       "if": {"properties": {"schema_version": {"const": "task0010-report.v2"}}, "required": ["schema_version"]},
       "then": {"required": ["assessment_scope"]}
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "task0010-report.v3"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["assessment_scope"],
+        "properties": {"assessment_scope": {"required": ["product_execution"]}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "task0010-report.v3"},
+          "assessment_scope": {
+            "properties": {
+              "product_execution": {"properties": {"completion_status": {"const": "complete"}}},
+              "candidate_count": {"const": 0}
+            },
+            "required": ["product_execution", "candidate_count"]
+          }
+        },
+        "required": ["schema_version", "assessment_scope"]
+      },
+      "then": {
+        "properties": {
+          "assessment_scope": {
+            "properties": {"no_findings_confirmation": {"const": "confirm_no_findings"}}
+          }
+        }
+      }
     }
   ]
 }

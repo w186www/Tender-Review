@@ -15,6 +15,10 @@ authorized-real  scripts/task0023_real_ai_app.py assembly: the same pipeline wit
                  Bailian Qwen gateway. It starts only when the independent model
                  authorization variables are present and the budget ledger still has
                  headroom; otherwise this process exits non-zero.
+product-postgres scripts/task0028_product_app.py assembly: the product-mode authority is
+                 PostgreSQL only (tenant policy, per-file authorization, budget). It
+                 refuses the legacy SQLite ledger configuration and exits non-zero when
+                 the policy/account or supplier credentials are missing.
 """
 
 from __future__ import annotations
@@ -38,9 +42,12 @@ if MODE == "offline":
     import task0011_e2e_app as assembly  # noqa: E402
 elif MODE == "authorized-real":
     import task0023_real_ai_app as assembly  # noqa: E402
+elif MODE == "product-postgres":
+    import task0028_product_app as assembly  # noqa: E402
 else:
     print(
-        f"unknown DEPLOY_REVIEW_MODE {MODE!r}; expected 'offline' or 'authorized-real'",
+        f"unknown DEPLOY_REVIEW_MODE {MODE!r}; expected 'offline', 'authorized-real' "
+        "or 'product-postgres'",
         file=sys.stderr,
     )
     raise SystemExit(2)
@@ -62,10 +69,17 @@ def main() -> int:
             file=sys.stderr,
             flush=True,
         )
-    else:
+    elif MODE == "authorized-real":
         print(
             "review mode: authorized-real (supplier calls limited to the authorized "
             "document hashes and the remaining ledger ceiling)",
+            file=sys.stderr,
+            flush=True,
+        )
+    else:
+        print(
+            "review mode: product-postgres (PostgreSQL tenant policy, per-file "
+            "authorization and budget are the only authority)",
             file=sys.stderr,
             flush=True,
         )

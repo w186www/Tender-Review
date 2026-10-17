@@ -11,6 +11,7 @@ from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
+from check_u05 import check_u05
 from fastapi.testclient import TestClient
 from reportlab.pdfgen import canvas
 from sqlalchemy import inspect, select, text
@@ -65,16 +66,17 @@ def main() -> None:
         db.flush()
         hashed = PASSWORDS.hash(password)
         for tenant in ("a", "b"):
-            db.add(
-                User(
-                    tenant_id=tenant,
-                    user_id="reviewer",
-                    username="reviewer",
-                    role="reviewer",
-                    password_hash=hashed,
-                    active=True,
+            for role in ("reviewer", "admin", "auditor"):
+                db.add(
+                    User(
+                        tenant_id=tenant,
+                        user_id=role,
+                        username=role,
+                        role=role,
+                        password_hash=hashed,
+                        active=True,
+                    )
                 )
-            )
         db.commit()
     migrate(admin)
     migrate(admin)
@@ -125,10 +127,12 @@ def main() -> None:
                 "WHERE relname IN ('ingestion_job','document_section','section_revision',"
                 "'document_context_version','legal_retrieval_run',"
                 "'review_configuration_revision','review_configuration_event',"
-                "'review_configuration_state')"
+                "'review_configuration_state','model_execution_policy',"
+                "'document_external_authorization','model_budget_account',"
+                "'model_budget_reservation','ledger_import')"
             )
         ).all()
-        assert len(policies) == 8 and all(p[1] and p[2] for p in policies)
+        assert len(policies) == 13 and all(p[1] and p[2] for p in policies)
         connection.execute(
             text(
                 "GRANT SELECT, INSERT ON project_version, idempotency_record, "
@@ -139,11 +143,32 @@ def main() -> None:
             text("GRANT SELECT, INSERT, UPDATE ON review_engine_run TO task4_runtime")
         )
         connection.execute(
+            text("GRANT SELECT, INSERT, UPDATE ON review_model_call TO task4_runtime")
+        )
+        connection.execute(
             text(
                 "GRANT SELECT, INSERT ON review_artifact, review_decision, review_result "
                 "TO task4_runtime"
             )
         )
+        connection.execute(
+            text("GRANT SELECT ON model_execution_policy TO task4_runtime")
+        )
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT, UPDATE ON document_external_authorization "
+                "TO task4_runtime"
+            )
+        )
+        connection.execute(
+            text("GRANT SELECT, UPDATE ON model_budget_account TO task4_runtime")
+        )
+        connection.execute(
+            text(
+                "GRANT SELECT, INSERT, UPDATE ON model_budget_reservation TO task4_runtime"
+            )
+        )
+        connection.execute(text("GRANT SELECT, INSERT ON ledger_import TO task4_runtime"))
         connection.execute(text("GRANT SELECT ON checkpoint_migrations TO task4_runtime"))
         connection.execute(
             text(
@@ -355,8 +380,24 @@ def main() -> None:
             db.rollback()
         else:
             raise AssertionError("Composite FK allowed a cross-tenant document")
+    check_u05(
+        admin=admin,
+        runtime=runtime,
+        runtime_settings=runtime_settings,
+        password=password,
+        project=project,
+        document_id=document_id,
+    )
     with Session(admin) as db:
-        for table in ("project_version", "audit_event", "legal_retrieval_run"):
+        for table in (
+            "project_version",
+            "audit_event",
+            "legal_retrieval_run",
+            "document_external_authorization",
+            "model_budget_reservation",
+            "model_budget_account",
+            "ledger_import",
+        ):
             try:
                 # Fixed table names only; trigger must reject even privileged history changes.
                 db.execute(text("DELETE FROM " + table))  # noqa: S608

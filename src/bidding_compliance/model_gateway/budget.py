@@ -21,14 +21,36 @@ class BudgetReservation:
     tenant_id: str
     review_task_id: str
     amount: Decimal
+    kind: str = "llm"
+    call_id: str | None = None
 
 
 class BudgetLedger(Protocol):
-    def reserve(self, tenant_id: str, task_id: str, amount: Decimal) -> BudgetReservation: ...
+    def reserve(
+        self,
+        tenant_id: str,
+        task_id: str,
+        amount: Decimal,
+        *,
+        call_id: str | None = None,
+        kind: str = "llm",
+        run_id: str | None = None,
+        request_hash: str | None = None,
+    ) -> BudgetReservation: ...
+
+    def mark_dispatched(self, reservation: BudgetReservation) -> None: ...
 
     def settle(self, reservation: BudgetReservation, actual: Decimal) -> None: ...
 
     def consume_reservation(self, reservation: BudgetReservation) -> None: ...
+
+
+class ExternalBudgetLedger(Protocol):
+    """The embedding runtime needs only the durable external reservation methods."""
+
+    def reserve_external(self, *, kind: str, request_hash: str, ceiling: Decimal) -> str: ...
+
+    def settle_external(self, reservation: str, actual: Decimal) -> None: ...
 
 
 class InMemoryBudgetLedger:
@@ -54,7 +76,17 @@ class InMemoryBudgetLedger:
                 raise ValueError("budget limit cannot be reduced below spent and reserved funds")
             self._limits[key] = amount
 
-    def reserve(self, tenant_id: str, task_id: str, amount: Decimal) -> BudgetReservation:
+    def reserve(
+        self,
+        tenant_id: str,
+        task_id: str,
+        amount: Decimal,
+        *,
+        call_id: str | None = None,
+        kind: str = "llm",
+        run_id: str | None = None,
+        request_hash: str | None = None,
+    ) -> BudgetReservation:
         if not amount.is_finite() or amount < 0:
             raise ModelGatewayError(GatewayErrorCode.BUDGET_EXCEEDED, "Budget quote is invalid.")
         key = (tenant_id, task_id)
@@ -73,9 +105,17 @@ class InMemoryBudgetLedger:
                 raise ModelGatewayError(
                     GatewayErrorCode.BUDGET_EXCEEDED, "The task budget is insufficient."
                 )
-            reservation = BudgetReservation(uuid.uuid4().hex, tenant_id, task_id, amount)
+            reservation = BudgetReservation(
+                uuid.uuid4().hex, tenant_id, task_id, amount, kind, call_id
+            )
             self._reserved[reservation.reservation_id] = reservation
             return reservation
+
+    def mark_dispatched(self, reservation: BudgetReservation) -> None:
+        if reservation.reservation_id not in self._reserved:
+            raise ModelGatewayError(
+                GatewayErrorCode.BUDGET_EXCEEDED, "Budget reservation is invalid."
+            )
 
     def settle(self, reservation: BudgetReservation, actual: Decimal) -> None:
         if not actual.is_finite() or actual < 0 or actual > reservation.amount:

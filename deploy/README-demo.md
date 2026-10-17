@@ -6,9 +6,9 @@
 ## 一、这套东西在做什么
 
 ```
-浏览器 ──HTTP(S)──> nginx ──/api/──> api（FastAPI + LangGraph）
+浏览器 ──HTTP(S)──> nginx ──/api/──> api（FastAPI）
                       └──> React 静态产物
-api / worker ──> postgres（业务数据 + 迁移 + LangGraph checkpoint）
+api / review-worker / worker ──> postgres（业务数据 + 迁移 + LangGraph checkpoint）
              ──> minio   （上传文件对象）
              ──> clamav  （强制病毒扫描）
 worker       ──> docker 守护进程 ──> 一次性隔离 parser 容器（DOCX/PDF + Tesseract OCR）
@@ -19,6 +19,8 @@ worker       ──> docker 守护进程 ──> 一次性隔离 parser 容器�
 - **只有 nginx 对外发布端口**。PostgreSQL、MinIO、ClamAV、API、Worker 全部只在内网。
 - **API 容器不挂载 Docker Socket**。文件解析只发生在 ingestion worker 进程里，
   而 worker 没有对外端口。公网可达的进程不持有容器运行时权限。
+- **审查与文件解析由不同 worker 处理**：review-worker 从 PostgreSQL 持久队列领取
+  审查动作；worker 只处理文件接入和隔离解析。两者都没有对外端口。
 
 ## 二、前置条件
 
@@ -76,8 +78,8 @@ cd <repo>
 D="docker compose --env-file deploy/.env -f docker-compose.demo.yml"
 
 $D ps                        # 状态
-$D logs -f --tail=200 api    # API 日志（换 worker / nginx / clamav / postgres / minio）
-$D restart api worker        # 只重启应用进程，数据不动
+$D logs -f --tail=200 api    # API 日志（换 review-worker / worker / nginx / clamav / postgres / minio）
+$D restart api review-worker worker  # 只重启应用进程，数据不动
 $D stop                      # 停止全部容器（数据卷保留）
 $D up -d                     # 重新启动
 $D down                      # 删除容器与网络，**数据卷保留**
@@ -186,7 +188,8 @@ LangGraph 全流程、法规检索、证据核验、人工复核、Word/PDF 报�
 
 未满足上述条件时，真实审查入口保持关闭并如实报错，**不会**回退成 Mock 冒充成功。
 `docker-compose.demo.yml` 把上述真实模型变量（`DASHSCOPE_*`、`BAILIAN_*`、`DEC007_*`、
-`DEC005_*`）**只注入 api 服务**，worker 与其他服务不持有任何供应商凭据；全部留空时
+`DEC005_*`）只注入 api 与 review-worker，供获准的真实审查执行；ingestion worker 与其他服务
+不持有供应商凭据。全部留空时
 `DEPLOY_REVIEW_MODE=offline` 仍可正常启动。
 
 ### 8.2 逐文件授权的运维步骤（approve / list / revoke）
@@ -598,6 +601,50 @@ bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private
   撤销无需等待重启；回滚期间担心外发时，先 `revoke` 再改模式，双保险。
 - 回滚后如需再切回 `authorized-real`，重新执行 8.5.2 的全部前置（包括新鲜 offline 证据与基线核对）。
 - 演示结束仍按第十节清理；**不要把账本/注册表的备份文件留在共享目录外泄**。
+
+### 8.6 产品模式（`product-postgres`）：PostgreSQL 为唯一授权/预算权威源
+
+本节描述 U05 新增的**产品装配**，不改变当前已部署的 `authorized-real`/DEC-007 栈。
+切换需要 D3/D4 单独批准；未批准时只在本机合成数据上演练。
+
+1. **模式与前置**：`DEPLOY_REVIEW_MODE=product-postgres`（`deploy/api_entry.py` 映射到
+   `scripts/task0028_product_app.py`）。必须显式提供 `PRODUCT_TENANT_ID`、
+   `PRODUCT_PROVIDER`、`PRODUCT_PURPOSE`（默认 `external_review`）、
+   `PRODUCT_BUDGET_AUTHORIZATION_ID`、`DASHSCOPE_API_KEY`、`BAILIAN_WORKSPACE_ID`。
+   该模式**拒绝**同时存在 `DEC007_AUTHORIZATION_ID`/`DEC005_AUTHORIZATION_ID`，避免两套额度；
+   也不再读取环境变量哈希白名单，逐文件授权是唯一放行依据。缺策略/预算账户/凭据时启动失败。
+2. **机构策略与预算账户**（受控管理连接执行；actor 必须是当前租户启用的 admin）：
+   ```bash
+   python scripts/manage_execution_policy.py set-policy \
+     --tenant "$PRODUCT_TENANT_ID" --actor admin \
+     --providers bailian --purposes external_review \
+     --budget-cny 200 --max-call-cny 0.25 --max-embedding-batch-cny 0.10 \
+     --max-authorization-ttl-seconds 3600 \
+     --budget-authorization-id "$PRODUCT_BUDGET_AUTHORIZATION_ID"
+   ```
+   策略、预算账户和审计事件在同一事务提交。预算上限不能降到已消费+已预留之下；运行侧只读取
+   账户，不另建第二额度。查看：`python scripts/manage_execution_policy.py show --tenant ...`。
+3. **历史账本导入**（只读来源、目标单事务、幂等；先 dry-run 核账）：
+   ```bash
+   python scripts/migrate_execution_ledgers.py --tenant ... \
+     --authorization-id "$PRODUCT_BUDGET_AUTHORIZATION_ID" --actor admin \
+     --purpose external_review --provider bailian \
+     --ledger /path/to/dec007-budget.sqlite3 \
+     --registry /path/to/authorization-registry.jsonl --dry-run
+   ```
+   确认 `source_counts/source_sums/exceptions` 后再去掉 `--dry-run`。历史 `reserved`/未知一律
+   按预留上限计入 `unknown` 消费，不释放、不重置；畸形/冲突记录使整批失败并列出异常。
+   真实运行账本、生产数据库和受保护原件不在本命令的自动授权范围内。
+4. **外发与撤销**：审核员通过 `POST /api/v1/projects/{projectId}/documents/{documentId}/external-authorization`
+   登记，绑定租户、项目、文档 SHA-256、parse_version、用途、供应商、期限和授权人；
+   `POST .../external-authorization/revoke` 撤销。授权/撤销与审计同事务，下一次出站重新查库；
+   已发出的在途请求不能撤回。未登记、过期、版本变化、供应商/用途不匹配、策略停用或跨租户一律拒绝。
+5. **回退**：停止外发并把 `DEPLOY_REVIEW_MODE` 改回 `authorized-real` 或 `offline`，重建 api/nginx；
+   PostgreSQL 中的授权/预算/导入记录保留，不删除、不重置；历史 SQLite/JSONL 文件保持只读。
+   回退前先核对在途调用和未知预留，未核账不得重新放行外发。
+6. **验证入口**：本机真实 PostgreSQL 专项为 `scripts/check_postgres.py`（CI 使用
+   `POSTGRES_VERIFY_URL`，数据库名必须是 `task0004_verification`），U05 检查在
+   `scripts/check_u05.py`；部署调度兼容仍由 `scripts/run_task0011_e2e.py` 覆盖。
 
 ## 九、安全说明与已知限制
 

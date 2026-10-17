@@ -736,6 +736,7 @@ def build_app(
     corpus_root: Path | None = None,
     expected_item_count: int | None = None,
     expected_source_item_count: int | None = None,
+    now: datetime | None = None,
 ) -> tuple[Any, PreflightOutcome]:
     """The serving assembly: the online runtime with this round's tightened ceilings.
 
@@ -759,6 +760,7 @@ def build_app(
         host_offline_evidence_max_age_seconds=host_offline_evidence_max_age_seconds,
         api_container_id=api_container_id,
         compose_project=compose_project,
+        now=now,
     )
     key = _credential(environment, "DASHSCOPE_API_KEY")
     workspace = _credential(environment, "BAILIAN_WORKSPACE_ID")

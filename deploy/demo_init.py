@@ -67,6 +67,7 @@ GRANTS = (
     "SELECT, INSERT ON document_section, section_revision, document_context_version",
     "UPDATE (revision) ON document_section",
     "SELECT, INSERT, UPDATE ON review_engine_run",
+    "SELECT, INSERT, UPDATE ON review_model_call",
     "SELECT, INSERT ON review_artifact, review_decision, review_result, "
     "review_report_content, review_report",
     "SELECT, INSERT ON review_configuration_revision, review_configuration_event",

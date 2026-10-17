@@ -1,0 +1,144 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0028",
+  "title": "产品执行、授权与恢复一致性",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [],
+  "related_requirements": [
+    "FR-007",
+    "FR-008",
+    "FR-009",
+    "FR-013",
+    "SEC-005",
+    "SEC-009",
+    "SEC-011",
+    "SEC-012",
+    "SEC-013",
+    "NFR-001",
+    "NFR-002",
+    "NFR-003",
+    "NFR-004",
+    "NFR-006",
+    "NFR-007",
+    "NFR-008",
+    "NFR-011",
+    "NFR-012"
+  ],
+  "related_acceptance": [
+    "AC-003",
+    "AC-004",
+    "AC-005",
+    "AC-006",
+    "AC-007",
+    "AC-008",
+    "AC-009",
+    "AC-010",
+    "AC-011"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/product-delivery-plan.md",
+    "docs/development/product-delivery-validation.md",
+    "docs/development/development-workflow.md",
+    "docs/development/testing-standard.md",
+    "docs/architecture/system.md",
+    "docs/architecture/langgraph.md",
+    "docs/architecture/data-flow.md",
+    "contracts/VERSION.md",
+    "tasks/active/TASK-0027-real-ai-full-capability.yaml"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "scripts/**",
+    "contracts/**",
+    "migrations/**",
+    "docs/**",
+    "tasks/**",
+    "deploy/**",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "requirements-dev.lock"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx",
+    "tests/completed/**",
+    "deploy/.env",
+    ".verification/private/**"
+  ],
+  "steps": [
+    "U01：固定当前实施基线，保护已有工作区成果，厘清旧任务的剩余责任。",
+    "U02：先冻结共享状态、调用、授权、作业和报告语义及兼容策略，再开始依赖实现。",
+    "U04：接通持久调度、lease、Checkpoint 接管、幂等、取消和未知调用恢复。",
+    "U05：统一租户资源权限、逐文件外发授权、预算和审计事务；历史账本只能按核准迁移方案处理。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0028-001",
+      "description": "U01 基线、U01—U16 任务映射及依赖已写入正式路线图；当前工作区、候选整合差异和未提交成果均有可查证记录。",
+      "evidence": [
+        "docs/development/product-delivery-validation.md",
+        "docs/development/roadmap.md",
+        "docs/development/roadmap.yaml",
+        "PROJECT_STATE.md"
+      ]
+    },
+    {
+      "id": "TASK0028-002",
+      "description": "U02 的产品状态、调用、执行身份、授权、证据和报告契约具备正反例及兼容策略；历史记录读取不被新语义重解释。",
+      "evidence": [
+        "contracts/schemas/product-review-execution.schema.json",
+        "contracts/schemas/review-report.schema.json",
+        "contracts/examples/manifest.yaml",
+        "contracts/openapi.yaml",
+        "contracts/VERSION.md",
+        "docs/development/product-contract-baseline.md",
+        "docs/development/product-delivery-traceability.yaml",
+        "docs/decisions/ADR-0019-product-execution-and-review-contracts.md",
+        "docs/development/product-delivery-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0028-003",
+      "description": "U04 从部署调度入口验证持久领取、lease 接管、重复/取消竞争、Checkpoint 恢复和调用结果未知；重启不伪造成功或身份。",
+      "evidence": [
+        "docs/development/product-delivery-validation.md",
+        ".verification/task0011-e2e-9e0d7ada01494a0cab4c512522671699/run.json",
+        ".verification/task0011-e2e-9e0d7ada01494a0cab4c512522671699/playwright-junit.xml",
+        "tests/test_task0027_timeout_recovery.py",
+        "scripts/assert_task0011_e2e.py"
+      ]
+    },
+    {
+      "id": "TASK0028-004",
+      "description": "U05 验证租户/角色/资源隔离，逐文件授权撤回、并发预算预留/结算、故障事务与历史账本迁移；未授权内容在外发前被拒绝。",
+      "evidence": [
+        "docs/development/product-delivery-validation.md",
+        "docs/decisions/ADR-0021-tenant-execution-authorization-and-budget.md",
+        "docs/architecture/authorization-matrix.md",
+        "contracts/database/migrations/202610172000_task0028_execution_authorization.py",
+        "tests/test_task0028_execution_authorization.py",
+        "tests/test_task0028_postgres_budget.py",
+        "tests/test_task0028_ledger_migration.py",
+        "tests/test_task0028_privacy_boundaries.py",
+        "scripts/check_postgres.py",
+        "scripts/check_u05.py",
+        "scripts/manage_execution_policy.py",
+        "scripts/migrate_execution_ledgers.py",
+        ".verification/u05-pg-run.log",
+        ".verification/task0011-e2e-1394bf3bcfca4065ac1f214989e3e20a/run.json"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "U01—U16 是实施单元；状态与依赖以 docs/development/roadmap.yaml 的 product_delivery_units 为准。U01/TASK0028-001、U02/TASK0028-002、U04/TASK0028-003、U05/TASK0028-004 均已完成并有可查证据；TASK-0028 作为开发基线的产品执行/授权一致性任务置为 completed。U05 实现产品模式（DEPLOY_REVIEW_MODE=product-postgres）的 PostgreSQL 租户策略、版本绑定逐文件授权/撤销、授权/审计同事务、原子预算预留/结算、unknown 保留、历史 JSONL/SQLite 只读幂等导入和隐私反例；真实 PostgreSQL 专项（scripts/check_postgres.py + scripts/check_u05.py）退出码 0，U04 Docker/PostgreSQL 部署 E2E 5/5 通过，官方 Full 七阶段 868 passed/6 warnings。未执行 D3 真实供应商调用/真实内容外发、D4 生产迁移/切换/部署；产品模式尚未在生产启用，当前部署仍是 authorized-real/DEC-007。历史账本/注册表/生产数据库未被修改，真实迁移需单独批准。TASK-0019、TASK-0022、TASK-0027 的既有状态和未完成验收保留，不因本任务自动完成。DEC-007 的既有授权不扩展为新的真实调用、数据外发或线上操作授权。下一步按依赖推进 U06 的本地解析/OCR/质量工作（D1 仅阻塞支持范围/容量最终承诺）；U07 仍受 D2 限制，U08/U09 仍需 U03/U06/U07 等前置。"
+}

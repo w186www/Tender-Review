@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from bidding_compliance.domain.identity import Principal
 from bidding_compliance.ingestion.ports import IngestionError, ObjectStore
-from bidding_compliance.ingestion.quality import digest, quality
+from bidding_compliance.ingestion.quality import digest, quality_issues
 from bidding_compliance.ingestion.schemas import (
     ContextCandidate,
     ContextConfirmation,
@@ -378,7 +378,8 @@ def correct_text(
     ]
     if sum(len(s.text) for s in effective) > policy.max_text_chars:
         raise IngestionError("TEXT_LIMIT")
-    passed = quality(effective, policy)
+    issues = quality_issues(effective, policy)
+    passed = not issues
     changed = session.execute(
         update(Document)
         .where(
@@ -392,7 +393,7 @@ def correct_text(
             parse_version=decision.expected_parse_version + 1,
             context_version=document.context_version + 1,
             status="needs_confirmation" if passed else "needs_review",
-            issues=[] if passed else ["LOW_QUALITY"],
+            issues=issues,
         )
         .returning(Document.document_id)
     )

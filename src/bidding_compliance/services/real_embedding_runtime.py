@@ -34,10 +34,8 @@ from bidding_compliance.legal.vector_index import (
     VectorIndexManifest,
     plan_batches,
 )
-from bidding_compliance.model_gateway.authorized_runtime import (
-    Dec005BudgetLedger,
-    MetadataAuditSink,
-)
+from bidding_compliance.model_gateway.authorized_runtime import MetadataAuditSink
+from bidding_compliance.model_gateway.budget import ExternalBudgetLedger
 from bidding_compliance.services.llm_candidate_discovery import redact_discovery_text
 
 LOGGER = logging.getLogger(__name__)
@@ -59,7 +57,7 @@ class ScopedEmbeddingGuard:
     the supplier, and no approval is inferred from a changed or reordered payload.
     """
 
-    def __init__(self, budget: Dec005BudgetLedger) -> None:
+    def __init__(self, budget: ExternalBudgetLedger) -> None:
         self.budget = budget
         self.allowed_hashes: set[str] = set()
 
@@ -264,7 +262,7 @@ class AuthorizedRetrieverFactory:
         *,
         api_key: str,
         workspace_id: str,
-        budget: Dec005BudgetLedger,
+        budget: ExternalBudgetLedger,
         private_root: Path,
         client: httpx.Client | None = None,
         allow_build: bool = False,
@@ -341,7 +339,7 @@ def create_real_retriever_factory(
     *,
     api_key: str,
     workspace_id: str,
-    budget: Dec005BudgetLedger,
+    budget: ExternalBudgetLedger,
     private_root: Path,
     client: httpx.Client | None = None,
     allow_build: bool = False,

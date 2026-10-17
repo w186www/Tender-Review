@@ -126,15 +126,26 @@ def authorized_run(
     principal: Principal,
     review_task_id: str,
     run_id: str,
+    *,
+    for_update: bool = False,
 ) -> ReviewEngineRun:
     require_identity(session, principal)
-    row = session.get(
-        ReviewEngineRun,
-        (principal.tenant_id, review_task_id, run_id),
-        populate_existing=True,
+    statement = select(ReviewEngineRun).where(
+        ReviewEngineRun.tenant_id == principal.tenant_id,
+        ReviewEngineRun.review_task_id == review_task_id,
+        ReviewEngineRun.run_id == run_id,
     )
+    if for_update:
+        statement = statement.with_for_update()
+    row = session.scalar(statement)
     if row is None:
         raise LookupError("resource unavailable")
+    if principal.background_worker and (
+        row.status != "running"
+        or row.lease_id != principal.execution_lease_id
+        or row.execution_generation != principal.execution_generation
+    ):
+        raise FileExistsError("review execution lease was superseded")
     find_project(session, principal, row.project_id)
     return row
 
@@ -173,15 +184,19 @@ def cancel_review(
 ) -> None:
     if principal.role is not Role.REVIEWER:
         raise PermissionError("review cancellation requires reviewer role")
-    row = authorized_run(session, principal, review_task_id, run_id)
+    row = authorized_run(session, principal, review_task_id, run_id, for_update=True)
     if row.status == "result_published":
         raise ValueError("published result cannot be cancelled")
+    was_cancelled = row.status == "cancelled"
     row.status = "cancelled"
+    row.lease_id = None
+    row.lease_until = None
     row.updated_at = datetime.now(UTC)
     task = session.get(ReviewTask, (principal.tenant_id, review_task_id))
     if task is not None:
         task.status = "cancelled"
-    audit(session, principal.tenant_id, principal.user_id, "review.cancel", review_task_id)
+    if not was_cancelled:
+        audit(session, principal.tenant_id, principal.user_id, "review.cancel", review_task_id)
     session.commit()
 
 

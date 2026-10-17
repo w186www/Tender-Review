@@ -348,6 +348,7 @@ def graph_harness(monkeypatch, *, fail=False):
     nodes = {}
     run = SimpleNamespace(
         status="running",
+        retry_count=0,
         review_task_id="task-a",
         run_id="run-a",
         project_id="project-a",

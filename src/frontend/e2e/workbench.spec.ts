@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -279,15 +279,37 @@ test("审核员通过真实服务完成项目、上传、复核、发布与报�
     `ReviewEngine response: ${await reviewResponse.text()}`,
   ).toBe(202);
   const createdReview = await reviewResponse.json();
-  expect(createdReview.status).toBe("waiting_human");
+  expect(createdReview.status).toBe("queued");
   const reviewTaskId = createdReview.review_task_id as string;
   const runId = createdReview.run_id as string;
+  const originalRequest = reviewResponse.request();
+  const idempotencyKey = (await originalRequest.allHeaders())["idempotency-key"];
+  expect(idempotencyKey).toBeTruthy();
+  const duplicateReview = await request.post(
+    `${baseUrl}/api/v1/projects/${projectId}/reviews`,
+    {
+      headers: {
+        Authorization: `Bearer ${reviewerToken}`,
+        "Idempotency-Key": idempotencyKey!,
+      },
+      data: originalRequest.postDataJSON(),
+    },
+  );
+  expect(duplicateReview.status()).toBe(202);
+  expect(await duplicateReview.json()).toMatchObject({
+    review_task_id: reviewTaskId,
+    run_id: runId,
+  });
   await expect(page).toHaveURL(
     new RegExp(`/reviews/${reviewTaskId}/${runId}$`),
     { timeout: 30_000 },
   );
   await expect(page.getByRole("heading", { name: "审查任务详情" })).toBeVisible();
-  await expect(page.locator(".status-badge").first()).toHaveText("等待人工复核");
+  const reviewStatus = page.locator(".status-badge").first();
+  await expect(reviewStatus).toHaveText("处理失败", { timeout: 180_000 });
+  await page.getByRole("button", { name: "重试审查" }).click();
+  await expect(page.locator(".notice-success")).toContainText("已排队");
+  await expect(reviewStatus).toHaveText("等待人工复核", { timeout: 180_000 });
 
   const findings = page.locator(".finding-card");
   let exactCitationCount = 0;
@@ -318,8 +340,8 @@ test("审核员通过真实服务完成项目、上传、复核、发布与报�
     await page.getByRole("button", { name: "确认本次无待复核项目" }).click();
   }
   await page.getByRole("button", { name: "继续审查流程" }).click();
-  await expect(page.locator(".notice-success")).toContainText("结果已发布");
-  await expect(page.locator(".status-badge").first()).toHaveText("结果已发布");
+  await expect(page.locator(".notice-success")).toContainText("已排队");
+  await expect(reviewStatus).toHaveText("结果已发布", { timeout: 180_000 });
   await expect(page.getByRole("heading", { name: "结果版本与报告" })).toBeVisible();
 
   await page.getByRole("button", { name: "生成 Word" }).click();
@@ -352,8 +374,155 @@ test("审核员通过真实服务完成项目、上传、复核、发布与报�
   );
   expect(evidence.document_status).toBe("ready");
   expect(evidence.review_run_status).toBe("result_published");
+  expect(evidence.review_action).toBe("resume");
+  expect(evidence.execution_generation).toBeGreaterThanOrEqual(2);
+  expect(evidence.lease_cleared).toBe(true);
+  expect(evidence.model_call_count).toBeGreaterThan(0);
+  if (process.env.E2E_EXPECT_PROVIDER === "bailian") {
+    expect(evidence.model_call_states).toEqual(["succeeded"]);
+    expect(evidence.retry_count).toBe(0);
+  } else {
+    expect(evidence.model_call_states).toEqual(["succeeded", "unknown"]);
+    expect(evidence.retry_count).toBe(1);
+  }
   expect(evidence.review_task_record_status).toBe("running");
   expect(evidence.report_formats).toEqual(["docx", "pdf"]);
+
+  const gateDirectory = process.env.E2E_MODEL_GATE_DIR;
+  if (gateDirectory) {
+    const armGate = (stage: "model-call" | "pre-invoke" | "cancel") => {
+      writeFileSync(
+        resolve(gateDirectory, "armed.json"),
+        JSON.stringify({ stage, task_id: "*" }),
+        "utf8",
+      );
+    };
+    const createGatedReview = async (stage: "model-call" | "pre-invoke" | "cancel") => {
+      armGate(stage);
+      const response = await request.post(
+        `${baseUrl}/api/v1/projects/${projectId}/reviews`,
+        {
+          headers: {
+            Authorization: `Bearer ${reviewerToken}`,
+            "Idempotency-Key": randomUUID(),
+          },
+          data: originalRequest.postDataJSON(),
+        },
+      );
+      expect(response.status(), await response.text()).toBe(202);
+      return response.json() as Promise<{
+        review_task_id: string;
+        run_id: string;
+      }>;
+    };
+    const unknownCall = await createGatedReview("model-call");
+    await expect
+      .poll(
+        async () => {
+          const response = await request.get(
+            `${baseUrl}/api/v1/reviews/${unknownCall.review_task_id}`,
+            { headers: { Authorization: `Bearer ${reviewerToken}` } },
+          );
+          if (response.status() !== 200) return null;
+          const status = await response.json();
+          return { status: status.status, failure_code: status.failure_code };
+        },
+        { timeout: 180_000 },
+      )
+      .toEqual({ status: "failed", failure_code: "model_call_outcome_unknown" });
+    const unknownEvidence = persisted(
+      "assert-unknown",
+      "--tenant",
+      "tenant-a",
+      "--task",
+      unknownCall.review_task_id,
+      "--run-id",
+      unknownCall.run_id,
+    );
+    expect(unknownEvidence.model_call_count).toBe(1);
+    expect(unknownEvidence.model_call_state).toBe("unknown");
+    expect(unknownEvidence.response_absent).toBe(true);
+
+    const takeover = await createGatedReview("pre-invoke");
+    await expect
+      .poll(
+        async () => {
+          const response = await request.get(
+            `${baseUrl}/api/v1/reviews/${takeover.review_task_id}`,
+            { headers: { Authorization: `Bearer ${reviewerToken}` } },
+          );
+          if (response.status() !== 200) return null;
+          const status = await response.json();
+          return { status: status.status, retry_count: status.retry_count };
+        },
+        { timeout: 180_000 },
+      )
+      .toEqual({ status: "waiting_human", retry_count: 0 });
+    const takeoverEvidence = persisted(
+      "assert-lease-takeover",
+      "--tenant",
+      "tenant-a",
+      "--task",
+      takeover.review_task_id,
+      "--run-id",
+      takeover.run_id,
+    );
+    expect(takeoverEvidence.execution_generation).toBe(2);
+    expect(takeoverEvidence.lease_cleared).toBe(true);
+    expect(takeoverEvidence.model_call_states).toEqual(["succeeded"]);
+
+    const cancellation = await createGatedReview("cancel");
+    const cancellationUrl = `${baseUrl}/api/v1/review-tasks/${cancellation.review_task_id}/runs/${cancellation.run_id}/cancel`;
+    await expect
+      .poll(
+        async () => {
+          const response = await request.get(
+            `${baseUrl}/api/v1/reviews/${cancellation.review_task_id}`,
+            { headers: { Authorization: `Bearer ${reviewerToken}` } },
+          );
+          if (response.status() !== 200) return null;
+          const status = await response.json();
+          return status.status;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe("running");
+    const cancelGate = resolve(gateDirectory, "entered-cancel.json");
+    await expect.poll(() => existsSync(cancelGate), { timeout: 30_000 }).toBe(true);
+    const cancelled = await request.post(cancellationUrl, {
+      headers: { Authorization: `Bearer ${reviewerToken}` },
+    });
+    expect(cancelled.status(), await cancelled.text()).toBe(200);
+    expect(await cancelled.json()).toMatchObject({ status: "cancelled" });
+    writeFileSync(resolve(gateDirectory, "release-cancel"), "release", "utf8");
+    await expect
+      .poll(
+        () => existsSync(resolve(gateDirectory, "cancel-worker-rejected.json")),
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+    const cancellationEvidence = persisted(
+      "assert-cancelled",
+      "--tenant",
+      "tenant-a",
+      "--task",
+      cancellation.review_task_id,
+      "--run-id",
+      cancellation.run_id,
+    );
+    expect(cancellationEvidence).toMatchObject({
+      status: "cancelled",
+      execution_generation: 1,
+      lease_cleared: true,
+      model_call_count: 0,
+      cancel_audit_count: 1,
+    });
+    writeFileSync(
+      resolve(gateDirectory, "cancel-evidence.json"),
+      JSON.stringify({ http_status: cancelled.status(), ...cancellationEvidence }),
+      "utf8",
+    );
+  }
 
   if (process.env.E2E_EXPECT_PROVIDER === "bailian") {
     const qwen = persisted(

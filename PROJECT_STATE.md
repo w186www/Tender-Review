@@ -2,7 +2,21 @@
 
 更新时间：2026-10-17
 
-## 进行中：TASK-0027 第七轮：两条可用性阻断的修复（任意自有文件上传后能在网页里走到审查）
+## 当前有效进度：U01、U02、U04、U05 已完成；U03、U07 进行中；U06 是下一可执行单元
+
+- 固定目录：`D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；当前分支 `work/TASK-0027`，HEAD `9e1a5840970f2c61b8558cf87e8f57398baf80c2`，与 `origin/work/TASK-0027` 一致。
+- 开始时未提交内容：用户的 `docs/development/luna-execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` 均为未跟踪文件，SHA-256 分别为 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。本轮未改写或移走这些文件。
+- 产品单元：U01/U02/U04/U05 已完成。U05 完成产品模式（`DEPLOY_REVIEW_MODE=product-postgres`）的 PostgreSQL 租户策略、版本绑定逐文件授权/撤销、授权/审计同事务、原子预算预留/结算、unknown 保留、历史 JSONL/SQLite 只读幂等导入和隐私反例；真实 PostgreSQL 专项退出码 0，U04 Docker/PostgreSQL 部署 E2E 5/5 兼容通过，最终官方 Full 七阶段 868 passed/6 warnings。U05 的产品模式没有在生产启用，当前部署仍为 `authorized-real`/DEC-007；D3 真实调用/内容外发、D4 生产迁移/切换未授权且未执行。U03 仍在进行：开发候选与标签边界已登记；冻结评测器/测试/结果来源未恢复，唯一已知备份 bundle 未找到 TASK-0019 来源且未导入/覆盖。U07 的本地生命周期与“无人工 binding 不支持违法结论”工程边界通过；法规核验及规则—法规人工绑定仍受 D2 限制。U06 的正式前置 U03 仍未完成，但其本地解析/质量工作可在现有合成资产和 D1 限制下推进；U08/U09 还依赖 U06/U07 等未完成单元。逐单元 G3 证据见 `docs/development/product-delivery-validation.md`。
+- 新任务映射：TASK-0028（U01/U02/U04/U05，`completed`）；TASK-0029（U02/U06—U12，`in_progress`）；U03→TASK-0019/TASK-0013，U13/U14→TASK-0012，U15→TASK-0013，U16→TASK-0014。用户原有任务的局部验收范围未被重写。
+- 原任务状态保留：TASK-0019 `blocked`（保全工作树/成果不写入）；TASK-0022 `in_progress`（仅原授权的本地离线范围）；TASK-0027 `in_progress`（第七轮交付已提交、CI和公网证据存在，产品级遗留按 U02/U10/U11 收尾）；TASK-0012/0013/0014 `planned`。
+- D1—D4 当前均没有新的明确批准：本地/合成数据实现继续；仅阻止路线图所列的支持范围/专业标签签署、真实外发/模型调用、线上/发布操作。DEC-002/007 的历史批准不扩大新的授权。本轮未调用模型、外发数据、访问线上或推送/合并。
+- 环境复用：当前目录 `.venv` 的 Python 解释器可用；源码使用 `PYTHONPATH=src` 时指向本目录 `src/bidding_compliance`。`src/frontend/node_modules` 已存在，Node v24.14.0。未安装或重建依赖。
+- 整合核对：`origin/main`=`7923086`，`origin/integration/TASK-0027-main-20261017`=`b344709`；整合候选的两个父提交分别为 main 与当前交付 HEAD `9e1a584`，相对交付 HEAD 仅多 `PROJECT_STATE.md`、`README.md`、`docs/index.md` 三项差异，未找到该候选自身 CI 证据。本地没有该候选分支，不自动合并或推送。
+- 验证结果：最终实现候选官方 `./scripts/verify.ps1 -Mode Full` 七阶段全部通过：后端 `868 passed, 6 warnings in 689.82s`；HTTP health=200/404 与 request ID 关联、鉴权和项目生命周期通过；Ruff、Mypy 109 源文件、前端 14/14 与构建通过。6 条 warning 为 2 条既有 pypdf 弃用提示和 4 条既有 `test_verification_modes` PowerShell 输出解码警告（测试通过）。真实 PostgreSQL 专项 `scripts/check_postgres.py` 在隔离 `postgres:16` 容器退出码 0，覆盖 U05 授权/RLS/审计/并发预算/历史导入及迁移升降级；U04 Docker/PostgreSQL 部署 E2E `.verification/task0011-e2e-1394bf3bcfca4065ac1f214989e3e20a/` 通过 5/5 浏览器测试并记录取消、并发 claim、lease/fencing、Checkpoint 恢复及 unknown 不重放。Full 后仅进行正式状态、任务证据与 G3 记录更新；详细命令及证据见 `docs/development/product-delivery-validation.md`。
+- 已知问题与待决策：TASK-0019 仍为 `blocked`；只读检查 `D:\自由项目\招标审核\_backups\repo-20261017T081226Z.bundle` 的 refs 未含 TASK-0019 分支或冻结评测资产，bundle 未解包。D1/D2 未批准的支持范围/容量承诺及专业标签签署继续局部阻塞。U05 的产品模式尚未在生产启用，历史账本真实迁移/切换、D3 真实供应商调用/内容外发和 D4 线上活动未获授权且未执行；没有外发项目数据、真实模型调用或线上操作。Full 的 4 条 PowerShell 输出解码警告为既有测试基础设施问题，未通过放宽检查消除。
+- 下一步：U05 已完成。U06 的正式前置 U03 仍未完成，但其本地解析/OCR/质量/人工校正工作可在现有合成资产和 D1 限制下推进，不能因此把 U06 标为完成；D1 只阻塞支持格式/规模/容量的最终承诺。U07 可继续不依赖 D2 的本地工程工作，但内容核验/规则—法规人工绑定仍待 D2；U08/U09 仍需 U03/U06/U07 等前置，不跳过。U03 来源缺口不重搜、不重建评测器、不以开发候选替代金标。D3/D4 只阻塞真实外发、生产迁移/部署和用户验收。
+
+## TASK-0027 第七轮交付快照（第七轮实现已完成；TASK-0027 总体仍 in_progress）
 
 - 工作树 `bidding-compliance-agent-TASK-0027` / 分支 `work/TASK-0027`，基线 HEAD `2fc9800`
   （第六轮已由用户提交：`feat(TASK-0027): lift the DEC-007 ceilings and let a reviewer approve one file`）；
@@ -403,7 +417,7 @@
 
 以下保留 TASK-0026 上线状态与更早的历史记录。
 
-## 当前有效状态：TASK-0026 已在阿里云 ECS 上线并通过公网 HTTPS 验收
+## 历史快照：TASK-0026 已在阿里云 ECS 上线并通过公网 HTTPS 验收（记录时点见下文）
 
 - **线上地址：https://47.83.132.211**（阿里云 ECS 香港 B，Ubuntu 22.04，2 vCPU / 7.5 GiB / 40 GB，
   实例 `i-j6ccqpfriae57w0hkskn`）。六服务健康，公网仅开放 22/80/443。
@@ -496,7 +510,7 @@
 - DEC-005 单次 Qwen 评测授权仍为 proposed；用户明确批准前不得调用。即使获批，也须先解决解析质量和上下文确认；TASK-0021 的 DEC-002 合成样本授权不得复用。
 - DEC-001 外部部署仍待决策。42 个法规版本仍未核验，演示必须保留证据状态，不得默认外发法规正文。
 
-## 下一步
+## 历史下一步记录（截至 2026-10-15；当前顺序以 U01—U16 路线图为准）
 
 1. TASK-0022 保持 in_progress：离线工作流与报告路径可演示，但法规框架/法条匹配未完成，Skills 覆盖有限；不可把0候选称为无风险或合规。当前不得调用真实 Qwen。
 2. 真实文件演示与 TASK-0021 合成样本真实 Qwen 演示须分开标注。DEC-005 如需执行真实文件评测，需按独立授权继续；DEC-002 不可复用。
@@ -553,7 +567,7 @@
 - 默认OCR已按ADR-0008采用中英文Tesseract端口、存储提供S3和本地开发适配；首选模型、生产服务和部署环境仍待确定。
 - 当前方案不安装或下载BGE/PaddleOCR。百炼模型为供应商托管且权重/Tokenizer修订无可固定身份；DEC-002 的一次本地合成数据授权已消耗，任何后续真实模型调用、外发真实数据或公网部署均未授权。TASK-0022 只获准对用户指定的真实文件进行本机离线处理；真实 Qwen 外发仍须 DEC-005 批准。跨进程预算账本、生产级模型审计及云端质量评测需后续独立决策。
 
-## 待决策
+## 历史待决策记录（截至 2026-10-15；D1—D4 当前状态见文首）
 
 - DEC-001：首个部署目标（本地 Docker Compose、云主机或 Kubernetes）。
 - DEC-002：已批准 TASK-0021 一次合成数据演示；生产模型、真实业务数据处理与部署约束仍待决策。
@@ -568,7 +582,7 @@
 - 生产数据：无。
 
 
-## 当前分支与审查基线
+## 历史分支与审查基线（截至 2026-10-14）
 
 - 2026-10-14用户新指令覆盖之前的恢复分支限制：实现已保全迁移到work/TASK-0006；git fetch origin main核对最新main=bd2da2da984b6d1c34f3cfdb7da69e21661523be，当前任务分支已包含该提交。无force push/reset --hard，恢复分支和保全stash保留。
 - 用户本次指令由ADR-0011记录，撤销ADR-0009默认跨软件/独立代理关卡；现有实现/问题与法规ADR-0010 proposed保留。Codex按实际验收自行收尾，不能假称独立审查或自动关闭问题。

@@ -260,6 +260,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/documents/{documentId}/external-authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 登记单个文档的外部处理授权
+         * @description 产品模式在 PostgreSQL 中写入绑定租户、项目、文档版本/哈希、用途、供应商、期限、授权人的授权记录，并与审计同事务提交；每次出站前重新检查。调用者不能提交文件内容或文件哈希。旧本地验证装配仅接受 reason/confirmed，可选产品字段会被拒绝；未配置授权登记器时失败关闭。
+         */
+        post: operations["authorizeDocumentExternalProcessing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/documents/{documentId}/external-authorization/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 撤销单个文档的外部处理授权
+         * @description 仅审核员可撤销当前版本的活动授权；撤销与审计同事务提交，下一次出站检查即拒绝。已经发出的在途请求不能撤回。
+         */
+        post: operations["revokeDocumentExternalProcessing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/documents/{documentId}/original": {
         parameters: {
             query?: never;
@@ -430,6 +470,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["retryReviewRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/review-tasks/{reviewTaskId}/runs/{runId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 仅审核员可取消持久审查运行；重复取消返回当前已取消状态；已发布结果不可取消。活动 Worker 的 lease 同步失效，不能继续写入结果。 */
+        post: operations["cancelReviewRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1124,7 +1181,7 @@ export interface components {
              */
             parse_version: number;
             /** Issues */
-            issues?: ("TYPE_MISMATCH" | "SIZE_LIMIT" | "MALICIOUS_CONTENT" | "ARCHIVE_LIMIT" | "INVALID_FILE" | "ENCRYPTED_FILE" | "PAGE_LIMIT" | "IMAGE_LIMIT" | "TEXT_LIMIT" | "OCR_LIMIT" | "LOW_QUALITY" | "SCANNER_UNAVAILABLE" | "SCANNER_STALE" | "PARSE_TIMEOUT" | "PARSE_FAILED" | "HASH_MISMATCH" | "ACTOR_FORBIDDEN" | "OUTPUT_LIMIT")[];
+            issues?: ("TYPE_MISMATCH" | "SIZE_LIMIT" | "MALICIOUS_CONTENT" | "ARCHIVE_LIMIT" | "INVALID_FILE" | "ENCRYPTED_FILE" | "PAGE_LIMIT" | "IMAGE_LIMIT" | "TEXT_LIMIT" | "OCR_LIMIT" | "LOW_QUALITY" | "LOW_CONFIDENCE_NUMERIC" | "DUPLICATE_TEXT" | "PAGE_COVERAGE_GAP" | "READING_ORDER_GAP" | "TABLE_STRUCTURE_GAP" | "INVALID_DATE" | "SCANNER_UNAVAILABLE" | "SCANNER_STALE" | "PARSE_TIMEOUT" | "PARSE_FAILED" | "HASH_MISMATCH" | "ACTOR_FORBIDDEN" | "OUTPUT_LIMIT")[];
         };
         DocumentList: {
             items: components["schemas"]["Document"][];
@@ -1436,6 +1493,50 @@ export interface components {
             reason: string;
             /** Corrections */
             corrections: components["schemas"]["TextCorrection"][];
+        };
+        /** ExternalAuthorizationRequest */
+        ExternalAuthorizationRequest: {
+            reason: string;
+            /** @constant */
+            confirmed: true;
+            /** @description 产品模式的授权用途；省略时使用服务端装配的默认用途 */
+            purpose?: string;
+            /** @description 产品模式的供应商；省略时使用服务端装配的默认供应商 */
+            provider?: string;
+            /**
+             * Format: date-time
+             * @description 产品模式的可选到期时间；不得超过租户策略的最长授权期限
+             */
+            expires_at?: string;
+        };
+        /** ExternalAuthorizationRevocationRequest */
+        ExternalAuthorizationRevocationRequest: {
+            reason: string;
+            /** @constant */
+            confirmed: true;
+            purpose?: string;
+            provider?: string;
+        };
+        /** ExternalAuthorizationRecord */
+        ExternalAuthorizationRecord: {
+            document_id: string;
+            sha256: string;
+            /** @enum {string} */
+            action: "approve" | "revoke";
+            /** Format: date-time */
+            approved_at: string;
+            approved_by: string;
+            authorization_id?: string;
+            parse_version?: number;
+            purpose?: string;
+            provider?: string;
+            /** Format: date-time */
+            expires_at?: string;
+            policy_version?: number;
+            /** Format: date-time */
+            revoked_at?: string;
+            revoked_by?: string;
+            revocation_reason?: string;
         };
     };
     responses: {
@@ -2953,6 +3054,101 @@ export interface operations {
             };
         };
     };
+    authorizeDocumentExternalProcessing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description 服务端记录的逐文件授权审计记录 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalAuthorizationRecord"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 仅审核员可登记授权，或机构策略不允许该供应商/用途 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description 文档授权记录冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["BadRequest"];
+            /** @description 外部处理授权登记器不可用，拒绝登记 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeDocumentExternalProcessing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalAuthorizationRevocationRequest"];
+            };
+        };
+        responses: {
+            /** @description 撤销后的授权记录 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalAuthorizationRecord"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 仅审核员可撤销授权 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["BadRequest"];
+            /** @description 外部处理授权登记器不可用，拒绝撤销 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     downloadDocument: {
         parameters: {
             query?: never;
@@ -3451,6 +3647,57 @@ export interface operations {
                 content?: never;
             };
             /** @description 授权执行器不可用 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancelReviewRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewTaskId: components["parameters"]["ReviewTaskId"];
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取消后的持久化任务状态；操作对重复请求幂等 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewTask"];
+                };
+            };
+            /** @description 需要审核员权限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 任务不可用 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 结果已发布，不能取消 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 审查 Worker 未连接 */
             503: {
                 headers: {
                     [name: string]: unknown;

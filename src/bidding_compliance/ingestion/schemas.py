@@ -25,6 +25,12 @@ Issue = Literal[
     "TEXT_LIMIT",
     "OCR_LIMIT",
     "LOW_QUALITY",
+    "LOW_CONFIDENCE_NUMERIC",
+    "DUPLICATE_TEXT",
+    "PAGE_COVERAGE_GAP",
+    "READING_ORDER_GAP",
+    "TABLE_STRUCTURE_GAP",
+    "INVALID_DATE",
     "SCANNER_UNAVAILABLE",
     "SCANNER_STALE",
     "PARSE_TIMEOUT",
@@ -108,6 +114,12 @@ class IngestionPolicy(Closed):
     max_text_chars: int = Field(ge=1, le=2000000)
     min_text_chars: int = Field(ge=1, le=1000)
     min_ocr_confidence: float = Field(ge=0, le=1)
+    # Structural quality settings beyond the average OCR confidence. Defaults keep old
+    # configurations valid; a reviewer can tighten them in the versioned policy.
+    min_numeric_confidence: float = Field(default=0.8, ge=0, le=1)
+    max_duplicate_text_ratio: float = Field(default=0.5, ge=0, le=1)
+    min_page_coverage_ratio: float = Field(default=0.9, ge=0, le=1)
+    max_table_row_deviation: int = Field(default=1, ge=0, le=5)
     parser_timeout_seconds: int = Field(ge=1, le=60)
     parser_output_bytes: int = Field(ge=1, le=8388608)
     job_lease_seconds: int = Field(ge=120, le=300)

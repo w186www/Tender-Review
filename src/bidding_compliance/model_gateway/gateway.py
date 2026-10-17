@@ -232,7 +232,11 @@ class ModelGatewayService:
                         "Call cost ceiling exceeds the configured limit.",
                     )
                 reservation = self._budgets.reserve(
-                    request.tenant_id, request.review_task_id, ceiling
+                    request.tenant_id,
+                    request.review_task_id,
+                    ceiling,
+                    call_id=request.call_id,
+                    kind="llm",
                 )
             except ModelGatewayError as exc:
                 last_error = exc
@@ -257,6 +261,9 @@ class ModelGatewayService:
                         raise ModelGatewayError(
                             GatewayErrorCode.TIMEOUT, "Model call deadline expired."
                         )
+                    # Mark the reservation as potentially sent before the adapter call. A
+                    # restart can then distinguish "never dispatched" from "outcome unknown".
+                    self._budgets.mark_dispatched(reservation)
                     provider_invoked = True
                     result = await adapter.generate(
                         safe_request,

@@ -71,7 +71,7 @@ def real_ai_policy() -> ModelPolicy:
     )
 
 
-REAL_RUNTIME_TENANT_ID = "tenant-a"
+REAL_RUNTIME_TENANT_ID = "tenant-a"  # legacy local-validation default, not a product tenant
 REGISTRY_ACTIONS = frozenset({"approve", "revoke"})
 REGISTRY_FIELDS = ("action", "sha256", "document_id", "reason", "approved_at", "approved_by")
 MAX_REASON_CHARACTERS = 500
@@ -317,6 +317,7 @@ class RealRuntimeAuthorization:
     """One explicit server authorization, resolved from the environment only."""
 
     authorization_id: str
+    tenant_id: str
     ledger_path: Path
     model_audit_path: Path
     registry: FileAuthorizationRegistry | None
@@ -346,7 +347,7 @@ class RealRuntimeAuthorization:
     def scope_sha256(self) -> str:
         return real_runtime_scope_sha256(
             authorization_id=self.authorization_id,
-            tenant_id=REAL_RUNTIME_TENANT_ID,
+            tenant_id=self.tenant_id,
             allowed_document_sha256=self.environment_documents,
             authorization_registry=self.registry_path,
         )
@@ -380,8 +381,16 @@ def resolve_real_runtime_authorization(
     audit_override = environment.get("DEC007_MODEL_AUDIT_PATH", "").strip()
     registry_override = environment.get("DEC007_AUTHORIZATION_REGISTRY", "").strip()
     registry_path = Path(registry_override) if registry_override else registry_default
+    tenant = (
+        environment.get("DEC007_TENANT_ID", "").strip()
+        or environment.get("DEMO_TENANT", "").strip()
+        or REAL_RUNTIME_TENANT_ID
+    )
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", tenant):
+        raise ValueError("the real-AI tenant identity is invalid")
     return RealRuntimeAuthorization(
         authorization_id=explicit,
+        tenant_id=tenant,
         ledger_path=Path(ledger_override) if ledger_override else ledger_default,
         model_audit_path=Path(audit_override) if audit_override else audit_default,
         registry=FileAuthorizationRegistry(registry_path) if registry_path else None,
@@ -407,8 +416,12 @@ class AuthorizedTenderMinimizer:
 
     def __init__(self, allowed_document_sha256: DocumentAuthorizationSource) -> None:
         current = resolve_document_authorization(allowed_document_sha256)
-        if not current or any(not re.fullmatch(r"[a-f0-9]{64}", item) for item in current):
+        if any(not re.fullmatch(r"[a-f0-9]{64}", item) for item in current):
             raise ValueError("explicit approved document hashes are required")
+        if not current and not callable(allowed_document_sha256):
+            raise ValueError("explicit approved document hashes are required")
+        # A dynamic source may legitimately be empty at startup: no file is authorized
+        # yet, and every outbound attempt must fail until a reviewer approves one.
         self.source = allowed_document_sha256
 
     @property

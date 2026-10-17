@@ -44,11 +44,11 @@ class OfflineStubExecutor:
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self.session_factory = session_factory
-        self.starts = 0
+        self.creations = 0
         self.model_policy = SimpleNamespace(profile="offline-deterministic")
 
-    async def start(self, principal, request) -> dict[str, object]:
-        self.starts += 1
+    def create_run(self, principal, request) -> dict[str, object]:
+        self.creations += 1
         now = datetime.now(UTC)
         documents = [item.model_dump(mode="json") for item in request.document_requests]
         with self.session_factory() as session:
@@ -58,7 +58,7 @@ class OfflineStubExecutor:
                     review_task_id=request.review_task_id,
                     project_id=request.project_id,
                     run_id=request.run_id,
-                    status="running",
+                    status="queued",
                 )
             )
             session.flush()
@@ -69,7 +69,12 @@ class OfflineStubExecutor:
                     run_id=request.run_id,
                     project_id=request.project_id,
                     actor_id=principal.user_id,
-                    status="running",
+                    status="queued",
+                    action="start",
+                    scheduled_at=now,
+                    lease_id=None,
+                    lease_until=None,
+                    execution_generation=0,
                     snapshot={"document_requests": documents},
                     snapshot_hash="b" * 64,
                     request_hash="c" * 64,
@@ -85,7 +90,7 @@ class OfflineStubExecutor:
         return {
             "review_task_id": request.review_task_id,
             "run_id": request.run_id,
-            "status": "running",
+            "status": "queued",
         }
 
 
@@ -119,7 +124,13 @@ def correction_body(sections, reason, text):
         "expected_parse_version": sections["parse_version"],
         "reason": reason,
         "corrections": [
-            {"section_id": item["section_id"], "text": text} for item in sections["items"]
+            {
+                "section_id": item["section_id"],
+                # Unique manual transcriptions avoid a synthetic duplicate-text signal when
+                # the test deliberately repairs every parsed fragment.
+                "text": (f"{text}（片段{index}）" if len(text) >= 20 else text),
+            }
+            for index, item in enumerate(sections["items"], 1)
         ],
     }
 
@@ -259,7 +270,7 @@ def test_a_review_cannot_be_started_from_an_unrepaired_document(system):
     )
     assert refused.status_code == 422, refused.text
     assert client.get(url, headers=headers).json()["status"] == "needs_review"
-    assert executor.starts == 0  # the run was never created
+    assert executor.creations == 0  # the run was never created
 
     # Repair it and the very same request becomes acceptable to the server. The gate also
     # fails on an OCR fragment with no text (the blank page area above), so every parsed
@@ -282,7 +293,7 @@ def test_a_review_cannot_be_started_from_an_unrepaired_document(system):
         json={"document_ids": [document]},
     )
     assert still_refused.status_code == 422, still_refused.text
-    assert executor.starts == 0
+    assert executor.creations == 0
 
     context = client.get(url + "/context", headers=headers)
     assert context.status_code == 200 and context.json()["version"] == corrected.json()[
@@ -300,7 +311,8 @@ def test_a_review_cannot_be_started_from_an_unrepaired_document(system):
         json={"document_ids": [document]},
     )
     assert accepted.status_code == 202, accepted.text
-    assert executor.starts == 1
+    assert accepted.json()["status"] == "queued"
+    assert executor.creations == 1
 
 
 def test_corrections_are_bounded_to_this_document_tenant_and_role(system):

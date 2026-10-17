@@ -133,6 +133,33 @@ def _field_kind(text: str) -> str | None:
     return None
 
 
+_DANGLING_LABEL = re.compile(
+    r"((?:项目联系人|联系人|联络人|联系姓名|姓名|负责人|经办人|"
+    r"联系电话|联系方式|电话|手机|移动电话|传真|电子邮箱|邮箱|"
+    r"银行账号|银行帐号|收款账号|开户账号|账号|帐号|账户))[ \t]*[:：][ \t]*$"
+)
+
+
+def _dangling_field_kind(text: str) -> str | None:
+    """A label whose value is in the next paragraph rather than on the same line."""
+    match = _DANGLING_LABEL.search(text)
+    return _field_kind(match.group(1)) if match else None
+
+
+def _mask_value(text: str) -> str:
+    return "".join("\n" if char == "\n" else "*" for char in text)
+
+
+def _plausible_cross_paragraph_value(text: str) -> bool:
+    value = text.strip()
+    return (
+        bool(value)
+        and len(value) <= 100
+        and _field_kind(value) is None
+        and not _REQUIREMENT.match(value)
+    )
+
+
 def _located_safe_texts(
     items: Sequence[LocatedFragment],
 ) -> tuple[tuple[LocatedFragment, str], ...]:
@@ -158,7 +185,20 @@ def _located_safe_texts(
                     and not _REQUIREMENT.match(current.text.strip())
                 )
                 if kind in {"contact", "account"} or (kind == "name" and plausible_name):
-                    safe_text = "".join("\n" if char == "\n" else "*" for char in current.text)
+                    safe_text = _mask_value(current.text)
+            else:
+                # A label at the end of one paragraph and its value in the next paragraph
+                # is a common Word/OCR layout. Mask the value there too, not only when the
+                # pair happens to share a table row.
+                cross_paragraph = (
+                    before.kind == current.kind
+                    and before.kind in {"paragraph", "ocr"}
+                    and before.section == current.section
+                    and _dangling_field_kind(before.text) is not None
+                    and _plausible_cross_paragraph_value(current.text)
+                )
+                if cross_paragraph:
+                    safe_text = _mask_value(current.text)
         result.append((item, safe_text))
         previous = item
     return tuple(result)

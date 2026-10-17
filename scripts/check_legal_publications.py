@@ -138,6 +138,7 @@ def main() -> None:
         )
         conn.execute(text("GRANT SELECT, INSERT, UPDATE ON review_task TO task6_runtime"))
         conn.execute(text("GRANT SELECT, INSERT, UPDATE ON review_engine_run TO task6_runtime"))
+        conn.execute(text("GRANT SELECT, INSERT, UPDATE ON review_model_call TO task6_runtime"))
         conn.execute(
             text(
                 "GRANT SELECT, INSERT ON review_artifact, review_decision, review_result, "

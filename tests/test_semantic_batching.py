@@ -285,6 +285,7 @@ def run_row():
         snapshot={"document_requests": []},
         publication_id="publication-a",
         revision_id="revision-a",
+        retry_count=0,
     )
 
 

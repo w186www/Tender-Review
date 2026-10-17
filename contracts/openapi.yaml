@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.7.0
-  description: v1alpha3 开发契约；配置发布、人工决定、不可变报告和导出均在服务端鉴权并审计。
+  version: 0.10.0
+  description: v1alpha6 开发契约；新增产品模式租户策略、版本绑定逐文件外发授权/撤销与 PostgreSQL 预算一致性；既有路径与响应保持兼容。
 servers:
 - url: /api/v1
 paths:
@@ -1044,6 +1044,65 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/QualityCorrection'
+  /projects/{projectId}/documents/{documentId}/external-authorization:
+    post:
+      operationId: authorizeDocumentExternalProcessing
+      summary: 登记单个文档的外部处理授权
+      description: 产品模式在 PostgreSQL 中写入绑定租户、项目、文档版本/哈希、用途、供应商、期限、授权人的授权记录，并与审计同事务提交；每次出站前重新检查。调用者不能提交文件内容或文件哈希。旧本地验证装配仅接受 reason/confirmed，可选产品字段会被拒绝；未配置授权登记器时失败关闭。
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExternalAuthorizationRequest'}
+      responses:
+        '201':
+          description: 服务端记录的逐文件授权审计记录
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExternalAuthorizationRecord'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 仅审核员可登记授权，或机构策略不允许该供应商/用途}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: 文档授权记录冲突}
+        '422': {$ref: '#/components/responses/BadRequest'}
+        '503': {description: 外部处理授权登记器不可用，拒绝登记}
+  /projects/{projectId}/documents/{documentId}/external-authorization/revoke:
+    post:
+      operationId: revokeDocumentExternalProcessing
+      summary: 撤销单个文档的外部处理授权
+      description: 仅审核员可撤销当前版本的活动授权；撤销与审计同事务提交，下一次出站检查即拒绝。已经发出的在途请求不能撤回。
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExternalAuthorizationRevocationRequest'}
+      responses:
+        '200':
+          description: 撤销后的授权记录
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExternalAuthorizationRecord'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 仅审核员可撤销授权}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/BadRequest'}
+        '503': {description: 外部处理授权登记器不可用，拒绝撤销}
   /projects/{projectId}/documents/{documentId}/original:
     get:
       operationId: downloadDocument
@@ -1314,6 +1373,25 @@ paths:
         '404': {description: 任务不可用}
         '409': {description: 任务不具备重试条件}
         '503': {description: 授权执行器不可用}
+  /review-tasks/{reviewTaskId}/runs/{runId}/cancel:
+    post:
+      operationId: cancelReviewRun
+      description: 仅审核员可取消持久审查运行；重复取消返回当前已取消状态；已发布结果不可取消。活动 Worker 的 lease 同步失效，不能继续写入结果。
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 取消后的持久化任务状态；操作对重复请求幂等
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewTask'}
+        '403': {description: 需要审核员权限}
+        '404': {description: 任务不可用}
+        '409': {description: 结果已发布，不能取消}
+        '503': {description: 审查 Worker 未连接}
   /review-results/{resultId}/reports/{outputFormat}:
     post:
       operationId: createReviewReport
@@ -2849,6 +2927,12 @@ components:
             - TEXT_LIMIT
             - OCR_LIMIT
             - LOW_QUALITY
+            - LOW_CONFIDENCE_NUMERIC
+            - DUPLICATE_TEXT
+            - PAGE_COVERAGE_GAP
+            - READING_ORDER_GAP
+            - TABLE_STRUCTURE_GAP
+            - INVALID_DATE
             - SCANNER_UNAVAILABLE
             - SCANNER_STALE
             - PARSE_TIMEOUT
@@ -3520,6 +3604,74 @@ components:
       - reason
       - corrections
       title: QualityCorrection
+      type: object
+    ExternalAuthorizationRequest:
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        confirmed:
+          const: true
+          type: boolean
+        purpose:
+          type: string
+          minLength: 3
+          maxLength: 64
+          description: 产品模式的授权用途；省略时使用服务端装配的默认用途
+        provider:
+          type: string
+          minLength: 2
+          maxLength: 64
+          description: 产品模式的供应商；省略时使用服务端装配的默认供应商
+        expires_at:
+          type: string
+          format: date-time
+          description: 产品模式的可选到期时间；不得超过租户策略的最长授权期限
+      required: [reason, confirmed]
+      title: ExternalAuthorizationRequest
+      type: object
+    ExternalAuthorizationRevocationRequest:
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        confirmed:
+          const: true
+          type: boolean
+        purpose:
+          type: string
+          minLength: 3
+          maxLength: 64
+        provider:
+          type: string
+          minLength: 2
+          maxLength: 64
+      required: [reason, confirmed]
+      title: ExternalAuthorizationRevocationRequest
+      type: object
+    ExternalAuthorizationRecord:
+      additionalProperties: false
+      properties:
+        document_id: {type: string}
+        sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        action: {type: string, enum: [approve, revoke]}
+        approved_at: {type: string, format: date-time}
+        approved_by: {type: string}
+        authorization_id: {type: string}
+        parse_version: {type: integer, minimum: 1}
+        purpose: {type: string}
+        provider: {type: string}
+        expires_at: {type: string, format: date-time}
+        policy_version: {type: integer, minimum: 1}
+        revoked_at: {type: string, format: date-time}
+        revoked_by: {type: string}
+        revocation_reason: {type: string}
+      required: [document_id, sha256, action, approved_at, approved_by]
+      title: ExternalAuthorizationRecord
       type: object
   responses:
     BadRequest:

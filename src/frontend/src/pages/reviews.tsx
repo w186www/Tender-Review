@@ -173,6 +173,7 @@ export function ReviewPage() {
   useEffect(() => {
     if (!reviewTaskId || !runId) return;
     let active = true;
+    let timer: number | undefined;
     const controller = new AbortController();
     const load = async () => {
       try {
@@ -187,6 +188,12 @@ export function ReviewPage() {
         setHistory(decisions.decisions);
         setError(null);
         setLoading(false);
+        if (current.status === "queued" || current.status === "running") {
+          timer = window.setTimeout(
+            () => setRefresh((value) => value + 1),
+            1500,
+          );
+        }
         if (current.project_id) {
           const docs = await api.documents(current.project_id, 0, 100, {
             signal: controller.signal,
@@ -209,6 +216,7 @@ export function ReviewPage() {
     return () => {
       active = false;
       controller.abort();
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [reviewTaskId, runId, refresh]);
 

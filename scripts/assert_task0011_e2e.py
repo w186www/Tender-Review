@@ -18,10 +18,12 @@ from bidding_compliance.persistence.models import (
     AuthSession,
     Document,
     Project,
+    ReviewArtifact,
     ReviewConfigurationEvent,
     ReviewConfigurationRevision,
     ReviewDecision,
     ReviewEngineRun,
+    ReviewModelCall,
     ReviewReport,
     ReviewReportContent,
     ReviewResult,
@@ -54,6 +56,9 @@ def assert_flow(args: argparse.Namespace) -> dict[str, object]:
             assert document is not None and document.status == "ready"
             assert document.sha256 and document.size_bytes > 0
             assert run is not None and run.status == "result_published"
+            assert run.action == "resume"
+            assert run.execution_generation >= 2
+            assert run.lease_id is None and run.lease_until is None
             assert task is not None
             snapshot = run.snapshot
             assert run.snapshot_hash == content_hash(snapshot)
@@ -84,6 +89,56 @@ def assert_flow(args: argparse.Namespace) -> dict[str, object]:
                 )
             )
             assert result is not None and result.content_hash
+            model_calls = list(
+                session.scalars(
+                    select(ReviewModelCall).where(
+                        ReviewModelCall.tenant_id == args.tenant,
+                        ReviewModelCall.review_task_id == args.task,
+                        ReviewModelCall.run_id == args.run_id,
+                    )
+                )
+            )
+            if os.environ.get("E2E_EXPECT_PROVIDER") == "bailian":
+                unknown_calls = []
+                successful_calls = [item for item in model_calls if item.state == "succeeded"]
+                assert successful_calls and len(successful_calls) == len(model_calls)
+                assert all(
+                    item.response_ref is not None
+                    and item.response_hash is not None
+                    and item.execution_generation == 1
+                    for item in successful_calls
+                )
+                assert run.retry_count == 0
+            else:
+                unknown_calls = [item for item in model_calls if item.state == "unknown"]
+                successful_calls = [item for item in model_calls if item.state == "succeeded"]
+                assert len(unknown_calls) == 1
+                assert successful_calls
+                assert all(
+                    item.response_ref is not None
+                    and item.response_hash is not None
+                    and item.execution_generation >= 2
+                    for item in successful_calls
+                )
+                assert all(
+                    item.response_ref is None
+                    and item.response_hash is None
+                    and item.execution_generation == 1
+                    for item in unknown_calls
+                )
+                assert run.retry_count == 1
+            for item in successful_calls:
+                artifact_id = item.response_ref.removeprefix("artifact://review/").split("/")[0]
+                response_artifact = session.get(ReviewArtifact, (args.tenant, artifact_id))
+                assert (
+                    response_artifact is not None
+                    and response_artifact.kind == "model_call_response"
+                    and content_hash(response_artifact.content) == response_artifact.content_hash
+                    and response_artifact.content.get("call_id") == item.call_id
+                    and response_artifact.content.get("request_hash") == item.request_hash
+                    and content_hash(response_artifact.content.get("response"))
+                    == item.response_hash
+                )
             decisions = list(
                 session.scalars(
                     select(ReviewDecision).where(
@@ -146,6 +201,12 @@ def assert_flow(args: argparse.Namespace) -> dict[str, object]:
                 "review_task_id": run.review_task_id,
                 "review_task_record_status": task.status,
                 "review_run_status": run.status,
+                "review_action": run.action,
+                "execution_generation": run.execution_generation,
+                "retry_count": run.retry_count,
+                "lease_cleared": run.lease_id is None and run.lease_until is None,
+                "model_call_count": len(model_calls),
+                "model_call_states": sorted({item.state for item in model_calls}),
                 "snapshot_hash": run.snapshot_hash,
                 "configuration_revision_id": config_id,
                 "configuration_snapshot_hash": config_hash,
@@ -176,6 +237,125 @@ def assert_audit_query(args: argparse.Namespace) -> dict[str, object]:
         engine.dispose()
 
 
+def assert_unknown_after_worker_restart(args: argparse.Namespace) -> dict[str, object]:
+    engine = _engine()
+    try:
+        with Session(engine) as session:
+            run = session.get(ReviewEngineRun, (args.tenant, args.task, args.run_id))
+            task = session.get(ReviewTask, (args.tenant, args.task))
+            calls = list(
+                session.scalars(
+                    select(ReviewModelCall).where(
+                        ReviewModelCall.tenant_id == args.tenant,
+                        ReviewModelCall.review_task_id == args.task,
+                        ReviewModelCall.run_id == args.run_id,
+                    )
+                )
+            )
+            assert run is not None and task is not None
+            assert run.status == task.status == "failed"
+            assert run.failure_code == "model_call_outcome_unknown"
+            assert run.execution_generation == 1
+            assert len(calls) == 1 and calls[0].state == "unknown"
+            assert calls[0].response_ref is None and calls[0].response_hash is None
+            assert calls[0].execution_generation == 1
+            return {
+                "review_task_id": run.review_task_id,
+                "run_id": run.run_id,
+                "status": run.status,
+                "failure_code": run.failure_code,
+                "execution_generation": run.execution_generation,
+                "model_call_count": len(calls),
+                "model_call_state": calls[0].state,
+                "response_absent": calls[0].response_ref is None
+                and calls[0].response_hash is None,
+            }
+    finally:
+        engine.dispose()
+
+
+def assert_lease_takeover(args: argparse.Namespace) -> dict[str, object]:
+    engine = _engine()
+    try:
+        with Session(engine) as session:
+            run = session.get(ReviewEngineRun, (args.tenant, args.task, args.run_id))
+            task = session.get(ReviewTask, (args.tenant, args.task))
+            calls = list(
+                session.scalars(
+                    select(ReviewModelCall).where(
+                        ReviewModelCall.tenant_id == args.tenant,
+                        ReviewModelCall.review_task_id == args.task,
+                        ReviewModelCall.run_id == args.run_id,
+                    )
+                )
+            )
+            assert run is not None and task is not None
+            assert run.status == task.status == "waiting_human"
+            assert run.execution_generation == 2
+            assert run.lease_id is None and run.lease_until is None
+            assert calls and all(
+                item.state == "succeeded"
+                and item.execution_generation == 2
+                and item.response_ref is not None
+                and item.response_hash is not None
+                for item in calls
+            )
+            return {
+                "review_task_id": run.review_task_id,
+                "run_id": run.run_id,
+                "status": run.status,
+                "execution_generation": run.execution_generation,
+                "lease_cleared": run.lease_id is None and run.lease_until is None,
+                "model_call_count": len(calls),
+                "model_call_states": sorted({item.state for item in calls}),
+            }
+    finally:
+        engine.dispose()
+
+
+def assert_cancelled(args: argparse.Namespace) -> dict[str, object]:
+    engine = _engine()
+    try:
+        with Session(engine) as session:
+            run = session.get(ReviewEngineRun, (args.tenant, args.task, args.run_id))
+            task = session.get(ReviewTask, (args.tenant, args.task))
+            calls = list(
+                session.scalars(
+                    select(ReviewModelCall).where(
+                        ReviewModelCall.tenant_id == args.tenant,
+                        ReviewModelCall.review_task_id == args.task,
+                        ReviewModelCall.run_id == args.run_id,
+                    )
+                )
+            )
+            cancel_events = list(
+                session.scalars(
+                    select(AuditEvent).where(
+                        AuditEvent.tenant_id == args.tenant,
+                        AuditEvent.resource_id == args.task,
+                        AuditEvent.action == "review.cancel",
+                    )
+                )
+            )
+            assert run is not None and task is not None
+            assert run.status == task.status == "cancelled"
+            assert run.execution_generation == 1
+            assert run.lease_id is None and run.lease_until is None
+            assert not calls
+            assert len(cancel_events) == 1
+            return {
+                "review_task_id": run.review_task_id,
+                "run_id": run.run_id,
+                "status": run.status,
+                "execution_generation": run.execution_generation,
+                "lease_cleared": run.lease_id is None and run.lease_until is None,
+                "model_call_count": len(calls),
+                "cancel_audit_count": len(cancel_events),
+            }
+    finally:
+        engine.dispose()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -192,6 +372,21 @@ def main() -> int:
     audit.add_argument("--tenant", required=True)
     audit.add_argument("--actor", required=True)
     audit.set_defaults(handler=assert_audit_query)
+    unknown = subparsers.add_parser("assert-unknown")
+    unknown.add_argument("--tenant", required=True)
+    unknown.add_argument("--task", required=True)
+    unknown.add_argument("--run-id", required=True)
+    unknown.set_defaults(handler=assert_unknown_after_worker_restart)
+    takeover = subparsers.add_parser("assert-lease-takeover")
+    takeover.add_argument("--tenant", required=True)
+    takeover.add_argument("--task", required=True)
+    takeover.add_argument("--run-id", required=True)
+    takeover.set_defaults(handler=assert_lease_takeover)
+    cancelled = subparsers.add_parser("assert-cancelled")
+    cancelled.add_argument("--tenant", required=True)
+    cancelled.add_argument("--task", required=True)
+    cancelled.add_argument("--run-id", required=True)
+    cancelled.set_defaults(handler=assert_cancelled)
     revoke = subparsers.add_parser("revoke-user")
     revoke.add_argument("--tenant", required=True)
     revoke.add_argument("--user", required=True)

@@ -43,12 +43,12 @@ x-api-build: &api-build
   context: .
   dockerfile: Dockerfile.api
 
-# Real-model variables, merged into the api service ****only****. The worker never calls a
-# model, so it must not hold supplier credentials or authorization identities. Every value
-# is the optional `${VAR:-}` form: an unset variable resolves to an empty string (no
-# warning, no error) and the stack still starts in DEPLOY_REVIEW_MODE=offline with no
-# supplier call possible. Real values come from deploy/.env (mode 600, gitignored) and
-# never enter images, the frontend or logs.
+# Real-model variables are merged into api and review-worker, which call review models.
+# The ingestion worker, init, nginx and supporting services do not receive supplier
+# credentials or authorization identities. Every value is the optional `${VAR:-}` form:
+# an unset variable resolves to an empty string (no warning, no error) and the stack still
+# starts in DEPLOY_REVIEW_MODE=offline with no supplier call possible. Real values come
+# from deploy/.env (mode 600, gitignored) and never enter images, the frontend or logs.
 #   DASHSCOPE_API_KEY / BAILIAN_WORKSPACE_ID  supplier credentials (task0023_real_ai_app.py)
 #   DEC007_*                                  DEC-007 identity, ledger, audit and per-file
 #                                             registry of resolve_real_runtime_authorization
@@ -159,6 +159,23 @@ services:
       minio:
         condition: service_healthy
     networks: [backend, edge]
+    stop_grace_period: 30s
+  review-worker:
+    build: *api-build
+    image: tender-review-api:${IMAGE_TAG:-demo}
+    restart: unless-stopped
+    command: ["python", "scripts/run_review_worker.py"]
+    environment:
+      <<: [*app-environment, *real-model-environment]
+      DEPLOY_REVIEW_MODE: ${DEPLOY_REVIEW_MODE:-offline}
+    volumes:
+      - modelstate:/app/.verification/private
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks: [backend]
     stop_grace_period: 30s
   worker:
     build: *api-build
