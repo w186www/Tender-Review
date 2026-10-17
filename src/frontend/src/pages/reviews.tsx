@@ -226,6 +226,12 @@ export function ReviewPage() {
         completion_status?: string;
         coverage_status?: string;
         unprocessed_units?: number;
+        analyzed_units?: number;
+        saturated_units?: number;
+        rejected_units?: number;
+        failed_units?: number;
+        unsubmitted_units?: number;
+        truncated_batches?: number;
         truncated?: boolean;
         saturated?: boolean;
         unknown_model_call_count?: number;
@@ -534,15 +540,27 @@ export function ReviewPage() {
           本次审查为部分完成
           {typeof execution.unprocessed_units === "number" &&
           execution.unprocessed_units > 0
-            ? `：${execution.unprocessed_units} 个 section 未处理`
+            ? `：${execution.unprocessed_units} 个 section 未提交或调用失败`
             : ""}
-          {execution.saturated ? "；模型发现存在饱和批次" : ""}
-          {execution.truncated ? "；覆盖被截断" : ""}
+          {typeof execution.saturated_units === "number" &&
+          execution.saturated_units > 0
+            ? `；${execution.saturated_units} 个 section 已分析但达到单批发现上限、覆盖无法确认`
+            : execution.saturated
+              ? "；模型发现存在饱和批次"
+              : ""}
+          {typeof execution.rejected_units === "number" &&
+          execution.rejected_units > 0
+            ? `；${execution.rejected_units} 个 section 的候选被拒绝`
+            : ""}
+          {typeof execution.truncated_batches === "number" &&
+          execution.truncated_batches > 0
+            ? `；${execution.truncated_batches} 个批次响应截断`
+            : ""}
           {typeof execution.unknown_model_call_count === "number" &&
           execution.unknown_model_call_count > 0
             ? `；${execution.unknown_model_call_count} 次模型调用结果未知`
             : ""}
-          。不得解释为全部内容已审查完成；请结合报告中的限制说明人工处理。
+          。这些 section 并非全部未处理；不得解释为全部内容已审查完成，请结合报告中的限制说明人工处理。
         </Notice>
       )}
       <section className="panel" aria-labelledby="findings-heading">

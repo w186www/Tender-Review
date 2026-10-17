@@ -131,13 +131,25 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
             lines.append("本次审查覆盖完整：所有计划单元均已处理，未发现饱和或结果未知的调用。")
         elif coverage_status == "not_applicable":
             lines.append("本次审查未使用模型发现覆盖计划；覆盖状态不适用于确定性规则路径。")
+        saturated_units = product.get("saturated_units")
+        if isinstance(saturated_units, int) and saturated_units > 0:
+            lines.append(
+                f"已提交模型但达到单批发现上限、覆盖无法确认的 section：{saturated_units} 个；"
+                "这不是完全未处理，但报告不声称这些 section 已覆盖全部疑点。"
+            )
+        rejected_units = product.get("rejected_units")
+        if isinstance(rejected_units, int) and rejected_units > 0:
+            lines.append(f"已分析但候选被拒绝的 section：{rejected_units} 个。")
         unprocessed = product.get("unprocessed_units")
         if isinstance(unprocessed, int) and unprocessed > 0:
-            lines.append(f"未处理单元：{unprocessed} 个 section 因饱和/部分覆盖未完成。")
-        if product.get("saturated"):
-            lines.append("模型发现存在饱和批次：单批命中输出上限，已按有界策略细分或保留为部分覆盖。")
-        if product.get("truncated"):
-            lines.append("模型发现存在截断：报告不声称已覆盖全部应审内容。")
+            lines.append(
+                f"未提交模型或调用失败的 section：{unprocessed} 个，需人工处理。"
+            )
+        truncated_batches = product.get("truncated_batches")
+        if isinstance(truncated_batches, int) and truncated_batches > 0:
+            lines.append(f"模型响应截断的批次：{truncated_batches} 个，覆盖不完整。")
+        elif product.get("saturated") and not saturated_units:
+            lines.append("模型发现存在饱和批次；覆盖状态按部分完成处理。")
         unknown_calls = product.get("unknown_model_call_count")
         if isinstance(unknown_calls, int) and unknown_calls > 0:
             lines.append(

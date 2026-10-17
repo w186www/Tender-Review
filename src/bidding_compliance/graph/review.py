@@ -880,6 +880,7 @@ def build_review_graph(
                         **coverage,
                         "artifact_ref": ref,
                         "response_hash": response.response_hash,
+                        "finish_reason": response.finish_reason,
                         "subdivision_children": [child.index for child in children],
                     }
                 )

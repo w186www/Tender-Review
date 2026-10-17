@@ -25,6 +25,10 @@ def test_a_batch_at_the_per_call_cap_is_marked_saturated_not_complete():
     assert summary["status"] == "partial"
     assert summary["saturated_batches"] == 1
     assert summary["saturated_batch_indices"] == [batch.index]
+    assert summary["saturated_sections"] == 3
+    assert summary["submitted_sections"] == 3
+    assert summary["unsubmitted_sections"] == 0
+    assert summary["truncated_batches"] == 0
     assert summary["accepted_candidates"] == llm.SATURATION_FINDING_LIMIT
 
 
@@ -35,6 +39,8 @@ def test_a_batch_with_a_rejected_candidate_is_partial_even_below_the_cap():
     assert record["status"] == "partial"
     summary = llm.coverage_summary([record], section_count=3)
     assert summary["status"] == "partial"
+    assert summary["rejected_sections"] == 3
+    assert summary["saturated_sections"] == 0
     assert summary["rejected_candidates"] == 1
 
 

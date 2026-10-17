@@ -89,6 +89,32 @@ def coverage_summary(
         if item.get("status") in {"saturated", "partial", "failed"}
     ]
     subdivided = [item for item in batches if item.get("status") == "subdivided"]
+    saturated_sections = sum(
+        int(item.get("section_count", 0) or 0)
+        for item in batches
+        if item.get("status") == "saturated"
+    )
+    rejected_sections = sum(
+        int(item.get("section_count", 0) or 0)
+        for item in batches
+        if item.get("status") == "partial"
+    )
+    failed_sections = sum(
+        int(item.get("section_count", 0) or 0)
+        for item in failed
+    )
+    submitted_sections = sum(
+        int(item.get("section_count", 0) or 0)
+        for item in batches
+        if item.get("status") in {"completed", "partial", "saturated"}
+    )
+    unsubmitted_sections = max(0, section_count - submitted_sections - failed_sections)
+    truncated = [
+        item
+        for item in batches
+        if item.get("status") in {"completed", "partial", "saturated"}
+        and item.get("finish_reason") in {"length", "max_tokens"}
+    ]
     return {
         "status": "partial" if partial else "complete",
         "batch_count": len(batches),
@@ -101,6 +127,13 @@ def coverage_summary(
         ),
         "saturated_batches": len(saturated),
         "saturated_batch_indices": [item["batch_index"] for item in saturated],
+        "saturated_sections": saturated_sections,
+        "rejected_sections": rejected_sections,
+        "failed_sections": failed_sections,
+        "submitted_sections": submitted_sections,
+        "unsubmitted_sections": unsubmitted_sections,
+        "truncated_batches": len(truncated),
+        "truncated_batch_indices": [item["batch_index"] for item in truncated],
         "failed_batches": len(failed),
         "failed_batch_indices": [item["batch_index"] for item in failed],
         "failed_batch_codes": sorted(

@@ -121,6 +121,12 @@ def project_product_execution(
             "completion_status": "partial" if unknown_count else "complete",
             "coverage_status": "not_applicable",
             "unprocessed_units": 0,
+            "analyzed_units": 0,
+            "saturated_units": 0,
+            "rejected_units": 0,
+            "failed_units": 0,
+            "unsubmitted_units": 0,
+            "truncated_batches": 0,
             "truncated": False,
             "saturated": False,
             "reason_codes": (
@@ -133,12 +139,45 @@ def project_product_execution(
     saturated_batches = int(coverage.get("saturated_batches", 0))
     partial_batches = int(coverage.get("partial_batches", 0))
     failed_batches = int(coverage.get("failed_batches", 0))
-    unprocessed_sections = sum(
-        int(item.get("section_count", 0) or 0)
-        for item in batches or []
-        if isinstance(item, dict)
-        and item.get("status") in {"saturated", "partial", "failed"}
-    )
+    # Runs frozen before the coverage-field split only have per-batch records. Derive the
+    # section counts from those batches instead of reporting every saturated section as
+    # "unprocessed" or losing the saturation count.
+    batch_rows = [item for item in batches or [] if isinstance(item, dict)]
+    if "saturated_sections" in coverage:
+        saturated_sections = int(coverage.get("saturated_sections", 0))
+        rejected_sections = int(coverage.get("rejected_sections", 0))
+        failed_sections = int(coverage.get("failed_sections", 0))
+        submitted_sections = int(coverage.get("submitted_sections", 0))
+        unsubmitted_sections = int(coverage.get("unsubmitted_sections", 0))
+        truncated_batches = int(coverage.get("truncated_batches", 0))
+    else:
+        saturated_sections = sum(
+            int(item.get("section_count", 0) or 0)
+            for item in batch_rows
+            if item.get("status") == "saturated"
+        )
+        rejected_sections = sum(
+            int(item.get("section_count", 0) or 0)
+            for item in batch_rows
+            if item.get("status") == "partial"
+        )
+        failed_sections = sum(
+            int(item.get("section_count", 0) or 0)
+            for item in batch_rows
+            if item.get("status") == "failed"
+        )
+        submitted_sections = sum(
+            int(item.get("section_count", 0) or 0)
+            for item in batch_rows
+            if item.get("status") in {"completed", "partial", "saturated"}
+        )
+        total_sections = int(coverage.get("section_count", 0))
+        unsubmitted_sections = max(0, total_sections - submitted_sections - failed_sections)
+        truncated_batches = sum(
+            item.get("finish_reason") in {"length", "max_tokens"}
+            for item in batch_rows
+            if item.get("status") in {"completed", "partial", "saturated"}
+        )
     partial = saturated_batches > 0 or partial_batches > 0 or failed_batches > 0
     reasons: list[str] = []
     if saturated_batches:
@@ -147,13 +186,21 @@ def project_product_execution(
         reasons.append("discovery_partial")
     if failed_batches:
         reasons.append("discovery_failed")
+    if truncated_batches:
+        reasons.append("provider_output_truncated")
     if unknown_count:
         reasons.append("model_call_outcome_unknown")
     return {
         "completion_status": "partial" if partial or unknown_count else "complete",
         "coverage_status": "partial" if partial else "complete",
-        "unprocessed_units": unprocessed_sections,
-        "truncated": saturated_batches > 0,
+        "unprocessed_units": failed_sections + unsubmitted_sections,
+        "analyzed_units": submitted_sections,
+        "saturated_units": saturated_sections,
+        "rejected_units": rejected_sections,
+        "failed_units": failed_sections,
+        "unsubmitted_units": unsubmitted_sections,
+        "truncated_batches": truncated_batches,
+        "truncated": truncated_batches > 0,
         "saturated": saturated_batches > 0,
         "reason_codes": reasons or ["discovery_complete"],
         "unknown_model_call_count": unknown_count,

@@ -315,7 +315,14 @@ def test_product_execution_projection_marks_saturation_and_unknown_calls_partial
         {
             "status": "partial",
             "saturated_batches": 1,
-            "partial_batches": 1,
+            "partial_batches": 0,
+            "failed_batches": 0,
+            "saturated_sections": 2,
+            "rejected_sections": 0,
+            "failed_sections": 0,
+            "submitted_sections": 12,
+            "unsubmitted_sections": 0,
+            "truncated_batches": 0,
             "section_count": 12,
         },
         unknown_model_call_count=1,
@@ -326,11 +333,40 @@ def test_product_execution_projection_marks_saturation_and_unknown_calls_partial
     )
     assert partial["completion_status"] == "partial"
     assert partial["coverage_status"] == "partial"
-    assert partial["unprocessed_units"] == 2
+    # Saturated sections were analyzed; they are not "unprocessed".
+    assert partial["unprocessed_units"] == 0
+    assert partial["analyzed_units"] == 12
+    assert partial["saturated_units"] == 2
     assert partial["saturated"] is True
-    assert partial["truncated"] is True
+    assert partial["truncated"] is False
+    assert partial["truncated_batches"] == 0
     assert partial["unknown_model_call_count"] == 1
     assert {"discovery_saturated", "model_call_outcome_unknown"} <= set(partial["reason_codes"])
+
+    failed = project_product_execution(
+        {
+            "status": "partial",
+            "saturated_batches": 0,
+            "partial_batches": 0,
+            "failed_batches": 1,
+            "saturated_sections": 0,
+            "rejected_sections": 0,
+            "failed_sections": 3,
+            "submitted_sections": 5,
+            "unsubmitted_sections": 1,
+            "truncated_batches": 1,
+            "section_count": 9,
+        },
+        unknown_model_call_count=0,
+        batches=[{"status": "failed", "section_count": 3}],
+    )
+    assert failed["unprocessed_units"] == 4
+    assert failed["failed_units"] == 3
+    assert failed["unsubmitted_units"] == 1
+    assert failed["analyzed_units"] == 5
+    assert failed["truncated"] is True
+    assert failed["truncated_batches"] == 1
+    assert {"discovery_failed", "provider_output_truncated"} <= set(failed["reason_codes"])
 
     complete = project_product_execution(
         {"status": "complete", "saturated_batches": 0, "partial_batches": 0},
@@ -340,6 +376,26 @@ def test_product_execution_projection_marks_saturation_and_unknown_calls_partial
     assert complete["completion_status"] == "complete"
     assert complete["coverage_status"] == "complete"
     assert complete["unprocessed_units"] == 0
+
+    legacy = project_product_execution(
+        {
+            "status": "partial",
+            "saturated_batches": 1,
+            "partial_batches": 0,
+            "failed_batches": 0,
+            "section_count": 12,
+        },
+        unknown_model_call_count=0,
+        batches=[
+            {"status": "completed", "section_count": 10, "finish_reason": "stop"},
+            {"status": "saturated", "section_count": 2, "finish_reason": "length"},
+        ],
+    )
+    assert legacy["unprocessed_units"] == 0
+    assert legacy["analyzed_units"] == 12
+    assert legacy["saturated_units"] == 2
+    assert legacy["truncated_batches"] == 1
+    assert legacy["truncated"] is True
 
 
 def test_v3_report_discloses_partial_coverage_in_word_and_pdf() -> None:
