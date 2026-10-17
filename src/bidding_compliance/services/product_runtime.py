@@ -32,6 +32,8 @@ from bidding_compliance.services.execution_authorization import (
 from bidding_compliance.services.real_ai_runtime import (
     DISCOVERY_PROMPT,
     DISCOVERY_PROMPT_VERSION,
+    LEGACY_SEMANTIC_PROMPT,
+    LEGACY_SEMANTIC_PROMPT_VERSION,
     SEMANTIC_PROMPT,
     SEMANTIC_PROMPT_VERSION,
     AuthorizedRealReviewEngine,
@@ -125,6 +127,7 @@ def create_product_runtime(
         approved_prompts={
             DISCOVERY_PROMPT_VERSION: DISCOVERY_PROMPT,
             SEMANTIC_PROMPT_VERSION: SEMANTIC_PROMPT,
+            LEGACY_SEMANTIC_PROMPT_VERSION: LEGACY_SEMANTIC_PROMPT,
         },
         audit_sink=MetadataAuditSink(private_root / "product-model-audit.jsonl"),
         input_minimizer=minimizer,

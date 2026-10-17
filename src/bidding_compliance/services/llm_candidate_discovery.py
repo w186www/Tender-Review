@@ -104,6 +104,10 @@ def coverage_summary(
 # limit is what bounds model output, so wider batches trade candidate count for calls.
 MAX_BATCH_SOURCE_BYTES = 18000
 MAX_BATCH_SECTIONS = 200
+# The semantic request exposes this many top legal hits per candidate; the same bound is
+# enforced when the model's selected evidence IDs are revalidated, so an ID the model was
+# never shown cannot become a citation even if it exists elsewhere in the retrieval run.
+MAX_LEGAL_CANDIDATES_PER_CANDIDATE = 6
 ROOT = Path(__file__).resolve().parents[3]
 
 

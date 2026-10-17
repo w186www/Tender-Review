@@ -221,6 +221,18 @@ export function ReviewPage() {
   }, [reviewTaskId, runId, refresh]);
 
   const pending = data?.pending_finding_ids ?? [];
+  const execution = data?.product_execution as
+    | {
+        completion_status?: string;
+        coverage_status?: string;
+        unprocessed_units?: number;
+        truncated?: boolean;
+        saturated?: boolean;
+        unknown_model_call_count?: number;
+        reason_codes?: string[];
+      }
+    | null
+    | undefined;
   const counts = useMemo(() => {
     const rows = data?.findings ?? [];
     return {
@@ -517,6 +529,22 @@ export function ReviewPage() {
           </strong>
         </div>
       </div>
+      {execution && execution.completion_status === "partial" && (
+        <Notice kind="info">
+          本次审查为部分完成
+          {typeof execution.unprocessed_units === "number" &&
+          execution.unprocessed_units > 0
+            ? `：${execution.unprocessed_units} 个 section 未处理`
+            : ""}
+          {execution.saturated ? "；模型发现存在饱和批次" : ""}
+          {execution.truncated ? "；覆盖被截断" : ""}
+          {typeof execution.unknown_model_call_count === "number" &&
+          execution.unknown_model_call_count > 0
+            ? `；${execution.unknown_model_call_count} 次模型调用结果未知`
+            : ""}
+          。不得解释为全部内容已审查完成；请结合报告中的限制说明人工处理。
+        </Notice>
+      )}
       <section className="panel" aria-labelledby="findings-heading">
         <div className="section-heading">
           <div>
@@ -831,7 +859,16 @@ function FindingCard({
         <div className="quote-block">
           <span>风险原文摘录</span>
           <blockquote>{finding.source_excerpt.quote}</blockquote>
-          <small>来源 SHA-256 {finding.source_excerpt.source_hash}</small>
+          <small>
+            {finding.source_excerpt.page
+              ? `第 ${finding.source_excerpt.page} 页`
+              : "页码未提供"}
+            {finding.source_excerpt.locator
+              ? ` · ${finding.source_excerpt.locator}`
+              : ""}
+            {" · 来源 SHA-256 "}
+            {finding.source_excerpt.source_hash}
+          </small>
         </div>
       )}
       {finding.evidence?.length > 0 && (
@@ -871,6 +908,7 @@ function FindingCard({
                 source_uri?: string;
                 version_status?: string;
                 confirmation_reason?: string;
+                selected_by_model?: boolean;
               };
               const referenceKey = `${reference.evidence_id ?? reference.title ?? "reference"}:${
                 reference.article ?? "no-article"
@@ -884,7 +922,8 @@ function FindingCard({
                   {reference.quote && <span>{reference.quote}</span>}
                   {reference.source_uri && <code>{reference.source_uri}</code>}
                   <small>
-                    版本核验：
+                    {reference.selected_by_model ? "模型引用候选" : "检索候选"}
+                    {" · "}版本核验：
                     {apiEnumLabel(reference.version_status ?? "unverified")}
                     {" · "}适用性：待确认
                     {reference.confirmation_reason

@@ -153,3 +153,21 @@ def test_the_validation_image_tag_is_opt_in_and_never_replaces_the_demo_tag():
     assert "task0027-validation" in (ROOT / "deploy" / "README-demo.md").read_text(
         encoding="utf-8"
     )
+
+
+def test_bootstrap_up_starts_the_durable_review_worker():
+    """A fresh or restarted stack must claim the durable review queue.
+
+    ``docker-compose.demo.yml`` defines ``review-worker``; the bootstrap entry point is the
+    documented fresh-install path and must start it together with the API and ingestion
+    worker. Otherwise every review stays queued with no executor.
+    """
+    text = (ROOT / "deploy" / "bootstrap.sh").read_text(encoding="utf-8")
+    starts = [
+        line
+        for line in text.splitlines()
+        if "up -d" in line and "postgres minio clamav" not in line
+    ]
+    assert any(
+        "review-worker" in line and "api" in line and "worker" in line for line in starts
+    ), starts

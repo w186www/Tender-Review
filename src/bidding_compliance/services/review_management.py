@@ -17,6 +17,7 @@ from bidding_compliance.persistence.models import (
     ReviewArtifact,
     ReviewDecision,
     ReviewEngineRun,
+    ReviewModelCall,
     ReviewResult,
     SectionRevision,
 )
@@ -33,6 +34,7 @@ from bidding_compliance.services.review_persistence import (
     content_hash,
     publish_result,
 )
+from bidding_compliance.services.review_projection import project_product_execution
 
 
 def _require_reader(session: Session, principal: Principal) -> None:
@@ -338,6 +340,57 @@ def get_findings(
     pending = [item["finding_id"] for item in findings if item["finding_id"] not in by_id]
     if not findings and not any(item.finding_id == "__review_complete__" for item in decisions):
         pending = ["__review_complete__"]
+    unknown_calls = session.scalar(
+        select(func.count())
+        .select_from(ReviewModelCall)
+        .where(
+            ReviewModelCall.tenant_id == principal.tenant_id,
+            ReviewModelCall.review_task_id == review_task_id,
+            ReviewModelCall.run_id == run_id,
+            ReviewModelCall.state == "unknown",
+        )
+    )
+    discovery = session.scalar(
+        select(ReviewArtifact).where(
+            ReviewArtifact.tenant_id == principal.tenant_id,
+            ReviewArtifact.review_task_id == review_task_id,
+            ReviewArtifact.run_id == run_id,
+            ReviewArtifact.kind == "llm_candidate_discovery",
+        )
+    )
+    coverage: dict[str, Any] | None = None
+    batches: list[dict[str, Any]] | None = None
+    if discovery is not None:
+        if content_hash(discovery.content) != discovery.content_hash:
+            raise ValueError("model discovery coverage hash mismatch")
+        raw_coverage = discovery.content.get("coverage")
+        if isinstance(raw_coverage, dict):
+            coverage = raw_coverage
+        raw_batches = discovery.content.get("batches")
+        if isinstance(raw_batches, list):
+            batches = raw_batches
+    if (
+        coverage is None
+        and int(_runtime_projection(session, row)["model_candidate_count"]) > 0
+    ):
+        product_execution = {
+            "completion_status": "partial",
+            "coverage_status": "unknown",
+            "unprocessed_units": 0,
+            "truncated": False,
+            "saturated": False,
+            "reason_codes": ["coverage_not_recorded"],
+            "unknown_model_call_count": int(unknown_calls or 0),
+        }
+    else:
+        product_execution = project_product_execution(
+            coverage,
+            unknown_model_call_count=int(unknown_calls or 0),
+            batches=batches,
+        )
+    product_execution["run_status"] = row.status
+    if row.status in {"queued", "running"} and product_execution["completion_status"] == "complete":
+        product_execution["completion_status"] = "pending"
     return {
         "review_task_id": review_task_id,
         "run_id": run_id,
@@ -345,6 +398,7 @@ def get_findings(
         "status": row.status,
         "findings": findings,
         "pending_finding_ids": pending,
+        "product_execution": product_execution,
     }
 
 

@@ -1363,6 +1363,20 @@ def build_review_graph(
                 ):
                     document_valid = False
                 selected_laws = set(model.get("legal_evidence_ids", [])) if model else set()
+                # The model only received the first MAX_LEGAL_CANDIDATES_PER_CANDIDATE hits.
+                # An ID outside that exposed set is treated as an invalid selection rather
+                # than being honoured just because it exists deeper in the same retrieval run.
+                exposed_evidence_ids = (
+                    {
+                        hit["evidence_id"]
+                        for hit in candidate_result["result"]["hits"][
+                            : llm_discovery.MAX_LEGAL_CANDIDATES_PER_CANDIDATE
+                        ]
+                    }
+                    if candidate_result is not None
+                    else set()
+                )
+                allowed_selected_laws = selected_laws & exposed_evidence_ids
                 # verify_legal_hit proves a citation is genuine (the clause exists in the frozen
                 # publication, the retrieval run reads back identically and the bytes match). It
                 # says nothing about whether the clause is in force or applicable. Only clauses
@@ -1370,10 +1384,10 @@ def build_review_graph(
                 # rest stay reference-only even when the model selected them.
                 confirmable_laws: list[Any] = []
                 unconfirmed_laws: list[Any] = []
-                law_invalid = False
-                if selected_laws and candidate_result is not None:
+                law_invalid = bool(selected_laws - exposed_evidence_ids)
+                if allowed_selected_laws and candidate_result is not None:
                     for hit_payload in candidate_result["result"]["hits"]:
-                        if hit_payload["evidence_id"] not in selected_laws:
+                        if hit_payload["evidence_id"] not in allowed_selected_laws:
                             continue
                         hit, quote = verify_legal_hit(
                             session,
@@ -1393,7 +1407,7 @@ def build_review_graph(
                     verified_ids = {
                         item.evidence_id for item in (*confirmable_laws, *unconfirmed_laws)
                     }
-                    if len(verified_ids) != len(selected_laws):
+                    if len(verified_ids) != len(allowed_selected_laws):
                         law_invalid = True
                 elif selected_laws:
                     law_invalid = True
@@ -1465,6 +1479,7 @@ def build_review_graph(
                         "confirmation_reason": hit.reason,
                         "version_status": hit.version_status,
                         "applicable": False,
+                        "selected_by_model": True,
                     }
                     for hit in unconfirmed_laws
                 ]
@@ -1475,12 +1490,13 @@ def build_review_graph(
                             "confirmation_reason": "rule_law_binding_unreviewed",
                             "version_status": hit.version_status,
                             "applicable": False,
+                            "selected_by_model": True,
                         }
                         for hit in confirmable_laws
                     )
                 if candidate_result is not None:
                     for hit_payload in candidate_result["result"]["hits"]:
-                        if hit_payload["evidence_id"] in selected_laws:
+                        if hit_payload["evidence_id"] in allowed_selected_laws:
                             continue
                         reference_hit, _ = verify_legal_hit(
                             session,
@@ -1498,6 +1514,7 @@ def build_review_graph(
                                 "confirmation_reason": reference_hit.reason,
                                 "version_status": reference_hit.version_status,
                                 "applicable": False,
+                                "selected_by_model": False,
                             }
                         )
                 category = candidate.category

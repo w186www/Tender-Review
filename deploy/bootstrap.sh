@@ -175,7 +175,8 @@ up() {
   fi
   "${COMPOSE[@]}" up -d postgres minio clamav
   wait_for_init
-  "${COMPOSE[@]}" up -d api worker nginx
+  # review-worker claims the durable review queue; without it every review stays queued.
+  "${COMPOSE[@]}" up -d api review-worker worker nginx
   wait_for_api
   # Idempotent: skips when the tenant already has an active publication. Also repairs a
   # database that was restored from a backup taken before the publication existed.

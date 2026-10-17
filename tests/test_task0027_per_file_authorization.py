@@ -77,7 +77,7 @@ def review_request(document_sha256: str) -> ReviewRequest:
             ),
         ),
         review_date=date(2026, 10, 16),
-        prompt_version="task0023-semantic-v1",
+        prompt_version="task0030-semantic-rag-v1",
         model_profile=real_ai_policy().profile,
     )
 

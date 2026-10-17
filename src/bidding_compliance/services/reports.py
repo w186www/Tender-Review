@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ from bidding_compliance.persistence.models import (
     ReviewArtifact,
     ReviewDecision,
     ReviewEngineRun,
+    ReviewModelCall,
     ReviewReport,
     ReviewReportContent,
     ReviewResult,
@@ -35,8 +36,9 @@ from bidding_compliance.services.review_persistence import (
     canonical_json,
     content_hash,
 )
+from bidding_compliance.services.review_projection import project_product_execution
 
-TEMPLATE_VERSION = "task0010-v2"
+TEMPLATE_VERSION = "task0010-v3"
 MAX_REPORT_BYTES = 20_000_000
 
 
@@ -190,6 +192,72 @@ def _verified_run_artifact(
     if artifact is None or content_hash(artifact.content) != artifact.content_hash:
         raise ValueError(f"verified {kind} artifact is unavailable or changed")
     return artifact
+
+
+def _product_execution(
+    session: Session,
+    principal: Principal,
+    result: ReviewResult,
+) -> dict[str, Any]:
+    """Project run coverage and unknown-call facts into the immutable report.
+
+    Model discovery records one coverage block per run. A saturated or partial batch, or a
+    dispatched call whose outcome is unknown, means the review cannot be reported as a
+    complete assessment. Deterministic-only runs have no model discovery artifact and are
+    reported as not applicable rather than silently upgraded to complete model coverage.
+    """
+    unknown = session.scalar(
+        select(func.count())
+        .select_from(ReviewModelCall)
+        .where(
+            ReviewModelCall.tenant_id == principal.tenant_id,
+            ReviewModelCall.review_task_id == result.review_task_id,
+            ReviewModelCall.run_id == result.run_id,
+            ReviewModelCall.state == "unknown",
+        )
+    )
+    unknown_count = int(unknown or 0)
+    discovery = session.scalar(
+        select(ReviewArtifact).where(
+            ReviewArtifact.tenant_id == principal.tenant_id,
+            ReviewArtifact.review_task_id == result.review_task_id,
+            ReviewArtifact.run_id == result.run_id,
+            ReviewArtifact.kind == "llm_candidate_discovery",
+        )
+    )
+    if discovery is None:
+        # Older real-model runs predate the persisted coverage block. If the run actually
+        # produced model candidates, unknown coverage must not be reported as "not
+        # applicable"; a deterministic-only run legitimately has no model coverage plan.
+        run = session.get(
+            ReviewEngineRun,
+            (principal.tenant_id, result.review_task_id, result.run_id),
+        )
+        model_candidates = 0
+        if run is not None:
+            model_candidates = int(_runtime_projection(session, run)["model_candidate_count"])
+        if model_candidates > 0:
+            return {
+                "completion_status": "partial",
+                "coverage_status": "unknown",
+                "unprocessed_units": 0,
+                "truncated": False,
+                "saturated": False,
+                "reason_codes": ["coverage_not_recorded"],
+                "unknown_model_call_count": unknown_count,
+            }
+        return project_product_execution(None, unknown_model_call_count=unknown_count)
+    if content_hash(discovery.content) != discovery.content_hash:
+        raise ValueError("verified model discovery artifact is unavailable or changed")
+    coverage = discovery.content.get("coverage")
+    if not isinstance(coverage, dict):
+        raise ValueError("model discovery coverage is unavailable")
+    batches = discovery.content.get("batches")
+    return project_product_execution(
+        coverage,
+        unknown_model_call_count=unknown_count,
+        batches=batches if isinstance(batches, list) else None,
+    )
 
 
 def _assessment_scope(
@@ -381,8 +449,9 @@ def report_payload(
         raise ValueError("frozen project context does not match the review input snapshot")
     frozen_project_name = project_context.content.get("context", {}).get("name")
     scope = _assessment_scope(session, principal, result, project_context=project_context)
+    scope["product_execution"] = _product_execution(session, principal, result)
     return {
-        "schema_version": "task0010-report.v2",
+        "schema_version": "task0010-report.v3",
         "tenant_id": principal.tenant_id,
         "project_id": result.content["project_id"],
         "project_name": frozen_project_name,

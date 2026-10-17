@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.10.0
+  version: 0.10.1
   description: v1alpha6 开发契约；新增产品模式租户策略、版本绑定逐文件外发授权/撤销与 PostgreSQL 预算一致性；既有路径与响应保持兼容。
 servers:
 - url: /api/v1
@@ -2616,6 +2616,23 @@ components:
         status: {type: string}
         findings: {type: array, items: {$ref: '#/components/schemas/RiskFinding'}}
         pending_finding_ids: {type: array, items: {type: string}}
+        product_execution:
+          oneOf:
+            - $ref: '#/components/schemas/ReviewProductExecution'
+            - type: 'null'
+    ReviewProductExecution:
+      type: object
+      additionalProperties: false
+      required: [run_status, completion_status, coverage_status, unprocessed_units, truncated, saturated, unknown_model_call_count, reason_codes]
+      properties:
+        run_status: {type: string}
+        completion_status: {type: string, enum: [pending, complete, partial]}
+        coverage_status: {type: string, enum: [complete, partial, failed, not_applicable, unknown]}
+        unprocessed_units: {type: integer, minimum: 0}
+        truncated: {type: boolean}
+        saturated: {type: boolean}
+        unknown_model_call_count: {type: integer, minimum: 0}
+        reason_codes: {type: array, uniqueItems: true, items: {type: string}}
     EvidenceRef:
       type: object
       additionalProperties: false

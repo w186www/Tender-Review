@@ -38,6 +38,7 @@ class ReviewFindings(Closed):
     status: str
     findings: list[dict[str, Any]]
     pending_finding_ids: list[str]
+    product_execution: dict[str, Any] | None = None
 
 
 class ReviewHistory(Closed):

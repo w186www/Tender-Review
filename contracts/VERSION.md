@@ -1,10 +1,10 @@
 # 开发契约版本与兼容性
 
-当前契约集合：v1alpha6（2026-10-17），尚未对生产消费者发布。
+当前契约集合：v1alpha7（2026-10-18），尚未对生产消费者发布。
 
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
-| OpenAPI | 0.10.0 | 在 0.9.0 上加法升级：逐文件授权请求新增可选 purpose/provider/expires_at，响应新增可选授权身份/期限/撤销字段，新增撤销操作；旧请求字段和旧响应消费者保持有效 |
+| OpenAPI | 0.10.1 | 在 0.10.0 上加法升级：检索结果新增可选 `product_execution` 覆盖与完整度投影；旧响应字段与消费者保持有效。0.10.0 曾于 0.9.0 上加法升级：逐文件授权请求新增可选 purpose/provider/expires_at，响应新增可选授权身份/期限/撤销字段，新增撤销操作；旧请求字段和旧响应消费者保持有效 |
 | LegalManifest、LegalIndex | Manifest v1alpha3 / Index v1alpha4 | D01条款效力；D07冻结原始字节/PDF字符框映射与显式文本排除；旧索引明确升级，原文与来源字节不变 |
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha3 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |
 | RetrievalResult | schema_version=v1alpha5 / Query v1alpha3 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |

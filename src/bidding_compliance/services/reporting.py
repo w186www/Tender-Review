@@ -106,6 +106,32 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
             f"真实神经向量索引覆盖法规片段 {indexed}/{total}；其余保留 BM25。相似度不是法律证据。"
         )
 
+    product = scope.get("product_execution")
+    if isinstance(product, dict):
+        completion = product.get("completion_status")
+        coverage_status = product.get("coverage_status")
+        if completion == "partial":
+            lines.append(
+                "本次审查为部分完成：存在未处理单元、饱和截断或结果未知的模型调用，"
+                "不得解释为全部内容已审查完成。"
+            )
+        elif completion == "complete" and coverage_status == "complete":
+            lines.append("本次审查覆盖完整：所有计划单元均已处理，未发现饱和或结果未知的调用。")
+        elif coverage_status == "not_applicable":
+            lines.append("本次审查未使用模型发现覆盖计划；覆盖状态不适用于确定性规则路径。")
+        unprocessed = product.get("unprocessed_units")
+        if isinstance(unprocessed, int) and unprocessed > 0:
+            lines.append(f"未处理单元：{unprocessed} 个 section 因饱和/部分覆盖未完成。")
+        if product.get("saturated"):
+            lines.append("模型发现存在饱和批次：单批命中输出上限，已按有界策略细分或保留为部分覆盖。")
+        if product.get("truncated"):
+            lines.append("模型发现存在截断：报告不声称已覆盖全部应审内容。")
+        unknown_calls = product.get("unknown_model_call_count")
+        if isinstance(unknown_calls, int) and unknown_calls > 0:
+            lines.append(
+                f"结果未知的模型调用 {unknown_calls} 次；未自动重放，费用按预留上限保留。"
+            )
+
     confirmation = scope.get("no_findings_confirmation")
     if confirmation == "confirm_no_findings":
         lines.append(

@@ -988,6 +988,19 @@ export interface components {
             status: string;
             findings: components["schemas"]["RiskFinding"][];
             pending_finding_ids: string[];
+            product_execution?: components["schemas"]["ReviewProductExecution"] | null;
+        };
+        ReviewProductExecution: {
+            run_status: string;
+            /** @enum {string} */
+            completion_status: "pending" | "complete" | "partial";
+            /** @enum {string} */
+            coverage_status: "complete" | "partial" | "failed" | "not_applicable" | "unknown";
+            unprocessed_units: number;
+            truncated: boolean;
+            saturated: boolean;
+            unknown_model_call_count: number;
+            reason_codes: string[];
         };
         EvidenceRef: {
             evidence_id: string;

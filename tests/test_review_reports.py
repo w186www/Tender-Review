@@ -10,10 +10,12 @@ import pytest
 from docx import Document
 from jsonschema import Draft202012Validator
 from pypdf import PdfReader
+from verify_contracts import load_contracts, load_openapi, validator_for_contract
 
 from bidding_compliance.domain.identity import Principal, Role
 from bidding_compliance.services.reporting import render_docx, render_pdf
 from bidding_compliance.services.review_persistence import _decision_projection
+from bidding_compliance.services.review_projection import project_product_execution
 
 
 def _report() -> dict[str, object]:
@@ -282,3 +284,104 @@ def test_reference_only_clauses_render_in_word_and_pdf_without_becoming_evidence
     assert finding["evidence"] == []
     assert finding["sources"] == ["model"]
     assert finding["evidence_status"] == "insufficient_evidence"
+
+
+def _v3_scope(product_execution: dict[str, object]) -> dict[str, object]:
+    return {
+        "candidate_discovery_status": "completed",
+        "candidate_count": 1,
+        "skill_coverage": [],
+        "legal_framework_confirmed": False,
+        "retrieval_status_counts": {"completed": 1},
+        "retrieval_context_errors": {},
+        "retrieval_hit_count": 1,
+        "citable_legal_evidence_count": 0,
+        "retrieval_algorithms": ["bm25-char-cosine-rrf-5"],
+        "model_provider": "bailian",
+        "model_name": "qwen3.8-flash",
+        "no_findings_confirmation": None,
+        "source_artifact_hashes": {
+            "candidate_discovery": "d" * 64,
+            "legal_retrieval": "e" * 64,
+            "model_analysis": "f" * 64,
+            "project_context": "a" * 64,
+        },
+        "product_execution": product_execution,
+    }
+
+
+def test_product_execution_projection_marks_saturation_and_unknown_calls_partial() -> None:
+    partial = project_product_execution(
+        {
+            "status": "partial",
+            "saturated_batches": 1,
+            "partial_batches": 1,
+            "section_count": 12,
+        },
+        unknown_model_call_count=1,
+        batches=[
+            {"status": "completed", "section_count": 10},
+            {"status": "saturated", "section_count": 2},
+        ],
+    )
+    assert partial["completion_status"] == "partial"
+    assert partial["coverage_status"] == "partial"
+    assert partial["unprocessed_units"] == 2
+    assert partial["saturated"] is True
+    assert partial["truncated"] is True
+    assert partial["unknown_model_call_count"] == 1
+    assert {"discovery_saturated", "model_call_outcome_unknown"} <= set(partial["reason_codes"])
+
+    complete = project_product_execution(
+        {"status": "complete", "saturated_batches": 0, "partial_batches": 0},
+        unknown_model_call_count=0,
+        batches=[{"status": "completed", "section_count": 5}],
+    )
+    assert complete["completion_status"] == "complete"
+    assert complete["coverage_status"] == "complete"
+    assert complete["unprocessed_units"] == 0
+
+
+def test_v3_report_discloses_partial_coverage_in_word_and_pdf() -> None:
+    report = _report()
+    report["schema_version"] = "task0010-report.v3"
+    report["template_version"] = "task0010-v3"
+    report["run_id"] = "00000000-0000-4000-8000-000000000001"
+    report["result_id"] = "00000000-0000-4000-8000-000000000002"
+    report["report_id"] = "00000000-0000-4000-8000-000000000003"
+    report["assessment_scope"] = _v3_scope(
+        {
+            "completion_status": "partial",
+            "coverage_status": "partial",
+            "unprocessed_units": 2,
+            "truncated": True,
+            "saturated": True,
+            "reason_codes": ["discovery_saturated"],
+            "unknown_model_call_count": 0,
+        }
+    )
+    documents, registry, errors = load_contracts(Path(__file__).resolve().parents[1])
+    api, api_errors = load_openapi(Path(__file__).resolve().parents[1])
+    assert not errors + api_errors
+    validator = validator_for_contract(
+        Path(__file__).resolve().parents[1],
+        "contracts/schemas/review-report.schema.json",
+        documents,
+        registry,
+        api,
+    )
+    validator.validate(report)
+
+    word_text = "".join(
+        paragraph.text for paragraph in Document(BytesIO(render_docx(report))).paragraphs  # type: ignore[arg-type]
+    )
+    pdf_text = "".join(
+        page.extract_text() or ""
+        for page in PdfReader(BytesIO(render_pdf(report))).pages  # type: ignore[arg-type]
+    )
+    for label, text in (("docx", word_text), ("pdf", pdf_text)):
+        compact = "".join(text.split())
+        assert "部分完成" in compact, label
+        assert "不得解释为全部内容已审查完成" in compact, label
+        assert "未处理单元" in compact, label
+        assert "饱和" in compact, label
