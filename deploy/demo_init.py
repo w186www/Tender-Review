@@ -72,6 +72,10 @@ GRANTS = (
     "review_report_content, review_report",
     "SELECT, INSERT ON review_configuration_revision, review_configuration_event",
     "SELECT, INSERT, UPDATE ON review_configuration_state",
+    "SELECT ON model_execution_policy",
+    "SELECT, UPDATE ON model_budget_account",
+    "SELECT, INSERT, UPDATE ON model_budget_reservation",
+    "SELECT, INSERT, UPDATE ON document_external_authorization",
     "SELECT ON checkpoint_migrations",
     "SELECT, INSERT, UPDATE, DELETE ON checkpoints, checkpoint_blobs, checkpoint_writes",
 )

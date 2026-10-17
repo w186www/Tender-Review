@@ -112,6 +112,20 @@ def test_env_template_documents_the_variables_without_a_real_value():
         assert f"#{name}=" in text, name
 
 
+def test_runtime_role_receives_the_product_authority_table_privileges():
+    text = (ROOT / "deploy" / "demo_init.py").read_text(encoding="utf-8")
+    # Product mode reads the policy/account and writes reservations and per-file grants at
+    # runtime. Missing grants fail startup with InsufficientPrivilege, so they are part of
+    # the deployment contract, not an operator afterthought.
+    for grant in (
+        "SELECT ON model_execution_policy",
+        "SELECT, UPDATE ON model_budget_account",
+        "SELECT, INSERT, UPDATE ON model_budget_reservation",
+        "SELECT, INSERT, UPDATE ON document_external_authorization",
+    ):
+        assert grant in text, grant
+
+
 def test_offline_entry_point_stays_offline_when_the_real_variables_are_blank():
     entry = (ROOT / "deploy" / "api_entry.py").read_text(encoding="utf-8")
     assert 'os.environ.get("DEPLOY_REVIEW_MODE", "offline")' in entry
