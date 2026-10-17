@@ -439,7 +439,7 @@ def test_v3_report_discloses_partial_coverage_in_word_and_pdf() -> None:
         compact = "".join(text.split())
         assert "部分完成" in compact, label
         assert "不得解释为全部内容已审查完成" in compact, label
-        assert "未处理单元" in compact, label
+        assert "未提交模型或调用失败的section" in compact, label
         assert "饱和" in compact, label
 
 

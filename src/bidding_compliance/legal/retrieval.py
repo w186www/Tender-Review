@@ -26,11 +26,11 @@ from .contracts import (
     VersionStatus,
 )
 from .corpus import index_hash
+from .embedding_provider import character_embedding_identity
 
 # The exclusion list is diagnostic only; bounding it keeps a multi-candidate review from
 # producing an artifact larger than the review-artifact storage limit.
 MAX_EXCLUDED_ITEMS = 500
-from .embedding_provider import character_embedding_identity
 
 
 def terms(text: str) -> list[str]:
