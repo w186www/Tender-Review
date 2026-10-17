@@ -298,7 +298,7 @@
 
 **执行单元/TASK：** U05 / TASK-0028（`TASK0028-004`）。前置 U02、U04 已完成。
 
-**目录、分支、HEAD 与未提交归属：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；开始/结束 HEAD 均为 `9e1a5840970f2c61b8558cf87e8f57398baf80c2`。本轮实现、契约、测试、迁移和部署入口均为未提交工作区候选；没有 reset、stash、清理、clone、worktree 或提交。用户的 `docs/development/luna-execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` 未被改写，SHA-256 仍为 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。
+**目录、分支、HEAD 与未提交归属：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；开始 HEAD `9e1a5840970f2c61b8558cf87e8f57398baf80c2`；结束 HEAD `7959d9cc9b526aec9269d7352784d89f1681807d`（用户明确要求的 GitHub 备份提交，包含 U05 完成和 U06 质量切片）。U05 的实现、契约、测试、迁移和部署入口在 Full 时是工作区候选；随后按用户 2026-10-17 的备份要求提交并推送到 `origin/work/TASK-0027`，未合并 main、未部署。没有 reset、stash、清理、clone 或 worktree。用户的 `docs/development/luna-execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` 未被改写，SHA-256 仍为 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。
 
 ### 1. 本次完成
 
@@ -340,7 +340,7 @@
 
 ### 5. 集成
 
-- 所有改动留在 `work/TASK-0027` 工作区，未暂存、提交、推送、创建 PR、合并或部署。HEAD 未变，候选身份以工作区文件为准；实现/契约/测试/部署相关文件的清单指纹见本节末尾。
+- 所有 U05 改动最初留在 `work/TASK-0027` 工作区；按用户后续明确要求，已与 U06 质量切片一起提交为 `7959d9c` 并推送到 `origin/work/TASK-0027`，作为 GitHub 备份。未创建 PR、未合并 main、未部署；`question.txt` 未提交/未推送。U05 的 Full 证据绑定其工作区候选指纹，备份提交额外包含尚未 Full 的 U06 质量切片，二者不混同。实现/契约/测试/部署相关文件的清单指纹见本节末尾。
 - 真实 PostgreSQL 容器为一次性隔离环境，运行后需删除；既有演示容器、卷和用户数据未修改。
 
 ### 6. 风险与恢复
