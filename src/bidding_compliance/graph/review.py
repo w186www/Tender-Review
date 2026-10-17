@@ -79,6 +79,9 @@ MAX_ERRORS = 100
 # provider timeout. Batches are ordered by candidate_id, so the split is reproducible.
 SEMANTIC_BATCH_CANDIDATES = 8
 MAX_SEMANTIC_BATCHES = 13
+# Non-selected retrieval hits are supporting context only; bound the visible list so a
+# finding does not carry ten loosely related statutes into the reviewer/report surface.
+MAX_REFERENCE_ONLY_CLAUSES = 3
 
 
 class SkillWorkItem(TypedDict):
@@ -1496,9 +1499,12 @@ def build_review_graph(
                         for hit in confirmable_laws
                     )
                 if candidate_result is not None:
+                    reference_only_count = 0
                     for hit_payload in candidate_result["result"]["hits"]:
                         if hit_payload["evidence_id"] in allowed_selected_laws:
                             continue
+                        if reference_only_count >= MAX_REFERENCE_ONLY_CLAUSES:
+                            break
                         reference_hit, _ = verify_legal_hit(
                             session,
                             principal,
@@ -1518,6 +1524,7 @@ def build_review_graph(
                                 "selected_by_model": False,
                             }
                         )
+                        reference_only_count += 1
                 category = candidate.category
                 finding_id = hashlib.sha256(
                     f"{principal.tenant_id}:{row.review_task_id}:{row.run_id}:{candidate.candidate_id}".encode()

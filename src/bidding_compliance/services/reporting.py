@@ -294,13 +294,18 @@ def render_docx(report: dict[str, Any]) -> bytes:
             document.add_paragraph(
                 "可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）："
             )
-            for reference_item in references[:5]:
+            for reference_item in references[:3]:
                 label = (
                     f"{reference_item.get('title', '')} "
                     f"{reference_item.get('article') or '条款未提供'}"
                 )
+                source_kind = (
+                    "模型引用候选"
+                    if reference_item.get("selected_by_model")
+                    else "检索候选"
+                )
                 document.add_paragraph(
-                    f"参考法规：{label}；版本状态 "
+                    f"参考法规（{source_kind}）：{label}；版本状态 "
                     f"{reference_item.get('version_status')}；未确认原因 "
                     f"{reference_item.get('confirmation_reason')}。"
                 )
@@ -507,10 +512,15 @@ def render_pdf(report: dict[str, Any]) -> bytes:
         references = item.get("legal_references", [])
         if references:
             story.append(para("可能相关依据（适用性未经确认，仅供参考，不计入已核验证据）："))
-            for reference_item in references[:5]:
+            for reference_item in references[:3]:
+                source_kind = (
+                    "模型引用候选"
+                    if reference_item.get("selected_by_model")
+                    else "检索候选"
+                )
                 story.append(
                     para(
-                        f"参考法规：{reference_item.get('title', '')} "
+                        f"参考法规（{source_kind}）：{reference_item.get('title', '')} "
                         f"{reference_item.get('article') or '条款未提供'}；版本状态 "
                         f"{reference_item.get('version_status')}；未确认原因 "
                         f"{reference_item.get('confirmation_reason')}。"

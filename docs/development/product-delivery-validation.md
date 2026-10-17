@@ -525,7 +525,7 @@
 
 - `python -m pytest tests/test_task0029_support_scope.py`：10 passed。
 - 官方 Focused（含本文件及相关回归）：57 passed，Ruff/Mypy/前端 14 项/build 通过。
-- 最终代码候选官方 Full 七阶段全部通过：后端 `918 passed, 6 warnings in 757.44s`，HTTP 与鉴权/项目生命周期阶段 PASS；D1 边界测试包含在 Full 中（`.verification/u10-u12-full-final3.log`）。
+- 最终代码候选官方 Full 七阶段全部通过：后端 `918 passed, 6 warnings in 805.25s`，HTTP 与鉴权/项目生命周期阶段 PASS；D1 边界测试包含在 Full 中（`.verification/u10-u12-full-final4.log`）。
 
 ### 3. 结论与缺口
 
@@ -549,7 +549,7 @@
 ### 2. 验证
 
 - `python -m pytest tests/test_task0030_real_rag.py tests/test_legal_evidence_classification.py tests/test_task0022_zero_candidate_review.py tests/test_llm_candidate_discovery.py`：57 passed。
-- 官方 Focused（含任务/隐私/报告/评测相关）：57 passed；最终代码候选官方 Full 七阶段全部通过：后端 `918 passed, 6 warnings in 757.44s`，HTTP 与鉴权/项目生命周期阶段 PASS（`.verification/u10-u12-full-final3.log`）。
+- 官方 Focused（含任务/隐私/报告/评测相关）：57 passed；最终代码候选官方 Full 七阶段全部通过：后端 `918 passed, 6 warnings in 805.25s`，HTTP 与鉴权/项目生命周期阶段 PASS（`.verification/u10-u12-full-final4.log`）。
 - 未调用真实模型；真实 RAG 载荷、引用重核、覆盖/部分完成和报告集成需服务器 E2E（D3/D4）。
 
 ### 3. 结论与缺口

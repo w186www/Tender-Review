@@ -16,6 +16,8 @@
 
 - 2026-10-18 U10 重复候选合并：同一原文摘录上的规则/模型/子批次候选合并为一条，保留 sources/rule_ids/evidence/legal_references/conflicts 并集，取最高严重度和最保守证据状态；不同 locator 不按相似标题合并，合并结果保留基础候选 `finding_id` 以继续绑定冻结原文。新增纯合并测试与不同 locator 反例；最终代码候选官方 Full 七阶段通过（918 passed、6 项既有 warning）。
 
+- 2026-10-18 U09/U12 参考条款可见性收敛：每个 finding 的未选中检索命中原先可显示 10 条、报告显示 5 条，现统一限制为 3 条“检索候选”，并区分“模型引用候选/检索候选”；报告在完整合法检索上下文下显示“法规检索命中 N 项、可引用依据 0 项”和逐条版本/未确认原因。最终代码候选官方 Full 七阶段通过（918 passed、6 项既有 warning）。
+
 - 2026-10-18 部署入口修复：`deploy/bootstrap.sh up` 现在同时启动 `review-worker`，避免持久审查队列没有执行者；新增部署 compose 测试断言该启动命令包含 review-worker。
 
 - 2026-10-18 U08 有界细分/重扫准备（正式单元仍 planned）：饱和批次按 section 二分，深度上限 2、额外批次上限 8，子批次唯一 index/cache key，父批次 `subdivided`、只有子批次全部完成且无饱和/拒绝时覆盖才 `complete`；单 section/深度/预算耗尽保留 partial。新增图级 fake gateway 测试（饱和→二分→补扫→重启复用缓存）和纯边界测试；相关 75 passed，最终候选 Full 886 passed/6 项既有 warning。真实模型覆盖质量与冻结集效果仍需 U03/U06/D3。
