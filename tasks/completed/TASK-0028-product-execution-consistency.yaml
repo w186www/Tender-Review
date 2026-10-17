@@ -110,10 +110,12 @@
       "description": "U04 从部署调度入口验证持久领取、lease 接管、重复/取消竞争、Checkpoint 恢复和调用结果未知；重启不伪造成功或身份。",
       "evidence": [
         "docs/development/product-delivery-validation.md",
-        ".verification/task0011-e2e-9e0d7ada01494a0cab4c512522671699/run.json",
-        ".verification/task0011-e2e-9e0d7ada01494a0cab4c512522671699/playwright-junit.xml",
+        "docs/decisions/ADR-0020-durable-review-execution-queue.md",
+        "docker-compose.demo.yml",
+        "scripts/run_task0011_e2e.py",
+        "scripts/assert_task0011_e2e.py",
         "tests/test_task0027_timeout_recovery.py",
-        "scripts/assert_task0011_e2e.py"
+        "tests/test_task0028_persisted_model_gateway.py"
       ]
     },
     {
@@ -131,9 +133,7 @@
         "scripts/check_postgres.py",
         "scripts/check_u05.py",
         "scripts/manage_execution_policy.py",
-        "scripts/migrate_execution_ledgers.py",
-        ".verification/u05-pg-run.log",
-        ".verification/task0011-e2e-1394bf3bcfca4065ac1f214989e3e20a/run.json"
+        "scripts/migrate_execution_ledgers.py"
       ]
     }
   ],
