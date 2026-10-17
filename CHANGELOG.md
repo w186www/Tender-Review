@@ -6,6 +6,8 @@
 
 ### Added
 
+- 2026-10-17 U10 零候选路径准备（正式单元仍 planned）：修复 `graph/review.py` 在 discovery 候选为空时抛 `ValueError` 的已知 P1（AUD-01）。零候选现在不发起任何语义模型调用，写入显式空 `model_analysis` 制品（`findings: []`、`zero_candidate: true`、0 tokens/0 费用），交给既有合并/报告/人工确认路径。新增图级零调用回归；相关 73 passed，最终候选 Full 七阶段通过（884 passed、6 项既有 warning）。真实 RAG、法规资格重核和报告集成仍待 U07/U08/U09/D3，U10 不提前完成。
+
 - 2026-10-17 U08 离线准备（正式单元仍 planned）：新增每批饱和标记与覆盖摘要（`SATURATION_FINDING_LIMIT=3`、`batch_coverage`、`coverage_summary`），把每个发现批次的状态、接受/拒绝数、饱和索引和总覆盖写入 `llm_candidate_discovery` 运行制品；达到单批上限不再显示为 completed，而是 saturated/partial。新增 3 项纯测试，相关发现/语义/证据/持久网关回归 68 passed；最终候选 Full 七阶段通过（883 passed、6 项既有 warning）。真实模型质量评测、有界细分/重扫与冻结集效果仍待 U03/U06/D3，U08 不提前启动或完成。
 
 - 2026-10-17 U06 部分完成（进行中）：新增结构化质量信号，超出平均 OCR 置信度检查数字/日期、重复文本、页码覆盖、阅读顺序和表格行宽；质量失败统一进入 `needs_review`，并记录具体 `issue` 码。新增 `IngestionPolicy` 四个带默认值的结构阈值、`Issue` 六个质量码（OpenAPI/解析契约/前端类型同步）、支持矩阵文档、已 ready 文档校正后的上下文失效测试，以及冻结运行前的片段数/文本字节容量前检。合成 OCR 已知失败（低置信数字、重复页眉、表格缺口）有回归。定向 157 passed；最终候选官方 Full 七阶段通过（880 passed、6 项既有 warning）。TASK0029-002 evidence 保持为空：U03 冻结评测器/专家标签与 D1/D2 限制未满足，U06/TASK-0029 保持 in_progress。未调用真实 OCR/模型、未外发内容、未部署。

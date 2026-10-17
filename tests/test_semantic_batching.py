@@ -108,6 +108,21 @@ def model_candidates(count: int):
     return llm.merge_model_candidates(rules, accepted)
 
 
+def zero_candidate_result(discovery):
+    """A valid discovery result with no candidates and zeroed skill counts."""
+    empty = discovery.model_copy(
+        update={
+            "candidates": (),
+            "skill_coverages": tuple(
+                item.model_copy(update={"candidates_found": 0})
+                for item in discovery.skill_coverages
+            ),
+        }
+    )
+    payload = empty.model_dump(mode="json", exclude={"result_sha256"})
+    return empty.model_copy(update={"result_sha256": digest(payload)})
+
+
 class FakeGateway:
     def __init__(self, harness: Harness) -> None:
         self.harness = harness
@@ -155,13 +170,15 @@ class FakeGateway:
 class Harness:
     """Minimal graph harness: only the three artifacts the semantic node reads."""
 
-    def __init__(self, *, candidates: int, failures=None) -> None:
+    def __init__(self, *, candidates: int, failures=None, zero_candidates: bool = False) -> None:
         self.calls: list[tuple[int, str]] = []
         self.failures = failures or {}
         self.saved: list[SimpleNamespace] = []
         self.nodes: dict = {}
-        discovery = model_candidates(candidates)
-        assert len(discovery.candidates) == candidates
+        discovery = model_candidates(1) if zero_candidates else model_candidates(candidates)
+        if zero_candidates:
+            discovery = zero_candidate_result(discovery)
+        assert len(discovery.candidates) == (0 if zero_candidates else candidates)
         self.artifacts = {
             "discovery:ref": discovery.model_dump(mode="json"),
             "retrieval:ref": {
@@ -447,3 +464,18 @@ def test_unknown_and_duplicate_model_references_are_flagged_for_review(monkeypat
     checked = nodes["evidence_check"](state)
     assert checked["status"] == "waiting_human"
     assert checked["pending_review_ids"] == [finding["finding_id"]]
+
+
+def test_zero_candidates_skip_paid_semantic_calls_and_store_empty_analysis(monkeypatch):
+    harness = Harness(candidates=0, zero_candidates=True)
+    result = asyncio.run(harness.node(monkeypatch))
+    assert harness.calls == []
+    assert result["model_findings_ref"]
+    payload = harness.payload("model_analysis")
+    assert payload["zero_candidate"] is True
+    assert payload["content"] == {"schema_version": "v1alpha1", "findings": []}
+    assert payload["usage"] == {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "estimated_cost": 0.0,
+    }

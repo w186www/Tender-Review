@@ -1013,6 +1013,40 @@ def build_review_graph(
                 retrieval_by_id = {
                     item["work_item_id"]: item["result"] for item in retrieval["results"]
                 }
+                if not discovery.candidates:
+                    # A legitimate zero-candidate result needs no paid semantic call. Record
+                    # an explicit empty analysis artifact so merge/report/manual-confirmation
+                    # paths receive the same shape as a completed analysis.
+                    empty_content = {"schema_version": "v1alpha1", "findings": []}
+                    zero_payload = {
+                        "schema_version": "v1alpha1",
+                        "prompt_version": snapshot["prompt_version"],
+                        "model_profile": snapshot["model_profile"],
+                        "response_hash": hashlib.sha256(
+                            _json(empty_content).encode("utf-8")
+                        ).hexdigest(),
+                        "usage": {
+                            "input_tokens": 0,
+                            "output_tokens": 0,
+                            "estimated_cost": 0.0,
+                        },
+                        "content": empty_content,
+                        "zero_candidate": True,
+                    }
+                    with session_factory() as session:
+                        _load_run(session, principal, state)
+                        model_ref = put_artifact(
+                            session,
+                            principal.tenant_id,
+                            row.review_task_id,
+                            row.run_id,
+                            "model_analysis",
+                            zero_payload,
+                        )
+                        session.commit()
+                    result = {"model_findings_ref": model_ref}
+                    _assert_bounded({**state, **result})
+                    return result
                 batches = _semantic_batches(discovery.candidates)
                 if not batches or len(batches) > MAX_SEMANTIC_BATCHES:
                     raise ValueError("semantic analysis exceeds the authorized batch capacity")

@@ -437,3 +437,26 @@
 ### 4. 结论与下一步
 
 - U08 仍为 `planned`；覆盖可见性是可复用的本地准备，不替代有界细分、真实模型质量和冻结集验收。D3 未批准前不进行真实模型质量评测；U03/U06 的冻结样本与输入质量仍缺。之后若继续，应先取得 D1—D4/U03 所需条件，再实现细分/重扫和真实评测，不以开发样例冒充产品完成。
+
+## U10｜真实 RAG、融合与证据（2026-10-17，零候选路径准备；正式单元 planned）
+
+**执行单元/TASK：** U10 / TASK-0029（`TASK0029-006`）。正式前置 U04/U05/U07/U08/U09 中 U07/U08/U09 未完成，U10 正式状态保持 `planned`；本节只记录一个不需要真实供应商的已知 P1 修复。
+
+### 1. 本次完成
+
+- **零候选不再失败**：`graph/review.py` 的 `semantic_analysis` 在 `discovery.candidates` 为空时跳过语义批次/付费调用，写入显式 `model_analysis` 制品（`findings: []`、`zero_candidate: true`、0 tokens/0 费用），返回 `model_findings_ref`，交给既有 merge/report/人工确认路径。此前空 `batches` 会抛 `ValueError`，运行被标 `review_execution_failed`，API 映射 422（PROJECT_STATE/TASK-0027 记录的 AUD-01）。
+- **图级回归**：新增 `test_zero_candidates_skip_paid_semantic_calls_and_store_empty_analysis`，证明网关零调用、空分析制品和零用量；既有非空候选、语义批次、证据分类、持久网关测试保持通过。
+
+### 2. 未完成（因此不标 U10）
+
+- U10 仍需要真实 RAG（法规候选进入模型）、服务端原文/发布/引用/适用资格重核、模型/规则冲突、零候选完整人工确认与报告集成、真实模型效果验收；U07/U08/U09 前置未完成，D3 未批准真实模型/内容外发。`TASK0029-006` evidence 保持为空。
+
+### 3. 验证
+
+- 定向回归（零候选、候选发现、语义批次、证据、持久网关、覆盖、法规证据分类）：**73 passed**。
+- 最终候选官方 Full：`./scripts/verify.ps1 -Mode Full` 退出码 0，七阶段全过；后端 **884 passed, 6 warnings in 733.04s**；HTTP health=200/404、请求 ID、鉴权/项目生命周期通过。6 条 warning 为 2 条既有 pypdf 弃用 + 4 条既有 PowerShell 输出解码警告（测试通过）。证据：`.verification/u10-zero-candidate-full.log`、`.verification/pytest-result.xml`。
+- 未调用真实模型、未外发内容、未执行真实 RAG 质量/法规资格验收。
+
+### 4. 结论
+
+- 零候选执行缺口（P1）已修复并有 Full 证据；这不表示 U10 完成或产品业务质量达标。U10 正式仍 `planned`，剩余工作受 U07/U08/U09 与 D3 限制。
