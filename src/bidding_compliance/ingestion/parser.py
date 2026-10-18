@@ -152,30 +152,29 @@ def inspect_pdf(payload: bytes, policy: IngestionPolicy) -> None:
     }
     seen: set[tuple[int, int]] = set()
     count = 0
-
-    def walk(value: Any, depth: int = 0) -> None:
-        nonlocal count
+    pending: list[tuple[Any, int]] = [(reader.trailer, 0)]
+    while pending:
+        value, depth = pending.pop()
         count += 1
         if count > 50000 or depth > 50:
             raise IngestionError("INVALID_FILE")
         if isinstance(value, IndirectObject):
             identity = (value.idnum, value.generation)
             if identity in seen:
-                return
+                continue
             seen.add(identity)
-            walk(value.get_object(), depth + 1)
+            # An indirect reference links objects; it is not inline nesting.
+            # Long bookmark sibling/page links are normal in supported PDFs.
+            # Keep a global work bound and a per-object inline depth bound.
+            pending.append((value.get_object(), 0))
         elif isinstance(value, DictionaryObject):
             if forbidden.intersection(str(k) for k in value) or str(value.get("/S")) in forbidden:
                 raise IngestionError("MALICIOUS_CONTENT")
             if str(value.get("/Type")) == "/EmbeddedFile":
                 raise IngestionError("MALICIOUS_CONTENT")
-            for item in value.values():
-                walk(item, depth + 1)
+            pending.extend((item, depth + 1) for item in value.values())
         elif isinstance(value, ArrayObject):
-            for item in value:
-                walk(item, depth + 1)
-
-    walk(reader.trailer)
+            pending.extend((item, depth + 1) for item in value)
 
 
 def ocr_fragments(
