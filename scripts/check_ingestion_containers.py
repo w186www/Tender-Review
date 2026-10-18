@@ -204,8 +204,19 @@ def main() -> None:
                     raise RuntimeError("MinIO readiness failed")
                 time.sleep(1)
         store.client.create_bucket(Bucket=settings.object_storage_bucket)
-        print("Real MinIO ready; waiting for ClamAV definitions and engine.", flush=True)
-        wait_for_scanner(scanner)
+        print(f"Real MinIO ready; ClamAV image {clam_image}.", flush=True)
+        try:
+            wait_for_scanner(scanner)
+        except RuntimeError:
+            for command in (
+                ["logs", "--tail", "120", clam],
+                ["exec", clam, "tail", "-n", "80", "/var/log/clamav/clamd.log"],
+            ):
+                try:
+                    print(docker(command), flush=True)
+                except subprocess.CalledProcessError:
+                    pass
+            raise
         # Standard harmless antivirus test string exists only in memory and goes to localhost.
         eicar = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}" + b"$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
         try:
