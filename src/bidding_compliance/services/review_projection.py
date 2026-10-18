@@ -27,15 +27,27 @@ def _same_issue_family(finding: dict[str, Any]) -> str | None:
     families therefore cannot collapse different passages or different issue types
     merely because they happen to share a table cell.
     """
-    text = " ".join(
+    narrative = " ".join(
         str(finding.get(key, ""))
         for key in ("title", "description", "recommendation")
     )
+    text = narrative
     excerpt = finding.get("source_excerpt") or {}
     if isinstance(excerpt, dict):
         text += " " + str(excerpt.get("quote", ""))
     text = text.casefold()
     category = finding.get("category")
+    compact_text = re.sub(r"\s+", "", text)
+    compact_narrative = re.sub(r"\s+", "", narrative.casefold())
+    if (
+        category == "procedure"
+        and "暂估价" in compact_text
+        and "第2种方式" in compact_text
+        and "方式" in compact_narrative
+        and any(term in compact_narrative for term in ("不明", "未定义", "指代", "定义不清"))
+        and "主体" not in compact_narrative
+    ):
+        return "procedure-estimated-price-confirmation-method"
     if category == "procedure" and "公示" in text and "期限" in text:
         return "procedure-publicity-period"
     if (

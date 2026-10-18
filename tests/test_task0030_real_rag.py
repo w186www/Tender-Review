@@ -315,6 +315,71 @@ def test_findings_for_distinct_issues_on_the_same_excerpt_are_not_merged():
     assert len(merged) == 2
 
 
+def test_task0029_merges_same_estimated_price_method_issue_across_candidate_ids():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    excerpt = {
+        "source_hash": DOCUMENT,
+        "locator": "pdf/page/76/line/10",
+        "quote": "对于依法必须招标的暂估价项目的确认和批准采取第 2 种方式确定。并应按相关规定进行",
+    }
+    undefined_method = _finding(
+        finding_id="a" * 64,
+        category="procedure",
+        title="待核验：暂估价确认方式定义不明",
+        description="未在该条款说明第二种方式的具体内容。",
+        recommendation="查阅招标文件附件或通用条款，确认第二种方式的定义。",
+        severity="high",
+        evidence=[{"evidence_id": "1" * 64, "source_hash": DOCUMENT}],
+        source_excerpt=excerpt,
+    )
+    ambiguous_reference = _finding(
+        finding_id="b" * 64,
+        category="procedure",
+        title="待核验：暂估价确认方式指代不明",
+        description="第二种方式未在当前条款中定义。",
+        recommendation="明确第二种方式的流程及确认责任。",
+        severity="medium",
+        evidence=[{"evidence_id": "2" * 64, "source_hash": DOCUMENT}],
+        source_excerpt=dict(excerpt),
+    )
+
+    merged = merge_duplicate_findings([undefined_method, ambiguous_reference])
+
+    assert len(merged) == 1
+    assert merged[0]["severity"] == "high"
+    assert {item["evidence_id"] for item in merged[0]["evidence"]} == {
+        "1" * 64,
+        "2" * 64,
+    }
+
+
+def test_different_procedure_issue_on_same_estimated_price_excerpt_stays_separate():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    excerpt = {
+        "source_hash": DOCUMENT,
+        "locator": "pdf/page/76/line/10",
+        "quote": "对于依法必须招标的暂估价项目的确认和批准采取第 2 种方式确定。并应按相关规定进行",
+    }
+    method_issue = _finding(
+        finding_id="a" * 64,
+        category="procedure",
+        title="待核验：暂估价确认方式定义不明",
+        description="未说明第二种方式的具体内容。",
+        source_excerpt=excerpt,
+    )
+    approval_issue = _finding(
+        finding_id="c" * 64,
+        category="procedure",
+        title="暂估价确认批准主体不明",
+        description="条款未明确由谁确认和批准该项目。",
+        source_excerpt=dict(excerpt),
+    )
+
+    assert len(merge_duplicate_findings([method_issue, approval_issue])) == 2
+
+
 def test_task0029_merges_known_semantic_duplicates_but_keeps_distinct_brand_issues():
     from bidding_compliance.services.review_projection import merge_duplicate_findings
 
