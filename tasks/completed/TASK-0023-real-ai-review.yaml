@@ -1,0 +1,120 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0023",
+  "title": "DEC-005 真实 Qwen 独立风险发现与受控神经检索网页审查",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0021"
+  ],
+  "related_requirements": [
+    "FR-004",
+    "FR-005",
+    "FR-006",
+    "FR-008",
+    "FR-010",
+    "SEC-003",
+    "SEC-004",
+    "SEC-009",
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-003",
+    "AC-004",
+    "AC-005",
+    "AC-006",
+    "AC-007"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/testing-standard.md",
+    "docs/decisions/DEC-005-real-tender-qwen-evaluation-authorization.md",
+    "docs/decisions/ADR-0018-controlled-real-ai-discovery.md"
+  ],
+  "allowed_paths": [
+    "src/bidding_compliance/**",
+    "src/frontend/**",
+    "contracts/**",
+    "scripts/**",
+    "tests/**",
+    "docs/decisions/DEC-005-real-tender-qwen-evaluation-authorization.md",
+    "docs/decisions/ADR-0018-controlled-real-ai-discovery.md",
+    "docs/development/TASK-0023-validation.md",
+    "docs/index.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "tasks/active/TASK-0023-real-ai-review.yaml",
+    ".verification/private/TASK-0023/**",
+    "docs/development/TASK-0023-status-summary-20261015.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/roadmap.md"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/**",
+    "docs/decisions/DEC-002-qwen-demo-authorization.md",
+    "tasks/completed/**",
+    "tasks/active/TASK-0022-real-tender-offline-evaluation.yaml",
+    "requirements-dev.lock",
+    "requirements-embedding.lock"
+  ],
+  "steps": [
+    "以 TASK-0022 未提交成果为基线在独立 TASK-0023 工作树实施；TASK-0019 和 TASK-0022 原树不写入。",
+    "先实现持久化 DEC-005 计数/费用失败关闭、文档白名单、脱敏和安全审计，再开启真实网络。",
+    "正式 ReviewEngine/LangGraph 新增有覆盖记录的独立模型候选发现；验证原文、合并候选，再走本地法规适用性与 Evidence Checker。",
+    "启用小型、明示覆盖度、模型空间匹配的真实百炼向量索引；保持 BM25、法规地域/主体/效力/核验过滤。",
+    "通过正式网页完成指定标书审查、显式测试人工复核及 Word/PDF；记录真实调用，不能以 Mock E2E 验收。",
+    "运行 Focused、最终 Full 和必要专项；如实记录未完成与阻断。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0023-001",
+      "description": "持久 DEC-005：LLM≤30、Embedding≤200批、总预留及费用≤20元，超限/缺Key/未授权文档均无网络调用。",
+      "evidence": [
+        "docs/development/TASK-0023-validation.md::预算与费用（真实供应商）",
+        "docs/decisions/DEC-006-semantic-batch-authorization.md",
+        "tests/test_authorized_runtime.py"
+      ]
+    },
+    {
+      "id": "TASK0023-002",
+      "description": "Skills零候选仍能独立发现，完整分段覆盖记录、稳定ID、原文绑定，错误引用拒绝。",
+      "evidence": [
+        "docs/development/TASK-0023-validation.md::LLM 独立风险发现",
+        "tests/test_llm_candidate_discovery.py",
+        "tests/test_semantic_batching.py"
+      ]
+    },
+    {
+      "id": "TASK0023-003",
+      "description": "真实Qwen经网页ReviewEngine进入法规检索、Evidence Checker、人工复核与报告；无有效法证不产生确定违法。",
+      "evidence": [
+        "docs/development/TASK-0023-validation.md::本轮（DEC-006）真实闭环结果",
+        "docs/development/TASK-0023-validation.md::网页端到端（DEC-006）"
+      ]
+    },
+    {
+      "id": "TASK0023-004",
+      "description": "真实Embedding返回固定维度、SQLite缓存可续建及读取，正式检索身份/融合排序/覆盖度准确。",
+      "evidence": [
+        "docs/development/TASK-0023-validation.md::真实 Embedding 与法规检索",
+        "tests/test_task0023_embedding.py"
+      ]
+    },
+    {
+      "id": "TASK0023-005",
+      "description": "Focused、最终Full及必要专项通过；TASK0019原树指纹不变，无Key或真实业务文档入Git。",
+      "evidence": [
+        "docs/development/TASK-0023-validation.md::A/B/C/D 状态分类",
+        "docs/development/TASK-0023-validation.md::代码变更（本轮与上一轮）"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_authorized_runtime.py",
+    "./scripts/verify.ps1 -Mode Full"
+  ],
+  "handoff_notes": "2026-10-15 完成。DEC-006 真实运行于正式网页完成完整闭环：7 批风险发现覆盖 1207 个非空片段，确定性 Skills 候选 0 项而模型独立发现 19 个候选，19/19 原文定位一致、0 条违法断言、全部 insufficient_evidence；19 项人工复核提交、结果发布、Word/PDF 生成与下载（下载 SHA-256 与服务端 content_hash 一致）。semantic_analysis 已改为确定性分批并修复最小化器外发上限与批次容量不一致的缺陷；新增多授权账本，DEC-005 历史（30 次/¥1.081571）保留不重置。已知限制：为在 15 次授权内完成闭环，发现批次容量由 9000 字节/80 片段上调到 18000 字节/200 片段，单次审查候选上限下降（19 项 vs 41 项）；上一轮容器删除导致 41 候选无法复用。后续法规对应工作由 TASK-0024 承接。详见 docs/development/TASK-0023-validation.md。"
+}

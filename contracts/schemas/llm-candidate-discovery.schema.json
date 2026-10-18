@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/llm-candidate-discovery.schema.json",
+  "title": "LLMCandidateDiscoveryResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "findings"],
+  "properties": {
+    "schema_version": {"const": "v1alpha1"},
+    "findings": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["section_key", "quote", "category", "description"],
+        "properties": {
+          "section_key": {"type": "string", "pattern": "^s[0-9]{6}c[0-9]{3}$"},
+          "quote": {"type": "string", "minLength": 4, "maxLength": 3000},
+          "category": {"type": "string", "enum": ["qualification", "technical", "evaluation", "contract", "procedure"]},
+          "description": {"type": "string", "minLength": 1, "maxLength": 2000}
+        }
+      }
+    }
+  }
+}

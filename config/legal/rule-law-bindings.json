@@ -1,0 +1,118 @@
+{
+  "schema_version": "rule-law-bindings.v1",
+  "policy_id": "ADOPT-2026-10-18",
+  "asserted_by": "engineering-config",
+  "note": "规则—法条关联由工程配置流程校对，记录规则、库内版本、条文、理由和来源核对状态；不是人工专业裁定或独立法律核验。",
+  "bindings": [
+    {
+      "binding_id": "BIND-QUAL-LOCAL-32",
+      "rule_id": "TASK0007.QUAL.LOCAL-REGISTRATION",
+      "law_id": "a273f6b956365e42b7b72f9b",
+      "version": "2019年第三次修订",
+      "article": "第三十二条",
+      "reason": "规则检查资格条件是否以不合理条件限制潜在投标人；该条列举资格条件与项目实际需要不相适应、排斥潜在投标人的情形。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-QUAL-LOCAL-33",
+      "rule_id": "TASK0007.QUAL.LOCAL-REGISTRATION",
+      "law_id": "a273f6b956365e42b7b72f9b",
+      "version": "2019年第三次修订",
+      "article": "第三十三条",
+      "reason": "规则检查地域限制；该条明确依法必须招标项目的投标人不受地区或部门限制。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-QUAL-LOCAL-GP20",
+      "rule_id": "TASK0007.QUAL.LOCAL-REGISTRATION",
+      "law_id": "9b438c8b8a7e331c17351898",
+      "version": "国务院令第658号",
+      "article": "第二十条",
+      "reason": "政府采购规则下的资格条件如非法限定供应商所在地，属于不合理条件；仅作项目采用参考。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-TECH-BRAND-32",
+      "rule_id": "TASK0007.TECH.EXCLUSIVE-BRAND",
+      "law_id": "a273f6b956365e42b7b72f9b",
+      "version": "2019年第三次修订",
+      "article": "第三十二条",
+      "reason": "规则检查限定特定品牌/供应商；该条列举限定专利、商标、品牌、原产地或供应商的情形。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-TECH-BRAND-GP20",
+      "rule_id": "TASK0007.TECH.EXCLUSIVE-BRAND",
+      "law_id": "9b438c8b8a7e331c17351898",
+      "version": "国务院令第658号",
+      "article": "第二十条",
+      "reason": "政府采购需求指向特定产品或限定品牌属于不合理条件；仅作项目采用参考。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-EVAL-SCORE-40",
+      "rule_id": "TASK0007.EVAL.SCORE-TOTAL",
+      "law_id": "4e7223995c70401b200954e1",
+      "version": "2017年修正（主席令第86号）",
+      "article": "第四十条",
+      "reason": "规则检查评分标准和方法；该条要求评标委员会按招标文件确定的评标标准和方法评审。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-EVAL-SCORE-17",
+      "rule_id": "TASK0007.EVAL.SCORE-TOTAL",
+      "law_id": "973a78cc981bc1b36e409448",
+      "version": "（未核实版本）",
+      "article": "第十七条",
+      "reason": "规则检查评分表内部一致性；该条要求按招标文件规定的评标标准和方法系统评审。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-CONTRACT-PAY-57",
+      "rule_id": "TASK0007.CONTRACT.KEY-PLACEHOLDER",
+      "law_id": "a273f6b956365e42b7b72f9b",
+      "version": "2019年第三次修订",
+      "article": "第五十七条",
+      "reason": "规则检查合同主要条款空白；该条要求合同标的、价款、质量、履行期限等主要条款与招标文件和投标文件一致。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-CONTRACT-PAY-470",
+      "rule_id": "TASK0007.CONTRACT.KEY-PLACEHOLDER",
+      "law_id": "491fc0d935f4e7b958cd983f",
+      "version": "2020年通过，2021年1月1日施行",
+      "article": "第四百七十条",
+      "reason": "合同一般包括履行期限、地点和方式等条款；用于提示付款期限缺失的合同完整性，不构成适用性结论。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-PROC-TIME-34",
+      "rule_id": "TASK0007.PROCEDURE.TENDER-TIME",
+      "law_id": "4e7223995c70401b200954e1",
+      "version": "2017年修正（主席令第86号）",
+      "article": "第三十四条",
+      "reason": "规则检查开标与投标截止时间；该条要求开标在提交投标文件截止时间的同一时间公开进行。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    },
+    {
+      "binding_id": "BIND-PROC-TIME-39",
+      "rule_id": "TASK0007.PROCEDURE.TENDER-TIME",
+      "law_id": "1f221ddf1119fea30b9c110c",
+      "version": "财政部令第87号",
+      "article": "第三十九条",
+      "reason": "政府采购货物和服务招标规则要求开标与投标截止同一时间；仅作项目采用参考。",
+      "source_reviewed": true,
+      "asserted_by": "engineering-config"
+    }
+  ]
+}

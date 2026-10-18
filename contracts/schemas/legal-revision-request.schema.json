@@ -1,0 +1,85 @@
+{
+  "$defs": {
+    "VerificationSource": {
+      "additionalProperties": false,
+      "properties": {
+        "law_id": {
+          "title": "Law Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "source_uri": {
+          "pattern": "^https://[^/@]+\\.gov\\.cn/",
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "captured_on": {
+          "format": "date",
+          "title": "Captured On",
+          "type": "string"
+        }
+      },
+      "required": [
+        "law_id",
+        "version",
+        "source_uri",
+        "path",
+        "source_hash",
+        "captured_on"
+      ],
+      "title": "VerificationSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "request_id": {
+      "maxLength": 64,
+      "minLength": 16,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "expected_draft_sequence": {
+      "minimum": 0,
+      "title": "Expected Draft Sequence",
+      "type": "integer"
+    },
+    "reason": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "verification_sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/VerificationSource"
+      },
+      "title": "Verification Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "request_id",
+    "expected_draft_sequence",
+    "reason"
+  ],
+  "title": "RevisionRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-revision-request.schema.json"
+}

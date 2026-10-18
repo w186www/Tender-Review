@@ -1,0 +1,117 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0021",
+  "title": "真实 Qwen LLM 接入与在线审查 Demo",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": ["TASK-0008", "TASK-0010", "TASK-0011", "TASK-0020"],
+  "related_requirements": [
+    "FR-007",
+    "FR-013",
+    "FR-015",
+    "SEC-005",
+    "SEC-007",
+    "SEC-008",
+    "SEC-009",
+    "SEC-011",
+    "NFR-006",
+    "NFR-007",
+    "NFR-008",
+    "NFR-011"
+  ],
+  "related_acceptance": ["AC-003", "AC-004", "AC-005", "AC-006", "AC-007", "AC-009"],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/architecture/model-gateway.md",
+    "docs/architecture/langgraph.md",
+    "docs/decisions/ADR-0013-model-gateway-adapters-and-authorization.md",
+    "docs/decisions/ADR-0016-task-0018-cloud-embedding-contract.md",
+    "docs/development/TASK-0020-demo-gap-assessment.md",
+    "docs/development/TASK-0020-validation.md"
+  ],
+  "allowed_paths": [
+    "tasks/active/TASK-0021-qwen-online-demo.yaml",
+    "tasks/completed/TASK-0021-qwen-online-demo.yaml",
+    "docs/decisions/ADR-0017-bailian-qwen-chat-adapter.md",
+    "docs/decisions/DEC-002-qwen-demo-authorization.md",
+    "docs/development/TASK-0021-validation.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/roadmap.md",
+    "docs/development/model-gateway-online-demo.md",
+    "docs/architecture/model-gateway.md",
+    "docs/index.md",
+    "src/bidding_compliance/model_gateway/adapters/__init__.py",
+    "src/bidding_compliance/model_gateway/adapters/bailian_qwen_adapter.py",
+    "src/bidding_compliance/api/reviews.py",
+    "src/bidding_compliance/graph/review.py",
+    "scripts/task0021_online_e2e_app.py",
+    "scripts/task0021_online_runtime.py",
+    "scripts/run_task0021_online_e2e.py",
+    "scripts/run_task0011_e2e.py",
+    "scripts/assert_task0021_qwen_e2e.py",
+    "tests/test_bailian_qwen_adapter.py",
+    "tests/test_task0021_online_gateway.py",
+    "src/frontend/src/app.tsx",
+    "src/frontend/src/styles.css",
+    "src/frontend/src/pages/reviews.tsx",
+    "src/frontend/e2e/workbench.spec.ts",
+    "README.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md"
+  ],
+  "must_not_change": [
+    "原 TASK-0019 独立工作树及其 11 项未提交路径与全部文件内容哈希",
+    "tasks/active/TASK-0019*、TASK-0012、TASK-0013、TASK-0014 的验收契约与依赖",
+    "TASK-0020 离线 Demo 模式、现有 OfflineReviewGateway 与既有离线验证证据",
+    "五类 Skill、RAG、Checkpoint、Evidence Checker、人工复核及法规证据状态的业务语义",
+    "contracts/schemas/semantic-analysis.schema.json 的本地完整 Schema 及正式评测阈值",
+    "knowledge/legal/**、真实招标文件、法规原文、发布快照及历史证据",
+    "默认生产 ModelGateway 路由、真实 API Key、其他供应商适配器和数据库架构",
+    "ADR-0013、ADR-0015、ADR-0016 等已接受决策的历史正文",
+    "package-lock.json、依赖镜像来源及 TLS 校验配置"
+  ],
+  "steps": [
+    "新增独立 Bailian Qwen 聊天 REST 适配器，并在完整本地 Schema 校验不变前提下适配官方严格 JSON Schema 请求格式。",
+    "建立只供 TASK-0021 隔离 Demo 进程使用的 ModelGateway 配置：显式授权、合成文档外发最小化、单次调用上限、费用预算、失败关闭及不含内容/密钥的调用审计。",
+    "把隔离在线配置接入现有 semantic_analysis 节点并保持 RAG、Evidence Checker、Checkpoint、人工复核和报告流程不变；离线模式保留且在线失败不得回退到 Mock。",
+    "为适配器、外发边界、身份/授权、预算、审计及真实响应参与风险分析补充测试；先运行 MockTransport、Focused、Full 和必要专项。",
+    "DEC-002 获批且本地凭据就绪后，只在一次完整在线 Edge E2E 中执行一条真实 Qwen 请求；该请求同时验证供应商连通和 LangGraph 参与，不另发 smoke 请求，失败不重试、不重跑。",
+    "门禁与在线 E2E 通过后按仓库流程记录证据、更新演示文档和状态、提交、推送、核验远端 CI 并完成归档。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0021-001",
+      "description": "Bailian Qwen 适配器通过 MockTransport 的结构化输出、协议、端点、严格字段/错误处理、秘密日志和超时测试；请求不使用 OpenAI 固定端点。",
+      "evidence": ["docs/development/TASK-0021-validation.md"]
+    },
+    {
+      "id": "TASK0021-002",
+      "description": "Gateway 只允许审批过的合成字段；检索法规正文和未授权/其他文件不能进入供应商请求；单进程单次演示调用上限、费用预算和元数据审计均实际强制执行。",
+      "evidence": ["docs/development/TASK-0021-validation.md"]
+    },
+    {
+      "id": "TASK0021-003",
+      "description": "现有离线 TASK-0020 模式回归通过；在线模式明确标识 Qwen、真实调用失败关闭、不用 Mock 替代，并通过正式 Focused、Full、PostgreSQL/Checkpoint 等适用专项。",
+      "evidence": ["docs/development/TASK-0021-validation.md"]
+    },
+    {
+      "id": "TASK0021-004",
+      "description": "DEC-002 获明确批准且密钥安全配置后，真实 Qwen 响应可由调用审计/分析工件证实实际参与合成风险判断；真实 LangGraph Edge E2E 完成上传、解析、五类 Skill、法规 RAG、Evidence Checker、人工复核和 DOCX/PDF 导出。",
+      "evidence": ["docs/development/TASK-0021-validation.md"]
+    },
+    {
+      "id": "TASK0021-005",
+      "description": "TASK-0021 源码及归档提交 SHA 的适用 GitHub CI 成功；最终任务档案、DEC-002 状态、M3B、README、演示指南与 PROJECT_STATE 以实际证据一致。",
+      "evidence": ["docs/development/TASK-0021-validation.md"]
+    }
+  ],
+  "verify": [
+    "./.venv/Scripts/python.exe -m pytest tests/test_bailian_qwen_adapter.py tests/test_task0021_online_gateway.py -q",
+    "./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_bailian_qwen_adapter.py tests/test_task0021_online_gateway.py <affected-tests>",
+    "./scripts/verify.ps1",
+    "One DEC-002-authorized real Qwen request inside scripts/run_task0021_online_e2e.py (one invocation only; no standalone smoke or retry)"
+  ],
+  "handoff_notes": "TASK-0019 的独立工作树与所有未提交内容不得读取后写回、切换、清理或覆盖。DEC-002 授权的一次合成数据在线调用已消耗；不得额外请求或重跑。真实招标文件、个人/客户数据及法规正文始终不得进入模型请求。Focused、Full、PostgreSQL/Checkpoint、真实 Edge E2E、源码 Full CI 及完成态归档 Quick CI 均已通过，M3B 已按验证记录退出。"
+}

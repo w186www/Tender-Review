@@ -1,0 +1,137 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0019",
+  "title": "招标文件审查能力离线基线评测",
+  "status": "in_progress",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0005",
+    "TASK-0006",
+    "TASK-0007",
+    "TASK-0009",
+    "TASK-0010",
+    "TASK-0011",
+    "TASK-0018"
+  ],
+  "related_requirements": [
+    "FR-002",
+    "FR-004",
+    "FR-005",
+    "FR-006",
+    "FR-008",
+    "FR-010",
+    "FR-011",
+    "SEC-003",
+    "SEC-004",
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-002",
+    "AC-003",
+    "AC-004",
+    "AC-005",
+    "AC-006",
+    "AC-007"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/roadmap.md",
+    "docs/development/testing-standard.md",
+    "docs/development/TASK-0009-validation.md",
+    "docs/development/TASK-0010-validation.md",
+    "docs/development/TASK-0011-validation.md",
+    "docs/development/TASK-0018-validation.md",
+    "evals/golden_cases/GC-0001-region-restriction.json",
+    "evals/golden_cases/GC-0002-exclusive-brand.json",
+    "evals/golden_cases/GC-0003-score-total-mismatch.json",
+    "evals/golden_cases/GC-0004-key-contract-placeholder.json",
+    "evals/golden_cases/GC-0005-tender-time-order.json",
+    "evals/thresholds.yaml"
+  ],
+  "allowed_paths": [
+    "evals/golden_cases/**",
+    "evals/capability_baseline/**",
+    "scripts/evaluate_review_capabilities.py",
+    "tests/test_review_capability_evaluation.py",
+    "docs/development/TASK-0019-validation.md",
+    "docs/development/roadmap.yaml",
+    "docs/development/roadmap.md",
+    "tasks/active/TASK-0019-offline-capability-baseline.yaml",
+    "tasks/completed/TASK-0019-offline-capability-baseline.yaml",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx",
+    "tasks/active/TASK-0012-deployment-operations.yaml",
+    "tasks/active/TASK-0013-evaluation-security.yaml",
+    "tasks/active/TASK-0014-delivery-handoff.yaml",
+    "src/bidding_compliance/**",
+    "contracts/**",
+    "evals/thresholds.yaml",
+    "package-lock.json",
+    "requirements-dev.lock",
+    "requirements-embedding.lock"
+  ],
+  "steps": [
+    "基于仓库真实 M3 任务、集成记录和远端 CI 逐项核验退出条件，修正状态叙述；保留 TASK-0012/0013/0014 原验收条件。",
+    "固定已有五个合成黄金案例的文件 SHA-256、版本、来源及逐样本标注状态；检查真实样本文件仅核对路径和授权记录，缺失或未授权时标记待补，不读取、猜测、下载或外发。",
+    "按既有安全解析流程评估可用合成 DOCX/PDF 与 OCR 样本的抽取、定位、数字、表格、重复条款及质量警报；保留格式、扫描/文本类型及有效分母。",
+    "运行五类确定性 Skill 发现，记录规则、来源定位、重复候选、专家确认样本覆盖与未匹配项；没有专家金标的样本只报告候选覆盖。",
+    "使用正式 CharacterEmbedding/BM25/RRF 路径评估检索，并逐条说明地区/主体/采购制度/方式适用性、效力区间、版本核验日期及不能确认的法律结论。",
+    "核验原文证据、定位、法规来源和 Evidence Checker 状态降级；不修改 Checker 或现有阈值来提高通过率。",
+    "通过现有授权离线 ReviewEngine 测试通道实际执行 LangGraph、数据库、证据门禁、人工复核、报告、Checkpoint 恢复和失败路径，明确标注离线确定性替身不代表真实 LLM 语义质量。",
+    "将失败按九个既定层次记录最小复现、预期/实际、节点、稳定性、合规影响、P0/P1/P2 和最小修复建议，并给出能力边界和投入真实模型的建议。",
+    "执行正式 Focused、Full 与所需解析、PostgreSQL/ReviewEngine 专项；发布可重复命令、结果工件和仓库状态记录。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0019-001",
+      "description": "M3 退出条件及 TASK-0009/0010/0011 的归档和远端 CI 状态以真实证据核验；M3、补充诊断里程碑和项目状态无冲突。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0019-002",
+      "description": "五个已有合成黄金案例具备固定清单、SHA-256、版本和分层标注；真实文件不存在或无授权时如实标为待补，金标统计分母不混入候选/未标注样本。",
+      "evidence": [
+        "evals/capability_baseline/dataset_registry.yaml",
+        "evals/capability_baseline/labels/pending-adjudication.yaml",
+        "evals/capability_baseline/results/task0019-baseline-20261015.json",
+        "evals/capability_baseline/results/task0019-baseline-final-20261015.json",
+        "evals/golden_cases/GC-0001-region-restriction.json",
+        "evals/golden_cases/GC-0002-exclusive-brand.json",
+        "evals/golden_cases/GC-0003-score-total-mismatch.json",
+        "evals/golden_cases/GC-0004-key-contract-placeholder.json",
+        "evals/golden_cases/GC-0005-tender-time-order.json",
+        "docs/development/u03-label-adjudication-drafts.md"
+      ]
+    },
+    {
+      "id": "TASK0019-003",
+      "description": "文件解析/OCR、五类规则候选发现、正式法规检索与适用性、Evidence Checker 和离线工作流各有可重跑的实际结果；不可测项目和确定性替身边界明确。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0019-004",
+      "description": "已发现缺陷按层分类及 P0/P1/P2 排序，报告有效分母、实际影响、最小修复建议、LLM 对已证实问题的帮助边界和 Demo 缺口；不宣称满足 M5 阈值。",
+      "evidence": []
+    },
+    {
+      "id": "TASK0019-005",
+      "description": "评测工具及文档通过仓库治理检查；若修改工具或测试，正式 Focused、Full 和必要专项均通过，任务与 PROJECT_STATE/CHANGELOG/roadmap 一致。",
+      "evidence": []
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Focused -TestPaths @('tests/test_review_capability_evaluation.py','tests/test_rules_skills.py','tests/test_ingestion.py','tests/test_evidence_checker.py','tests/test_legal_retrieval.py','tests/test_legal_evidence.py','tests/test_review_reports.py')",
+    "./scripts/verify.ps1 -Mode Full",
+    "./.venv/Scripts/python.exe scripts/evaluate_review_capabilities.py --output evals/capability_baseline/results/task0019-baseline.json",
+    "./.venv/Scripts/python.exe scripts/check_legal_publications.py",
+    "./.venv/Scripts/python.exe scripts/check_ingestion_containers.py"
+  ],
+  "handoff_notes": "2026-10-18 the user explicitly authorized resuming TASK-0019 from the preserved backup. The evaluator, test, two historical results and the original TASK file were restored from _backups/worktrees-uncommitted-20261017T080625Z/task0019 into this working tree; all five SHA-256 values match the pause manifest. The evaluator received formatting-only adaptation (original 7b2c2b06…, adapted 2888a44b…); evaluation logic is unchanged. The missing legal retrieval report was regenerated to .verification/task0019-legal/u03-character-baseline-20261018.json (new path, not overwriting anything); core metrics match the historical report. U03 dataset partitions, identities and pending-adjudication label drafts are in evals/capability_baseline/dataset_registry.yaml, evals/capability_baseline/labels/pending-adjudication.yaml and docs/development/u03-label-adjudication-drafts.md. Expert-confirmed labels were never present and remain zero, so risk precision/recall stay not_measured; D2 adjudication is still required. The original backup directory remains read-only and unchanged. TASK-0019 remains synthetic-only; DEC-005/DEC-007 do not authorize any request outside the separate D3-approved real-model verification scope."
+}

@@ -1,0 +1,1440 @@
+{
+  "schema_version": "v1alpha3",
+  "versions": [
+    {
+      "law_id": "4e7223995c70401b200954e1",
+      "title": "中华人民共和国招标投标法",
+      "version": "2017年修正（主席令第86号）",
+      "text_path": "knowledge/legal/01-招投标专门法规/中华人民共和国招标投标法.txt",
+      "text_hash": "10c20b7af8324ba198ede624d686cf0481bde69424b8388d85d710a911e94eba",
+      "source_uri": "https://sjt.hlj.gov.cn/sjt/c109750/202512/c00_31893084.shtml",
+      "source_snapshot_path": "knowledge/legal/01-招投标专门法规/中华人民共和国招标投标法.txt",
+      "source_hash": "10c20b7af8324ba198ede624d686cf0481bde69424b8388d85d710a911e94eba",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "a273f6b956365e42b7b72f9b",
+      "title": "中华人民共和国招标投标法实施条例",
+      "version": "国务院令第613号",
+      "text_path": "knowledge/legal/01-招投标专门法规/中华人民共和国招标投标法实施条例.txt",
+      "text_hash": "5743b876ac3f595cf2d1a6d75cb9962746432d006ae067d5645cde0f5b856b1c",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/2011-12/29/content_4066.htm",
+      "source_snapshot_path": "knowledge/legal/01-招投标专门法规/中华人民共和国招标投标法实施条例.txt",
+      "source_hash": "5743b876ac3f595cf2d1a6d75cb9962746432d006ae067d5645cde0f5b856b1c",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。司法部沿革显示2017/2018/2019修订，本文件2011原文不可作为现行版本。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "e6805a5c40f1c49b9553e1bb",
+      "title": "房屋建筑和市政基础设施工程施工招标投标管理办法",
+      "version": "建设部令第89号（2018年修改）",
+      "text_path": "knowledge/legal/01-招投标专门法规/房屋建筑和市政基础设施工程施工招标投标管理办法.txt",
+      "text_hash": "d35dc19741b518c2245581b240fa6c2629a8bd68fc9e34ad8afcd47916359366",
+      "source_uri": "http://www.gov.cn/gongbao/content/2002/content_61361.htm",
+      "source_snapshot_path": "knowledge/legal/01-招投标专门法规/房屋建筑和市政基础设施工程施工招标投标管理办法.txt",
+      "source_hash": "d35dc19741b518c2245581b240fa6c2629a8bd68fc9e34ad8afcd47916359366",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "4e459c3d9219d6bac9017ac3",
+      "title": "标准施工招标文件",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/01-招投标专门法规/标准施工招标文件.txt",
+      "text_hash": "a966ca965368403d1c3f5cf6e9581056f3294545a1e43191cbfb1b3a288bb058",
+      "source_uri": "http://www.gov.cn/gongbao/content/2008/content_1018948.htm",
+      "source_snapshot_path": "knowledge/legal/01-招投标专门法规/标准施工招标文件.txt",
+      "source_hash": "a966ca965368403d1c3f5cf6e9581056f3294545a1e43191cbfb1b3a288bb058",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "973a78cc981bc1b36e409448",
+      "title": "评标委员会和评标方法暂行规定",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/01-招投标专门法规/评标委员会和评标方法暂行规定.txt",
+      "text_hash": "24289d6e00edf68a703558b2706ed48d6de6edb6bba4e0e22f27bd3d4b98d855",
+      "source_uri": "http://www.gov.cn/gongbao/content/2002/content_61438.htm",
+      "source_snapshot_path": "knowledge/legal/01-招投标专门法规/评标委员会和评标方法暂行规定.txt",
+      "source_hash": "24289d6e00edf68a703558b2706ed48d6de6edb6bba4e0e22f27bd3d4b98d855",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "347596a2132adb62e9b7a2d1",
+      "title": "中华人民共和国价格法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/02-公平竞争与反垄断/中华人民共和国价格法.txt",
+      "text_hash": "48499634395cd287f0a82ca6d637a02f71adb99cb9a7ed25be62542bec9301b4",
+      "source_uri": "https://www.samr.gov.cn/zw/zfxxgk/fdzdgknr/jls/art/2023/art_3da9131ab041449d9af2af886ee33766.html",
+      "source_snapshot_path": "knowledge/legal/02-公平竞争与反垄断/中华人民共和国价格法.txt",
+      "source_hash": "48499634395cd287f0a82ca6d637a02f71adb99cb9a7ed25be62542bec9301b4",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "1c2d28abd893e4ae0f1ef111",
+      "title": "中华人民共和国反不正当竞争法",
+      "version": "2019年修正",
+      "text_path": "knowledge/legal/02-公平竞争与反垄断/中华人民共和国反不正当竞争法.txt",
+      "text_hash": "054c6c4fe6cd0d99882a7f81e907563c0dbb0aefd755276e851aeddd9c84a0d1",
+      "source_uri": "https://policy.mofcom.gov.cn/claw/clawContent.shtml?id=66983",
+      "source_snapshot_path": "knowledge/legal/02-公平竞争与反垄断/中华人民共和国反不正当竞争法.txt",
+      "source_hash": "054c6c4fe6cd0d99882a7f81e907563c0dbb0aefd755276e851aeddd9c84a0d1",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "428d105dea15101deb4808f9",
+      "title": "中华人民共和国反垄断法",
+      "version": "2022年修正",
+      "text_path": "knowledge/legal/02-公平竞争与反垄断/中华人民共和国反垄断法.txt",
+      "text_hash": "9fbb65a39a3b2a14104d932deb82c4b98e89591dfa5f75faf4eb3c5f9ad31ad1",
+      "source_uri": "https://policy.mofcom.gov.cn/claw/clawContent.shtml?id=97047",
+      "source_snapshot_path": "knowledge/legal/02-公平竞争与反垄断/中华人民共和国反垄断法.txt",
+      "source_hash": "9fbb65a39a3b2a14104d932deb82c4b98e89591dfa5f75faf4eb3c5f9ad31ad1",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "a4a2b60a920a434cb864df4b",
+      "title": "公平竞争审查条例",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/02-公平竞争与反垄断/公平竞争审查条例.txt",
+      "text_hash": "a6088749643b6332b6ae713ad64c2e09c045e21efaa58b4db015f5ee68c4705a",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/202406/content_6957050.htm",
+      "source_snapshot_path": "knowledge/legal/02-公平竞争与反垄断/公平竞争审查条例.txt",
+      "source_hash": "a6088749643b6332b6ae713ad64c2e09c045e21efaa58b4db015f5ee68c4705a",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "d7879331ea8cb80f6f937b12",
+      "title": "公平竞争审查条例实施办法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/02-公平竞争与反垄断/公平竞争审查条例实施办法.txt",
+      "text_hash": "c26aa5dde5f139993666e64520c27ed4fb679289c55f1c32ffd25b40a9fb02e2",
+      "source_uri": "https://www.gov.cn/gongbao/2025/issue_12006/202504/content_7021457.html",
+      "source_snapshot_path": "knowledge/legal/02-公平竞争与反垄断/公平竞争审查条例实施办法.txt",
+      "source_hash": "c26aa5dde5f139993666e64520c27ed4fb679289c55f1c32ffd25b40a9fb02e2",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "d362b81e387fc87b8ffa0922",
+      "title": "中华人民共和国政府采购法",
+      "version": "2014年修正",
+      "text_path": "knowledge/legal/03-政府采购法规/中华人民共和国政府采购法.txt",
+      "text_hash": "ffefbcde193967fd62b75e48c2e9bcc9f07b9a90b828178115d5d31966deb9e9",
+      "source_uri": "https://www.samr.gov.cn/zw/zfxxgk/fdzdgknr/bgt/art/2023/art_47b5807c40c040368eb5f13b489d6c43.html",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/中华人民共和国政府采购法.txt",
+      "source_hash": "ffefbcde193967fd62b75e48c2e9bcc9f07b9a90b828178115d5d31966deb9e9",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "9b438c8b8a7e331c17351898",
+      "title": "中华人民共和国政府采购法实施条例",
+      "version": "国务院令第658号",
+      "text_path": "knowledge/legal/03-政府采购法规/中华人民共和国政府采购法实施条例.txt",
+      "text_hash": "a77231a494671ae6eb8f3ed9b05c61de4e8c1ec6482013c1fed5e00c5e9a50cb",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/2015-02/27/content_9504.htm",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/中华人民共和国政府采购法实施条例.txt",
+      "source_hash": "a77231a494671ae6eb8f3ed9b05c61de4e8c1ec6482013c1fed5e00c5e9a50cb",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "86072f006718457886863e0e",
+      "title": "关于调整优化节能产品、环境标志产品政府采购执行机制的通知",
+      "version": "财库〔2019〕9号（取代节能产品/环境标志产品政府采购清单机制）",
+      "text_path": "knowledge/legal/03-政府采购法规/关于调整优化节能产品、环境标志产品政府采购执行机制的通知.txt",
+      "text_hash": "cfed6f8ec68c9ea9b5690e57e9dd27cea4af817a45a9e818cbbf3aea57ed2d8a",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/2019-10/15/content_5439979.htm",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/关于调整优化节能产品、环境标志产品政府采购执行机制的通知.txt",
+      "source_hash": "cfed6f8ec68c9ea9b5690e57e9dd27cea4af817a45a9e818cbbf3aea57ed2d8a",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "427346dd4babd614cd601272",
+      "title": "工程建设项目施工招标投标办法",
+      "version": "2013年修正（七部委令第30号）",
+      "text_path": "knowledge/legal/03-政府采购法规/工程建设项目施工招标投标办法.txt",
+      "text_hash": "aa227a78a3e9e1037a452fe01b0d19e0d1cdca8e226f5a6fc45d671d5a62bb02",
+      "source_uri": "https://www.gov.cn/zhengce/2021-11/30/content_5713206.htm",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/工程建设项目施工招标投标办法.txt",
+      "source_hash": "aa227a78a3e9e1037a452fe01b0d19e0d1cdca8e226f5a6fc45d671d5a62bb02",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "f491da9b5840f1ecc7b9db54",
+      "title": "政府采购促进中小企业发展管理办法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/03-政府采购法规/政府采购促进中小企业发展管理办法.txt",
+      "text_hash": "f612c9b12eb143f0d09bb78f96badf5ee0349fe076f2a052f414bf2804a142ae",
+      "source_uri": "http://www.gov.cn/gongbao/content/2021/content_5591418.htm",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/政府采购促进中小企业发展管理办法.txt",
+      "source_hash": "f612c9b12eb143f0d09bb78f96badf5ee0349fe076f2a052f414bf2804a142ae",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "13fdfdd0e884f6889ae661bb",
+      "title": "政府采购合作创新采购方式管理暂行办法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/03-政府采购法规/政府采购合作创新采购方式管理暂行办法.txt",
+      "text_hash": "bc289f37fb75f6a488a31d31b025b0668fb2933cf6b86711c36aa1187e024f0b",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/202404/content_6947953.htm",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/政府采购合作创新采购方式管理暂行办法.txt",
+      "source_hash": "bc289f37fb75f6a488a31d31b025b0668fb2933cf6b86711c36aa1187e024f0b",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "1f221ddf1119fea30b9c110c",
+      "title": "政府采购货物和服务招标投标管理办法",
+      "version": "财政部令第87号",
+      "text_path": "knowledge/legal/03-政府采购法规/政府采购货物和服务招标投标管理办法.txt",
+      "text_hash": "df87f8be2760b714aa366804b4ad9274e6b5f259db4b33fb2738668e1cfdcec1",
+      "source_uri": "http://www.gov.cn/gongbao/content/2017/content_5241918.htm",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/政府采购货物和服务招标投标管理办法.txt",
+      "source_hash": "df87f8be2760b714aa366804b4ad9274e6b5f259db4b33fb2738668e1cfdcec1",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "a2d288fd4fc2b24ee468e18d",
+      "title": "政府采购质疑和投诉办法",
+      "version": "财政部令第94号",
+      "text_path": "knowledge/legal/03-政府采购法规/政府采购质疑和投诉办法.txt",
+      "text_hash": "4f4ba5cbbc67d145b06b4e64481a3983361fab78db41ee3ecb16b2c3ea26ae1f",
+      "source_uri": "http://www.gov.cn/gongbao/content/2018/content_5288825.htm",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/政府采购质疑和投诉办法.txt",
+      "source_hash": "4f4ba5cbbc67d145b06b4e64481a3983361fab78db41ee3ecb16b2c3ea26ae1f",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "0fae48555f11d04dfaaf36e4",
+      "title": "政府采购进口产品管理办法",
+      "version": "财库〔2007〕119号",
+      "text_path": "knowledge/legal/03-政府采购法规/政府采购进口产品管理办法.txt",
+      "text_hash": "f63b613379e194abc76dd63ca74b68a6677c4edd1d078a8081a30ebe96fc2e56",
+      "source_uri": "http://lzggzyjy.lanzhou.gov.cn/fwzn/003001/003001003/003001003001/20230926/28ae5729-ddd8-4a6c-8a3c-b4eaff5adb33.html",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/政府采购进口产品管理办法.txt",
+      "source_hash": "f63b613379e194abc76dd63ca74b68a6677c4edd1d078a8081a30ebe96fc2e56",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "daba57f672e50cc38f0b7e03",
+      "title": "政府采购需求管理办法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/03-政府采购法规/政府采购需求管理办法.txt",
+      "text_hash": "9b9401c88142bd4b23d7b98522fe3176e1f69e0ca5419f3bbb4781305621896f",
+      "source_uri": "http://www.gov.cn/gongbao/content/2021/content_5623061.htm",
+      "source_snapshot_path": "knowledge/legal/03-政府采购法规/政府采购需求管理办法.txt",
+      "source_hash": "9b9401c88142bd4b23d7b98522fe3176e1f69e0ca5419f3bbb4781305621896f",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "a998847ee9f7027a3ef61265",
+      "title": "中华人民共和国建筑法",
+      "version": "2019年修正",
+      "text_path": "knowledge/legal/04-工程建设与合同结算/中华人民共和国建筑法.txt",
+      "text_hash": "d272f5595dd8d82bfae85b652df5702cffd1767e0a7913584318345b21bb1f7a",
+      "source_uri": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202208/t20220810_2790245.html",
+      "source_snapshot_path": "knowledge/legal/04-工程建设与合同结算/中华人民共和国建筑法.txt",
+      "source_hash": "d272f5595dd8d82bfae85b652df5702cffd1767e0a7913584318345b21bb1f7a",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "491fc0d935f4e7b958cd983f",
+      "title": "中华人民共和国民法典",
+      "version": "2020年通过，2021年1月1日施行",
+      "text_path": "knowledge/legal/04-工程建设与合同结算/中华人民共和国民法典.txt",
+      "text_hash": "ee246dd89aa7d64dbaee0b2a8f3aa5ec0264bd7f3c2c653a2afb78f071d42eb0",
+      "source_uri": "https://www.gzrd.gov.cn/xwzx/rdyw/202006/t20200602_77652025.html",
+      "source_snapshot_path": "knowledge/legal/04-工程建设与合同结算/中华人民共和国民法典.txt",
+      "source_hash": "ee246dd89aa7d64dbaee0b2a8f3aa5ec0264bd7f3c2c653a2afb78f071d42eb0",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "0554db4ee9575fb8ad810105",
+      "title": "关于完善建设工程价款结算有关办法的通知",
+      "version": "财建〔2022〕183号",
+      "text_path": "knowledge/legal/04-工程建设与合同结算/关于完善建设工程价款结算有关办法的通知.txt",
+      "text_hash": "8c7ca0a6604c08a3504ea5ff2c52264c92d8c656668f8b2b56fd88d10296e4e2",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/2022-06/30/content_5698595.htm",
+      "source_snapshot_path": "knowledge/legal/04-工程建设与合同结算/关于完善建设工程价款结算有关办法的通知.txt",
+      "source_hash": "8c7ca0a6604c08a3504ea5ff2c52264c92d8c656668f8b2b56fd88d10296e4e2",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "21e2d6d3cd220e3099a088a9",
+      "title": "建筑工程安全防护、文明施工措施费用及使用管理规定",
+      "version": "建办〔2005〕89号",
+      "text_path": "knowledge/legal/04-工程建设与合同结算/建筑工程安全防护、文明施工措施费用及使用管理规定.txt",
+      "text_hash": "85d30eefabc5d042599d7e7af476c338aced418d07196653cdb882a41b984347",
+      "source_uri": "https://www.mohurd.gov.cn/gongkai/zc/xzgfxwjk/art/2006/art_1574938760.html",
+      "source_snapshot_path": "knowledge/legal/04-工程建设与合同结算/建筑工程安全防护、文明施工措施费用及使用管理规定.txt",
+      "source_hash": "85d30eefabc5d042599d7e7af476c338aced418d07196653cdb882a41b984347",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "97ae4d629c27b8e05e602d02",
+      "title": "建设工程价款结算暂行办法",
+      "version": "财建〔2004〕369号",
+      "text_path": "knowledge/legal/04-工程建设与合同结算/建设工程价款结算暂行办法.txt",
+      "text_hash": "10712db3da86324ffc3df9e916b73abd224a7a8690503d906793a84ac3006e6c",
+      "source_uri": "https://www.mof.gov.cn/gkml/caizhengwengao/caizhengbuwengao2004/caizhengbuwengao20049/200805/t20080519_20206.htm",
+      "source_snapshot_path": "knowledge/legal/04-工程建设与合同结算/建设工程价款结算暂行办法.txt",
+      "source_hash": "10712db3da86324ffc3df9e916b73abd224a7a8690503d906793a84ac3006e6c",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "0eb96efabc44c09dbd6e54c3",
+      "title": "建设工程安全生产管理条例",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/04-工程建设与合同结算/建设工程安全生产管理条例.txt",
+      "text_hash": "4a005036760cb8d4a49544846b156d1706188a4983fe2dfdb29af3c2a5a40aa9",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/2008-03/28/content_4443.htm",
+      "source_snapshot_path": "knowledge/legal/04-工程建设与合同结算/建设工程安全生产管理条例.txt",
+      "source_hash": "4a005036760cb8d4a49544846b156d1706188a4983fe2dfdb29af3c2a5a40aa9",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "c4fae54dd0b6a9e23ce2d58a",
+      "title": "建设工程质量保证金管理办法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/04-工程建设与合同结算/建设工程质量保证金管理办法.txt",
+      "text_hash": "e20081666e0d1ed9e45b88a488d6186c0d48666a58afee7c522c6fc57758fb43",
+      "source_uri": "http://www.gov.cn/gongbao/content/2017/content_5244884.htm",
+      "source_snapshot_path": "knowledge/legal/04-工程建设与合同结算/建设工程质量保证金管理办法.txt",
+      "source_hash": "e20081666e0d1ed9e45b88a488d6186c0d48666a58afee7c522c6fc57758fb43",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "10bea7aa21ff5e6189c72ac6",
+      "title": "中华人民共和国中小企业促进法",
+      "version": "2017年修订",
+      "text_path": "knowledge/legal/05-资质标准与认证/中华人民共和国中小企业促进法.txt",
+      "text_hash": "3486681dedb9a23194e0ee20273b502b3d6ef335fcffb75569ed3422465ba33b",
+      "source_uri": "https://policy.mofcom.gov.cn/claw/clawContent.shtml?id=62915",
+      "source_snapshot_path": "knowledge/legal/05-资质标准与认证/中华人民共和国中小企业促进法.txt",
+      "source_hash": "3486681dedb9a23194e0ee20273b502b3d6ef335fcffb75569ed3422465ba33b",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "1eabfb507465cd886023fed0",
+      "title": "中华人民共和国标准化法",
+      "version": "2017年修订",
+      "text_path": "knowledge/legal/05-资质标准与认证/中华人民共和国标准化法.txt",
+      "text_hash": "c5e94bc3ca7d654b2b530fb119bd5e1d8afc05bef2d0cfe184d14996ed7c81d5",
+      "source_uri": "https://www.tjftz.gov.cn/contents/6287/291894.html",
+      "source_snapshot_path": "knowledge/legal/05-资质标准与认证/中华人民共和国标准化法.txt",
+      "source_hash": "c5e94bc3ca7d654b2b530fb119bd5e1d8afc05bef2d0cfe184d14996ed7c81d5",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "8f94064e438adfd50a1f0f47",
+      "title": "中华人民共和国认证认可条例",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/05-资质标准与认证/中华人民共和国认证认可条例.txt",
+      "text_hash": "834fd03677bd46630714f28c53381e49aeeca95931dc8ad0a32200c49ddcb3c7",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/2008-03/28/content_4311.htm",
+      "source_snapshot_path": "knowledge/legal/05-资质标准与认证/中华人民共和国认证认可条例.txt",
+      "source_hash": "834fd03677bd46630714f28c53381e49aeeca95931dc8ad0a32200c49ddcb3c7",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "ce30cb05103fce05b228760a",
+      "title": "建筑业企业资质管理规定",
+      "version": "住房和城乡建设部令第22号（2015年施行；2018年经第45号令修改）",
+      "text_path": "knowledge/legal/05-资质标准与认证/建筑业企业资质管理规定.txt",
+      "text_hash": "353e6b99b0b04a4cb8462955204cd1f62ea7cc13975053a3257adaab1056192c",
+      "source_uri": "http://www.gov.cn/gongbao/content/2015/content_2847783.htm",
+      "source_snapshot_path": "knowledge/legal/05-资质标准与认证/建筑业企业资质管理规定.txt",
+      "source_hash": "353e6b99b0b04a4cb8462955204cd1f62ea7cc13975053a3257adaab1056192c",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "bbac7c7bb55e9307c022ce96",
+      "title": "中华人民共和国专利法",
+      "version": "2020年修正",
+      "text_path": "knowledge/legal/06-数据与知识产权/中华人民共和国专利法.txt",
+      "text_hash": "2e5fc895bad3a6022791ff586fbfc067fd461a45e00935b441e423d4998d40f9",
+      "source_uri": "https://www.cnipa.gov.cn/art/2020/11/23/art_2197_155169.html",
+      "source_snapshot_path": "knowledge/legal/06-数据与知识产权/中华人民共和国专利法.txt",
+      "source_hash": "2e5fc895bad3a6022791ff586fbfc067fd461a45e00935b441e423d4998d40f9",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "640322539fcf840cb309010d",
+      "title": "中华人民共和国个人信息保护法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/06-数据与知识产权/中华人民共和国个人信息保护法.txt",
+      "text_hash": "939727ee11b468bd40d6b7e768bf444fc21a44d5b35ad7a7eceb75f754d179fb",
+      "source_uri": "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm",
+      "source_snapshot_path": "knowledge/legal/06-数据与知识产权/中华人民共和国个人信息保护法.txt",
+      "source_hash": "939727ee11b468bd40d6b7e768bf444fc21a44d5b35ad7a7eceb75f754d179fb",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "74b705f5770fca322f02fe53",
+      "title": "中华人民共和国数据安全法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/06-数据与知识产权/中华人民共和国数据安全法.txt",
+      "text_hash": "d65ff7a932e8f1ba09e61a172b65e053d34b81b3147df856a6367a24f655e463",
+      "source_uri": "https://www.cac.gov.cn/2021-06/11/c_1624994566919140.htm",
+      "source_snapshot_path": "knowledge/legal/06-数据与知识产权/中华人民共和国数据安全法.txt",
+      "source_hash": "d65ff7a932e8f1ba09e61a172b65e053d34b81b3147df856a6367a24f655e463",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "583618190d6752219a718915",
+      "title": "中华人民共和国网络安全法",
+      "version": "2016年发布（2025年10月修正，本页为2016年原文，分页已合并）",
+      "text_path": "knowledge/legal/06-数据与知识产权/中华人民共和国网络安全法.txt",
+      "text_hash": "25af3b505e60f7de0683dd95e2c308a84f13f1786a4e0fd888cd5aa8abceef62",
+      "source_uri": "https://www.cac.gov.cn/2016-11/07/c_1119867116.htm",
+      "source_snapshot_path": "knowledge/legal/06-数据与知识产权/中华人民共和国网络安全法.txt",
+      "source_hash": "25af3b505e60f7de0683dd95e2c308a84f13f1786a4e0fd888cd5aa8abceef62",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。原文为2016版，标题已提示2025修正，必须补齐新版本。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "eaa165cdd53724754f8c286f",
+      "title": "中华人民共和国著作权法",
+      "version": "2020年修正",
+      "text_path": "knowledge/legal/06-数据与知识产权/中华人民共和国著作权法.txt",
+      "text_hash": "c895da0fe9fa67434b2407c271e0e3013d846fc8c12e0bd106fb5a9f65aa5087",
+      "source_uri": "https://www.gov.cn/guoqing/2021-10/29/content_5647633.htm",
+      "source_snapshot_path": "knowledge/legal/06-数据与知识产权/中华人民共和国著作权法.txt",
+      "source_hash": "c895da0fe9fa67434b2407c271e0e3013d846fc8c12e0bd106fb5a9f65aa5087",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "f7205f29a7f6d374f7e66ef6",
+      "title": "公共资源交易平台管理暂行办法",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/07-平台与其他/公共资源交易平台管理暂行办法.txt",
+      "text_hash": "9a3b251ab0a237992327dc92209c7f66dd6c7cd5349fa50828e379c8826b288a",
+      "source_uri": "http://www.gov.cn/gongbao/content/2016/content_5113011.htm",
+      "source_snapshot_path": "knowledge/legal/07-平台与其他/公共资源交易平台管理暂行办法.txt",
+      "source_hash": "9a3b251ab0a237992327dc92209c7f66dd6c7cd5349fa50828e379c8826b288a",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "bca18863bdd9cb167e7fa335",
+      "title": "国务院办公厅关于全面推行证明事项告知承诺制的意见",
+      "version": "国办发〔2020〕49号",
+      "text_path": "knowledge/legal/07-平台与其他/国务院办公厅关于全面推行证明事项告知承诺制的意见.txt",
+      "text_hash": "cc4ed8a6790789c591209057a44ad03a41c28b6d4ee7df8ac284cd451d874ed3",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/2021-01/05/content_5577126.htm",
+      "source_snapshot_path": "knowledge/legal/07-平台与其他/国务院办公厅关于全面推行证明事项告知承诺制的意见.txt",
+      "source_hash": "cc4ed8a6790789c591209057a44ad03a41c28b6d4ee7df8ac284cd451d874ed3",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "2d66fcffb5677ccdc93afeb2",
+      "title": "招标人主体责任履行指引",
+      "version": "发改法规〔2025〕1358号（PDF附件全文）",
+      "text_path": "knowledge/legal/08-声明依据/招标人主体责任履行指引.txt",
+      "text_hash": "a543d4ade8710c424435d0d01a5440d1ffc6947b0a502be43630cc1b1d6762ec",
+      "source_uri": "https://www.gov.cn/zhengce/zhengceku/202511/P020251112302845586709.pdf",
+      "source_snapshot_path": "knowledge/legal/08-声明依据/招标人主体责任履行指引.txt",
+      "source_hash": "a543d4ade8710c424435d0d01a5440d1ffc6947b0a502be43630cc1b1d6762ec",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "877801c6e657cf4a1100698e",
+      "title": "招标投标领域公平竞争审查规则",
+      "version": "（未核实版本）",
+      "text_path": "knowledge/legal/08-声明依据/招标投标领域公平竞争审查规则.txt",
+      "text_hash": "8641e28b1ee2237302204a196e6d95ce0ce0c9bca9b7398d95e85f3f0bae49a2",
+      "source_uri": "https://www.gov.cn/gongbao/2024/issue_11346/202405/content_6951525.html",
+      "source_snapshot_path": "knowledge/legal/08-声明依据/招标投标领域公平竞争审查规则.txt",
+      "source_hash": "8641e28b1ee2237302204a196e6d95ce0ce0c9bca9b7398d95e85f3f0bae49a2",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "49e17a2c0e74967bb6e17949",
+      "title": "福建省促进公平竞争条例",
+      "version": "福建省人大常委会公告〔十四届〕第三十一号（2024年12月1日施行）",
+      "text_path": "knowledge/legal/08-声明依据/福建省促进公平竞争条例.txt",
+      "text_hash": "7aae4c17c8e91baad95a988e024defbf8e2ef701a82a6038dc56e551e4604ea1",
+      "source_uri": "http://www.fj.gov.cn/zwgk/flfg/dfxfg/202410/t20241026_6554094.htm",
+      "source_snapshot_path": "knowledge/legal/08-声明依据/福建省促进公平竞争条例.txt",
+      "source_hash": "7aae4c17c8e91baad95a988e024defbf8e2ef701a82a6038dc56e551e4604ea1",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN/福建"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "c92005f722132efa3cd8840e",
+      "title": "闽发改法规〔2023〕53号加强工程项目招标投标领域监管工作方案",
+      "version": "闽发改法规〔2023〕53号",
+      "text_path": "knowledge/legal/08-声明依据/闽发改法规〔2023〕53号加强工程项目招标投标领域监管工作方案.txt",
+      "text_hash": "aa8e3693b0cddd5fbd037d5673fee7b252b8d1c67b9812bbec5cfc53f41d53f8",
+      "source_uri": "https://fgw.fj.gov.cn/zfxxgkzl/zfxxgkml/yzdgkdqtxx/202302/t20230213_6108318.htm",
+      "source_snapshot_path": "knowledge/legal/08-声明依据/闽发改法规〔2023〕53号加强工程项目招标投标领域监管工作方案.txt",
+      "source_hash": "aa8e3693b0cddd5fbd037d5673fee7b252b8d1c67b9812bbec5cfc53f41d53f8",
+      "captured_on": "2026-10-13",
+      "verification": "unverified",
+      "verified_through": null,
+      "effective_from": null,
+      "effective_to": null,
+      "jurisdictions": [
+        "CN/福建"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works",
+        "goods",
+        "services"
+      ],
+      "authority": "reference",
+      "verification_note": "仅固定原始采集文本与来源；尚未逐项核实效力、修订和适用范围，不得支持确定结论。",
+      "end_status": "unknown"
+    },
+    {
+      "law_id": "a273f6b956365e42b7b72f9b",
+      "title": "中华人民共和国招标投标法实施条例",
+      "version": "2019年第三次修订",
+      "text_path": "knowledge/legal/versions/中华人民共和国招标投标法实施条例-2019.txt",
+      "text_hash": "b7f34a4f5d9a405dd7e2066de4917a62632b5993c90cce7e4a008f5911459914",
+      "source_uri": "https://xzfg.moj.gov.cn/front/law/detail?LawID=339&Query=",
+      "source_snapshot_path": "knowledge/legal/snapshots/ordinance-2019.html",
+      "source_hash": "82ba92f0efe59d5d421ec1fa33a3bd6ab77e6dab0e8f4526af7cb3cb872d0e1f",
+      "captured_on": "2026-10-14",
+      "verification": "verified",
+      "verified_through": "2026-10-14",
+      "effective_from": "2019-03-02",
+      "effective_to": null,
+      "jurisdictions": [
+        "CN"
+      ],
+      "procurement_types": [
+        "government",
+        "enterprise",
+        "other"
+      ],
+      "project_types": [
+        "works"
+      ],
+      "authority": "regulation",
+      "verification_note": "司法部国家行政法规库LawID=339原始HTML，修订沿革至2019-03-02；提取完整84条并逐项定位。仅启用工程范围，其他范围待单独审定；核验截止2026-10-14，禁止据此承诺未来效力。；2026-10-14核对司法部现行有效库及北京发改委2019修订页现行有效标注，未发现整部终止日期；此确认仅截至verified_through，不表示永久有效。；采购方式限定招标，采购对象仅工程；采购政策交叉条款须按条款范围另行核验，不自动扩张至货物/服务。",
+      "end_status": "confirmed_open",
+      "source_format": "moj_html",
+      "extraction_header": "法规名称：中华人民共和国招标投标法实施条例\n版本说明：2019年第三次修订\n来源：https://xzfg.moj.gov.cn/front/law/detail?LawID=339&Query=\n抓取日期：2026-10-14\n------------------------------------------------------------\n",
+      "expected_articles": [
+        "第一条",
+        "第二条",
+        "第三条",
+        "第四条",
+        "第五条",
+        "第六条",
+        "第七条",
+        "第八条",
+        "第九条",
+        "第十条",
+        "第十一条",
+        "第十二条",
+        "第十三条",
+        "第十四条",
+        "第十五条",
+        "第十六条",
+        "第十七条",
+        "第十八条",
+        "第十九条",
+        "第二十条",
+        "第二十一条",
+        "第二十二条",
+        "第二十三条",
+        "第二十四条",
+        "第二十五条",
+        "第二十六条",
+        "第二十七条",
+        "第二十八条",
+        "第二十九条",
+        "第三十条",
+        "第三十一条",
+        "第三十二条",
+        "第三十三条",
+        "第三十四条",
+        "第三十五条",
+        "第三十六条",
+        "第三十七条",
+        "第三十八条",
+        "第三十九条",
+        "第四十条",
+        "第四十一条",
+        "第四十二条",
+        "第四十三条",
+        "第四十四条",
+        "第四十五条",
+        "第四十六条",
+        "第四十七条",
+        "第四十八条",
+        "第四十九条",
+        "第五十条",
+        "第五十一条",
+        "第五十二条",
+        "第五十三条",
+        "第五十四条",
+        "第五十五条",
+        "第五十六条",
+        "第五十七条",
+        "第五十八条",
+        "第五十九条",
+        "第六十条",
+        "第六十一条",
+        "第六十二条",
+        "第六十三条",
+        "第六十四条",
+        "第六十五条",
+        "第六十六条",
+        "第六十七条",
+        "第六十八条",
+        "第六十九条",
+        "第七十条",
+        "第七十一条",
+        "第七十二条",
+        "第七十三条",
+        "第七十四条",
+        "第七十五条",
+        "第七十六条",
+        "第七十七条",
+        "第七十八条",
+        "第七十九条",
+        "第八十条",
+        "第八十一条",
+        "第八十二条",
+        "第八十三条",
+        "第八十四条"
+      ],
+      "applicability": {
+        "procurement_methods": [
+          "tender"
+        ],
+        "buyer_types": [
+          "government_entity",
+          "enterprise",
+          "other"
+        ],
+        "subject_types": [
+          "works"
+        ],
+        "legal_frameworks": [
+          "tendering"
+        ]
+      }
+    }
+  ]
+}

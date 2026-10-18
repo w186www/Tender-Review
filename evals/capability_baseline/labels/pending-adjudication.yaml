@@ -1,0 +1,170 @@
+schema_version: u03-label-adjudication-drafts.v1
+updated_at: "2026-10-18"
+status: "draft_pending_D2_adjudication"
+adjudicator: null
+adjudicated_at: null
+note: >
+  These are engineering-prepared label drafts for the user's centralized content
+  confirmation. They are not expert gold labels, not signed adjudications, and must not be
+  counted in risk precision/recall. Source excerpts come from checked-in synthetic
+  fixtures; no original tender file exists for these cases.
+
+legal_source_status:
+  - law: "中华人民共和国招标投标法实施条例（2019年第三次修订）"
+    manifest_law_id: "a273f6b956365e42b7b72f9b"
+    status: "verified_through 2026-10-14; horizon expired on 2026-10-18, re-verification required"
+  - law: "中华人民共和国政府采购法实施条例（国务院令第658号）"
+    status: "unverified in manifest"
+  - law: "中华人民共和国招标投标法（2017年修正）"
+    status: "unverified in manifest"
+  - law: "政府采购货物和服务招标投标管理办法（财政部令第87号）"
+    status: "unverified in manifest"
+
+cases:
+  - case_id: "GC-0001"
+    fixture: "evals/golden_cases/GC-0001-region-restriction.json"
+    fixture_locator: "fixture/GC-0001/fragment/0 (page 10, section 投标人资格要求 in the fixture metadata)"
+    source_quote: "投标人必须在本市设立分公司满三年。"
+    candidate_rule_id: "TASK0007.QUAL.LOCAL-REGISTRATION"
+    category: "qualification"
+    proposed_severity: "high"
+    proposed_label: "risk_candidate"
+    expected_basis:
+      - law: "中华人民共和国政府采购法实施条例"
+        article: "第二十条"
+        quote: "采购人或者采购代理机构有下列情形之一的，属于以不合理的条件对供应商实行差别待遇或者歧视待遇：……（二）设定的资格、技术、商务条件与采购项目的具体特点和实际需要不相适应或者与合同履行无关；……（七）非法限定供应商的所有制形式、组织形式或者所在地；……（八）以其他不合理条件限制或者排斥潜在供应商。"
+      - law: "中华人民共和国招标投标法实施条例（2019年第三次修订）"
+        article: "第三十三条"
+        quote: "投标人参加依法必须进行招标的项目的投标，不受地区或者部门的限制，任何单位和个人不得非法干涉。"
+    applicability_premise: >
+      Project context declares government procurement of works and a region. The local
+      branch requirement must be assessed against the actual procurement regime and whether
+      the project is a依法必须招标 project. The framework is not confirmed in the fixture.
+    reasoning: >
+      A three-year local branch requirement is a place-of-establishment condition that is
+      not shown to be necessary for the specific project. It is a concrete candidate for
+      an unreasonable restriction, not a proven violation.
+    uncertainty:
+      - "Government-procurement vs tendering framework is not confirmed."
+      - "The original tender document and its precise context are absent; only a synthetic excerpt exists."
+      - "No verified legal applicability decision exists (2026 verification horizon expired; government-procurement regulation unverified)."
+    adjudication_questions:
+      - "Should this case enter the frozen acceptance set as a risk?"
+      - "Which legal framework and article should be the primary expected basis?"
+      - "Is high severity appropriate, or should it be medium pending project context?"
+
+  - case_id: "GC-0002"
+    fixture: "evals/golden_cases/GC-0002-exclusive-brand.json"
+    fixture_locator: "paragraph:4 (section 技术参数)"
+    source_quote: "设备只接受甲牌品牌型号。"
+    candidate_rule_id: "TASK0007.TECH.EXCLUSIVE-BRAND"
+    category: "technical"
+    proposed_severity: "high"
+    proposed_label: "risk_candidate"
+    expected_basis:
+      - law: "中华人民共和国政府采购法实施条例"
+        article: "第二十条"
+        quote: "……（三）采购需求中的技术、服务等要求指向特定供应商、特定产品；……（六）限定或者指定特定的专利、商标、品牌或者供应商；……"
+      - law: "中华人民共和国招标投标法实施条例（2019年第三次修订）"
+        article: "第三十二条"
+        quote: "招标人有下列行为之一的，属于以不合理条件限制、排斥潜在投标人或者投标人：……（五）限定或者指定特定的专利、商标、品牌、原产地或者供应商；……"
+    applicability_premise: >
+      The clause must be read as an exclusive brand requirement rather than a performance
+      specification that permits equivalents. The fixture states exclusivity directly.
+    reasoning: >
+      Naming a single brand without an equivalents route is a candidate for excluding
+      competing suppliers. Whether an exception applies (e.g., no other suitable product)
+      is not established by the excerpt.
+    uncertainty:
+      - "No evidence of a documented single-source or compatibility justification."
+      - "Legal applicability and the governing procurement framework are not confirmed."
+    adjudication_questions:
+      - "Accept as a risk candidate for the frozen set?"
+      - "Primary expected basis: government-procurement article 20(6) or tendering article 32(5)?"
+
+  - case_id: "GC-0003"
+    fixture: "evals/golden_cases/GC-0003-score-total-mismatch.json"
+    fixture_locator: "table 0 cells: (1,1) 技术30分, (2,1) 商务20分, (3,1) 总分60分"
+    source_quote: "技术 30分；商务 20分；总分 60分"
+    candidate_rule_id: "TASK0007.EVAL.SCORE-TOTAL"
+    category: "evaluation"
+    proposed_severity: "high"
+    proposed_label: "risk_candidate"
+    expected_basis:
+      - law: "中华人民共和国招标投标法"
+        article: "第四十条"
+        quote: "评标委员会应当按照招标文件确定的评标标准和方法，对投标文件进行评审和比较；……"
+      - law: "评标委员会和评标方法暂行规定"
+        article: "第十七条"
+        quote: "评标委员会应当根据招标文件规定的评标标准和方法，对投标文件进行系统地评审和比较。招标文件中没有规定的标准和方法不得作为评标的依据。"
+    applicability_premise: >
+      The table represents the complete scoring scheme and the stated total is intended to
+      equal the sum of its parts. If the excerpt is only a partial table, the arithmetic
+      conclusion does not hold.
+    reasoning: >
+      30 + 20 = 50, not 60. An internally inconsistent scoring table undermines a
+      determinate evaluation standard and is a concrete candidate for correction.
+    uncertainty:
+      - "The fixture may omit rows; only the provided table is measured."
+      - "The governing evaluation rules and the procurement framework are not confirmed."
+    adjudication_questions:
+      - "Accept as a risk candidate?"
+      - "Is the arithmetic inconsistency the expected basis, or should the label also require a specific evaluation rule?"
+
+  - case_id: "GC-0004"
+    fixture: "evals/golden_cases/GC-0004-key-contract-placeholder.json"
+    fixture_locator: "paragraph:12 (section 合同条款)"
+    source_quote: "付款期限：待填写"
+    candidate_rule_id: "TASK0007.CONTRACT.KEY-PLACEHOLDER"
+    category: "contract"
+    proposed_severity: "high"
+    proposed_label: "risk_candidate"
+    expected_basis:
+      - law: "中华人民共和国招标投标法实施条例（2019年第三次修订）"
+        article: "第五十七条"
+        quote: "招标人和中标人应当依照招标投标法和本条例的规定签订书面合同，合同的标的、价款、质量、履行期限等主要条款应当与招标文件和中标人的投标文件的内容一致。"
+      - law: "中华人民共和国民法典"
+        article: "第四百七十条"
+        quote: "合同的内容由当事人约定，一般包括下列条款：……（四）履行期限、地点和方式；……"
+    applicability_premise: >
+      Payment term is a main contract term and the tender document is expected to fix it
+      before award. A placeholder may be acceptable only if the tender states a determinate
+      later mechanism; none is shown.
+    reasoning: >
+      A blank payment deadline prevents bidders from pricing the same obligation and
+      creates a post-award negotiation point. It is a candidate contract-term omission.
+    uncertainty:
+      - "The excerpt does not show whether a separate payment schedule exists elsewhere."
+      - "Civil-code article 470 is a general contract-contents rule, not a procurement-specific prohibition."
+    adjudication_questions:
+      - "Accept as a risk candidate?"
+      - "Should the expected basis be tender-regulation article 57, the civil code, or both?"
+
+  - case_id: "GC-0005"
+    fixture: "evals/golden_cases/GC-0005-tender-time-order.json"
+    fixture_locator: "paragraph:2 (section 投标须知)"
+    source_quote: "投标截止时间：2026年10月20日 09:00 北京时间；开标时间：2026年10月20日 08:30 北京时间"
+    candidate_rule_id: "TASK0007.PROCEDURE.TENDER-TIME"
+    category: "procedure"
+    proposed_severity: "critical"
+    proposed_label: "risk_candidate"
+    expected_basis:
+      - law: "中华人民共和国招标投标法"
+        article: "第三十四条"
+        quote: "开标应当在招标文件确定的提交投标文件截止时间的同一时间公开进行；开标地点应当为招标文件中预先确定的地点。"
+      - law: "政府采购货物和服务招标投标管理办法"
+        article: "第三十九条"
+        quote: "开标应当在招标文件确定的提交投标文件截止时间的同一时间进行。开标地点应当为招标文件中预先确定的地点。"
+    applicability_premise: >
+      The bid deadline and bid-opening time refer to the same project and timezone, and the
+      listed times are not a deliberate two-stage opening.
+    reasoning: >
+      Opening 30 minutes before the bid deadline would mean opening before submissions
+      close, contradicting the same-time rule. The inconsistency is explicit on the face of
+      the excerpt.
+    uncertainty:
+      - "The excerpt does not show whether a corrigendum changed one of the times."
+      - "The procurement method (tendering vs other) and governing rules are not confirmed."
+    adjudication_questions:
+      - "Accept as a risk candidate and as critical severity?"
+      - "Primary expected basis: tender law article 34 or the government-procurement measures article 39?"

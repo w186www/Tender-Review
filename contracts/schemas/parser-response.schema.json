@@ -175,6 +175,14 @@
           "default": null,
           "title": "Confidence"
         },
+        "ocr_words": {
+          "items": {
+            "$ref": "#/$defs/OCRWordRecord"
+          },
+          "maxItems": 10000,
+          "title": "Ocr Words",
+          "type": "array"
+        },
         "table": {
           "anyOf": [
             {
@@ -224,6 +232,190 @@
         "source"
       ],
       "title": "Fragment",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "OCRRuntimeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "engine_id": {
+          "const": "tesseract",
+          "default": "tesseract",
+          "title": "Engine Id",
+          "type": "string"
+        },
+        "engine_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "model_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Model Ids",
+          "type": "array"
+        },
+        "model_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Model Sha256",
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "parser_image_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Image Sha256"
+        },
+        "identity_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Identity Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "engine_version",
+        "model_ids",
+        "model_sha256",
+        "parameters",
+        "identity_sha256"
+      ],
+      "title": "OCRRuntimeIdentity",
+      "type": "object"
+    },
+    "OCRWordRecord": {
+      "additionalProperties": false,
+      "description": "One Tesseract TSV word with both source-pixel and document coordinates.",
+      "properties": {
+        "text": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "bbox": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Bbox",
+          "type": "array"
+        },
+        "level": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "page_num": {
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Page Num",
+          "type": "integer"
+        },
+        "tsv_page_num": {
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Tsv Page Num",
+          "type": "integer"
+        },
+        "block_num": {
+          "minimum": 0,
+          "title": "Block Num",
+          "type": "integer"
+        },
+        "par_num": {
+          "minimum": 0,
+          "title": "Par Num",
+          "type": "integer"
+        },
+        "line_num": {
+          "minimum": 0,
+          "title": "Line Num",
+          "type": "integer"
+        },
+        "word_num": {
+          "minimum": 0,
+          "title": "Word Num",
+          "type": "integer"
+        },
+        "raw_left": {
+          "minimum": 0,
+          "title": "Raw Left",
+          "type": "integer"
+        },
+        "raw_top": {
+          "minimum": 0,
+          "title": "Raw Top",
+          "type": "integer"
+        },
+        "raw_width": {
+          "minimum": 0,
+          "title": "Raw Width",
+          "type": "integer"
+        },
+        "raw_height": {
+          "minimum": 0,
+          "title": "Raw Height",
+          "type": "integer"
+        },
+        "raw_confidence": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Raw Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "text",
+        "confidence",
+        "bbox",
+        "level",
+        "page_num",
+        "tsv_page_num",
+        "block_num",
+        "par_num",
+        "line_num",
+        "word_num",
+        "raw_left",
+        "raw_top",
+        "raw_width",
+        "raw_height",
+        "raw_confidence"
+      ],
+      "title": "OCRWordRecord",
       "type": "object"
     },
     "ParsedDocument": {
@@ -294,6 +486,12 @@
               "TEXT_LIMIT",
               "OCR_LIMIT",
               "LOW_QUALITY",
+              "LOW_CONFIDENCE_NUMERIC",
+              "DUPLICATE_TEXT",
+              "PAGE_COVERAGE_GAP",
+              "READING_ORDER_GAP",
+              "TABLE_STRUCTURE_GAP",
+              "INVALID_DATE",
               "SCANNER_UNAVAILABLE",
               "SCANNER_STALE",
               "PARSE_TIMEOUT",
@@ -307,6 +505,17 @@
           "maxItems": 20,
           "title": "Issues",
           "type": "array"
+        },
+        "ocr_runtime": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OCRRuntimeIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -317,6 +526,47 @@
         "issues"
       ],
       "title": "ParsedDocument",
+      "type": "object"
+    },
+    "ParserExecutionMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "integer"
+        },
+        "process_peak_rss_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Process Peak Rss Bytes"
+        },
+        "container_memory_peak_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Container Memory Peak Bytes"
+        }
+      },
+      "required": [
+        "elapsed_ms"
+      ],
+      "title": "ParserExecutionMetrics",
       "type": "object"
     }
   },
@@ -376,6 +626,12 @@
             "TEXT_LIMIT",
             "OCR_LIMIT",
             "LOW_QUALITY",
+            "LOW_CONFIDENCE_NUMERIC",
+            "DUPLICATE_TEXT",
+            "PAGE_COVERAGE_GAP",
+            "READING_ORDER_GAP",
+            "TABLE_STRUCTURE_GAP",
+            "INVALID_DATE",
             "SCANNER_UNAVAILABLE",
             "SCANNER_STALE",
             "PARSE_TIMEOUT",
@@ -392,6 +648,17 @@
       ],
       "default": null,
       "title": "Error"
+    },
+    "metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ParserExecutionMetrics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "title": "ParserResponse",

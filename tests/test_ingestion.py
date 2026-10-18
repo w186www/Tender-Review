@@ -296,9 +296,9 @@ def test_low_quality_manual_correction_rechecks_quality_and_preserves_automatic(
         "corrections": [
             {
                 "section_id": item["section_id"],
-                "text": "Synthetic manually verified source transcription.",
+                "text": f"Synthetic manually verified source transcription {index}.",
             }
-            for item in items
+            for index, item in enumerate(items, 1)
         ],
     }
     fixed = client.post(path + "/corrections", headers=headers, json=correction)
@@ -332,9 +332,23 @@ def test_cross_tenant_access_upload_and_role_writes_are_rejected(system):
     document = uploaded.json()["document_id"]
     assert process(system, document).status == "needs_confirmation"
     path = f"/api/v1/projects/{project}/documents/{document}"
+    owner = sign_in(system)
+    section = client.get(path + "/sections", headers=owner).json()["items"][0]
     other = sign_in(system, tenant="b")
     for suffix in ("", "/original", "/sections", "/context"):
         assert client.get(path + suffix, headers=other).status_code == 404
+    denied_correction = client.post(
+        path + "/corrections",
+        headers=other,
+        json={
+            "expected_parse_version": 1,
+            "reason": "cross-tenant access must be denied",
+            "corrections": [
+                {"section_id": section["section_id"], "text": "Unauthorized change."}
+            ],
+        },
+    )
+    assert denied_correction.status_code == 404
     for role in ("admin", "operator", "auditor"):
         headers = sign_in(system, role=role)
         rejected = client.post(
@@ -493,7 +507,7 @@ def test_text_correction_racing_context_confirmation_returns_conflict(system, mo
     headers = sign_in(system)
     path = f"/api/v1/projects/{project}/documents/{document}"
     items = client.get(path + "/sections", headers=headers).json()["items"]
-    original_quality = documents.quality
+    original_quality = documents.quality_issues
 
     def confirm_during_correction(fragments, policy):
         confirmation = client.post(
@@ -513,7 +527,7 @@ def test_text_correction_racing_context_confirmation_returns_conflict(system, mo
         assert confirmation.status_code == 200
         return original_quality(fragments, policy)
 
-    monkeypatch.setattr(documents, "quality", confirm_during_correction)
+    monkeypatch.setattr(documents, "quality_issues", confirm_during_correction)
     correction = client.post(
         path + "/corrections",
         headers=headers,

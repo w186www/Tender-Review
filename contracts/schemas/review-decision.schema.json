@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/review-decision.schema.json",
+  "title": "HumanReviewDecisionRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision", "expected_snapshot_hash", "reason"],
+  "properties": {
+    "decision": {"type": "string", "enum": ["accept", "modify", "reject"]},
+    "expected_snapshot_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "modified_finding": {
+      "type": ["object", "null"],
+      "additionalProperties": {"type": "string"},
+      "properties": {
+        "title": {"type": "string", "minLength": 1, "maxLength": 300},
+        "description": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+        "recommendation": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "reasoning_summary": {"type": "string", "minLength": 1, "maxLength": 4000}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"decision": {"const": "modify"}}, "required": ["decision"]},
+      "then": {"properties": {"modified_finding": {"type": "object", "minProperties": 1}}, "required": ["modified_finding"]},
+      "else": {"properties": {"modified_finding": {"type": "null"}}}
+    }
+  ]
+}

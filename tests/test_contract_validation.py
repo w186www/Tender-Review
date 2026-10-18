@@ -1,10 +1,16 @@
-"""Regression cases for the v1alpha2 boundary contracts (FR-009, FR-010)."""
+"""Boundary examples for versioned contracts and product execution semantics."""
 
 from pathlib import Path
 
 import pytest
 from generate_state import check_state
-from verify_contracts import load_contracts, load_openapi, load_yaml, validator_for_contract
+from verify_contracts import (
+    load_contracts,
+    load_openapi,
+    load_yaml,
+    product_execution_semantic_errors,
+    validator_for_contract,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = load_yaml(ROOT / "contracts/examples/manifest.yaml")["fixtures"]
@@ -16,7 +22,16 @@ def test_boundary_examples(fixture):
     api, api_errors = load_openapi(ROOT)
     assert not errors + api_errors
     validator = validator_for_contract(ROOT, fixture["schema"], documents, registry, api)
-    assert validator.is_valid(fixture["data"]) == fixture["expected_valid"]
+    schema_valid = validator.is_valid(fixture["data"])
+    needs_semantic_check = (
+        fixture["schema"] == "contracts/schemas/product-review-execution.schema.json"
+    )
+    if schema_valid and needs_semantic_check:
+        semantic_valid = not product_execution_semantic_errors(fixture)
+    else:
+        semantic_valid = True
+    actual_valid = schema_valid and semantic_valid
+    assert actual_valid == fixture["expected_valid"]
 
 
 def test_generated_state_is_current():

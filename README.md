@@ -1,81 +1,86 @@
-# Tender-Review · 招标文件智能合规审查 Agent
+# Tender-Review · 招标文件智能合规审查
 
-基于 **FastAPI + LangGraph + React** 的招标文件 AI 辅助审查系统：从文件安全接入、规则检查和法规检索，到真实大模型分析、原文定位、人工复核及 Word/PDF 报告，提供一条可演示、可追溯的审查流程。
+面向招标文件编制侧的 AI 辅助审查系统，提供文件接入、规则与模型分析、库内法规引用、原文定位、人工复核和 Word/PDF 报告。
 
-> **请先看这里：最新完整实现位于 [`work/TASK-0027` 分支](https://github.com/w186www/Tender-Review/tree/work/TASK-0027)。** 当前 `main` 仅作为仓库首页与项目介绍入口，尚未合并该开发分支的功能代码。请勿直接用 `main` 判断项目最终完成度。
+当前版本是**产品工程验收候选**，已部署真实模型及 PostgreSQL 产品模式。用户独立验收和专业准确率评测尚未完成；运行事实、源码与镜像身份以 [PROJECT_STATE.md](PROJECT_STATE.md) 为准。
 
-**快速入口：** [查看最新代码](https://github.com/w186www/Tender-Review/tree/work/TASK-0027) · [查看部署说明](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/deploy/README-demo.md) · [查看项目状态](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/PROJECT_STATE.md) · [查看验收记录](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/docs/development/TASK-0027-validation.md)
+## 使用流程
 
-## 项目解决什么问题
+1. 登录并创建项目，填写采购制度、方式、地区、主体和标的等上下文。
+2. 上传文件，经过类型/大小/魔数校验、ClamAV 和隔离解析/OCR。
+3. 检查解析质量；必要时校正并重新确认上下文。
+4. 为该文件确认必要内容的外发授权，发起真实审查。
+5. 查看风险线索、服务端精确原文定位及采用法规，接受、修改或驳回。
+6. 发布不可变结果，生成和下载 Word/PDF 报告。
 
-人工审阅招标文件需要同时核对资格条件、限制性条款、评标要求与相关法规。Tender-Review 将这些步骤组织为一条可复核的辅助审查链路：
+零候选需要明确确认；覆盖不完整、引用不足和无法确定的情况如实显示。上传成功不等于完整审查，人工接受也不等于系统认定违法。
 
-```text
-项目创建与文件上传
-        ↓
-文件类型校验、ClamAV 扫描、隔离解析 / OCR
-        ↓
-原文结构化与采购上下文确认
-        ↓
-规则检查 + AI 疑点发现 + 法规检索
-        ↓
-证据与原文位置校验（不确定项保留待核验）
-        ↓
-人工接受 / 修改 / 驳回
-        ↓
-结果发布与 Word / PDF 报告下载
-```
+## 范围与边界
 
-系统的目标是**辅助识别与解释疑似风险**，而非跳过法律核验或人工复核，自动断言某条款违法。
-
-## 已实现的主要能力
-
-| 模块 | 能力 |
+| 项目 | 首版范围 |
 | --- | --- |
-| 安全接入 | DOCX/PDF 上传、文件校验、ClamAV、隔离解析、OCR 与原文定位 |
-| 项目与权限 | JWT 认证、租户隔离、项目及文档版本、审查任务持久化与审计 |
-| 审查编排 | LangGraph 组织规则、疑点发现、法规检索、语义分析与证据检查 |
-| 真实模型 | 阿里云百炼 `qwen3.8-flash`；模型调用、Token 与费用可审计 |
-| 法规参考 | 现有法规库、BM25 检索及预构建向量索引；未核验来源不作为已确认法律依据 |
-| 人工闭环 | 审查员复核、结果发布、带引用与原文位置的 Word/PDF 报告 |
-| 演示部署 | Docker Compose、PostgreSQL、MinIO、Nginx/HTTPS，以及故障回滚说明 |
+| 文件 | PDF、DOCX、PNG、JPEG |
+| 大小/页数 | 单文件 10 MiB、最多 300 页，其中 OCR 最多 30 页；另有实际文本及审查容量前检 |
+| 角色与隔离 | admin、reviewer、auditor、operator；租户/资源权限在服务端检查 |
+| 风险类别 | 资格、技术、评分、合同、采购程序 |
+| 扫描件 | Tesseract OCR，保留词级置信度、原始坐标及段行结构；低质量转人工，不保证所有扫描件自动通过 |
+| 输出 | 风险线索、原文位置、采用法规、覆盖限制、人工决定和版本化报告 |
 
-## 已完成的验证与适用范围
+详细限制见 [摄取支持矩阵](docs/development/ingestion-support-matrix.md)。本系统审查招标文件；投标响应性、材料缺项或废标风险的完整评审流程不在本版承诺中。
 
-在**受控服务器环境**中，冻结的合成 DOCX 样本已完成真实 Qwen 审查：2 次模型调用（无重试）、产生 2 条待人工核验的疑似风险，完成原文定位、人工复核、结果发布与 Word/PDF 下载；本次从发起审查到等待人工复核约 **64.95 秒**。这不是对任意大型真实招标文件的性能保证。
+## 法规采用
 
-现有法规快照包含约 **3120 条条文**；其中 **3112 条**已建立持久向量索引，8 条保留 BM25 检索路径。**需要特别说明：上述受控真实 Qwen 验收中，Dense 向量检索尚未实际参与排名，法规候选主要来自 BM25。** 不将“索引已构建”等同于“混合向量检索已在该次审查中生效”。
+本版按 [DEC-009](docs/decisions/DEC-009-legal-library-adoption-20261018.md) 直接采用冻结法规库：43 个版本、3120 个片段，3112 个片段已有向量工件，其余保留词法检索路径。
 
-法规有效性与适用范围尚未全面核验，因此系统会将相关引用标注为**待核验参考**，不会凭相似度直接作出违法认定。
+- 库内版本可参与分析并在报告中引用，不以重新人工核验作为工程交付前置。
+- 引用仍校验条文 ID、原文、来源哈希、版本及项目适用条件。
+- 项目采用与独立法律核验分开记录，不伪造 verified、核验日期或专家签名。
+- 已采用参考与独立核验依据分别计数；后者为零不表示没有使用法规库。
+- 不改写旧发布、旧报告或历史核验记录。
 
-本机还完成了前端工作台、超时后任务找回、幂等提交与报告内容的相关测试。公网实时演示状态及账号开放情况，以最终部署验收和交付通知为准；**代码测试通过不等于公网已完成上线**。
+## 运行架构
 
-## 技术栈
+React/TypeScript/Vite 工作台 → FastAPI → PostgreSQL 持久队列 → 独立 review-worker → LangGraph。
+文件接入 worker 使用 MinIO、ClamAV 和固定镜像的隔离 parser；API 不持有 Docker Socket。
+模型与 Embedding 通过网关接入；BM25、向量索引和法规发布身份可追溯。
 
-- **后端**：Python 3.12、FastAPI、Pydantic、LangGraph
-- **前端**：React、TypeScript、Vite
-- **存储与隔离**：PostgreSQL（含 RLS）、MinIO、SQLite 模型预算/向量索引、Docker 隔离解析
-- **检索与模型**：BM25、Embedding / 向量索引、阿里云百炼 Qwen
-- **部署与测试**：Docker Compose、Nginx、HTTPS、Pytest、Ruff、Mypy、GitHub Actions
+### 运行模式
 
-## 如何查看最新实现
+| 模式 | 用途 |
+| --- | --- |
+| `product-postgres` | 产品模式：PostgreSQL 是授权、预算和审计权威源，逐文件授权、撤销、预留和结算有效 |
+| `offline` | 明确标识的离线验证；不代表真实模型审查 |
+| `authorized-real` | 历史开发/测试入口；staging/production 拒绝启动，不能回退后重新使用旧额度 |
 
-```bash
-git clone --branch work/TASK-0027 --single-branch https://github.com/w186www/Tender-Review.git
-cd Tender-Review
+本轮受控测试累计上限为 ¥200 / 2000 次 LLM / 2000 批 Embedding，计入历史消费和未知预留，不因迁移或重启恢复额度。生产策略以实际配置和账本为准。
+
+只处理有权使用且获必要外发同意的文件；凭据仅存受保护服务器配置，不进入前端、Git 或普通日志。
+
+## 开发与验证
+
+已有工作区复用 `.venv` 和 `src/frontend/node_modules`，不按 TASK 创建新目录或重装依赖。首次环境准备见 [开发流程](docs/development/development-workflow.md)。
+
+```powershell
+./scripts/verify.ps1 -Mode Quick
+./scripts/verify.ps1 -Mode Focused -TestPaths @('tests/test_llm_candidate_discovery.py')
+./scripts/verify.ps1 -Mode Full
 ```
 
-安装、配置、容器部署、环境变量及回滚步骤请查看 **[开发分支的部署文档](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/deploy/README-demo.md)**。请使用实际需要的独立环境变量文件，**不要将密钥、测试账号密码或真实招标文件提交到公开仓库**。
+Quick、Focused、Full、真实 PostgreSQL/容器、浏览器和供应商验证分别记录。有效证据可复用；最终代码候选仍须通过适用门禁。具体记录见 [产品交付验证](docs/development/product-delivery-validation.md)。
 
-项目设计与运行细节：
-- [最新开发分支](https://github.com/w186www/Tender-Review/tree/work/TASK-0027)
-- [当前项目状态](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/PROJECT_STATE.md)
-- [阶段验收与已知限制](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/docs/development/TASK-0027-validation.md)
-- [架构与文档索引](https://github.com/w186www/Tender-Review/blob/work/TASK-0027/docs/index.md)
+## 部署与恢复
 
-## 演示与安全边界
+部署、初始化、产品策略/预算、备份、恢复及安全回退见 [部署手册](deploy/README-demo.md)。
 
-- 优先使用**合成或明确获准处理的招标文件**。将真实文件内容发送给第三方模型前，需要文件处理权限及明确外发授权；上传不自动等于同意外发。
-- 未核验法规仅用于提示和人工参考，风险项及报告不得将其写成已确认违法结论。
-- 模型费用与请求应保留审计；演示并非对法律结论、商业场景或生产级负载的保证。
-- `main` 未合并最新实现；审查代码和复现步骤请使用 `work/TASK-0027`。
+- HTTPS 部署必须同时采用 `docker-compose.demo.yml` 和 `deploy/docker-compose.tls.yml`。
+- 发布前备份数据库、对象、索引、授权、预算、配置和审计，并在隔离目标验证恢复。
+- 只重启必要应用服务，保全持久卷与历史数据。
+- 回退采用兼容产品候选或 `offline`；未核账不得重新放行外发。
+
+## 证据与交付状态
+
+真实 DOCX、派生文字 PDF、扫描 PDF 的运行证据、费用、覆盖和限制集中在 [交付验证记录](docs/development/product-delivery-validation.md)，当前可执行验收步骤以 [PROJECT_STATE.md](PROJECT_STATE.md) 为准。
+
+专家风险金标仍未建立，不宣称 precision/recall 已达标。单次容量观测不等于长期性能或可用性承诺；无外部通知渠道时不得声称告警已经送达。已知限制及未完成条件必须随交付候选一并提供。
+
+贡献者入口：[AGENTS.md](AGENTS.md) → [项目状态](PROJECT_STATE.md) → [文档索引](docs/index.md)。正式需求、契约、ADR、任务和验收证据优先于历史聊天。

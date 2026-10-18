@@ -1,0 +1,79 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0010",
+  "title": "人工复核、审计和Word/PDF报告",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0009",
+    "TASK-0004"
+  ],
+  "related_requirements": [
+    "FR-010",
+    "FR-011",
+    "FR-014",
+    "SEC-010",
+    "SEC-011",
+    "SEC-014",
+    "NFR-012"
+  ],
+  "related_acceptance": [
+    "AC-005",
+    "AC-006"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "定义复核、结果版本、报告与审计契约",
+    "实现复核决策和证据状态独立保存",
+    "原子发布结果快照，再幂等渲染报告并记录导出"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0010-001",
+      "description": "接受、修改和驳回保留前后值与理由，证据不足不会变成确定违规",
+      "evidence": [
+        "docs/development/TASK-0010-validation.md",
+        "tests/test_review_reports.py::test_task0010_human_projection_keeps_evidence_status_separate",
+        "scripts/check_review_engine.py::verify_review_engine"
+      ]
+    },
+    {
+      "id": "TASK0010-002",
+      "description": "报告读取不可变快照，引用和页码可回到原文，越权导出失败",
+      "evidence": [
+        "docs/development/TASK-0010-validation.md",
+        "tests/test_review_reports.py::test_task0010_word_and_pdf_are_real_parseable_chinese_reports",
+        "scripts/check_review_engine.py::verify_review_engine"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "本地验收、源码候选CI、验收记录CI和正式归档CI均已通过。因DEC-002未批准，API工厂仅接受宿主注入已授权ReviewEngine，默认不启用模型执行。仅本任务acceptance_checks决定任务完成；相关AC仍按里程碑验收。"
+}

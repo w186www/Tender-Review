@@ -1,0 +1,106 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0024",
+  "title": "AI 风险与法律法规自动对应",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0023"
+  ],
+  "related_requirements": [
+    "FR-005",
+    "FR-006",
+    "FR-008",
+    "FR-010",
+    "SEC-009"
+  ],
+  "related_acceptance": [
+    "AC-004",
+    "AC-005",
+    "AC-006"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/testing-standard.md",
+    "docs/decisions/DEC-006-semantic-batch-authorization.md",
+    "docs/development/TASK-0023-validation.md"
+  ],
+  "allowed_paths": [
+    "src/bidding_compliance/legal/**",
+    "src/bidding_compliance/services/legal.py",
+    "src/bidding_compliance/services/evidence_checker.py",
+    "src/bidding_compliance/graph/**",
+    "src/bidding_compliance/api/**",
+    "src/frontend/src/**",
+    "contracts/**",
+    "scripts/**",
+    "tests/**",
+    "docs/decisions/DEC-006-semantic-batch-authorization.md",
+    "docs/development/TASK-0024-validation.md",
+    "docs/index.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "tasks/active/TASK-0024-ai-legal-correspondence.yaml",
+    "docs/development/roadmap.yaml",
+    "docs/development/roadmap.md",
+    ".verification/private/TASK-0024/**"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "config/legal/**",
+    "docs/reference/**",
+    "docs/decisions/DEC-002-qwen-demo-authorization.md",
+    "docs/decisions/DEC-005-real-tender-qwen-evaluation-authorization.md",
+    "tasks/completed/**",
+    "tasks/active/TASK-0022-real-tender-offline-evaluation.yaml",
+    "requirements-dev.lock"
+  ],
+  "steps": [
+    "只读核查 CONTEXT_INVALID 根因：检索查询构造、适用性排除、法规核验状态与 Evidence Checker 状态。",
+    "实现两级法律适用判断：项目级框架确认保持不变，风险级允许在框架未确认时检索可能相关依据，但任何命中都不得标记为已核验适用。",
+    "对候选法规输出四级适用状态（applicable_verified／potentially_relevant／applicability_unknown／not_applicable），复用现有契约字段风格。",
+    "以天津地铁三个真实风险（逾期违约金、集团黑名单资格条件、报价得分不明确）完成离线检索与证据核验验收，不硬编码期望法规。",
+    "如实报告未完成能力（LLM 法规关联分析、报告端到端）与预算边界，不伪造历史证据。"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0024-001",
+      "description": "无已确认法律框架的项目仍能检索可能相关依据，且任何命中都不会被标记为已核验适用。",
+      "evidence": [
+        "docs/development/TASK-0024-validation.md::根因与修复",
+        "tests/test_legal_applicability.py"
+      ]
+    },
+    {
+      "id": "TASK0024-002",
+      "description": "候选法规四级适用状态可区分，未核验／超期／未声明适用范围的法规不能生成已确认结论。",
+      "evidence": [
+        "docs/development/TASK-0024-validation.md::适用状态",
+        "src/bidding_compliance/legal/retrieval.py"
+      ]
+    },
+    {
+      "id": "TASK0024-003",
+      "description": "三个真实风险完成可追溯的检索与核验流程，法规原文、来源、版本与适用性状态齐备。",
+      "evidence": [
+        "docs/development/TASK-0024-validation.md::三案例验收",
+        "docs/development/TASK-0024-case-evidence.md::三案例检索结果"
+      ]
+    },
+    {
+      "id": "TASK0024-004",
+      "description": "既有法规适用性与检索测试通过；历史 TASK-0023 结果契约保持兼容。",
+      "evidence": [
+        "docs/development/TASK-0024-validation.md::测试与限制",
+        "tests/test_legal_retrieval.py"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_legal_applicability.py",
+    "./scripts/verify.ps1 -Mode Quick"
+  ],
+  "handoff_notes": "2026-10-16 完成。CONTEXT_INVALID 根因（企业非招标推导空框架即抛错 + 空框架被判 framework_mismatch）已修复；未核验法规可作为参考候选检索与展示（applicability_state 四级），但永不返回 valid。参考候选已进入 finding.legal_references 并在页面与 Word/PDF 渲染（计入声明：不计入已核验证据）。三案例生产查询排名已评测（《民法典》585 条在生产候选级查询排第 7）。交付期间经 CI 发现并修复任务证据引用未跟踪私有文件的问题（改用已提交的脱敏摘要）。后续证据分类加固由 TASK-0025 承接。详见 docs/development/TASK-0024-validation.md。"
+}

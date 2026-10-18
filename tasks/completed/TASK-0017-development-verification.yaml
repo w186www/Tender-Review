@@ -1,0 +1,80 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0017",
+  "title": "恢复单Codex实施并落实分层测试与CI门禁",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0005",
+    "TASK-0016"
+  ],
+  "related_requirements": [
+    "NFR-009"
+  ],
+  "related_acceptance": [
+    "AC-011",
+    "AC-012"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/testing-standard.md",
+    "docs/decisions/ADR-0011-development-and-validation.md"
+  ],
+  "allowed_paths": [
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "docs/**",
+    "tasks/**",
+    "scripts/verify.ps1",
+    "scripts/verification_impact.py",
+    "tests/test_verification_modes.py",
+    ".github/workflows/verify.yml",
+    ".gitattributes"
+  ],
+  "must_not_change": [
+    "src/**",
+    "knowledge/legal/**",
+    "contracts/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "撤销默认双模型/代理关卡并保留业务成果和问题",
+    "实现Quick/Focused/Full及失败关闭的CI选档",
+    "验证档位边界和完整候选，再按Quick归档记录"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0017-001",
+      "description": "默认单Codex直接实施和自检，原问题不被自动关闭",
+      "evidence": [
+        "AGENTS.md",
+        "docs/decisions/ADR-0011-development-and-validation.md",
+        "docs/development/development-workflow.md",
+        "tasks/completed/TASK-0006-legal-retrieval.yaml",
+        "docs/development/TASK-0017-validation.md"
+      ]
+    },
+    {
+      "id": "TASK0017-002",
+      "description": "完整检查保留，过程选档和CI不能把部分测试误称完整通过",
+      "evidence": [
+        "scripts/verify.ps1",
+        "scripts/verification_impact.py",
+        "tests/test_verification_modes.py",
+        ".github/workflows/verify.yml",
+        ".gitattributes",
+        "docs/development/TASK-0017-validation.md"
+      ]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_verification_modes.py",
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "已完成：最终源码68d67a80943e9c531f58ced7557d0c24938d84e9本地Full279项及真实PostgreSQL通过，远程38496768950全适用作业与汇总门禁成功，远程JUnit279/0/0/0。收尾仅工程记录Quick；TASK-0006保持in_progress，D问题按真实验收继续处理，不合入main。"
+}

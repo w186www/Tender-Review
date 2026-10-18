@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.4.0
-  description: v1alpha2 开发契约；所有业务接口要求租户范围和审计关联 ID。
+  version: 0.10.2
+  description: v1alpha9 开发契约；产品审查覆盖投影新增去重候选拒绝、原因、唯一原文单元和恢复统计，既有路径与响应保持兼容。
 servers:
 - url: /api/v1
 paths:
@@ -146,6 +146,27 @@ paths:
           maximum: 100
           default: 20
   /projects/{projectId}/documents:
+    get:
+      operationId: listProjectDocuments
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: 项目内可见文档及真实处理状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DocumentList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 权限不足}
+        '404': {$ref: '#/components/responses/NotFound'}
     post:
       operationId: uploadDocument
       security:
@@ -219,6 +240,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /projects/{projectId}/reviews:
+    get:
+      operationId: listProjectReviews
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: 项目审查任务及持久状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 权限不足}
+        '404': {$ref: '#/components/responses/NotFound'}
     post:
       operationId: createReview
       security:
@@ -230,21 +272,10 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required:
-              - document_ids
-              properties:
-                document_ids:
-                  type: array
-                  minItems: 1
-                  uniqueItems: true
-                  items:
-                    type: string
+            schema: {$ref: '#/components/schemas/CreateReview'}
       responses:
         '202':
-          description: 审查任务已排队
+          description: 审查已启动或已持久排队；具体阶段以响应状态为准
           content:
             application/json:
               schema:
@@ -253,6 +284,64 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403': {description: 权限不足}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: 幂等键冲突或文档版本冲突}
+        '503': {description: 已授权审查执行器不可用}
+  /review-results/{resultId}/reports:
+    get:
+      operationId: listReviewReports
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: resultId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 不可变结果版本对应的报告制品
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 权限不足}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /audit/events:
+    get:
+      operationId: listAuditEvents
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: resource_id
+        in: query
+        schema: {type: string, maxLength: 64}
+      - name: actor_id
+        in: query
+        schema: {type: string, maxLength: 64}
+      - name: action
+        in: query
+        schema: {type: string, maxLength: 100}
+      - name: from
+        in: query
+        schema: {type: string, format: date-time}
+      - name: to
+        in: query
+        schema: {type: string, format: date-time}
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      responses:
+        '200':
+          description: 当前租户内授权的只读审计事件
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuditEventList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 仅审计员可查询}
   /reviews/{reviewTaskId}:
     get:
       operationId: getReview
@@ -955,6 +1044,65 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/QualityCorrection'
+  /projects/{projectId}/documents/{documentId}/external-authorization:
+    post:
+      operationId: authorizeDocumentExternalProcessing
+      summary: 登记单个文档的外部处理授权
+      description: 产品模式在 PostgreSQL 中写入绑定租户、项目、文档版本/哈希、用途、供应商、期限、授权人的授权记录，并与审计同事务提交；每次出站前重新检查。调用者不能提交文件内容或文件哈希。旧本地验证装配仅接受 reason/confirmed，可选产品字段会被拒绝；未配置授权登记器时失败关闭。
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExternalAuthorizationRequest'}
+      responses:
+        '201':
+          description: 服务端记录的逐文件授权审计记录
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExternalAuthorizationRecord'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 仅审核员可登记授权，或机构策略不允许该供应商/用途}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: 文档授权记录冲突}
+        '422': {$ref: '#/components/responses/BadRequest'}
+        '503': {description: 外部处理授权登记器不可用，拒绝登记}
+  /projects/{projectId}/documents/{documentId}/external-authorization/revoke:
+    post:
+      operationId: revokeDocumentExternalProcessing
+      summary: 撤销单个文档的外部处理授权
+      description: 仅审核员可撤销当前版本的活动授权；撤销与审计同事务提交，下一次出站检查即拒绝。已经发出的在途请求不能撤回。
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExternalAuthorizationRevocationRequest'}
+      responses:
+        '200':
+          description: 撤销后的授权记录
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExternalAuthorizationRecord'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: 仅审核员可撤销授权}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/BadRequest'}
+        '503': {description: 外部处理授权登记器不可用，拒绝撤销}
   /projects/{projectId}/documents/{documentId}/original:
     get:
       operationId: downloadDocument
@@ -1029,6 +1177,741 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{projectId}/documents/{documentId}/sections/{sectionId}/revisions/{revision}:
+    get:
+      operationId: resolveDocumentCitation
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: documentId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: sectionId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: revision
+        in: path
+        required: true
+        schema: {type: integer, minimum: 0}
+      - name: sourceHash
+        in: query
+        required: true
+        schema: {type: string, pattern: '^[a-f0-9]{64}$'}
+      responses:
+        '200':
+          description: 经租户和项目授权回查的历史原文片段
+          content:
+            application/json:
+              schema: {type: object}
+        '403': {description: 权限不足}
+        '404': {description: 引用不可用}
+  /review-tasks/pending:
+    get:
+      operationId: listPendingReviews
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: 当前账号可见的待复核任务
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PendingReviewList'}
+        '403': {description: 权限不足}
+  /review-tasks/{reviewTaskId}/runs/{runId}/findings:
+    get:
+      operationId: getReviewFindings
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 当前复核状态和风险项
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewFindings'}
+        '403': {description: 权限不足}
+        '404': {description: 任务不可用}
+  /review-tasks/{reviewTaskId}/runs/{runId}/findings/{findingId}:
+    get:
+      operationId: getReviewFinding
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      - name: findingId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200': {description: 风险及独立证据状态}
+        '403': {description: 权限不足}
+        '404': {description: 风险不可用}
+  /review-tasks/{reviewTaskId}/runs/{runId}/findings/{findingId}/citations:
+    get:
+      operationId: resolveReviewFindingCitations
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      - name: findingId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200':
+          description: 服务端校验的精确原文版本和定位
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewCitations'}
+        '403': {description: 权限不足}
+        '404': {description: 原文或风险不可用}
+        '422': {description: 摘录校验失败，关闭定位}
+  /review-tasks/{reviewTaskId}/runs/{runId}/findings/{findingId}/decisions:
+    post:
+      operationId: submitReviewDecision
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      - name: findingId
+        in: path
+        required: true
+        schema: {type: string}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReviewDecisionRequest'}
+      responses:
+        '200':
+          description: 已追加保存的不可变决定
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewDecision'}
+        '403': {description: 权限不足}
+        '409': {description: 任务状态或结果版本冲突}
+        '422': {description: 决定或修改字段无效}
+  /review-tasks/{reviewTaskId}/runs/{runId}/history:
+    get:
+      operationId: getReviewHistory
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 追加式人工复核历史
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewHistory'}
+        '403': {description: 权限不足}
+  /review-tasks/{reviewTaskId}/runs/{runId}/publish:
+    post:
+      operationId: publishReviewResult
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 幂等发布的不可变结果版本
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublishedResult'}
+        '403': {description: 权限不足}
+        '409': {description: 仍有待处理风险或任务状态冲突}
+  /review-tasks/{reviewTaskId}/runs/{runId}/resume:
+    post:
+      operationId: resumeReviewRun
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 从持久 LangGraph 人工中断继续执行后的真实任务状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewTask'}
+        '403': {description: 权限不足}
+        '409': {description: 恢复条件或版本冲突}
+        '503': {description: 审查 Worker 未连接}
+  /review-tasks/{reviewTaskId}/runs/{runId}/retry:
+    post:
+      operationId: retryReviewRun
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 有界重试后的持久化任务状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewTask'}
+        '403': {description: 权限不足}
+        '404': {description: 任务不可用}
+        '409': {description: 任务不具备重试条件}
+        '503': {description: 授权执行器不可用}
+  /review-tasks/{reviewTaskId}/runs/{runId}/cancel:
+    post:
+      operationId: cancelReviewRun
+      description: 仅审核员可取消持久审查运行；重复取消返回当前已取消状态；已发布结果不可取消。活动 Worker 的 lease 同步失效，不能继续写入结果。
+      security:
+      - bearerAuth: []
+      parameters:
+      - {$ref: '#/components/parameters/ReviewTaskId'}
+      - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: 取消后的持久化任务状态；操作对重复请求幂等
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewTask'}
+        '403': {description: 需要审核员权限}
+        '404': {description: 任务不可用}
+        '409': {description: 结果已发布，不能取消}
+        '503': {description: 审查 Worker 未连接}
+  /review-results/{resultId}/reports/{outputFormat}:
+    post:
+      operationId: createReviewReport
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: resultId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: outputFormat
+        in: path
+        required: true
+        schema: {type: string, enum: [docx, pdf]}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: 不可变 Word/PDF 制品元信息
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportMetadata'}
+        '403': {description: 权限不足}
+        '409': {description: 报告内容或版本冲突}
+  /reports/{reportId}/content:
+    get:
+      operationId: exportReviewReport
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 当前授权校验并写入导出审计后的报告文件
+          content:
+            application/pdf:
+              schema: {type: string, format: binary}
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: {type: string, format: binary}
+        '403': {description: 权限不足}
+        '404': {description: 报告不可用}
+  /admin/configurations/catalog:
+    get:
+      summary: Get Catalog
+      operationId: getConfigurationCatalog
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationCatalog'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations:
+    get:
+      summary: List Configurations
+      operationId: listConfigurations
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations/drafts:
+    post:
+      summary: Create Draft
+      operationId: createConfigurationDraft
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationDraftRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations/publish:
+    post:
+      summary: Publish
+      operationId: publishConfiguration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationPublishRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations/deactivate:
+    post:
+      summary: Deactivate
+      operationId: deactivateConfiguration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationDisableRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/configurations/rollback:
+    post:
+      summary: Rollback
+      operationId: rollbackConfiguration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationRollbackRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationStateResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/legal:
+    get:
+      summary: Get Legal Management
+      operationId: getLegalManagement
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalManagementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/legal/drafts:
+    post:
+      summary: Create Legal Draft
+      operationId: createLegalDraft
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegalDraftRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalManagementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /admin/legal/publications:
+    post:
+      summary: Change Legal Publication
+      operationId: changeLegalPublication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegalManagementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
 components:
   securitySchemes:
     bearerAuth:
@@ -1050,7 +1933,856 @@ components:
         type: string
         minLength: 16
         maxLength: 200
+    ReviewTaskId:
+      name: reviewTaskId
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 64}
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
   schemas:
+    ConfigurationCatalog:
+      properties:
+        skills:
+          items:
+            $ref: '#/components/schemas/SkillCatalogItem'
+          type: array
+          title: Skills
+        model_policy:
+          $ref: '#/components/schemas/ModelPolicySnapshot'
+        model_configuration_boundary:
+          type: string
+          title: Model Configuration Boundary
+      additionalProperties: false
+      type: object
+      required:
+      - skills
+      - model_policy
+      - model_configuration_boundary
+      title: ConfigurationCatalog
+    ConfigurationDisableRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - reason
+      title: ConfigurationDisableRequest
+    ConfigurationDraftRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        expected_draft_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Draft Sequence
+        expected_legal_publication_id:
+          type: string
+          maxLength: 36
+          minLength: 1
+          title: Expected Legal Publication Id
+        skill_ids:
+          items:
+            type: string
+            enum:
+            - qualification_review
+            - technical_review
+            - evaluation_review
+            - contract_review
+            - procedure_review
+          type: array
+          maxItems: 5
+          minItems: 1
+          title: Skill Ids
+        model_policy:
+          $ref: '#/components/schemas/ModelPolicySnapshot'
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - expected_draft_sequence
+      - expected_legal_publication_id
+      - skill_ids
+      - model_policy
+      - reason
+      title: ConfigurationDraftRequest
+    ConfigurationEventItem:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        sequence:
+          type: integer
+          title: Sequence
+        operation:
+          type: string
+          enum:
+          - draft
+          - publish
+          - disable
+          - rollback
+          title: Operation
+        revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Revision Id
+        previous_active_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Previous Active Id
+        active_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Revision Id
+        actor_id:
+          type: string
+          title: Actor Id
+        request_id:
+          type: string
+          title: Request Id
+        reason:
+          type: string
+          title: Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - event_id
+      - sequence
+      - operation
+      - revision_id
+      - previous_active_id
+      - active_revision_id
+      - actor_id
+      - request_id
+      - reason
+      - created_at
+      title: ConfigurationEventItem
+    ConfigurationPublishRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        revision_id:
+          type: string
+          maxLength: 36
+          minLength: 36
+          title: Revision Id
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - revision_id
+      - reason
+      title: ConfigurationPublishRequest
+    ConfigurationRevisionItem:
+      properties:
+        revision_id:
+          type: string
+          title: Revision Id
+        revision_sequence:
+          type: integer
+          title: Revision Sequence
+        parent_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Revision Id
+        snapshot:
+          additionalProperties: true
+          type: object
+          title: Snapshot
+        snapshot_hash:
+          type: string
+          title: Snapshot Hash
+        reason:
+          type: string
+          title: Reason
+        actor_id:
+          type: string
+          title: Actor Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        status:
+          type: string
+          enum:
+          - active
+          - draft
+          - inactive
+          title: Status
+      additionalProperties: false
+      type: object
+      required:
+      - revision_id
+      - revision_sequence
+      - parent_revision_id
+      - snapshot
+      - snapshot_hash
+      - reason
+      - actor_id
+      - created_at
+      - status
+      title: ConfigurationRevisionItem
+    ConfigurationRollbackRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        target_revision_id:
+          type: string
+          maxLength: 36
+          minLength: 36
+          title: Target Revision Id
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - target_revision_id
+      - reason
+      title: ConfigurationRollbackRequest
+    ConfigurationStateResponse:
+      properties:
+        sequence:
+          type: integer
+          title: Sequence
+        draft_sequence:
+          type: integer
+          title: Draft Sequence
+        active_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Revision Id
+        draft_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Draft Revision Id
+        items:
+          items:
+            $ref: '#/components/schemas/ConfigurationRevisionItem'
+          type: array
+          title: Items
+        events:
+          items:
+            $ref: '#/components/schemas/ConfigurationEventItem'
+          type: array
+          title: Events
+      additionalProperties: false
+      type: object
+      required:
+      - sequence
+      - draft_sequence
+      - active_revision_id
+      - draft_revision_id
+      - items
+      - events
+      title: ConfigurationStateResponse
+    LegalDraftRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_draft_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Draft Sequence
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_draft_sequence
+      - reason
+      title: LegalDraftRequest
+    LegalManagementResponse:
+      properties:
+        sequence:
+          type: integer
+          title: Sequence
+        publication_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Publication Id
+        draft_sequence:
+          type: integer
+          title: Draft Sequence
+        draft_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Draft Revision Id
+        capabilities:
+          items:
+            type: string
+          type: array
+          title: Capabilities
+        revisions:
+          items:
+            $ref: '#/components/schemas/LegalRevisionItem'
+          type: array
+          title: Revisions
+        publications:
+          items:
+            $ref: '#/components/schemas/LegalPublicationItem'
+          type: array
+          title: Publications
+      additionalProperties: false
+      type: object
+      required:
+      - sequence
+      - publication_id
+      - draft_sequence
+      - draft_revision_id
+      - capabilities
+      - revisions
+      - publications
+      title: LegalManagementResponse
+    LegalPublicationItem:
+      properties:
+        publication_id:
+          type: string
+          title: Publication Id
+        sequence:
+          type: integer
+          title: Sequence
+        previous_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Previous Id
+        target_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Id
+        revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Revision Id
+        operation:
+          type: string
+          enum:
+          - publish
+          - disable
+          - rollback
+          title: Operation
+        reason:
+          type: string
+          title: Reason
+        actor_id:
+          type: string
+          title: Actor Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - publication_id
+      - sequence
+      - previous_id
+      - target_id
+      - revision_id
+      - operation
+      - reason
+      - actor_id
+      - created_at
+      title: LegalPublicationItem
+    LegalRevisionItem:
+      properties:
+        revision_id:
+          type: string
+          title: Revision Id
+        draft_sequence:
+          type: integer
+          title: Draft Sequence
+        parent_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Id
+        operation:
+          type: string
+          enum:
+          - ingest
+          - verify
+          title: Operation
+        content_hash:
+          type: string
+          title: Content Hash
+        index_hash:
+          type: string
+          title: Index Hash
+        reason:
+          type: string
+          title: Reason
+        actor_id:
+          type: string
+          title: Actor Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        versions:
+          items:
+            $ref: '#/components/schemas/LegalVersionSummary'
+          type: array
+          title: Versions
+      additionalProperties: false
+      type: object
+      required:
+      - revision_id
+      - draft_sequence
+      - parent_id
+      - operation
+      - content_hash
+      - index_hash
+      - reason
+      - actor_id
+      - created_at
+      - versions
+      title: LegalRevisionItem
+    LegalVersionSummary:
+      properties:
+        law_id:
+          type: string
+          title: Law Id
+        title:
+          type: string
+          title: Title
+        version:
+          type: string
+          title: Version
+        verification:
+          type: string
+          title: Verification
+        verified_through:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Verified Through
+        end_status:
+          type: string
+          title: End Status
+      additionalProperties: false
+      type: object
+      required:
+      - law_id
+      - title
+      - version
+      - verification
+      - verified_through
+      - end_status
+      title: LegalVersionSummary
+    ModelPolicySnapshot:
+      properties:
+        profile:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Profile
+        timeout_seconds:
+          type: number
+          maximum: 3600.0
+          exclusiveMinimum: 0.0
+          title: Timeout Seconds
+        max_attempts:
+          type: integer
+          maximum: 3.0
+          minimum: 1.0
+          title: Max Attempts
+        max_input_tokens:
+          anyOf:
+          - type: integer
+            maximum: 1000000.0
+            minimum: 1.0
+          - type: 'null'
+          title: Max Input Tokens
+        max_output_tokens:
+          anyOf:
+          - type: integer
+            maximum: 1000000.0
+            minimum: 1.0
+          - type: 'null'
+          title: Max Output Tokens
+        temperature:
+          type: number
+          maximum: 2.0
+          minimum: 0.0
+          title: Temperature
+        data_policy:
+          type: string
+          enum:
+          - public
+          - internal
+          - confidential
+          - restricted
+          title: Data Policy
+      additionalProperties: false
+      type: object
+      required:
+      - profile
+      - timeout_seconds
+      - max_attempts
+      - temperature
+      - data_policy
+      title: ModelPolicySnapshot
+      description: Provider-neutral execution limits; credentials and provider routing
+        are excluded.
+    PublicationRequest:
+      properties:
+        request_id:
+          type: string
+          maxLength: 64
+          minLength: 16
+          title: Request Id
+        expected_sequence:
+          type: integer
+          minimum: 0.0
+          title: Expected Sequence
+        operation:
+          type: string
+          enum:
+          - publish
+          - disable
+          - rollback
+          title: Operation
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+        revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Revision Id
+        expected_draft_sequence:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Expected Draft Sequence
+        target_publication_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Publication Id
+      additionalProperties: false
+      type: object
+      required:
+      - request_id
+      - expected_sequence
+      - operation
+      - reason
+      title: PublicationRequest
+    SkillCatalogItem:
+      properties:
+        skill_id:
+          type: string
+          enum:
+          - qualification_review
+          - technical_review
+          - evaluation_review
+          - contract_review
+          - procedure_review
+          title: Skill Id
+        skill_version:
+          type: string
+          title: Skill Version
+        category:
+          type: string
+          title: Category
+        rule_versions:
+          additionalProperties:
+            type: string
+          type: object
+          title: Rule Versions
+      additionalProperties: false
+      type: object
+      required:
+      - skill_id
+      - skill_version
+      - category
+      - rule_versions
+      title: SkillCatalogItem
+    ReviewDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, expected_snapshot_hash, reason]
+      properties:
+        decision: {type: string, enum: [accept, modify, reject, confirm_no_findings]}
+        expected_snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        reason: {type: string, minLength: 1, maxLength: 2000}
+        modified_finding:
+          type: [object, 'null']
+          properties:
+            title: {type: string, minLength: 1, maxLength: 300}
+            description: {type: string, minLength: 1, maxLength: 4000}
+            severity: {type: string, enum: [low, medium, high, critical]}
+            recommendation: {type: string, minLength: 1, maxLength: 4000}
+            reasoning_summary: {type: string, minLength: 1, maxLength: 4000}
+      allOf:
+      - if:
+          properties: {decision: {const: modify}}
+          required: [decision]
+        then:
+          properties: {modified_finding: {type: object, minProperties: 1}}
+          required: [modified_finding]
+        else:
+          properties: {modified_finding: {type: 'null'}}
+    ReviewFindings:
+      type: object
+      additionalProperties: false
+      required: [review_task_id, run_id, snapshot_hash, status, findings, pending_finding_ids]
+      properties:
+        review_task_id: {type: string}
+        run_id: {type: string, format: uuid}
+        snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        status: {type: string}
+        findings: {type: array, items: {$ref: '#/components/schemas/RiskFinding'}}
+        pending_finding_ids: {type: array, items: {type: string}}
+        product_execution:
+          oneOf:
+            - $ref: '#/components/schemas/ReviewProductExecution'
+            - type: 'null'
+    ReviewProductExecution:
+      type: object
+      additionalProperties: false
+      required: [run_status, completion_status, coverage_status, unprocessed_units, truncated, saturated, unknown_model_call_count, reason_codes]
+      properties:
+        run_status: {type: string}
+        completion_status: {type: string, enum: [pending, complete, partial]}
+        coverage_status: {type: string, enum: [complete, partial, failed, not_applicable, unknown]}
+        unprocessed_units: {type: integer, minimum: 0}
+        planned_units: {type: integer, minimum: 0}
+        truncated: {type: boolean}
+        saturated: {type: boolean}
+        unknown_model_call_count: {type: integer, minimum: 0}
+        reason_codes: {type: array, uniqueItems: true, items: {type: string}}
+        rejected_candidate_attempts: {type: integer, minimum: 0}
+        rejected_candidate_count: {type: integer, minimum: 0}
+        rejected_source_unit_count: {type: integer, minimum: 0}
+        rejection_reason_counts:
+          type: object
+          additionalProperties: {type: integer, minimum: 0}
+        recovered_candidate_families: {type: integer, minimum: 0}
+        unrecovered_candidate_families: {type: integer, minimum: 0}
+        recovered_source_unit_count: {type: integer, minimum: 0}
+    EvidenceRef:
+      type: object
+      additionalProperties: false
+      required: [evidence_id, kind, title, quote, source_uri, source_hash, version_status]
+      properties:
+        evidence_id: {type: string, minLength: 1, maxLength: 128}
+        kind: {type: string, enum: [document, law, policy, internal_rule]}
+        title: {type: string, minLength: 1, maxLength: 500}
+        article: {type: [string, 'null'], maxLength: 200}
+        quote: {type: string, minLength: 1, maxLength: 8000}
+        source_uri: {type: string, minLength: 1, maxLength: 2048}
+        source_hash: {type: string, pattern: '^[a-fA-F0-9]{64}$'}
+        page: {type: [integer, 'null'], minimum: 1}
+        locator: {type: [string, 'null'], maxLength: 500}
+        effective_from: {type: [string, 'null'], format: date}
+        effective_to: {type: [string, 'null'], format: date}
+        version_status: {type: string, enum: [verified_current, verified_historical, unverified]}
+        jurisdiction: {type: [string, 'null'], maxLength: 200}
+    RiskFinding:
+      type: object
+      additionalProperties: false
+      required: [finding_id, category, title, description, severity, evidence_status, review_status, source_excerpt, sources, evidence, recommendation]
+      properties:
+        finding_id: {type: string, minLength: 1, maxLength: 128}
+        category: {type: string, enum: [qualification, technical, evaluation, contract, procedure]}
+        title: {type: string, minLength: 1, maxLength: 300}
+        description: {type: string, minLength: 1, maxLength: 4000}
+        severity: {type: string, enum: [low, medium, high, critical]}
+        evidence_status: {type: string, enum: [candidate, confirmed, suspected, insufficient_evidence]}
+        review_status: {type: string, enum: [pending, accepted, modified, rejected]}
+        source_excerpt: {$ref: '#/components/schemas/EvidenceRef'}
+        sources:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string, enum: [rule, retrieval, model, human]}
+        conflicts:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [source, assessment, summary]
+            properties:
+              source: {type: string, enum: [rule, model, retrieval]}
+              assessment: {type: string, minLength: 1, maxLength: 100}
+              summary: {type: string, minLength: 1, maxLength: 1000}
+        evidence: {type: array, items: {$ref: '#/components/schemas/EvidenceRef'}}
+        rule_ids: {type: array, uniqueItems: true, items: {type: string, maxLength: 128}}
+        reasoning_summary: {type: [string, 'null'], maxLength: 4000}
+        recommendation: {type: string, minLength: 1, maxLength: 4000}
+        confidence: {type: [number, 'null'], minimum: 0, maximum: 1}
+        legal_references:
+          type: array
+          maxItems: 20
+          description: >-
+            Retrieved clauses shown as references only. Revalidated against the frozen
+            publication but never confirmable and never counted as legal evidence.
+          items:
+            type: object
+            additionalProperties: true
+        human_review:
+          type: object
+          additionalProperties: false
+          required: [reviewer_id, decided_at, reason]
+          properties:
+            reviewer_id: {type: string, minLength: 1, maxLength: 128}
+            decided_at: {type: string, format: date-time}
+            reason: {type: string, minLength: 1, maxLength: 2000}
+    CitationLocation:
+      type: object
+      additionalProperties: false
+      required: [document_id, raw_source_sha256, parse_version, section_id, section_revision, locator, page, coordinate_system, bbox, quote, quote_sha256]
+      properties:
+        document_id: {type: string}
+        raw_source_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        parse_version: {type: integer, minimum: 1}
+        section_id: {type: string}
+        section_revision: {type: integer, minimum: 0}
+        locator: {type: string}
+        page: {type: [integer, 'null'], minimum: 1}
+        coordinate_system: {type: string, enum: [pdf_points, image_pixels, ooxml]}
+        bbox:
+          type: [array, 'null']
+          minItems: 4
+          maxItems: 4
+          items: {type: number}
+        quote: {type: string}
+        quote_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+    ReviewCitations:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/CitationLocation'}}
+    PublishedResult:
+      type: object
+      additionalProperties: false
+      required: [result_id, content_hash]
+      properties:
+        result_id: {type: string, format: uuid}
+        content_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+    ReviewDecision:
+      type: object
+      additionalProperties: false
+      required: [decision_id, review_task_id, run_id, finding_id, decision, before_state, after_state, reason, reviewer_id, request_id, request_trace_id, decided_at]
+      properties:
+        decision_id: {type: string, format: uuid}
+        review_task_id: {type: string}
+        run_id: {type: string, format: uuid}
+        finding_id: {type: string}
+        decision: {type: string, enum: [accept, modify, reject, confirm_no_findings]}
+        before_state: {type: object}
+        after_state: {type: object}
+        reason: {type: string, minLength: 1, maxLength: 2000}
+        reviewer_id: {type: string}
+        request_id: {type: string}
+        request_trace_id: {type: [string, 'null'], format: uuid}
+        decided_at: {type: string, format: date-time}
+    ReviewHistory:
+      type: object
+      additionalProperties: false
+      required: [review_task_id, run_id, decisions]
+      properties:
+        review_task_id: {type: string}
+        run_id: {type: string, format: uuid}
+        decisions: {type: array, items: {$ref: '#/components/schemas/ReviewDecision'}}
+    ReportMetadata:
+      type: object
+      additionalProperties: false
+      required: [report_id, report_content_id, result_id, format, template_version, snapshot_hash, content_hash, created_at]
+      properties:
+        report_id: {type: string, format: uuid}
+        report_content_id: {type: string, format: uuid}
+        result_id: {type: string, format: uuid}
+        format: {type: string, enum: [docx, pdf]}
+        template_version: {type: string}
+        snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        content_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        created_at: {type: string, format: date-time}
     ProjectFields:
       type: object
       required:
@@ -1094,6 +2826,43 @@ components:
           - string
           - 'null'
           maxLength: 1000
+        procurement_method: &id001
+          default: unknown
+          enum:
+          - tender
+          - non_tender
+          - unknown
+          title: Procurement Method
+          type: string
+        buyer_type: &id002
+          default: unknown
+          enum:
+          - government_entity
+          - enterprise
+          - other
+          - unknown
+          title: Buyer Type
+          type: string
+        subject_type: &id003
+          default: unknown
+          enum:
+          - works
+          - works_related_goods
+          - works_related_services
+          - goods
+          - services
+          - unknown
+          title: Subject Type
+          type: string
+        legal_frameworks: &id004
+          items:
+            enum:
+            - tendering
+            - government_procurement
+            type: string
+          maxItems: 2
+          title: Legal Frameworks
+          type: array
     ProjectCreate:
       allOf:
       - $ref: '#/components/schemas/ProjectFields'
@@ -1121,12 +2890,16 @@ components:
             format: date-time
     Document:
       additionalProperties: false
+      required: [document_id, project_id, file_format, status, sha256]
       properties:
         document_id:
           title: Document Id
           type: string
         project_id:
           title: Project Id
+          type: string
+        file_format:
+          enum: [pdf, docx, png, jpeg]
           type: string
         status:
           enum:
@@ -1181,6 +2954,12 @@ components:
             - TEXT_LIMIT
             - OCR_LIMIT
             - LOW_QUALITY
+            - LOW_CONFIDENCE_NUMERIC
+            - DUPLICATE_TEXT
+            - PAGE_COVERAGE_GAP
+            - READING_ORDER_GAP
+            - TABLE_STRUCTURE_GAP
+            - INVALID_DATE
             - SCANNER_UNAVAILABLE
             - SCANNER_STALE
             - PARSE_TIMEOUT
@@ -1192,13 +2971,45 @@ components:
           maxItems: 20
           title: Issues
           type: array
-      required:
-      - document_id
-      - project_id
-      - status
-      - sha256
       title: DocumentResponse
       type: object
+    DocumentList:
+      type: object
+      additionalProperties: false
+      required: [items, offset, limit, total]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Document'}}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
+    CreateReview:
+      type: object
+      additionalProperties: false
+      required: [document_ids]
+      properties:
+        document_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 128}
+    ModelRuntime:
+      type: object
+      additionalProperties: false
+      required: [execution_mode, provider, model, response_received, model_calls, input_tokens, output_tokens, estimated_cost_cny, skill_candidate_count, model_candidate_count, embedding_model, vector_index_build_id]
+      properties:
+        execution_mode: {type: string, enum: [real-qwen, offline-deterministic, unknown]}
+        provider: {type: [string, 'null']}
+        model: {type: [string, 'null']}
+        response_received: {type: boolean}
+        model_calls: {type: integer, minimum: 0}
+        input_tokens: {type: integer, minimum: 0}
+        output_tokens: {type: integer, minimum: 0}
+        estimated_cost_cny: {type: number, minimum: 0}
+        skill_candidate_count: {type: integer, minimum: 0}
+        model_candidate_count: {type: integer, minimum: 0}
+        embedding_model: {type: [string, 'null']}
+        vector_index_build_id: {type: [string, 'null']}
     ReviewTask:
       type: object
       additionalProperties: false
@@ -1207,6 +3018,11 @@ components:
       - project_id
       - run_id
       - status
+      - snapshot_hash
+      - retry_count
+      - failure_code
+      - result_id
+      - created_at
       properties:
         review_task_id:
           type: string
@@ -1220,13 +3036,72 @@ components:
           - queued
           - running
           - waiting_human
-          - succeeded
+          - result_published
           - failed
           - cancelled
-        progress:
-          type: number
-          minimum: 0
-          maximum: 1
+        snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        retry_count: {type: integer, minimum: 0, maximum: 2}
+        failure_code: {type: [string, 'null']}
+        result_id: {type: [string, 'null'], format: uuid}
+        created_at: {type: string, format: date-time}
+        model_runtime:
+          anyOf:
+            - {$ref: '#/components/schemas/ModelRuntime'}
+            - {type: 'null'}
+    ReviewList:
+      type: object
+      additionalProperties: false
+      required: [items, offset, limit, total]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ReviewTask'}}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
+    PendingReview:
+      type: object
+      additionalProperties: false
+      required: [review_task_id, run_id, project_id, snapshot_hash, status, created_at]
+      properties:
+        review_task_id: {type: string}
+        run_id: {type: string, format: uuid}
+        project_id: {type: string}
+        snapshot_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        status: {type: string, const: waiting_human}
+        created_at: {type: string, format: date-time}
+    PendingReviewList:
+      type: object
+      additionalProperties: false
+      required: [items, offset, limit]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/PendingReview'}}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+    ReportList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ReportMetadata'}}
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, actor_id, action, resource_id, request_id, occurred_at]
+      properties:
+        event_id: {type: string}
+        actor_id: {type: [string, 'null']}
+        action: {type: string}
+        resource_id: {type: [string, 'null']}
+        request_id: {type: string}
+        occurred_at: {type: string, format: date-time}
+    AuditEventList:
+      type: object
+      additionalProperties: false
+      required: [items, offset, limit, total]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/AuditEvent'}}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
     ErrorCode:
       type: string
       enum:
@@ -1371,6 +3246,31 @@ components:
           - revoked
       required:
       - status
+    OCRWordRecord:
+      additionalProperties: false
+      properties:
+        text: {type: string, minLength: 1, maxLength: 500}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        bbox:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: {type: number}
+        level: {type: integer, minimum: 1, maximum: 5}
+        page_num: {type: integer, minimum: 1, maximum: 300}
+        tsv_page_num: {type: integer, minimum: 1, maximum: 300}
+        block_num: {type: integer, minimum: 0}
+        par_num: {type: integer, minimum: 0}
+        line_num: {type: integer, minimum: 0}
+        word_num: {type: integer, minimum: 0}
+        raw_left: {type: integer, minimum: 0}
+        raw_top: {type: integer, minimum: 0}
+        raw_width: {type: integer, minimum: 0}
+        raw_height: {type: integer, minimum: 0}
+        raw_confidence: {type: number, minimum: 0, maximum: 100}
+      required: [text, confidence, bbox, level, page_num, tsv_page_num, block_num, par_num, line_num, word_num, raw_left, raw_top, raw_width, raw_height, raw_confidence]
+      title: OCRWordRecord
+      type: object
     Fragment:
       additionalProperties: false
       allOf:
@@ -1488,6 +3388,13 @@ components:
           - type: 'null'
           default: null
           title: Confidence
+        ocr_words:
+          default: []
+          items:
+            $ref: '#/components/schemas/OCRWordRecord'
+          maxItems: 10000
+          title: Ocr Words
+          type: array
         table:
           anyOf:
           - minimum: 0
@@ -1685,6 +3592,10 @@ components:
           - type: 'null'
           default: null
           title: Applicable System
+        procurement_method: *id001
+        buyer_type: *id002
+        subject_type: *id003
+        legal_frameworks: *id004
       required:
       - name
       - procurement_type
@@ -1752,6 +3663,74 @@ components:
       - reason
       - corrections
       title: QualityCorrection
+      type: object
+    ExternalAuthorizationRequest:
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        confirmed:
+          const: true
+          type: boolean
+        purpose:
+          type: string
+          minLength: 3
+          maxLength: 64
+          description: 产品模式的授权用途；省略时使用服务端装配的默认用途
+        provider:
+          type: string
+          minLength: 2
+          maxLength: 64
+          description: 产品模式的供应商；省略时使用服务端装配的默认供应商
+        expires_at:
+          type: string
+          format: date-time
+          description: 产品模式的可选到期时间；不得超过租户策略的最长授权期限
+      required: [reason, confirmed]
+      title: ExternalAuthorizationRequest
+      type: object
+    ExternalAuthorizationRevocationRequest:
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        confirmed:
+          const: true
+          type: boolean
+        purpose:
+          type: string
+          minLength: 3
+          maxLength: 64
+        provider:
+          type: string
+          minLength: 2
+          maxLength: 64
+      required: [reason, confirmed]
+      title: ExternalAuthorizationRevocationRequest
+      type: object
+    ExternalAuthorizationRecord:
+      additionalProperties: false
+      properties:
+        document_id: {type: string}
+        sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        action: {type: string, enum: [approve, revoke]}
+        approved_at: {type: string, format: date-time}
+        approved_by: {type: string}
+        authorization_id: {type: string}
+        parse_version: {type: integer, minimum: 1}
+        purpose: {type: string}
+        provider: {type: string}
+        expires_at: {type: string, format: date-time}
+        policy_version: {type: integer, minimum: 1}
+        revoked_at: {type: string, format: date-time}
+        revoked_by: {type: string}
+        revocation_reason: {type: string}
+      required: [document_id, sha256, action, approved_at, approved_by]
+      title: ExternalAuthorizationRecord
       type: object
   responses:
     BadRequest:

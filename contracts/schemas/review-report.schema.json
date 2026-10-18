@@ -1,0 +1,582 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/review-report.schema.json",
+  "title": "ImmutableReviewReportContent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tenant_id",
+    "project_id",
+    "review_task_id",
+    "run_id",
+    "result_id",
+    "snapshot_hash",
+    "report_id",
+    "template_version",
+    "generated_at",
+    "input_snapshot",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "task0010-report.v1",
+        "task0010-report.v2",
+        "task0010-report.v3"
+      ]
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "project_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    },
+    "review_task_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "result_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "snapshot_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "report_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "template_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input_snapshot": {
+      "type": "object"
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": [
+          "finding_id",
+          "category",
+          "title",
+          "description",
+          "severity",
+          "evidence_status",
+          "review_status",
+          "recommendation",
+          "evidence",
+          "citations"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "qualification",
+              "technical",
+              "evaluation",
+              "contract",
+              "procedure"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "evidence_status": {
+            "type": "string",
+            "enum": [
+              "candidate",
+              "confirmed",
+              "suspected",
+              "insufficient_evidence"
+            ]
+          },
+          "review_status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "modified",
+              "rejected"
+            ]
+          },
+          "recommendation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "evidence.schema.json"
+            }
+          },
+          "human_review": {
+            "type": "object"
+          },
+          "citations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "document_id",
+                "raw_source_sha256",
+                "parse_version",
+                "section_id",
+                "section_revision",
+                "locator",
+                "page",
+                "coordinate_system",
+                "quote",
+                "quote_sha256"
+              ],
+              "properties": {
+                "document_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "raw_source_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "parse_version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "section_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "section_revision": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "locator": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "page": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "coordinate_system": {
+                  "type": "string",
+                  "enum": [
+                    "pdf_points",
+                    "image_pixels",
+                    "ooxml"
+                  ]
+                },
+                "bbox": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "minItems": 4,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8000
+                },
+                "quote_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "assessment_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_discovery_status",
+        "candidate_count",
+        "skill_coverage",
+        "legal_framework_confirmed",
+        "retrieval_status_counts",
+        "retrieval_context_errors",
+        "retrieval_hit_count",
+        "citable_legal_evidence_count",
+        "retrieval_algorithms",
+        "model_provider",
+        "model_name",
+        "no_findings_confirmation",
+        "source_artifact_hashes"
+      ],
+      "properties": {
+        "candidate_discovery_status": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skill_candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_execution_mode": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "model_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_cost_cny": {
+          "type": "number",
+          "minimum": 0
+        },
+        "vector_index_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "vector_source_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skill_coverage": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "skill_id",
+              "status",
+              "candidate_count",
+              "evaluated_rule_count",
+              "reason"
+            ],
+            "properties": {
+              "skill_id": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "status": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "candidate_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "evaluated_rule_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 128
+              }
+            }
+          }
+        },
+        "legal_framework_confirmed": {
+          "type": "boolean"
+        },
+        "retrieval_status_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "retrieval_context_errors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "retrieval_hit_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "citable_legal_evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "product_execution": {
+          "$ref": "product-review-execution.schema.json#/$defs/report_projection"
+        },
+        "retrieval_algorithms": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "model_provider": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "model_name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "no_findings_confirmation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "accept",
+            "modify",
+            "reject",
+            "confirm_no_findings",
+            null
+          ]
+        },
+        "source_artifact_hashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "candidate_discovery",
+            "legal_retrieval",
+            "model_analysis",
+            "project_context"
+          ],
+          "properties": {
+            "candidate_discovery": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "legal_retrieval": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "model_analysis": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "project_context": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "adopted_legal_reference_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "configured_rule_law_binding_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "legal_adoption_policy": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "policy_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "decision_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "adopted_on": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "independent_legal_verification": {
+              "const": false
+            },
+            "version_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fragment_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "corpus_index_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "manifest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "statement": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "task0010-report.v2"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "required": [
+          "assessment_scope"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "task0010-report.v3"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "required": [
+          "assessment_scope"
+        ],
+        "properties": {
+          "assessment_scope": {
+            "required": [
+              "product_execution"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "task0010-report.v3"
+          },
+          "assessment_scope": {
+            "properties": {
+              "product_execution": {
+                "properties": {
+                  "completion_status": {
+                    "const": "complete"
+                  }
+                }
+              },
+              "candidate_count": {
+                "const": 0
+              }
+            },
+            "required": [
+              "product_execution",
+              "candidate_count"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "assessment_scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "assessment_scope": {
+            "properties": {
+              "no_findings_confirmation": {
+                "const": "confirm_no_findings"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

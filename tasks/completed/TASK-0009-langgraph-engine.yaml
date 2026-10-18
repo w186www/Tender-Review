@@ -1,0 +1,72 @@
+{
+  "schema_version": "v1alpha2",
+  "task_id": "TASK-0009",
+  "title": "LangGraph 审查引擎、证据门禁和恢复",
+  "status": "completed",
+  "owner": "Codex",
+  "depends_on": [
+    "TASK-0005",
+    "TASK-0006",
+    "TASK-0007",
+    "TASK-0008"
+  ],
+  "related_requirements": [
+    "FR-008",
+    "FR-009",
+    "FR-012",
+    "NFR-005",
+    "NFR-008"
+  ],
+  "related_acceptance": [
+    "AC-003",
+    "AC-004",
+    "AC-007"
+  ],
+  "read_first": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    "docs/index.md",
+    "docs/development/roadmap.md",
+    "docs/architecture/system.md"
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "contracts/**",
+    "scripts/**",
+    "config/**",
+    "docs/**",
+    "tasks/**",
+    "pyproject.toml",
+    "requirements-dev.lock",
+    "PROJECT_STATE.md",
+    "CHANGELOG.md",
+    "README.md",
+    ".env.example"
+  ],
+  "must_not_change": [
+    "knowledge/legal/**",
+    "docs/reference/*.docx"
+  ],
+  "steps": [
+    "按ADR-0005实现候选发现、法规检索、基于证据的分析与融合",
+    "实现Checkpoint、人工中断、取消、有限重试和幂等",
+    "定义节点字段归属、动态Skill汇合和失败路由"
+  ],
+  "acceptance_checks": [
+    {
+      "id": "TASK0009-001",
+      "description": "模型分析接收法规结果，缺证据只能降级",
+      "evidence": ["docs/development/TASK-0009-validation.md"]
+    },
+    {
+      "id": "TASK0009-002",
+      "description": "Worker重启、中断恢复和重复投递不重复发布结果",
+      "evidence": ["docs/development/TASK-0009-validation.md"]
+    }
+  ],
+  "verify": [
+    "./scripts/verify.ps1"
+  ],
+  "handoff_notes": "TASK0009-001/002本地验收及源码/验证记录提交远程CI成功；TASK-0009归档提交仍须通过远程verify-required及所有适用作业，方可正式宣布完成。相关全局AC仍按里程碑验收。"
+}

@@ -69,6 +69,34 @@
           "title": "Min Ocr Confidence",
           "type": "number"
         },
+        "min_numeric_confidence": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Numeric Confidence",
+          "type": "number"
+        },
+        "max_duplicate_text_ratio": {
+          "default": 0.5,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Max Duplicate Text Ratio",
+          "type": "number"
+        },
+        "min_page_coverage_ratio": {
+          "default": 0.9,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Page Coverage Ratio",
+          "type": "number"
+        },
+        "max_table_row_deviation": {
+          "default": 1,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Max Table Row Deviation",
+          "type": "integer"
+        },
         "parser_timeout_seconds": {
           "maximum": 60,
           "minimum": 1,

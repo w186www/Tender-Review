@@ -1,0 +1,10 @@
+{
+  "case_id": "GC-0004",
+  "title": "合同付款期限占位符候选",
+  "skill_id": "contract_review",
+  "input_fragments": [
+    {"section": "合同条款", "locator": "paragraph:12", "text": "付款期限：待填写"}
+  ],
+  "expected": {"candidate_count": 1, "coverage_status": "completed_with_candidates"},
+  "synthetic": true
+}

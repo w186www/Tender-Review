@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "active": {
+      "title": "Active",
+      "type": "boolean"
+    },
+    "capabilities": {
+      "items": {
+        "enum": [
+          "ingest",
+          "verify",
+          "publish",
+          "disable",
+          "rollback"
+        ],
+        "type": "string"
+      },
+      "maxItems": 5,
+      "title": "Capabilities",
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "active",
+    "capabilities"
+  ],
+  "title": "OperatorCapabilities",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-operator-capabilities.schema.json"
+}

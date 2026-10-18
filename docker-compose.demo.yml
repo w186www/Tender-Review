@@ -1,0 +1,298 @@
+# Single-host deployment for the interview demo.
+#
+# Topology
+#   browser --HTTPS--> nginx --/api/--> api (FastAPI + LangGraph)
+#                        \--> React static files
+#   api/worker --> postgres (business data + LangGraph checkpoint)
+#              --> minio    (uploaded objects)
+#              --> clamav   (mandatory scan)
+#   worker      --> docker daemon, to run the isolated parser image per document
+#
+# Only nginx publishes ports. PostgreSQL, MinIO, ClamAV and the API stay on internal
+# networks. The API container deliberately does NOT receive the Docker socket: document
+# parsing runs in the ingestion worker, never in the publicly reachable process.
+#
+# Usage: deploy/bootstrap.sh (generates deploy/.env, builds the parser image, starts the
+# stack in order and initialises the database). See deploy/README-demo.md.
+
+name: tender-review-demo
+
+x-app-environment: &app-environment
+  APP_ENV: ${APP_ENV:-staging}
+  APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+  APP_HOST: 0.0.0.0
+  APP_PORT: "8000"
+  APP_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost}
+  DATABASE_URL: ${DATABASE_URL}
+  AUTH_SIGNING_KEY: ${AUTH_SIGNING_KEY}
+  AUTH_ISSUER: ${AUTH_ISSUER:-bidding-compliance}
+  AUTH_AUDIENCE: ${AUTH_AUDIENCE:-bidding-api}
+  AUTH_TTL_SECONDS: ${AUTH_TTL_SECONDS:-900}
+  MODEL_PROFILE: ${MODEL_PROFILE:-local-development}
+  OBJECT_STORAGE_MODE: s3
+  OBJECT_STORAGE_ENDPOINT: http://minio:9000
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-bidding-compliance}
+  OBJECT_STORAGE_ACCESS_ID: ${MINIO_ROOT_USER}
+  OBJECT_STORAGE_ACCESS_SECRET: ${MINIO_ROOT_PASSWORD}
+  CLAMD_HOST: clamav
+  CLAMD_PORT: "3310"
+  CLAMD_TIMEOUT_SECONDS: ${CLAMD_TIMEOUT_SECONDS:-20}
+  CLAMD_MAX_DATABASE_AGE_SECONDS: ${CLAMD_MAX_DATABASE_AGE_SECONDS:-604800}
+
+x-api-build: &api-build
+  context: .
+  dockerfile: Dockerfile.api
+
+# Real-model variables are merged into api and review-worker, which call review models.
+# The ingestion worker, init, nginx and supporting services do not receive supplier
+# credentials or authorization identities. Every value is the optional `${VAR:-}` form:
+# an unset variable resolves to an empty string (no warning, no error) and the stack still
+# starts in DEPLOY_REVIEW_MODE=offline with no supplier call possible. Real values come
+# from deploy/.env (mode 600, gitignored) and never enter images, the frontend or logs.
+#   DASHSCOPE_API_KEY / BAILIAN_WORKSPACE_ID  supplier credentials (task0023_real_ai_app.py)
+#   DEC007_*                                  DEC-007 identity, ledger, audit and per-file
+#                                             registry of resolve_real_runtime_authorization
+#   DEC005_*                                  legacy DEC-005/006 identity and static allowlist
+#   PRODUCT_*                                 product-postgres tenant policy/account identity;
+#                                             mutually exclusive with DEC005_/DEC007_* at startup
+x-real-model-environment: &real-model-environment
+  DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+  BAILIAN_WORKSPACE_ID: ${BAILIAN_WORKSPACE_ID:-}
+  DEC007_AUTHORIZATION_ID: ${DEC007_AUTHORIZATION_ID:-}
+  # Leave the three DEC-007 paths empty to use the code defaults, which are the volume-root
+  # files below (the modelstate volume is mounted at /app/.verification/private, its root):
+  #   DEC007_AUTHORIZATION_REGISTRY=/app/.verification/private/authorization-registry.jsonl
+  #   DEC007_LEDGER_PATH=/app/.verification/private/dec007-budget.sqlite3
+  #   DEC007_MODEL_AUDIT_PATH=/app/.verification/private/dec007-model-audit.jsonl
+  # The ledger scope binds the registry path, so pointing it at another directory (for
+  # example /app/.verification/private/TASK-0023, which does not exist here) refuses the
+  # existing ledger with "existing DEC ledger has a different scope" instead of using it.
+  DEC007_AUTHORIZATION_REGISTRY: ${DEC007_AUTHORIZATION_REGISTRY:-}
+  DEC007_LEDGER_PATH: ${DEC007_LEDGER_PATH:-}
+  DEC007_MODEL_AUDIT_PATH: ${DEC007_MODEL_AUDIT_PATH:-}
+  DEC007_AUTHORIZATION_ACTOR: ${DEC007_AUTHORIZATION_ACTOR:-}
+  DEC005_AUTHORIZATION_ID: ${DEC005_AUTHORIZATION_ID:-}
+  DEC005_ALLOWED_DOCUMENT_SHA256: ${DEC005_ALLOWED_DOCUMENT_SHA256:-}
+  DEC005_ALLOWED_SYNTHETIC_SHA256: ${DEC005_ALLOWED_SYNTHETIC_SHA256:-}
+  PRODUCT_TENANT_ID: ${PRODUCT_TENANT_ID:-}
+  PRODUCT_PROVIDER: ${PRODUCT_PROVIDER:-}
+  PRODUCT_PURPOSE: ${PRODUCT_PURPOSE:-external_review}
+  PRODUCT_MODEL: ${PRODUCT_MODEL:-qwen3.8-flash}
+  PRODUCT_BUDGET_AUTHORIZATION_ID: ${PRODUCT_BUDGET_AUTHORIZATION_ID:-}
+
+services:
+  postgres:
+    image: postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bidding_compliance}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Detects silent storage corruption during recovery.
+      POSTGRES_INITDB_ARGS: --data-checksums
+    command:
+      - postgres
+      - -c
+      - max_connections=100
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - log_min_duration_statement=2000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-bidding_compliance}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks: [backend]
+
+  minio:
+    build:
+      context: .
+      dockerfile: Dockerfile.minio-verification
+    image: tender-review-minio:release-2025-09-07
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: ["server", "/data", "--address", ":9000", "--console-address", ":9001"]
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:9000/minio/health/live', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    networks: [backend]
+
+  clamav:
+    image: clamav/clamav:stable@sha256:638d90201ee7ee6a82d249a2fc23b132e578673b5f1f2766852b127676ca1ef6
+    restart: unless-stopped
+    # Loading the signature database needs about 3 GB; this limit is the reviewed value
+    # from scripts/run_task0011_e2e.py and must not be lowered.
+    mem_limit: 3g
+    volumes:
+      # Persisting the database avoids a full re-download on every restart.
+      - clamdb:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 120s
+    networks: [backend]
+
+  api:
+    build: *api-build
+    image: tender-review-api:${IMAGE_TAG:-demo}
+    restart: unless-stopped
+    command: ["python", "deploy/api_entry.py"]
+    environment:
+      <<: [*app-environment, *real-model-environment]
+      DEPLOY_REVIEW_MODE: ${DEPLOY_REVIEW_MODE:-offline}
+      # The compose project this deployment belongs to (never a secret). The one-off
+      # validation container inherits it, so the controlled round can compare the host
+      # evidence's project with the running deployment without an operator retyping it.
+      DEPLOY_COMPOSE_PROJECT: tender-review-demo
+    volumes:
+      # Model budget ledger and audit trail for authorized real-model mode.
+      - modelstate:/app/.verification/private
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks: [backend, edge]
+    stop_grace_period: 30s
+  review-worker:
+    build: *api-build
+    image: tender-review-api:${IMAGE_TAG:-demo}
+    restart: unless-stopped
+    command: ["python", "scripts/run_review_worker.py"]
+    environment:
+      <<: [*app-environment, *real-model-environment]
+      DEPLOY_REVIEW_MODE: ${DEPLOY_REVIEW_MODE:-offline}
+    volumes:
+      - modelstate:/app/.verification/private
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks: [backend]
+    stop_grace_period: 30s
+  worker:
+    build: *api-build
+    image: tender-review-api:${IMAGE_TAG:-demo}
+    restart: unless-stopped
+    command: ["python", "scripts/run_offline_demo_worker.py", "--tenant", "${DEMO_TENANT:-tenant-a}"]
+    environment:
+      <<: *app-environment
+      PARSER_IMAGE: ${PARSER_IMAGE}
+      # The worker spawns the isolated parser container; the API does not.
+      DOCKER_HOST: ${DOCKER_HOST:-unix:///var/run/docker.sock}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - modelstate:/app/.verification/private
+    # The socket is root:docker 0660 on a normal Linux host and root:root inside Docker
+    # Desktop; bootstrap.sh detects the real GID so the worker stays non-root.
+    group_add:
+      - "${DOCKER_SOCKET_GID:-0}"
+    # Drop every capability and forbid privilege gain; the only privilege this process
+    # holds is the Docker socket it has to use to start the sandboxed parser.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    mem_limit: 1g
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks: [backend]
+    stop_grace_period: 30s
+
+  # One-shot initialisation. Kept out of the running stack so the network-facing API
+  # container never holds the superuser DSN or the account passwords.
+  #   docker compose --profile init run --rm init python deploy/demo_init.py storage
+  init:
+    build: *api-build
+    image: tender-review-api:${IMAGE_TAG:-demo}
+    profiles: ["init"]
+    restart: "no"
+    entrypoint: ["python"]
+    environment:
+      <<: *app-environment
+      ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL}
+      DEMO_DB_RUNTIME_USER: ${DEMO_DB_RUNTIME_USER}
+      DEMO_DB_RUNTIME_PASSWORD: ${DEMO_DB_RUNTIME_PASSWORD}
+      DEMO_TENANT: ${DEMO_TENANT:-tenant-a}
+      DEMO_TENANT_NAME: ${DEMO_TENANT_NAME:-tenant-a}
+      DEMO_ADMIN_USERNAME: ${DEMO_ADMIN_USERNAME:-admin}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD}
+      DEMO_REVIEWER_PASSWORD: ${DEMO_REVIEWER_PASSWORD}
+      DEMO_AUDITOR_PASSWORD: ${DEMO_AUDITOR_PASSWORD}
+    networks: [backend]
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_REVIEW_MODE: ${VITE_REVIEW_MODE:-offline-deterministic}
+    image: tender-review-web:${IMAGE_TAG:-demo}
+    restart: unless-stopped
+    ports:
+      # Loopback by default: a deployment must never expose a credential prompt to the
+      # internet before TLS and access protection are in place. Set HTTP_BIND=0.0.0.0
+      # only behind a TLS terminator.
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-80}:8080"
+    volumes:
+      # The http-01 challenge directory, shared with the certbot service. Serving this path
+      # is the only thing that makes opening port 80 acceptable.
+      - ./acme-webroot:/var/www/acme
+      # Mounted rather than only baked into the image: routing rules are deployment
+      # configuration, and a change to them must not require an image rebuild (the image
+      # still ships a copy as the default).
+      - ./deploy/nginx-locations.inc:/etc/nginx/includes/locations.inc:ro
+    depends_on:
+      - api
+    networks: [edge]
+    security_opt: ["no-new-privileges:true"]
+
+  # Official ACME client. One-shot, never part of a normal `up`:
+  #   docker compose --profile certbot run --rm certbot certonly --webroot -w /var/www/acme \
+  #     --ip-address <ip> --preferred-profile shortlived ...
+  # State lives in ./certbot on the host so a container rebuild cannot lose the account,
+  # the archive or the renewal configuration.
+  certbot:
+    image: certbot/certbot:v5.8.0
+    profiles: ["certbot"]
+    restart: "no"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./acme-webroot:/var/www/acme
+    networks: [edge]
+
+volumes:
+  pgdata:
+    name: ${VOLUME_PREFIX:-tender-review}-pgdata
+  miniodata:
+    name: ${VOLUME_PREFIX:-tender-review}-miniodata
+  clamdb:
+    name: ${VOLUME_PREFIX:-tender-review}-clamdb
+  modelstate:
+    name: ${VOLUME_PREFIX:-tender-review}-modelstate
+
+networks:
+  # Application data plane: databases, object store, scanner and application processes.
+  backend:
+    name: ${VOLUME_PREFIX:-tender-review}-backend
+  # Only nginx and the API share this network.
+  edge:
+    name: ${VOLUME_PREFIX:-tender-review}-edge

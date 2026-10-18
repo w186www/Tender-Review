@@ -1,0 +1,72 @@
+schema_version: v1alpha1
+requirements:
+  FR-001: [U02, U05, U11]
+  FR-002: [U06, U10, U12]
+  FR-003: [U06, U11]
+  FR-004: [U07, U08]
+  FR-005: [U07, U08, U10]
+  FR-006: [U07, U09, U10]
+  FR-007: [U05, U08, U10]
+  FR-008: [U10, U11]
+  FR-009: [U10, U12]
+  FR-010: [U11, U12]
+  FR-011: [U12]
+  FR-012: [U04, U11]
+  FR-013: [U07, U13]
+  FR-014: [U12, U14]
+  FR-015: [U05, U08, U12]
+  SEC-001: [U05, U13]
+  SEC-002: [U05, U11]
+  SEC-003: [U06]
+  SEC-004: [U06]
+  SEC-005: [U08, U10]
+  SEC-006: [U05, U10]
+  SEC-007: [U05, U13]
+  SEC-008: [U13]
+  SEC-009: [U05, U08]
+  SEC-010: [U07, U11]
+  SEC-011: [U05, U12]
+  SEC-012: [U13]
+  SEC-013: [U04, U05, U14]
+  SEC-014: [U13, U14]
+  NFR-001: [U13]
+  NFR-002: [U14, U15]
+  NFR-003: [U13, U14]
+  NFR-004: [U04, U13]
+  NFR-005: [U04, U05, U11, U12]
+  NFR-006: [U04, U12, U14]
+  NFR-007: [U08, U09]
+  NFR-008: [U02, U04, U07, U10]
+  NFR-009: [U02, U15]
+  NFR-010: [U11]
+  NFR-011: [U05, U14]
+  NFR-012: [U12]
+  AC-001: [U06, U13]
+  AC-002: [U06, U10, U12]
+  AC-003: [U03, U08, U09, U10]
+  AC-004: [U07, U09, U10]
+  AC-005: [U11, U12]
+  AC-006: [U12]
+  AC-007: [U04, U13]
+  AC-008: [U05, U13]
+  AC-009: [U05, U06, U08]
+  AC-010: [U08, U09]
+  AC-011: [U15]
+  AC-012: [U16]
+evidence_records:
+  U01: docs/development/product-delivery-validation.md#U01
+  U02: docs/development/product-delivery-validation.md#U02
+  U03: docs/development/product-delivery-validation.md#U03
+  U04: docs/development/product-delivery-validation.md#U04
+  U05: docs/development/product-delivery-validation.md#U05
+  U06: docs/development/product-delivery-validation.md#U06
+  U07: docs/development/product-delivery-validation.md#U07
+  U08: docs/development/product-delivery-validation.md#U08
+  U09: docs/development/product-delivery-validation.md#U09
+  U10: docs/development/product-delivery-validation.md#U10
+  U11: docs/development/product-delivery-validation.md#U11
+  U12: docs/development/product-delivery-validation.md#U12
+  U13: docs/development/product-delivery-validation.md#U13
+  U14: docs/development/product-delivery-validation.md#U14
+  U15: docs/development/product-delivery-validation.md#U15
+  U16: docs/development/product-delivery-validation.md#U16

@@ -705,6 +705,1093 @@
         "unexpected": true
       },
       "expected_valid": false
+    },
+    {
+      "id": "legal-query-valid",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "text": "合成保证金",
+        "review_date": "2026-10-14",
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 5,
+        "include_references": false,
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-query-invalid-date",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "text": "合成保证金",
+        "review_date": "2026-13-01",
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 5,
+        "include_references": false,
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-query-extra-authority",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "text": "合成保证金",
+        "review_date": "2026-10-14",
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 5,
+        "include_references": false,
+        "tenant_id": "synthetic",
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-query-invalid-limit",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "text": "合成保证金",
+        "review_date": "2026-10-14",
+        "region": "CN/福建/福州",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 0,
+        "include_references": false,
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-query-unknown-region",
+      "schema": "contracts/schemas/legal-query.schema.json",
+      "data": {
+        "schema_version": "v1alpha3",
+        "text": "合成保证金",
+        "review_date": "2026-10-14",
+        "region": "未知区域",
+        "procurement_type": "government",
+        "project_type": "works",
+        "limit": 5,
+        "include_references": false,
+        "procurement_method": "tender",
+        "buyer_type": "government_entity",
+        "subject_type": "works"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-complete-valid",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha5",
+        "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "query": {
+          "schema_version": "v1alpha3",
+          "text": "合成保证金",
+          "review_date": "2026-10-14",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "limit": 5,
+          "include_references": false,
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [],
+        "status": "complete",
+        "excluded": [],
+        "context_error": null,
+        "citable_evidence": []
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-result-status-error-contradiction",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha5",
+        "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "query": {
+          "schema_version": "v1alpha3",
+          "text": "合成保证金",
+          "review_date": "2026-10-14",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "limit": 5,
+          "include_references": false,
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [],
+        "status": "complete",
+        "excluded": [],
+        "context_error": "CONTEXT_INVALID",
+        "citable_evidence": []
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-context-has-query",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha5",
+        "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "query": {
+          "schema_version": "v1alpha3",
+          "text": "合成保证金",
+          "review_date": "2026-10-14",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "limit": 5,
+          "include_references": false,
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [],
+        "status": "context_incomplete",
+        "excluded": [
+          {
+            "law_id": null,
+            "version": null,
+            "reasons": [
+              "context_incomplete"
+            ]
+          }
+        ],
+        "context_error": "REGION_UNMAPPED",
+        "citable_evidence": []
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-old-version",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "query": {
+          "schema_version": "v1alpha3",
+          "text": "合成保证金",
+          "review_date": "2026-10-14",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "limit": 5,
+          "include_references": false,
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [],
+        "status": "complete",
+        "excluded": [],
+        "context_error": null,
+        "citable_evidence": []
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-formal-evidence-valid",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha5",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha3",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": "2020-01-01",
+            "effective_to": null,
+            "version_status": "verified_current",
+            "eligible_for_confirmation": true,
+            "reason": "valid",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+              "kind": "law",
+              "title": "合成法规",
+              "article": "第一条",
+              "quote": "第一条 合成投标保证金不得超过限额。",
+              "source_uri": "artifact://legal-text/e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "page": null,
+              "locator": "chars=5:23",
+              "effective_from": "2020-01-01",
+              "effective_to": null,
+              "version_status": "verified_current",
+              "jurisdiction": "CN/福建/福州"
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-result-unverified-confirmable",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha5",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha3",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": "2020-01-01",
+            "effective_to": null,
+            "version_status": "unverified",
+            "eligible_for_confirmation": true,
+            "reason": "unverified",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+              "kind": "law",
+              "title": "合成法规",
+              "article": "第一条",
+              "quote": "第一条 合成投标保证金不得超过限额。",
+              "source_uri": "artifact://legal-text/e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "page": null,
+              "locator": "chars=5:23",
+              "effective_from": "2020-01-01",
+              "effective_to": null,
+              "version_status": "verified_current",
+              "jurisdiction": "CN/福建/福州"
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-valid-nonconfirmable",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha5",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha3",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": "2020-01-01",
+            "effective_to": null,
+            "version_status": "verified_current",
+            "eligible_for_confirmation": false,
+            "reason": "valid",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+              "kind": "law",
+              "title": "合成法规",
+              "article": "第一条",
+              "quote": "第一条 合成投标保证金不得超过限额。",
+              "source_uri": "artifact://legal-text/e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "page": null,
+              "locator": "chars=5:23",
+              "effective_from": "2020-01-01",
+              "effective_to": null,
+              "version_status": "verified_current",
+              "jurisdiction": "CN/福建/福州"
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-missing-effective-date",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha5",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha3",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": null,
+            "effective_to": null,
+            "version_status": "verified_current",
+            "eligible_for_confirmation": true,
+            "reason": "valid",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+              "kind": "law",
+              "title": "合成法规",
+              "article": "第一条",
+              "quote": "第一条 合成投标保证金不得超过限额。",
+              "source_uri": "artifact://legal-text/e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+              "page": null,
+              "locator": "chars=5:23",
+              "effective_from": "2020-01-01",
+              "effective_to": null,
+              "version_status": "verified_current",
+              "jurisdiction": "CN/福建/福州"
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-result-arbitrary-evidence",
+      "schema": "contracts/schemas/legal-result.schema.json",
+      "data": {
+        "schema_version": "v1alpha5",
+        "snapshot_hash": "9894e1877be8b4420d4a856ca8c138b3848f6b6e04da659d4675beaaa4a786ef",
+        "retrieval_version": "bm25-char-cosine-rrf-5",
+        "normalization_version": "cn-regions-1",
+        "status": "complete",
+        "context_error": null,
+        "query": {
+          "text": "投标保证金",
+          "review_date": "2026-10-14",
+          "limit": 10,
+          "include_references": true,
+          "schema_version": "v1alpha3",
+          "region": "CN/福建/福州",
+          "procurement_type": "government",
+          "project_type": "works",
+          "procurement_method": "tender",
+          "buyer_type": "government_entity",
+          "subject_type": "works"
+        },
+        "hits": [
+          {
+            "evidence_id": "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0",
+            "law_id": "synthetic",
+            "title": "合成法规",
+            "article": "第一条",
+            "version": "1",
+            "quote": "第一条 合成投标保证金不得超过限额。",
+            "quote_hash": "a7345cdcb96179e64c95c196244cd42b005159c38b537be34e15263331f9a7a0",
+            "source_uri": "https://example.gov.cn/law",
+            "source_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "text_hash": "e6c009eac94f7bdc51edf7ca3466ec68afc80c0df9affbdc2ad940d7af8f79de",
+            "locator": "law.txt#chars=5:23",
+            "effective_from": "2020-01-01",
+            "effective_to": null,
+            "version_status": "verified_current",
+            "eligible_for_confirmation": true,
+            "reason": "valid",
+            "score": 0.03278688524590164,
+            "evidence": {
+              "arbitrary": "not EvidenceRef"
+            },
+            "applicable_frameworks": [
+              "tendering"
+            ]
+          }
+        ],
+        "citable_evidence": [
+          "e5acfba9b8b8dd45abfb275de179702ae31edaa3fedb1ef5ad8bb85ab70a81e0"
+        ],
+        "excluded": [],
+        "run_snapshot": null
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-operator-valid",
+      "schema": "contracts/schemas/legal-operator-capabilities.schema.json",
+      "data": {
+        "active": true,
+        "capabilities": [
+          "verify",
+          "publish"
+        ]
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-operator-unknown",
+      "schema": "contracts/schemas/legal-operator-capabilities.schema.json",
+      "data": {
+        "active": true,
+        "capabilities": [
+          "tenant_admin"
+        ]
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-operator-duplicate",
+      "schema": "contracts/schemas/legal-operator-capabilities.schema.json",
+      "data": {
+        "active": true,
+        "capabilities": [
+          "publish",
+          "publish"
+        ]
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-revision-request-valid",
+      "schema": "contracts/schemas/legal-revision-request.schema.json",
+      "data": {
+        "request_id": "00000000-0000-4000-8000-000000000001",
+        "expected_draft_sequence": 0,
+        "reason": "synthetic"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-revision-sequence-bool",
+      "schema": "contracts/schemas/legal-revision-request.schema.json",
+      "data": {
+        "request_id": "00000000-0000-4000-8000-000000000001",
+        "expected_draft_sequence": true,
+        "reason": "synthetic"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "legal-publication-valid",
+      "schema": "contracts/schemas/legal-publication-request.schema.json",
+      "data": {
+        "request_id": "00000000-0000-4000-8000-000000000001",
+        "expected_sequence": 0,
+        "expected_draft_sequence": 1,
+        "operation": "publish",
+        "reason": "synthetic",
+        "revision_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "legal-publication-forged-actor",
+      "schema": "contracts/schemas/legal-publication-request.schema.json",
+      "data": {
+        "request_id": "00000000-0000-4000-8000-000000000001",
+        "expected_sequence": 0,
+        "operation": "disable",
+        "reason": "synthetic",
+        "actor_id": "tenant-admin"
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "rule-definition-valid",
+      "schema": "contracts/schemas/rule-definition.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "rule_id": "TASK0007.QUAL.LOCAL-REGISTRATION",
+        "rule_version": "1.0.0",
+        "category": "qualification",
+        "check_id": "local_registration_restriction",
+        "applicability": "fragment",
+        "explanation_template": "synthetic candidate",
+        "equivalence_group": "qualification:local-registration",
+        "enabled": true
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "rule-definition-check-category-mismatch",
+      "schema": "contracts/schemas/rule-definition.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "rule_id": "TASK0007.BAD.CATEGORY",
+        "rule_version": "1.0.0",
+        "category": "technical",
+        "check_id": "local_registration_restriction",
+        "applicability": "fragment",
+        "explanation_template": "synthetic candidate",
+        "enabled": true
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "skill-definition-valid",
+      "schema": "contracts/schemas/skill-definition.schema.json",
+      "data": {
+        "schema_version": "v1alpha1",
+        "skill_id": "qualification_review",
+        "skill_version": "1.0.0",
+        "category": "qualification",
+        "rules": [{"rule_id": "TASK0007.QUAL.LOCAL-REGISTRATION", "rule_version": "1.0.0"}],
+        "input_schema_version": "parsed-document.v1alpha1",
+        "output_schema_version": "candidate-discovery.v1alpha1"
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "candidate-discovery-document-valid",
+      "schema": "contracts/schemas/candidate-discovery-document-request.schema.json",
+      "data": {
+        "document_id": "document-1",
+        "raw_source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parse_version": 1,
+        "context_version": 1
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "candidate-discovery-document-hash-invalid",
+      "schema": "contracts/schemas/candidate-discovery-document-request.schema.json",
+      "data": {
+        "document_id": "document-1",
+        "raw_source_sha256": "not-a-hash",
+        "parse_version": 1,
+        "context_version": 1
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "product-execution-zero-candidate-complete",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000001",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "result_published",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": []
+        },
+        "completion_status": "complete",
+        "coverage": {
+          "status": "complete",
+          "planned_units": 0,
+          "completed_units": 0,
+          "failed_units": 0,
+          "unprocessed_units": 0,
+          "truncated": false,
+          "saturated": false
+        },
+        "candidate_count": 0,
+        "no_findings_confirmation": "confirm_no_findings",
+        "citable_legal_evidence_count": 0,
+        "model_calls": []
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "product-execution-partial-coverage-visible",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000008",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "result_published",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic-partial",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": []
+        },
+        "completion_status": "partial",
+        "coverage": {
+          "status": "partial",
+          "planned_units": 2,
+          "completed_units": 1,
+          "failed_units": 0,
+          "unprocessed_units": 1,
+          "truncated": true,
+          "saturated": false,
+          "reason_codes": ["provider_output_truncated"]
+        },
+        "candidate_count": 0,
+        "no_findings_confirmation": null,
+        "citable_legal_evidence_count": 0,
+        "model_calls": []
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "product-execution-complete-with-unknown-call-invalid",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000002",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "result_published",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic-2",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+        },
+        "completion_status": "complete",
+        "coverage": {
+          "status": "complete",
+          "planned_units": 1,
+          "completed_units": 1,
+          "failed_units": 0,
+          "unprocessed_units": 0,
+          "truncated": false,
+          "saturated": false
+        },
+        "candidate_count": 1,
+        "no_findings_confirmation": null,
+        "citable_legal_evidence_count": 0,
+        "model_calls": [{
+          "call_id": "call-synthetic",
+          "state": "unknown",
+          "attempt": 1,
+          "request_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "document_hashes": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+          "usage_status": "unknown"
+        }]
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "product-execution-complete-coverage-count-mismatch-invalid",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000006",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "result_published",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic-3",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": []
+        },
+        "completion_status": "complete",
+        "coverage": {
+          "status": "complete",
+          "planned_units": 2,
+          "completed_units": 1,
+          "failed_units": 0,
+          "unprocessed_units": 0,
+          "truncated": false,
+          "saturated": false
+        },
+        "candidate_count": 1,
+        "no_findings_confirmation": null,
+        "citable_legal_evidence_count": 0,
+        "model_calls": []
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "product-execution-dispatched-call-unapproved-document-invalid",
+      "schema": "contracts/schemas/product-review-execution.schema.json",
+      "data": {
+        "schema_version": "product-review-execution.v1alpha1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000007",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "failed",
+        "identity": {
+          "requester_id": "reviewer-synthetic",
+          "worker_identity": "review-worker-synthetic",
+          "request_id": "request-synthetic-4",
+          "attempt": 1
+        },
+        "authorization": {
+          "decision_ref": "audit://synthetic/decision-1",
+          "policy_snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "checked_at": "2026-10-17T00:00:00Z",
+          "authorized_document_hashes": []
+        },
+        "completion_status": "failed",
+        "coverage": {
+          "status": "failed",
+          "planned_units": 1,
+          "completed_units": 0,
+          "failed_units": 1,
+          "unprocessed_units": 0,
+          "truncated": false,
+          "saturated": false
+        },
+        "candidate_count": 0,
+        "no_findings_confirmation": null,
+        "citable_legal_evidence_count": 0,
+        "model_calls": [{
+          "call_id": "call-synthetic-unapproved",
+          "state": "dispatched",
+          "attempt": 1,
+          "request_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "document_hashes": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+          "usage_status": "unknown"
+        }]
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "report-v1-historical-contract-valid",
+      "schema": "contracts/schemas/review-report.schema.json",
+      "data": {
+        "schema_version": "task0010-report.v1",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000013",
+        "result_id": "00000000-0000-4000-8000-000000000014",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "report_id": "00000000-0000-4000-8000-000000000015",
+        "template_version": "legacy-v1",
+        "generated_at": "2025-10-17T00:00:00Z",
+        "input_snapshot": {},
+        "findings": []
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "report-v2-historical-zero-candidate-unconfirmed-valid",
+      "schema": "contracts/schemas/review-report.schema.json",
+      "data": {
+        "schema_version": "task0010-report.v2",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000023",
+        "result_id": "00000000-0000-4000-8000-000000000024",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "report_id": "00000000-0000-4000-8000-000000000025",
+        "template_version": "legacy-v2",
+        "generated_at": "2025-10-17T00:00:00Z",
+        "input_snapshot": {},
+        "findings": [],
+        "assessment_scope": {
+          "candidate_discovery_status": "completed_no_candidates",
+          "candidate_count": 0,
+          "skill_coverage": [],
+          "legal_framework_confirmed": false,
+          "retrieval_status_counts": {},
+          "retrieval_context_errors": {},
+          "retrieval_hit_count": 0,
+          "citable_legal_evidence_count": 0,
+          "retrieval_algorithms": [],
+          "model_provider": "none",
+          "model_name": "none",
+          "no_findings_confirmation": null,
+          "source_artifact_hashes": {
+            "candidate_discovery": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "legal_retrieval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "model_analysis": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "project_context": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        }
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "report-v3-complete-zero-candidates",
+      "schema": "contracts/schemas/review-report.schema.json",
+      "data": {
+        "schema_version": "task0010-report.v3",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000003",
+        "result_id": "00000000-0000-4000-8000-000000000004",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "report_id": "00000000-0000-4000-8000-000000000005",
+        "template_version": "v1",
+        "generated_at": "2026-10-17T00:00:00Z",
+        "input_snapshot": {},
+        "findings": [],
+        "assessment_scope": {
+          "candidate_discovery_status": "completed_no_candidates",
+          "candidate_count": 0,
+          "skill_coverage": [],
+          "legal_framework_confirmed": false,
+          "retrieval_status_counts": {},
+          "retrieval_context_errors": {},
+          "retrieval_hit_count": 0,
+          "citable_legal_evidence_count": 0,
+          "retrieval_algorithms": [],
+          "model_provider": "none",
+          "model_name": "none",
+          "no_findings_confirmation": "confirm_no_findings",
+          "source_artifact_hashes": {
+            "candidate_discovery": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "legal_retrieval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "model_analysis": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "project_context": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "product_execution": {
+            "completion_status": "complete",
+            "coverage_status": "complete",
+            "unprocessed_units": 0,
+            "planned_units": 12,
+            "truncated": false,
+            "saturated": false,
+            "unknown_model_call_count": 0,
+            "rejected_candidate_attempts": 0,
+            "rejected_candidate_count": 0,
+            "rejected_source_unit_count": 0,
+            "rejection_reason_counts": {},
+            "recovered_candidate_families": 0,
+            "unrecovered_candidate_families": 0,
+            "recovered_source_unit_count": 0
+          }
+        }
+      },
+      "expected_valid": true
+    },
+    {
+      "id": "report-v3-complete-with-partial-coverage-invalid",
+      "schema": "contracts/schemas/review-report.schema.json",
+      "data": {
+        "schema_version": "task0010-report.v3",
+        "tenant_id": "tenant-synthetic",
+        "project_id": "project-synthetic",
+        "review_task_id": "review-synthetic",
+        "run_id": "00000000-0000-4000-8000-000000000003",
+        "result_id": "00000000-0000-4000-8000-000000000004",
+        "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "report_id": "00000000-0000-4000-8000-000000000005",
+        "template_version": "v1",
+        "generated_at": "2026-10-17T00:00:00Z",
+        "input_snapshot": {},
+        "findings": [],
+        "assessment_scope": {
+          "candidate_discovery_status": "completed_no_candidates",
+          "candidate_count": 0,
+          "skill_coverage": [],
+          "legal_framework_confirmed": false,
+          "retrieval_status_counts": {},
+          "retrieval_context_errors": {},
+          "retrieval_hit_count": 0,
+          "citable_legal_evidence_count": 0,
+          "retrieval_algorithms": [],
+          "model_provider": "none",
+          "model_name": "none",
+          "no_findings_confirmation": "confirm_no_findings",
+          "source_artifact_hashes": {
+            "candidate_discovery": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "legal_retrieval": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "model_analysis": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "project_context": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "product_execution": {
+            "completion_status": "complete",
+            "coverage_status": "partial",
+            "unprocessed_units": 1,
+            "planned_units": 3,
+            "truncated": true,
+            "saturated": false,
+            "reason_codes": ["provider_output_truncated"],
+            "unknown_model_call_count": 0,
+            "rejected_candidate_attempts": 4,
+            "rejected_candidate_count": 3,
+            "rejected_source_unit_count": 2,
+            "rejection_reason_counts": {
+              "quote_missing_or_ambiguous": 2,
+              "unknown_section": 1
+            },
+            "recovered_candidate_families": 1,
+            "unrecovered_candidate_families": 1,
+            "recovered_source_unit_count": 1
+          }
+        }
+      },
+      "expected_valid": false
+    },
+    {
+      "id": "external-authorization-request-valid",
+      "schema": "contracts/openapi.yaml#/components/schemas/ExternalAuthorizationRequest",
+      "data": {"reason": "合成验证样本", "confirmed": true},
+      "expected_valid": true
+    },
+    {
+      "id": "external-authorization-request-cannot-self-authorize",
+      "schema": "contracts/openapi.yaml#/components/schemas/ExternalAuthorizationRequest",
+      "data": {"reason": "合成验证样本", "confirmed": false, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "expected_valid": false
     }
   ]
 }

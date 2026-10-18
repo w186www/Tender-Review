@@ -7,6 +7,7 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from uuid import uuid4
 
@@ -94,6 +95,40 @@ def scanned_pdf() -> bytes:
     document.showPage()
     document.save()
     return buffer.getvalue()
+
+
+def wait_for_scanner(
+    scanner: ClamAVScanner,
+    timeout_seconds: float = 240,
+    reload_signatures: Callable[[], None] | None = None,
+) -> None:
+    """Wait for startup signature updates; never accept an unavailable/stale scanner."""
+    deadline = time.monotonic() + timeout_seconds
+    next_reload = 0.0
+    while True:
+        try:
+            scanner.scan(b"Synthetic clean scanner test.")
+            return
+        except IngestionError as exc:
+            if exc.code not in {"SCANNER_UNAVAILABLE", "SCANNER_STALE"}:
+                raise
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"ClamAV readiness failed: {exc.code}") from exc
+            # freshclam can finish before clamd's socket exists, in which case its
+            # notification is lost and clamd keeps the bundled database. Asking the
+            # running daemon to reload is bounded and still requires a fresh scan.
+            if reload_signatures is not None and time.monotonic() >= next_reload:
+                reload_signatures()
+                next_reload = time.monotonic() + 20
+            time.sleep(min(2, max(0, deadline - time.monotonic())))
+
+
+def reload_clamav(container: str) -> None:
+    """Ask the owned clamd to load the database freshclam already updated."""
+    try:
+        docker(["exec", container, "clamdscan", "--reload"])
+    except subprocess.SubprocessError:
+        pass
 
 
 def main() -> None:
@@ -189,18 +224,19 @@ def main() -> None:
                     raise RuntimeError("MinIO readiness failed")
                 time.sleep(1)
         store.client.create_bucket(Bucket=settings.object_storage_bucket)
-        print("Real MinIO ready; waiting for ClamAV definitions and engine.", flush=True)
-        deadline = time.monotonic() + 240
-        while True:
-            try:
-                scanner.scan(b"Synthetic clean scanner test.")
-                break
-            except IngestionError as exc:
-                if exc.code == "SCANNER_STALE":
-                    raise
-                if time.monotonic() > deadline:
-                    raise RuntimeError("ClamAV readiness failed") from exc
-                time.sleep(2)
+        print(f"Real MinIO ready; ClamAV image {clam_image}.", flush=True)
+        try:
+            wait_for_scanner(scanner, reload_signatures=lambda: reload_clamav(clam))
+        except RuntimeError:
+            for command in (
+                ["logs", "--tail", "120", clam],
+                ["exec", clam, "tail", "-n", "80", "/var/log/clamav/clamd.log"],
+            ):
+                try:
+                    print(docker(command), flush=True)
+                except subprocess.CalledProcessError:
+                    pass
+            raise
         # Standard harmless antivirus test string exists only in memory and goes to localhost.
         eicar = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}" + b"$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
         try:

@@ -14,7 +14,7 @@ from bidding_compliance.ingestion.ports import (
     MalwareScanner,
     ObjectStore,
 )
-from bidding_compliance.ingestion.quality import digest, quality
+from bidding_compliance.ingestion.quality import digest, quality_issues
 from bidding_compliance.ingestion.schemas import (
     DocumentResponse,
     FileFormat,
@@ -159,10 +159,16 @@ def execute(
             audit(session, tenant, user_id, "document.processing_rejected", document_id)
         elif parsed is not None:
             # Recompute quality outside the parser; a claimed 'passed' cannot bypass this gate.
-            passed = quality(parsed.fragments, policy)
+            issues = quality_issues(parsed.fragments, policy)
+            passed = not issues
             document.status = "needs_confirmation" if passed else "needs_review"
-            document.issues = [] if passed else ["LOW_QUALITY"]
+            document.issues = [str(issue) for issue in issues]
             document.parse_version, document.context_version = 1, 1
+            document.parse_provenance = (
+                parsed.ocr_runtime.model_dump(mode="json")
+                if parsed.ocr_runtime is not None
+                else None
+            )
             items = []
             for ordinal, fragment in enumerate(parsed.fragments):
                 identifier = str(uuid4())

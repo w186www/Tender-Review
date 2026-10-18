@@ -9,7 +9,9 @@ import pytest
 import yaml
 from generate_state import check_state
 from verify_contracts import (
+    check_delivery_units,
     check_dependencies,
+    check_product_traceability,
     check_roadmap,
     check_tasks,
     load_contracts,
@@ -144,6 +146,94 @@ def test_roadmap_cannot_silently_drop_scope(tmp_path, corruption):
     target.parent.mkdir(parents=True)
     target.write_text(yaml.safe_dump(roadmap), encoding="utf-8")
     assert check_roadmap(tmp_path, declared, tasks)
+
+
+def test_product_delivery_units_cover_all_units_and_resolve_task_mapping():
+    roadmap = load_yaml(ROOT / "docs/development/roadmap.yaml")
+    tasks = {}
+    for folder in ("tasks/active", "tasks/completed"):
+        for path in (ROOT / folder).glob("TASK-*.yaml"):
+            task = load_yaml(path)
+            tasks[task["task_id"]] = task
+
+    assert check_delivery_units(roadmap, tasks) == []
+
+
+def test_product_delivery_unit_can_advance_engineering_before_dependency_exit():
+    roadmap = load_yaml(ROOT / "docs/development/roadmap.yaml")
+    tasks = {}
+    for folder in ("tasks/active", "tasks/completed"):
+        for path in (ROOT / folder).glob("TASK-*.yaml"):
+            task = load_yaml(path)
+            tasks[task["task_id"]] = task
+
+    units = {unit["id"]: unit for unit in roadmap["product_delivery_units"]}
+    units["U03"]["status"] = "in_progress"
+    units["U06"]["status"] = "in_progress"
+    assert check_delivery_units(roadmap, tasks) == []
+
+
+def test_product_delivery_unit_cannot_complete_before_dependency_exit():
+    roadmap = load_yaml(ROOT / "docs/development/roadmap.yaml")
+    tasks = {}
+    for folder in ("tasks/active", "tasks/completed"):
+        for path in (ROOT / folder).glob("TASK-*.yaml"):
+            task = load_yaml(path)
+            tasks[task["task_id"]] = task
+
+    units = {unit["id"]: unit for unit in roadmap["product_delivery_units"]}
+    units["U06"]["status"] = "completed"
+    errors = check_delivery_units(roadmap, tasks)
+    assert any("U06 completed before U03 completed" in error for error in errors)
+
+
+def test_product_traceability_covers_all_requirements_and_unit_evidence(tmp_path):
+    source = load_yaml(ROOT / "docs/development/product-delivery-traceability.yaml")
+    target = tmp_path / "docs/development/product-delivery-traceability.yaml"
+    target.parent.mkdir(parents=True)
+    (tmp_path / "docs/development/roadmap.yaml").write_text(
+        (ROOT / "docs/development/roadmap.yaml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / "docs/development/product-delivery-validation.md").write_text(
+        "# G3 evidence\n", encoding="utf-8"
+    )
+
+    target.write_text(yaml.safe_dump(source, sort_keys=False), encoding="utf-8")
+    declared = set(source["requirements"])
+    assert check_product_traceability(tmp_path, declared) == []
+
+    source["requirements"].pop("FR-001")
+    target.write_text(yaml.safe_dump(source, sort_keys=False), encoding="utf-8")
+    assert check_product_traceability(tmp_path, declared)
+
+    source["requirements"]["FR-001"] = ["U99"]
+    target.write_text(yaml.safe_dump(source, sort_keys=False), encoding="utf-8")
+    assert check_product_traceability(tmp_path, declared)
+
+
+@pytest.mark.parametrize(
+    "corruption", ["unknown_dependency", "cycle", "unknown_task", "missing_unit"]
+)
+def test_product_delivery_unit_graph_rejects_invalid_mapping(corruption):
+    roadmap = load_yaml(ROOT / "docs/development/roadmap.yaml")
+    tasks = {}
+    for folder in ("tasks/active", "tasks/completed"):
+        for path in (ROOT / folder).glob("TASK-*.yaml"):
+            task = load_yaml(path)
+            tasks[task["task_id"]] = task
+
+    units = roadmap["product_delivery_units"]
+    if corruption == "unknown_dependency":
+        units[1]["depends_on"] = ["U99"]
+    elif corruption == "cycle":
+        units[0]["depends_on"] = ["U02"]
+    elif corruption == "unknown_task":
+        units[0]["tasks"] = ["TASK-9999"]
+    else:
+        roadmap["product_delivery_units"] = units[:-1]
+
+    errors = check_delivery_units(roadmap, tasks)
+    assert errors
 
 
 def test_state_drift_is_rejected(tmp_path):

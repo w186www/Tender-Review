@@ -30,6 +30,7 @@ REQUIRED_PATHS = [
     "docs/index.md",
     "docs/development/roadmap.yaml",
     "docs/development/roadmap.md",
+    "docs/development/product-delivery-traceability.yaml",
     "docs/requirements/functional.md",
     "docs/requirements/security.md",
     "docs/requirements/non-functional.md",
@@ -179,14 +180,43 @@ def check_examples(root: Path, documents: dict, registry: Registry, api: dict) -
             seen.add(fixture["id"])
             validator = validator_for_contract(root, fixture["schema"], documents, registry, api)
             failures = list(validator.iter_errors(fixture["data"]))
+            semantic_errors = product_execution_semantic_errors(fixture)
             expected = fixture["expected_valid"]
             if not isinstance(expected, bool):
                 raise ValueError("expected_valid must be a boolean")
-            if (not failures) != expected:
-                detail = failures[0].message if failures else "invalid example was accepted"
+            actual_valid = not failures and not semantic_errors
+            if actual_valid != expected:
+                detail = (
+                    failures[0].message
+                    if failures
+                    else semantic_errors[0]
+                    if semantic_errors
+                    else "invalid example was accepted"
+                )
                 errors.append(f"contract fixture {fixture['id']} failed: {detail}")
     except Exception as exc:
         errors.append(f"contract fixtures invalid: {exc}")
+    return errors
+
+
+def product_execution_semantic_errors(fixture: dict) -> list[str]:
+    """Check cross-field invariants that JSON Schema cannot express."""
+    if fixture.get("schema") != "contracts/schemas/product-review-execution.schema.json":
+        return []
+    payload = fixture["data"]
+    errors = []
+    coverage = payload["coverage"]
+    if (
+        coverage["status"] == "complete"
+        and coverage["planned_units"] != coverage["completed_units"]
+    ):
+        errors.append("complete coverage count does not match planned units")
+    authorized = set(payload["authorization"]["authorized_document_hashes"])
+    for call in payload["model_calls"]:
+        if call["state"] in {"dispatched", "succeeded", "failed", "unknown"}:
+            if not set(call["document_hashes"]).issubset(authorized):
+                errors.append("dispatched model call includes an unauthorized document hash")
+                break
     return errors
 
 
@@ -197,7 +227,12 @@ def safe_path(root: Path, relative: str) -> Path:
     return target
 
 
-def check_dependencies(records: dict[str, dict], prefix: str) -> list[str]:
+def check_dependencies(
+    records: dict[str, dict],
+    prefix: str,
+    *,
+    allow_in_progress_before_dependencies: bool = False,
+) -> list[str]:
     errors = []
     visiting = set()
     visited = set()
@@ -214,9 +249,14 @@ def check_dependencies(records: dict[str, dict], prefix: str) -> list[str]:
                 errors.append(f"{prefix} {identifier} has unknown dependency {dependency}")
             else:
                 visit(dependency)
-                if (
-                    records[identifier]["status"] in {"in_progress", "completed"}
-                    and records[dependency]["status"] != "completed"
+                dependency_incomplete = records[dependency]["status"] != "completed"
+                unit_status = records[identifier]["status"]
+                if dependency_incomplete and unit_status == "completed":
+                    errors.append(f"{prefix} {identifier} completed before {dependency} completed")
+                elif (
+                    dependency_incomplete
+                    and unit_status == "in_progress"
+                    and not allow_in_progress_before_dependencies
                 ):
                     errors.append(f"{prefix} {identifier} started before {dependency} completed")
         visiting.remove(identifier)
@@ -305,9 +345,102 @@ def check_roadmap(root: Path, declared: set[str], tasks: dict) -> list[str]:
             )
         if set(tasks) - assigned_tasks:
             raise ValueError(f"tasks without milestones: {sorted(set(tasks) - assigned_tasks)}")
-        return check_dependencies(records, "milestone")
+        errors = check_dependencies(records, "milestone")
+        errors.extend(check_delivery_units(roadmap, tasks))
+        return errors
     except Exception as exc:
         return [f"invalid roadmap: {exc}"]
+
+
+def check_delivery_units(roadmap: dict, tasks: dict) -> list[str]:
+    """Validate the adopted product plan's unit map and dependency graph."""
+    try:
+        units = roadmap["product_delivery_units"]
+        if not isinstance(units, list) or not units:
+            raise ValueError("empty product_delivery_units")
+        records = {}
+        for unit in units:
+            identifier = unit["id"]
+            if identifier in records:
+                raise ValueError(f"duplicate delivery unit ID: {identifier}")
+            if unit["status"] not in {"planned", "in_progress", "completed"}:
+                raise ValueError(f"invalid delivery unit status: {identifier}")
+            if not unit["tasks"]:
+                raise ValueError(f"delivery unit has no task mapping: {identifier}")
+            unknown_tasks = set(unit["tasks"]) - set(tasks)
+            if unknown_tasks:
+                raise ValueError(
+                    f"delivery unit {identifier} references unknown tasks: {sorted(unknown_tasks)}"
+                )
+            unknown_decisions = set(unit.get("blocked_decisions", [])) - {
+                "D1",
+                "D2",
+                "D3",
+                "D4",
+            }
+            if unknown_decisions:
+                raise ValueError(
+                    f"delivery unit {identifier} references unknown decisions: "
+                    f"{sorted(unknown_decisions)}"
+                )
+            records[identifier] = unit
+        expected = {f"U{number:02}" for number in range(1, 17)}
+        if set(records) != expected:
+            raise ValueError(
+                f"delivery unit IDs differ from U01-U16: "
+                f"missing={sorted(expected - set(records))}, "
+                f"unexpected={sorted(set(records) - expected)}"
+            )
+        # Unit dependencies gate completion. In-progress engineering can proceed on
+        # independent work while a separate dependency remains open.
+        return check_dependencies(
+            records,
+            "delivery unit",
+            allow_in_progress_before_dependencies=True,
+        )
+    except Exception as exc:
+        return [f"invalid product delivery units: {exc}"]
+
+
+def check_product_traceability(root: Path, declared: set[str]) -> list[str]:
+    """Require every declared FR/SEC/NFR/AC to map through a unit to its G3 record."""
+    try:
+        traceability = load_yaml(root / "docs/development/product-delivery-traceability.yaml")
+        roadmap = load_yaml(root / "docs/development/roadmap.yaml")
+        requirements = traceability["requirements"]
+        evidence_records = traceability["evidence_records"]
+        unit_ids = {unit["id"] for unit in roadmap["product_delivery_units"]}
+        if set(requirements) != declared:
+            raise ValueError(
+                "traceability requirement IDs differ from declarations: "
+                f"missing={sorted(declared - set(requirements))}, "
+                f"unexpected={sorted(set(requirements) - declared)}"
+            )
+        if set(evidence_records) != unit_ids:
+            raise ValueError(
+                "traceability evidence records differ from delivery units: "
+                f"missing={sorted(unit_ids - set(evidence_records))}, "
+                f"unexpected={sorted(set(evidence_records) - unit_ids)}"
+            )
+        for requirement_id, mapped_units in requirements.items():
+            if not isinstance(mapped_units, list) or not mapped_units:
+                raise ValueError(f"requirement has no delivery unit: {requirement_id}")
+            unknown_units = set(mapped_units) - unit_ids
+            if unknown_units:
+                raise ValueError(
+                    f"requirement {requirement_id} references unknown units: "
+                    f"{sorted(unknown_units)}"
+                )
+        for unit_id, reference in evidence_records.items():
+            if not isinstance(reference, str) or not reference:
+                raise ValueError(f"delivery unit has no evidence record: {unit_id}")
+            relative = reference.split("#", maxsplit=1)[0]
+            target = safe_path(root, relative)
+            if not target.is_file():
+                raise ValueError(f"delivery unit evidence record does not exist: {reference}")
+        return []
+    except Exception as exc:
+        return [f"invalid product traceability map: {exc}"]
 
 
 def check_secrets(root: Path) -> list[str]:
@@ -380,6 +513,7 @@ def verify_repository(root: Path = ROOT) -> list[str]:
     if len(ids) != len(set(ids)):
         errors.append("duplicate requirement declarations")
     declared = set(ids)
+    errors.extend(check_product_traceability(root, declared))
     for prefix in ("FR", "SEC", "NFR", "AC"):
         if not any(item.startswith(prefix + "-") for item in declared):
             errors.append(f"no declared {prefix} requirements")

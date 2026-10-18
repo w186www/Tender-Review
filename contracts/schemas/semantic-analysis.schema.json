@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/semantic-analysis.schema.json",
+  "title": "SemanticAnalysisResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "findings"],
+  "properties": {
+    "schema_version": {"const": "v1alpha1"},
+    "findings": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {"$ref": "#/$defs/finding"}
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "assessment", "title", "description", "severity", "source_quote_sha256", "legal_evidence_ids", "recommendation", "reasoning_summary"],
+      "properties": {
+        "candidate_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "assessment": {"type": "string", "enum": ["potential_issue", "no_issue", "uncertain"]},
+        "title": {"type": "string", "minLength": 1, "maxLength": 300},
+        "description": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+        "source_quote_sha256": {"type": "array", "maxItems": 20, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+        "legal_evidence_ids": {"type": "array", "maxItems": 20, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+        "recommendation": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "reasoning_summary": {"type": "string", "maxLength": 4000},
+        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "$defs": {
+    "IngestionPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "max_upload_bytes": {
+          "maximum": 10485760,
+          "minimum": 1,
+          "title": "Max Upload Bytes",
+          "type": "integer"
+        },
+        "max_pages": {
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Max Pages",
+          "type": "integer"
+        },
+        "max_ocr_pages": {
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Max Ocr Pages",
+          "type": "integer"
+        },
+        "max_image_pixels": {
+          "maximum": 20000000,
+          "minimum": 1,
+          "title": "Max Image Pixels",
+          "type": "integer"
+        },
+        "max_zip_entries": {
+          "maximum": 2000,
+          "minimum": 1,
+          "title": "Max Zip Entries",
+          "type": "integer"
+        },
+        "max_uncompressed_bytes": {
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Max Uncompressed Bytes",
+          "type": "integer"
+        },
+        "max_compression_ratio": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Max Compression Ratio",
+          "type": "integer"
+        },
+        "max_fragments": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Fragments",
+          "type": "integer"
+        },
+        "max_text_chars": {
+          "maximum": 2000000,
+          "minimum": 1,
+          "title": "Max Text Chars",
+          "type": "integer"
+        },
+        "min_text_chars": {
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Min Text Chars",
+          "type": "integer"
+        },
+        "min_ocr_confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Ocr Confidence",
+          "type": "number"
+        },
+        "min_numeric_confidence": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Numeric Confidence",
+          "type": "number"
+        },
+        "max_duplicate_text_ratio": {
+          "default": 0.5,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Max Duplicate Text Ratio",
+          "type": "number"
+        },
+        "min_page_coverage_ratio": {
+          "default": 0.9,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Page Coverage Ratio",
+          "type": "number"
+        },
+        "max_table_row_deviation": {
+          "default": 1,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Max Table Row Deviation",
+          "type": "integer"
+        },
+        "parser_timeout_seconds": {
+          "maximum": 60,
+          "minimum": 1,
+          "title": "Parser Timeout Seconds",
+          "type": "integer"
+        },
+        "parser_output_bytes": {
+          "maximum": 8388608,
+          "minimum": 1,
+          "title": "Parser Output Bytes",
+          "type": "integer"
+        },
+        "job_lease_seconds": {
+          "maximum": 300,
+          "minimum": 120,
+          "title": "Job Lease Seconds",
+          "type": "integer"
+        },
+        "max_attempts": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_upload_bytes",
+        "max_pages",
+        "max_ocr_pages",
+        "max_image_pixels",
+        "max_zip_entries",
+        "max_uncompressed_bytes",
+        "max_compression_ratio",
+        "max_fragments",
+        "max_text_chars",
+        "min_text_chars",
+        "min_ocr_confidence",
+        "parser_timeout_seconds",
+        "parser_output_bytes",
+        "job_lease_seconds",
+        "max_attempts"
+      ],
+      "title": "IngestionPolicy",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "payload_base64": {
+      "maxLength": 2666668,
+      "minLength": 1,
+      "title": "Payload Base64",
+      "type": "string"
+    },
+    "policy": {
+      "$ref": "#/$defs/IngestionPolicy"
+    }
+  },
+  "required": [
+    "payload_base64",
+    "policy"
+  ],
+  "title": "SourceExtractionRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/legal-source-request.schema.json"
+}

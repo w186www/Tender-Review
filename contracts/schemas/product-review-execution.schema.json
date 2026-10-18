@@ -1,0 +1,742 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/product-review-execution.schema.json",
+  "title": "ProductReviewExecution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tenant_id",
+    "project_id",
+    "review_task_id",
+    "run_id",
+    "snapshot_hash",
+    "status",
+    "identity",
+    "authorization",
+    "completion_status",
+    "coverage",
+    "candidate_count",
+    "no_findings_confirmation",
+    "citable_legal_evidence_count",
+    "model_calls"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "product-review-execution.v1alpha1"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "review_task_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "snapshot_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "waiting_human",
+        "result_published",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requester_id",
+        "worker_identity",
+        "request_id",
+        "attempt"
+      ],
+      "properties": {
+        "requester_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "worker_identity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_ref",
+        "policy_snapshot_hash",
+        "checked_at",
+        "authorized_document_hashes"
+      ],
+      "properties": {
+        "decision_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "policy_snapshot_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "authorized_document_hashes": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "completion_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "complete",
+        "partial",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "no_findings_confirmation": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "accept",
+        "modify",
+        "reject",
+        "confirm_no_findings",
+        null
+      ]
+    },
+    "citable_legal_evidence_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "model_calls": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/$defs/model_call"
+      }
+    }
+  },
+  "$defs": {
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "planned_units",
+        "completed_units",
+        "failed_units",
+        "unprocessed_units",
+        "truncated",
+        "saturated"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "failed",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "planned_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unprocessed_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "saturated": {
+          "type": "boolean"
+        },
+        "reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "partial",
+                  "failed",
+                  "unknown",
+                  "not_applicable"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "reason_codes"
+            ],
+            "properties": {
+              "reason_codes": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "failed_units": {
+                "const": 0
+              },
+              "unprocessed_units": {
+                "const": 0
+              },
+              "truncated": {
+                "const": false
+              },
+              "saturated": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "model_call": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "call_id",
+        "state",
+        "attempt",
+        "request_hash",
+        "document_hashes",
+        "usage_status"
+      ],
+      "properties": {
+        "call_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "prepared",
+            "reserved",
+            "dispatched",
+            "succeeded",
+            "failed",
+            "unknown"
+          ]
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "request_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "document_hashes": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "usage_status": {
+          "type": "string",
+          "enum": [
+            "not_applicable",
+            "reported",
+            "unknown"
+          ]
+        },
+        "response_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "succeeded"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "response_hash"
+            ],
+            "properties": {
+              "usage_status": {
+                "const": "reported"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "failed"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "error_code"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "usage_status": {
+                "const": "unknown"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "report_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "completion_status",
+        "coverage_status",
+        "unprocessed_units",
+        "truncated",
+        "saturated",
+        "unknown_model_call_count"
+      ],
+      "properties": {
+        "completion_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "failed",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "unprocessed_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned_units": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique original source fragments in the discovery plan when the producer has source-unit identities."
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "saturated": {
+          "type": "boolean"
+        },
+        "reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "unknown_model_call_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "analyzed_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "saturated_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rejected_units": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Legacy partial-batch section total. It can include repeated source sections and is not a rejected-candidate count; new consumers should use the explicit rejection fields below."
+        },
+        "rejected_candidate_attempts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Invalid candidate outputs across all model responses, including repeated attempts."
+        },
+        "rejected_candidate_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique invalid candidate identities after de-duplicating identical outputs for the same source chunk."
+        },
+        "rejected_source_unit_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique original source fragments implicated by rejected candidates; candidates without a resolvable source are excluded."
+        },
+        "rejection_reason_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Unique rejected candidate identities by validation reason. A candidate may appear under more than one reason if repeated responses fail differently."
+        },
+        "recovered_candidate_families": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rejected source/category/description families later accepted with a valid exact-source quote in a subsequent batch."
+        },
+        "unrecovered_candidate_families": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rejected source/category/description families with no later valid exact-source candidate."
+        },
+        "recovered_source_unit_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique original source fragments with at least one subsequently recovered candidate family."
+        },
+        "failed_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsubmitted_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncated_batches": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "coverage_status": {
+                "enum": [
+                  "partial",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "coverage_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "reason_codes"
+            ],
+            "properties": {
+              "reason_codes": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "completion_status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "completion_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage_status": {
+                "enum": [
+                  "complete",
+                  "not_applicable"
+                ]
+              },
+              "unprocessed_units": {
+                "const": 0
+              },
+              "truncated": {
+                "const": false
+              },
+              "saturated": {
+                "const": false
+              },
+              "unknown_model_call_count": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "result_published"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "completion_status": {
+            "enum": [
+              "complete",
+              "partial"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "completion_status": {
+            "const": "failed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "cancelled"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "completion_status": {
+            "const": "cancelled"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "waiting_human"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "completion_status": {
+            "enum": [
+              "pending",
+              "partial"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "completion_status": {
+            "const": "complete"
+          }
+        },
+        "required": [
+          "completion_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "coverage": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "complete",
+                  "not_applicable"
+                ]
+              }
+            }
+          },
+          "model_calls": {
+            "items": {
+              "properties": {
+                "state": {
+                  "not": {
+                    "const": "unknown"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "completion_status": {
+            "const": "complete"
+          },
+          "candidate_count": {
+            "const": 0
+          }
+        },
+        "required": [
+          "completion_status",
+          "candidate_count"
+        ]
+      },
+      "then": {
+        "properties": {
+          "no_findings_confirmation": {
+            "const": "confirm_no_findings"
+          }
+        }
+      }
+    }
+  ]
+}

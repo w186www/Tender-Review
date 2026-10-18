@@ -1,0 +1,67 @@
+{
+  "schema_version": "task0018.retrieval-queries.v1",
+  "top_k": 10,
+  "review_date": "2026-10-14",
+  "context": {
+    "region": "CN/福建/福州",
+    "procurement_type": "government",
+    "project_type": "works",
+    "procurement_method": "tender",
+    "buyer_type": "government_entity",
+    "subject_type": "works",
+    "legal_frameworks": ["tendering", "government_procurement"],
+    "include_references": true
+  },
+  "queries": [
+    {
+      "id": "R001",
+      "text": "招标文件发出后，如果招标人修改内容会影响投标文件编制，应至少提前多少天书面通知？",
+      "target_article": "第二十一条"
+    },
+    {
+      "id": "R002",
+      "text": "投标保证金金额最高能占项目估算价的多少比例，保证金有效期应如何确定？",
+      "target_article": "第二十六条"
+    },
+    {
+      "id": "R003",
+      "text": "潜在投标人对招标文件提出异议后，招标人应在几日内回复，回复前是否需要暂停活动？",
+      "target_article": "第二十二条"
+    },
+    {
+      "id": "R004",
+      "text": "招标人能否把特定地区的业绩或奖项作为资格和加分条件，哪些做法属于不合理排斥？",
+      "target_article": "第三十二条"
+    },
+    {
+      "id": "R005",
+      "text": "受托代理机构是否可以参加自己代理的项目投标，或给该项目的投标人提供咨询？",
+      "target_article": "第十三条"
+    },
+    {
+      "id": "R006",
+      "text": "中标后合同主要条款与招标投标文件不一致，或者另签背离合同实质内容的协议，适用哪条规定？",
+      "target_article": "第五十七条"
+    },
+    {
+      "id": "R007",
+      "text": "投标人在截止时间前书面撤回已提交的投标文件，招标人应在多久内退还保证金？",
+      "target_article": "第三十五条"
+    },
+    {
+      "id": "R008",
+      "text": "两个单位负责人相同，或者存在控股管理关系，可以同时参加同一标段投标吗？",
+      "target_article": "第三十四条"
+    },
+    {
+      "id": "R009",
+      "text": "投标人事先协商投标报价、约定中标人或放弃投标，会被如何定性？",
+      "target_article": "第三十九条"
+    },
+    {
+      "id": "R010",
+      "text": "投标人发现招标活动违反行政法规后，通常应在多少日内向监督部门投诉？",
+      "target_article": "第六十条"
+    }
+  ]
+}

@@ -1,0 +1,205 @@
+{
+  "$defs": {
+    "DocumentVersionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "document_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Document Id",
+          "type": "string"
+        },
+        "raw_source_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Raw Source Sha256",
+          "type": "string"
+        },
+        "parse_version": {
+          "minimum": 1,
+          "title": "Parse Version",
+          "type": "integer"
+        },
+        "context_version": {
+          "minimum": 1,
+          "title": "Context Version",
+          "type": "integer"
+        },
+        "fragments_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Fragments Sha256",
+          "type": "string"
+        },
+        "ocr_runtime": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OCRRuntimeIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ocr_runtime_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ocr Runtime Sha256"
+        },
+        "document_version_ref": {
+          "pattern": "^doc-version:sha256:[a-f0-9]{64}$",
+          "title": "Document Version Ref",
+          "type": "string"
+        },
+        "fragment_count": {
+          "minimum": 1,
+          "title": "Fragment Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "document_id",
+        "raw_source_sha256",
+        "parse_version",
+        "context_version",
+        "fragments_sha256",
+        "document_version_ref",
+        "fragment_count"
+      ],
+      "title": "DocumentVersionRef",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "OCRRuntimeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "v1alpha1",
+          "default": "v1alpha1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "engine_id": {
+          "const": "tesseract",
+          "default": "tesseract",
+          "title": "Engine Id",
+          "type": "string"
+        },
+        "engine_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "model_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Model Ids",
+          "type": "array"
+        },
+        "model_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Model Sha256",
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "parser_image_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Image Sha256"
+        },
+        "identity_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Identity Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "engine_version",
+        "model_ids",
+        "model_sha256",
+        "parameters",
+        "identity_sha256"
+      ],
+      "title": "OCRRuntimeIdentity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "tenant_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "project_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "project_version": {
+      "minimum": 1,
+      "title": "Project Version",
+      "type": "integer"
+    },
+    "project_context_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Project Context Sha256",
+      "type": "string"
+    },
+    "project_context_ref": {
+      "pattern": "^project-version:sha256:[a-f0-9]{64}$",
+      "title": "Project Context Ref",
+      "type": "string"
+    },
+    "documents": {
+      "items": {
+        "$ref": "#/$defs/DocumentVersionRef"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Documents",
+      "type": "array"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "project_id",
+    "project_version",
+    "project_context_sha256",
+    "project_context_ref",
+    "documents"
+  ],
+  "title": "DiscoveryInputSnapshot",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/candidate-discovery-input.schema.json"
+}

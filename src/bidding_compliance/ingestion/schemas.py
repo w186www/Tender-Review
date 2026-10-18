@@ -1,8 +1,11 @@
 """Versioned cross-module data; generated JSON Schemas are checked against these models."""
 
-from typing import Literal
+import hashlib
+import json
+import re
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 
 class Closed(BaseModel):
@@ -22,6 +25,12 @@ Issue = Literal[
     "TEXT_LIMIT",
     "OCR_LIMIT",
     "LOW_QUALITY",
+    "LOW_CONFIDENCE_NUMERIC",
+    "DUPLICATE_TEXT",
+    "PAGE_COVERAGE_GAP",
+    "READING_ORDER_GAP",
+    "TABLE_STRUCTURE_GAP",
+    "INVALID_DATE",
     "SCANNER_UNAVAILABLE",
     "SCANNER_STALE",
     "PARSE_TIMEOUT",
@@ -30,6 +39,67 @@ Issue = Literal[
     "ACTOR_FORBIDDEN",
     "OUTPUT_LIMIT",
 ]
+
+
+class OCRRuntimeIdentity(Closed):
+    schema_version: Literal["v1alpha1"] = "v1alpha1"
+    engine_id: Literal["tesseract"] = "tesseract"
+    engine_version: str = Field(min_length=1, max_length=100)
+    model_ids: tuple[str, ...] = Field(min_length=1, max_length=4)
+    model_sha256: dict[str, str]
+    parameters: dict[str, JsonValue]
+    parser_image_sha256: str | None = Field(default=None, pattern="^[a-f0-9]{64}$")
+    identity_sha256: str = Field(pattern="^[a-f0-9]{64}$")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_json_model_ids(cls, value: object) -> object:
+        """Accept JSON arrays at the persisted-data boundary without weakening item checks."""
+        if not isinstance(value, dict):
+            return value
+        model_ids = value.get("model_ids")
+        if not isinstance(model_ids, list):
+            return value
+        normalized = dict(value)
+        normalized["model_ids"] = tuple(model_ids)
+        return normalized
+
+    @staticmethod
+    def canonical_hash(payload: dict[str, JsonValue]) -> str:
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def create(cls, **values: object) -> "OCRRuntimeIdentity":
+        normalized_values = dict(values)
+        normalized_values.pop("identity_sha256", None)
+        model_ids = normalized_values.get("model_ids")
+        if isinstance(model_ids, list):
+            normalized_values["model_ids"] = tuple(model_ids)
+        normalized = cls.model_construct(
+            **cast(Any, normalized_values), identity_sha256=""
+        )
+        payload = normalized.model_dump(mode="python", exclude={"identity_sha256"})
+        return cls.model_validate({**payload, "identity_sha256": cls.canonical_hash(payload)})
+
+    @model_validator(mode="after")
+    def models_have_hashes(self) -> "OCRRuntimeIdentity":
+        if set(self.model_ids) != set(self.model_sha256) or any(
+            not re.fullmatch(r"[a-f0-9]{64}", value) for value in self.model_sha256.values()
+        ):
+            raise ValueError("OCR model identity and hashes must match")
+        if len(set(self.model_ids)) != len(self.model_ids):
+            raise ValueError("duplicate OCR model identity")
+        payload = self.model_dump(mode="json", exclude={"identity_sha256"})
+        if self.identity_sha256 != self.canonical_hash(payload):
+            raise ValueError("OCR runtime identity hash mismatch")
+        return self
+
+
+class ParserExecutionMetrics(Closed):
+    elapsed_ms: int = Field(ge=0)
+    process_peak_rss_bytes: int | None = Field(default=None, ge=0)
+    container_memory_peak_bytes: int | None = Field(default=None, ge=0)
 
 
 class IngestionPolicy(Closed):
@@ -44,10 +114,36 @@ class IngestionPolicy(Closed):
     max_text_chars: int = Field(ge=1, le=2000000)
     min_text_chars: int = Field(ge=1, le=1000)
     min_ocr_confidence: float = Field(ge=0, le=1)
+    # Structural quality settings beyond the average OCR confidence. Defaults keep old
+    # configurations valid; a reviewer can tighten them in the versioned policy.
+    min_numeric_confidence: float = Field(default=0.8, ge=0, le=1)
+    max_duplicate_text_ratio: float = Field(default=0.5, ge=0, le=1)
+    min_page_coverage_ratio: float = Field(default=0.9, ge=0, le=1)
+    max_table_row_deviation: int = Field(default=1, ge=0, le=5)
     parser_timeout_seconds: int = Field(ge=1, le=60)
     parser_output_bytes: int = Field(ge=1, le=8388608)
     job_lease_seconds: int = Field(ge=120, le=300)
     max_attempts: int = Field(ge=1, le=3)
+
+
+class OCRWordRecord(Closed):
+    """One Tesseract TSV word with both source-pixel and document coordinates."""
+
+    text: str = Field(min_length=1, max_length=500)
+    confidence: float = Field(ge=0, le=1)
+    bbox: list[float] = Field(min_length=4, max_length=4)
+    level: int = Field(ge=1, le=5)
+    page_num: int = Field(ge=1, le=300)
+    tsv_page_num: int = Field(ge=1, le=300)
+    block_num: int = Field(ge=0)
+    par_num: int = Field(ge=0)
+    line_num: int = Field(ge=0)
+    word_num: int = Field(ge=0)
+    raw_left: int = Field(ge=0)
+    raw_top: int = Field(ge=0)
+    raw_width: int = Field(ge=0)
+    raw_height: int = Field(ge=0)
+    raw_confidence: float = Field(ge=0, le=100)
 
 
 class Fragment(Closed):
@@ -99,6 +195,7 @@ class Fragment(Closed):
     text_sha256: str = Field(pattern="^[a-f0-9]{64}$")
     source: Literal["native", "ocr", "manual"]
     confidence: float | None = Field(default=None, ge=0, le=1)
+    ocr_words: list[OCRWordRecord] = Field(default_factory=list, max_length=10000)
     table: int | None = Field(default=None, ge=0)
     row: int | None = Field(default=None, ge=0)
     column: int | None = Field(default=None, ge=0)
@@ -129,6 +226,7 @@ class ParsedDocument(Closed):
     fragments: list[Fragment] = Field(max_length=10000)
     quality: Literal["passed", "requires_review"]
     issues: list[Issue] = Field(max_length=20)
+    ocr_runtime: OCRRuntimeIdentity | None = None
 
 
 class ParserRequest(Closed):
@@ -157,6 +255,7 @@ class ParserResponse(Closed):
     )
     result: ParsedDocument | None = None
     error: Issue | None = None
+    metrics: ParserExecutionMetrics | None = None
 
     @model_validator(mode="after")
     def exclusive(self) -> "ParserResponse":
@@ -168,6 +267,7 @@ class ParserResponse(Closed):
 class DocumentResponse(Closed):
     document_id: str
     project_id: str
+    file_format: Literal["pdf", "docx", "png", "jpeg"]
     status: Literal[
         "quarantined",
         "accepted",
@@ -184,6 +284,13 @@ class DocumentResponse(Closed):
     context_version: int = Field(default=0, ge=0)
     parse_version: int = Field(default=0, ge=0)
     issues: list[Issue] = Field(default_factory=list, max_length=20)
+
+
+class DocumentList(Closed):
+    items: list[DocumentResponse]
+    offset: int = Field(ge=0)
+    limit: int = Field(ge=1, le=100)
+    total: int = Field(ge=0)
 
 
 class SectionResponse(Closed):
@@ -243,6 +350,20 @@ class ContextFields(Closed):
     industry: str | None = Field(default=None, max_length=200)
     budget_amount: float | None = Field(default=None, ge=0, strict=True)
     applicable_system: str | None = Field(default=None, max_length=1000)
+    procurement_method: Literal["tender", "non_tender", "unknown"] = "unknown"
+    buyer_type: Literal["government_entity", "enterprise", "other", "unknown"] = "unknown"
+    subject_type: Literal[
+        "works",
+        "works_related_goods",
+        "works_related_services",
+        "goods",
+        "services",
+        "unknown",
+    ] = "unknown"
+    legal_frameworks: list[Literal["tendering", "government_procurement"]] = Field(
+        default_factory=list,
+        max_length=2,
+    )
 
 
 class ContextConfirmation(Closed):

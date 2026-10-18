@@ -1,0 +1,23 @@
+# Web build context: the workbench sources and the nginx configuration only.
+**
+!Dockerfile.web
+!deploy/nginx-demo.conf
+!deploy/nginx-locations.inc
+!src/frontend/package.json
+!src/frontend/package-lock.json
+!src/frontend/index.html
+!src/frontend/tsconfig.json
+!src/frontend/vite.config.ts
+!src/frontend/biome.json
+!src/frontend/playwright.config.ts
+!src/frontend/src/**
+!src/frontend/scripts/**
+!src/frontend/e2e/**
+
+# Never ship the developer's installed modules or previous build output.
+src/frontend/node_modules/**
+src/frontend/dist/**
+**/__pycache__/**
+**/*.log
+**/.env
+**/.env.*
