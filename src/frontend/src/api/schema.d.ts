@@ -1057,9 +1057,32 @@ export interface components {
             recommendation: string;
             confidence?: number | null;
             /** @description Retrieved clauses shown as references only. Revalidated against the frozen publication but never confirmable and never counted as legal evidence. */
-            legal_references?: {
+            legal_references?: ({
+                law_id?: string;
+                version?: string;
+                quote_hash?: string;
+                text_hash?: string;
+                official_source_uri?: string;
+                official_source_hash?: string;
+                official_source_locator?: string;
+                /** Format: date */
+                effective_from?: string | null;
+                /** Format: date */
+                effective_to?: string | null;
+                eligible_for_confirmation?: boolean;
+                /** @enum {string} */
+                reason?: "valid" | "unverified" | "outside_verification_horizon" | "unlocated" | "unknown_end" | "clause_unverified" | "extraction_unverified" | "applicability_unverified";
+                applicable?: boolean;
+                /** @enum {string} */
+                applicability_status?: "verified" | "unverified";
+                applicable_frameworks?: ("tendering" | "government_procurement")[];
+                /** @enum {string} */
+                adoption_status?: "project_adopted" | "not_adopted";
+                adoption_policy_id?: string | null;
+                confirmation_reason?: string;
+            } & {
                 [key: string]: unknown;
-            }[];
+            })[];
             human_review?: {
                 reviewer_id: string;
                 /** Format: date-time */

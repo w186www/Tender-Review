@@ -313,3 +313,144 @@ def test_findings_for_distinct_issues_on_the_same_excerpt_are_not_merged():
         issue_keys={"1" * 64: "contact-identity", "2" * 64: "machine-identity"},
     )
     assert len(merged) == 2
+
+
+def test_task0029_merges_known_semantic_duplicates_but_keeps_distinct_brand_issues():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    public_quote = "公示期限：1日。文件另一条写明公示发布次日起3日。"
+    public_one = _finding(
+        finding_id="1" * 64,
+        category="procedure",
+        title="中标结果公示期限仅1日且与关联条款矛盾",
+        description="本处公示期限为1日，文件关联章节另有3日规定。",
+        source_excerpt={"source_hash": DOCUMENT, "locator": "p16:1", "quote": public_quote},
+    )
+    public_two = _finding(
+        finding_id="2" * 64,
+        category="procedure",
+        title="中标结果公示期限短于常规要求",
+        description="公示期限较短。",
+        source_excerpt={"source_hash": DOCUMENT, "locator": "p16:1", "quote": public_quote},
+    )
+    inquiry_quote = "应配合调查并在规定期限内举证，否则依法处理。"
+    inquiry_one = _finding(
+        finding_id="3" * 64,
+        category="qualification",
+        title="配合调查义务指向不明",
+        description="拒不配合调查并未在规定期限举证的处理后果需要明确。",
+        source_excerpt={"source_hash": DOCUMENT, "locator": "p21:1", "quote": inquiry_quote},
+    )
+    inquiry_two = _finding(
+        finding_id="4" * 64,
+        category="qualification",
+        title="配合调查义务及处罚标准模糊",
+        description="未说明配合调查的举证期限。",
+        source_excerpt={"source_hash": DOCUMENT, "locator": "p21:1", "quote": inquiry_quote},
+    )
+    brand_quote = "替代品牌评审未通过时，中标后只能使用推荐品牌且价格不予调整。"
+    criteria = _finding(
+        finding_id="5" * 64,
+        category="technical",
+        title="品牌替换评审标准主观",
+        description="评审标准缺少客观量化方法。",
+        source_excerpt={"source_hash": DOCUMENT, "locator": "p18:1", "quote": brand_quote},
+    )
+    price_lock = _finding(
+        finding_id="6" * 64,
+        category="technical",
+        title="品牌锁定机制不公",
+        description="中标后强制使用推荐品牌且价格不予调整。",
+        source_excerpt={"source_hash": DOCUMENT, "locator": "p18:1", "quote": brand_quote},
+    )
+    autonomy = _finding(
+        finding_id="7" * 64,
+        category="technical",
+        title="采购自主权受限",
+        description="替代品牌评审未通过后，中标人仍须改用推荐品牌。",
+        source_excerpt={"source_hash": DOCUMENT, "locator": "p18:1", "quote": brand_quote},
+    )
+    merged = merge_duplicate_findings(
+        [public_one, public_two, inquiry_one, inquiry_two, criteria, price_lock, autonomy],
+        issue_keys={str(index) * 64: str(index) * 64 for index in range(1, 8)},
+    )
+
+    assert len(merged) == 4
+    public = next(item for item in merged if item["category"] == "procedure")
+    inquiry = next(item for item in merged if item["category"] == "qualification")
+    technical = [item for item in merged if item["category"] == "technical"]
+    assert "一日与三日" in public["title"]
+    assert "起止计算方式" in public["recommendation"]
+    assert "限期举证要求不够明确" in inquiry["title"]
+    assert len(technical) == 2
+    assert any("评审标准" in item["title"] for item in technical)
+    assert any("中标后处理" in item["title"] for item in technical)
+
+
+def test_task0029_suppresses_only_ai_no_issue_without_rule_or_skill_conflict():
+    from bidding_compliance.services.review_projection import should_suppress_model_no_issue
+
+    assert should_suppress_model_no_issue("no_issue", {"model"})
+    assert not should_suppress_model_no_issue("no_issue", {"model", "skill"})
+    assert not should_suppress_model_no_issue("no_issue", {"model", "rule"})
+    assert not should_suppress_model_no_issue("uncertain", {"model"})
+
+
+def test_task0029_legal_reference_payload_preserves_source_version_and_applicability():
+    from datetime import date
+    from types import SimpleNamespace
+
+    from bidding_compliance.graph.review import _legal_reference_payload
+
+    evidence = SimpleNamespace(
+        model_dump=lambda **_kwargs: {
+            "evidence_id": EVIDENCE,
+            "kind": "policy",
+            "title": "招标投标法实施条例",
+            "article": "第三十二条",
+            "quote": "招标人不得以不合理条件限制、排斥潜在投标人。",
+            "source_uri": "artifact://legal-text/" + "d" * 64,
+            "source_hash": "d" * 64,
+            "locator": "chars=12:36",
+            "effective_from": None,
+            "effective_to": None,
+            "version_status": "unverified",
+            "adoption_status": "project_adopted",
+            "jurisdiction": "CN/安徽/滁州",
+        },
+    )
+    hit = SimpleNamespace(
+        evidence=evidence,
+        law_id="law-32",
+        version="2019修订版",
+        quote_hash="e" * 64,
+        source_uri="https://example.invalid/legal-source",
+        source_hash="f" * 64,
+        text_hash="d" * 64,
+        locator="https://example.invalid/legal-source#chars=12:36",
+        effective_from=date(2019, 3, 2),
+        effective_to=None,
+        version_status="unverified",
+        eligible_for_confirmation=False,
+        reason="outside_verification_horizon",
+        applicable_frameworks=("tendering", "government_procurement"),
+        adoption_status="project_adopted",
+    )
+
+    reference = _legal_reference_payload(
+        hit,
+        selected=True,
+        adoption_policy_id="ADOPT-2026-10-18",
+    )
+
+    assert reference["law_id"] == "law-32"
+    assert reference["version"] == "2019修订版"
+    assert reference["official_source_uri"] == hit.source_uri
+    assert reference["official_source_hash"] == "f" * 64
+    assert reference["text_hash"] == "d" * 64
+    assert reference["article"] == "第三十二条"
+    assert reference["applicable_frameworks"] == ["tendering", "government_procurement"]
+    assert reference["eligible_for_confirmation"] is False
+    assert reference["reason"] == "outside_verification_horizon"
+    assert reference["adoption_status"] == "project_adopted"
+    assert reference["adoption_policy_id"] == "ADOPT-2026-10-18"

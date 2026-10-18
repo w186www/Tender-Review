@@ -568,9 +568,25 @@ def test_v3_report_discloses_project_adopted_legal_references() -> None:
             "quote": "招标人不得以不合理的条件限制、排斥潜在投标人或者投标人。",
             "source_uri": "artifact://legal-text/" + "f" * 64,
             "source_hash": "f" * 64,
+            "law_id": "law-implementation-regulations",
+            "version": "2019年第三次修订",
+            "quote_hash": "c" * 64,
+            "text_hash": "f" * 64,
+            "official_source_uri": "https://example.invalid/legal-source",
+            "official_source_hash": "d" * 64,
+            "official_source_locator": "https://example.invalid/legal-source#chars=1:20",
+            "locator": "chars=1:20",
+            "effective_from": None,
+            "effective_to": None,
             "version_status": "unverified",
+            "eligible_for_confirmation": False,
+            "reason": "outside_verification_horizon",
+            "applicable": False,
+            "applicability_status": "unverified",
+            "applicable_frameworks": ["tendering", "government_procurement"],
             "confirmation_reason": "outside_verification_horizon",
             "adoption_status": "project_adopted",
+            "adoption_policy_id": "ADOPT-2026-10-18",
             "selected_by_model": True,
             "rule_law_binding_id": "BIND-QUAL-LOCAL-32",
         }
@@ -603,3 +619,8 @@ def test_v3_report_discloses_project_adopted_legal_references() -> None:
         assert "项目采用库内版本" in compact, label
         assert "BIND-QUAL-LOCAL-32" in compact, label
         assert "未做独立法律核验" in compact, label
+        assert "law-implementation-regulations" in compact, label
+        assert "2019年第三次修订" in compact, label
+        assert "official_source_hash" not in compact, label
+        assert "来源SHA-256" in compact, label
+        assert "适用框架tendering,government_procurement" in compact, label

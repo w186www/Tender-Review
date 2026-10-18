@@ -37,6 +37,17 @@ def _hit(*, eligible: bool, reason: str, version_status: str) -> SimpleNamespace
         reason=reason,
         version_status=version_status,
         eligible_for_confirmation=eligible,
+        law_id="civil-code",
+        version="2020-05-28",
+        quote_hash="a" * 64,
+        source_uri="https://www.gov.cn/example",
+        source_hash="b" * 64,
+        text_hash="f" * 64,
+        locator="https://www.gov.cn/example#chars=100:134",
+        effective_from=None,
+        effective_to=None,
+        applicable_frameworks=("tendering",),
+        adoption_status="not_adopted",
         article="第五百八十五条",
         quote="约定的违约金过分高于造成的损失的，可以请求适当减少。",
         evidence_id="e" * 64,
@@ -120,6 +131,12 @@ def test_unconfirmed_clause_selected_by_model_stays_reference_only(
     ), "formal evidence must contain no legal clause"
     assert len(finding["legal_references"]) == 1
     reference = finding["legal_references"][0]
+    assert reference["law_id"] == "civil-code"
+    assert reference["version"] == "2020-05-28"
+    assert reference["official_source_uri"] == "https://www.gov.cn/example"
+    assert reference["official_source_hash"] == "b" * 64
+    assert reference["text_hash"] == "f" * 64
+    assert reference["applicable_frameworks"] == ["tendering"]
     assert reference["applicable"] is False
     assert reference["confirmation_reason"] == reason
     assert "retrieval" not in finding["sources"]
@@ -135,6 +152,7 @@ def test_verified_clause_without_rule_binding_stays_reference_only(monkeypatch):
     assert len(finding["legal_references"]) == 1
     reference = finding["legal_references"][0]
     assert reference["version_status"] == "verified_current"
+    assert reference["eligible_for_confirmation"] is True
     assert reference["confirmation_reason"] == "rule_law_binding_unreviewed"
     assert reference["applicable"] is False
     assert "retrieval" not in finding["sources"]

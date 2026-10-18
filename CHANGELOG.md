@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- 2026-10-18 TASK-0029 真实法规审查报告投影修正：法规参考保留法规 ID/版本/条号、官方来源 URI 与哈希、法规文本哈希/定位、生效区间、适用框架、确认资格/原因、采用政策与引用身份；仍不提升正式证据资格。AI-only `no_issue` 候选不再作为待审风险；同原文下仅合并经语义族明确识别的公示期限、调查举证与品牌中标后处理重复项，不合并同段不同问题。OpenAPI 0.10.4 / 契约集 v1alpha11，无数据库迁移。官方 Full 988 passed、0 failed/skipped，2 条既有 pypdf warning；相关 Focused 142 passed。PR、CI、服务器部署和新 PDF 真实运行待完成。
 - 2026-10-18 TASK-0029 真实 PDF 审查质量修复：在统一项目上下文契约下，于审查/付费模型调用前逐字段补正；保留检索快照，区分上下文失败、检索服务失败与有效零命中；把受原文哈希/定位约束的全文关联条款送入语义分析并在 Word/PDF 中标为上下文；增加对象—证据一致性、规范性说法、重复风险、同段多问题、品牌例外和合同 Skill PDF 范围回归。OpenAPI 升至 0.10.3 / v1alpha10。候选 `2088d2c` 本地官方 Full 七阶段通过（985 passed、2 条既有警告）；部署前真实报告验证尚待 CI 与服务器发布。
 - 2026-10-18 TASK-0029 用户真实 PDF 误拒修复：有界图遍历区分书签引用链与内联嵌套，保留主动内容/资源门禁；PDF 表格保留空单元格并按页/几何处理合并单元格，缺格反例仍拦截。最终代码 `63dd787` Full 968 passed、PR #3 全量 CI 通过并普通合并。部署后用户原 152 页 PDF 经公网 Edge 上传进入 needs_confirmation、issues=[]，未发起模型调用；正文 SHA/文本不变，旧拒绝记录与备份保留。
 - 2026-10-18 最终候选 `89766d8` 收口：ClamAV 启动竞态修复（freshclam 先更新、clamd 未就绪导致 `NotifyClamd` 丢失；验证脚本在 240 秒有界等待内每 20 秒请求拥有的 clamd reload，仍要求真实 scan 成功、恶意内容不重试，未改生产扫描器/年龄阈值/检查）。GitHub ingestion run `39107244495` 的真实日志确认根因，修复后 run `39107901768`/`39107907712` 全绿；官方 Full 958 passed、0 failed/skipped、6 条既有警告（749.33s）。部署前备份 `/opt/tender-review/backups/20261018T074713Z` 的 restore verify 通过；服务器源码 `89766d8`、镜像 `task0029-89766d8`、staging/product-postgres、迁移 `202610172000`、TLS/health 200，admin/reviewer/auditor 登录均 200（历史 401 未复现）。实际镜像内验证器重放文本 PDF 既有响应：29/18→34/13，恢复 5 条唯一空白差异引用，18 批 input_hash/sent_text 全匹配，新增模型调用 0；账本 spent ¥1.41978080/reserved 0 未变。TASK-0029 保持 in_progress，用户独立验收未发生。

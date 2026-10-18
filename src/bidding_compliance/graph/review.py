@@ -83,7 +83,10 @@ from bidding_compliance.services.review_persistence import (
 from bidding_compliance.services.review_persistence import (
     publish_result as persist_result,
 )
-from bidding_compliance.services.review_projection import merge_duplicate_findings
+from bidding_compliance.services.review_projection import (
+    merge_duplicate_findings,
+    should_suppress_model_no_issue,
+)
 from bidding_compliance.services.risk_language import unverified_risk_text
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -97,6 +100,43 @@ MAX_SEMANTIC_BATCHES = 13
 # Non-selected retrieval hits are supporting context only; bound the visible list so a
 # finding does not carry ten loosely related statutes into the reviewer/report surface.
 MAX_REFERENCE_ONLY_CLAUSES = 3
+
+
+def _legal_reference_payload(
+    hit: Any,
+    *,
+    selected: bool,
+    adoption_policy_id: str | None,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """Keep a retrieved law's source and applicability identity in the finding."""
+    evidence = hit.evidence.model_dump(mode="json")
+    eligible = bool(hit.eligible_for_confirmation)
+    return {
+        **evidence,
+        "law_id": hit.law_id,
+        "version": hit.version,
+        "quote_hash": hit.quote_hash,
+        "official_source_uri": hit.source_uri,
+        "official_source_hash": hit.source_hash,
+        "official_source_locator": hit.locator,
+        "text_hash": hit.text_hash,
+        "locator": evidence.get("locator"),
+        "effective_from": hit.effective_from.isoformat() if hit.effective_from else None,
+        "effective_to": hit.effective_to.isoformat() if hit.effective_to else None,
+        "version_status": hit.version_status,
+        "eligible_for_confirmation": eligible,
+        "reason": hit.reason,
+        # This is a reference to a finding, not a confirmed rule-to-law application.
+        # Keep the hit's own eligibility separate from that unresolved relationship.
+        "applicable": False,
+        "applicability_status": "unverified",
+        "applicable_frameworks": list(hit.applicable_frameworks),
+        "selected_by_model": selected,
+        "adoption_status": getattr(hit, "adoption_status", "not_adopted"),
+        "adoption_policy_id": adoption_policy_id,
+        "confirmation_reason": reason or hit.reason,
+    }
 
 
 class SkillWorkItem(TypedDict):
@@ -1528,8 +1568,20 @@ def build_review_graph(
             risk_validator = Draft202012Validator(risk_schema, registry=registry)
             findings: list[dict[str, Any]] = []
             issue_keys: dict[str, str] = {}
+            suppressed_no_issue_candidate_ids: list[str] = []
             for candidate in discovery.candidates:
                 model = by_candidate.get(candidate.candidate_id)
+                if (
+                    model is not None
+                    and should_suppress_model_no_issue(
+                        model.get("assessment"),
+                        {item.origin for item in candidate.provenance},
+                    )
+                ):
+                    # Discovery/analysis artifacts retain this disposition. It must not
+                    # appear as a pending risk when no deterministic source contradicts it.
+                    suppressed_no_issue_candidate_ids.append(candidate.candidate_id)
+                    continue
                 candidate_result = results_by_id.get(candidate.candidate_id)
                 doc_evidence = []
                 document_valid = True
@@ -1690,17 +1742,14 @@ def build_review_graph(
                     reason: str | None = None,
                     candidate_rule_ids: set[str] = candidate_rule_ids,
                 ) -> dict[str, Any]:
-                    payload = {
-                        **hit.evidence.model_dump(mode="json"),
-                        "confirmation_reason": reason or hit.reason,
-                        "version_status": hit.version_status,
-                        "applicable": False,
-                        "selected_by_model": selected,
-                        "adoption_status": getattr(hit, "adoption_status", "not_adopted"),
-                        "adoption_policy_id": (
+                    payload = _legal_reference_payload(
+                        hit,
+                        selected=selected,
+                        adoption_policy_id=(
                             adoption_policy.policy_id if adoption_policy is not None else None
                         ),
-                    }
+                        reason=reason,
+                    )
                     if selected:
                         binding = binding_for(
                             rule_law_bindings,
@@ -1907,6 +1956,7 @@ def build_review_graph(
                 "model_findings_ref": state["model_findings_ref"],
                 "retrieval_results_ref": state["retrieval_results_ref"],
                 "findings": findings,
+                "suppressed_no_issue_candidate_ids": suppressed_no_issue_candidate_ids,
             }
             merged_ref = put_artifact(
                 session,

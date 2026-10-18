@@ -2,13 +2,15 @@
 
 更新时间：2026-10-18
 
-## 当前接续专项：真实 PDF 法规与报告质量修复（2026-10-18，工程候选 Full 已通过）
+## 当前接续专项：真实 PDF 法规与报告质量修复（2026-10-18，代码 Full 通过，待 PR 与部署）
 
-- TASK-0029 工程候选提交 `2088d2cb9f5da66e748e98eb6fd7bba87037bae8`（`fix(TASK-0029): bind review evidence to project context`）。项目上下文统一作为检索权威源，审查创建前返回字段级补正，文档确认镜像项目值；检索失败与有效零命中分开；全文关联原文进入语义分析并在报告中标注为上下文；修复判断与证据对象错配、同问题重复项、品牌反向条款分析、通用无依据规范性说法及合同 Skill PDF 章节范围。
-- 本候选官方 `scripts/verify.ps1 -Mode Full` 七阶段退出码 0：后端 985 passed、0 failed、0 skipped，2 条既有 pypdf 弃用警告，591.40 秒；前端 14/14，契约生成、Ruff、Mypy、生产构建通过；真实本地 HTTP health=200、缺失资源=404、登录/项目版本/登出撤权通过。JUnit 在 `.verification/pytest-result.xml`。完整结果只覆盖本地工程基线，公网真实审查与报告验收仍待完成。
-- 处理固定 SHA `4fe02d53170581fdec1986e647dfacc6ab530bf6847d52cae5b91c881380924a` 的原 PDF；上下文更正、逐文件外发授权和模型审查将在服务器新版本按正式 API 留版本/审计记录。没有把未知业务事实写成默认值。详细原文、项目/文档/运行身份、服务端响应与新报告放在 gitignored `.verification/completion-20261018/`，不进仓库。
-- 当前候选尚未推送、PR、部署；服务器原运行版本仍为 `63dd787`。下一步：执行 Quick 记录检查并登记验收证据，推送 `work/TASK-0027`、创建 PR、等待全量 CI 并普通合并；然后做服务器新备份及 `restore.sh --verify`，部署合并候选并在同一原 PDF 上进行受控验证。
-- 状态边界：TASK-0029 保持 `in_progress`；DEC-009 的项目采用参考不是独立法律核验；未产生专家金标或用户最终验收。报告候选不得显示为已核验、已专家确认或已验收。
+- 基线代码提交 `2088d2cb9f5da66e748e98eb6fd7bba87037bae8`（`fix(TASK-0029): bind review evidence to project context`）已进入当前 main。项目上下文统一作为检索权威源，审查创建前返回字段级补正，文档确认镜像项目值；检索失败与有效零命中分开；全文关联原文进入语义分析并在报告中标为上下文；旧 #21 对象错配、无依据规范性说法、同问题重复和合同 Skill PDF 章节范围已修复。
+- 新代码候选 `521331d`（`fix(TASK-0029): preserve legal references and risk projection`）：法规参考增加可追溯法规 ID/版本/条号、官方来源及哈希、文本定位/哈希、适用框架和采用状态；仅 AI 来源且语义判断 `no_issue` 的候选不再投影成待审风险，规则/Skill 冲突仍送人工；同一文档哈希/定位/引文/类别下合并经识别的公示期限、调查举证和品牌中标后处理重复项，保留不同问题。OpenAPI `0.10.4` / 契约集 `v1alpha11`，无数据库迁移。
+- `scripts/verify.ps1` 官方 Full 七阶段退出码 0：后端 **988 passed、0 failed、0 skipped**，2 条既有 pypdf 弃用警告，607.58 秒；前端 14/14，契约生成、Ruff、Mypy、生产构建通过；真实 loopback health=200、缺失资源=404、登录/项目版本/登出撤权通过。相关 Focused 142 passed。Full 对应当前代码树，JUnit 在 `.verification/pytest-result.xml`。
+- 服务器仍运行源码 `4149a287683207d77087145af5894336a58ae079`（`task0029-4149a28`），工作树干净，HTTPS health=200。已复核 tenant-a 的产品策略存在且 active：policy v1、provider `bailian`、purpose `external_review`、预算上限 ¥200、单次 ¥0.25、Embedding 批 ¥0.10、TTL 3600 秒。早先“无策略”由 PowerShell/SSH 查询把 `$PRODUCT_TENANT_ID` 当字面字符串导致，按运行时容器和 RLS 租户上下文查询后不存在策略丢失或装配回归；未新建账户或重置账本。当前指定文档的逐文件授权于 `2026-10-18 12:32:31 UTC` 到期，新审查前按同文件 SHA/解析版本、同租户、同 provider/purpose、同 policy 正式续登记。
+- 旧缺陷审查 `1719ebbd-75af-56cd-841f-615ee2af33bc` 保留不动。已在旧部署创建的新审查 `4bd1a537-cf35-573f-b77e-2c233d400f13` / run `482ad1c0-a8ac-518a-a2d8-aad1e8cd6c23` 仍为 `waiting_human`、32 项待复核、0 人工决定、0 发布结果；检索 37/37 complete、370 hit、0 正式 citable，法规参考未独立核验。新投影代码尚未部署，需在合并候选上生成下一份新报告，保留旧结果不改写。
+- 下一步：为任务/验证记录提交 Quick；推送 `work/TASK-0027` 并创建正常 PR；CI 通过后普通合并。随后对现有 ECS 做新备份和官方隔离恢复校验，部署合并候选，健康检查及账本核对后按正式 API 续登同一 PDF 授权并运行新审查，再生成仅作人工候选的 DOCX 并完成 21 项对照。
+- 状态边界：TASK-0029 保持 `in_progress`；DEC-009 的项目采用参考不是独立法律核验；未产生专家金标或用户最终验收。新运行不得代提交人工决定或发布；拒绝候选覆盖仍为 partial，不能断言全文无遗漏。
 
 ## 当前专项：用户真实 PDF 上传误拒（2026-10-18，已修复部署并通过网页原文件复验）
 

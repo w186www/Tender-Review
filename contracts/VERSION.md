@@ -1,11 +1,11 @@
 # 开发契约版本与兼容性
 
-当前契约集合：v1alpha10（2026-10-18），尚未对生产消费者发布。
+当前契约集合：v1alpha11（2026-10-18），尚未对生产消费者发布。
 
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
 | EvidenceRef / LegalResult / ReviewReport | v1alpha8 加法 | 新增可选 `adoption_status`、`adopted_evidence`、`adoption_policy_id` 及报告 `legal_adoption_policy`/采用参考计数；采用政策不等于独立法律核验，`citable_evidence` 仍只含原独立核验命中；旧字段和旧报告保持原义 |
-| OpenAPI | 0.10.3 | 在 0.10.2 上明确 `Error.details` 可包含结构化字段，用于上下文补正提示；错误包络字段不变且该对象可选，旧消费者可忽略。0.10.2 在 0.10.1 上加法升级：产品执行投影新增候选拒绝尝试/去重数、原因、唯一原文单元和后续恢复统计；旧响应字段与消费者保持有效。0.10.1 在 0.10.0 上新增可选 `product_execution` 覆盖与完整度投影 |
+| OpenAPI | 0.10.4 | 在 0.10.3 上为法规参考加可选的法规/版本 ID、官方来源 URI 与哈希、全文哈希/定位、适用框架、资格和采用状态元数据；旧报告仍可读取，新增字段不改变正式证据资格。0.10.3 明确 `Error.details` 可包含结构化字段，用于上下文补正提示；错误包络字段不变且该对象可选，旧消费者可忽略。0.10.2 在 0.10.1 上加法升级：产品执行投影新增候选拒绝尝试/去重数、原因、唯一原文单元和后续恢复统计；旧响应字段与消费者保持有效。0.10.1 在 0.10.0 上新增可选 `product_execution` 覆盖与完整度投影 |
 | LegalManifest、LegalIndex | Manifest v1alpha3 / Index v1alpha4 | D01条款效力；D07冻结原始字节/PDF字符框映射与显式文本排除；旧索引明确升级，原文与来源字节不变。法律地区归一化 cn-regions-2 增加安徽滁州映射，旧 cn-regions-1 结果仍可读取 |
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha3 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |
 | RetrievalResult | schema_version=v1alpha5 / Query v1alpha3 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |
@@ -39,6 +39,8 @@ U05 (2026-10-17) 将 OpenAPI 从 0.9.0 加至 0.10.0，新增产品模式逐文�
 U08 (2026-10-18) 将契约集合升级到 v1alpha9、OpenAPI 0.10.2，只加可选覆盖统计字段。新生产者以稳定来源身份去重计划、提交、失败、饱和和被拒绝原文单元；明确区分候选拒绝尝试、去重候选、原因及后续子批恢复。旧 `rejected_units` 保持原值并标注为历史 partial-batch section 总数，不再当作候选拒绝数展示；旧报告仍按原契约读取。无数据库迁移。
 
 TASK-0029（2026-10-18）将契约集合升级到 v1alpha10、OpenAPI 0.10.3：`Error.details` 明确为可选扩展对象以支持服务端校验给出的字段级补正动作；项目上下文错误仍使用原 Error 包络。新增 `CN/安徽/滁州` 归一化别名并升为 `cn-regions-2`，读取器仍接受历史 `cn-regions-1` 结果。无数据库迁移，不重建未变化的法规索引/Embedding。
+
+TASK-0029（2026-10-18）将契约集合升级到 v1alpha11、OpenAPI 0.10.4：法规参考新增可选的法规 ID/版本、原文哈希/定位、法规文本哈希、适用框架、证据资格、采用状态及政策 ID；既有 `EvidenceRef` 的文本制品 URI/hash 语义不变，正式法规证据判定不变。仅加法字段，无数据库迁移；旧报告仍按原快照读取。
 
 全局管理新增CorpusBundle/RevisionRequest/PublicationRequest/OperatorCapabilities独立Schema；actor不从请求取得。数据库新迁移1600授权及1700不可变修订/发布/状态/身份，不更改已有业务表。Result仍v1alpha5，持久请求额外冻结publication/revision标识，由request_hash绑定并读回对照不可变索引。
 

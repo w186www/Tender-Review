@@ -15,6 +15,78 @@ _EVIDENCE_ORDER = {
 }
 
 
+def should_suppress_model_no_issue(assessment: str | None, origins: set[str]) -> bool:
+    """Suppress an AI-only candidate when its semantic assessment says no issue."""
+    return assessment == "no_issue" and not (origins & {"rule", "skill"})
+
+
+def _same_issue_family(finding: dict[str, Any]) -> str | None:
+    """Return a narrow family only for known semantic duplicates on one excerpt.
+
+    The caller still groups by document hash, locator, quote and category. These
+    families therefore cannot collapse different passages or different issue types
+    merely because they happen to share a table cell.
+    """
+    text = " ".join(
+        str(finding.get(key, ""))
+        for key in ("title", "description", "recommendation")
+    )
+    category = finding.get("category")
+    if category == "procedure" and "公示" in text and "期限" in text:
+        return "procedure-publicity-period"
+    if (
+        category == "qualification"
+        and "调查" in text
+        and "配合" in text
+        and any(term in text for term in ("举证", "期限", "处理"))
+    ):
+        return "qualification-investigation-cooperation"
+    if category == "technical" and any(
+        term in text for term in ("主观", "客观", "量化", "裁量")
+    ):
+        return "technical-brand-review-criteria"
+    if category == "technical" and any(term in text for term in ("默认", "视为接受")):
+        return "technical-brand-response-default"
+    if (
+        category == "technical"
+        and "品牌" in text
+        and any(term in text for term in ("自主权受限", "品牌锁定", "价格不予调整"))
+        and any(term in text for term in ("中标后", "未通过", "不调价"))
+    ):
+        return "technical-brand-post-award-lock"
+    return None
+
+
+def _apply_family_summary(finding: dict[str, Any], family: str | None) -> None:
+    """Make the merged reviewer-facing wording state the shared, supported issue."""
+    summaries = {
+        "procedure-publicity-period": (
+            "公示期限存在一日与三日表述差异",
+            "本处写明公示期限为1日，文件内关联条款另写“公示发布次日起3日”。"
+            "两处是否针对不同阶段和公示对象尚未说明；现有证据不足以确定应采用哪一期限。",
+            "核对两处条款分别对应的公示对象、阶段和起止计算方式；若适用阶段不同，"
+            "在条文中明确区分；若针对同一事项，则统一表述并按适用法规原文复核。",
+        ),
+        "qualification-investigation-cooperation": (
+            "配合调查及限期举证要求不够明确",
+            "条款要求投标人在“规定的期限内”举证，并对未配合情形作出处理，"
+            "但此处未明确期限起算点、送达方式及具体后果，可能造成执行口径不一致。",
+            "明确调查通知的送达方式、期限起算点、举证材料范围及不配合的处理依据；"
+            "只写入经招标人确认并与适用规则一致的时限和后果。",
+        ),
+        "technical-brand-post-award-lock": (
+            "替代品牌未通过评审后的中标后处理需明确",
+            "条款允许投标人提供替代品牌，但评审未通过后要求中标人改用推荐品牌且合同价格不调整。"
+            "该处理发生在评标后的履约阶段，价格与责任如何衔接需要在投标前说清。",
+            "在招标文件中明确替代品牌的客观评审标准、未通过时的合同处理和价格承担方式；"
+            "不要把评标后才确定的品牌变更成本留给中标人自行承担。",
+        ),
+    }
+    summary = summaries.get(family or "")
+    if summary is not None:
+        finding["title"], finding["description"], finding["recommendation"] = summary
+
+
 def merge_duplicate_findings(
     findings: list[dict[str, Any]], *, issue_keys: dict[str, str] | None = None
 ) -> list[dict[str, Any]]:
@@ -29,7 +101,12 @@ def merge_duplicate_findings(
     groups: dict[tuple[object, ...], list[dict[str, Any]]] = {}
     for finding in findings:
         excerpt = finding.get("source_excerpt") or {}
-        issue_key = stable_issue_keys.get(str(finding.get("finding_id", "")))
+        family = _same_issue_family(finding)
+        issue_key = (
+            f"family:{family}"
+            if family is not None
+            else stable_issue_keys.get(str(finding.get("finding_id", "")))
+        )
         if issue_key is None:
             title = re.sub(r"^待核验[：:]", "", str(finding.get("title", "")))
             issue_key = re.sub(r"[^\w\u4e00-\u9fff]", "", title).casefold()
@@ -106,6 +183,7 @@ def merge_duplicate_findings(
         if conflicts:
             result["conflicts"] = conflicts
         result["review_status"] = "pending"
+        _apply_family_summary(result, _same_issue_family(result))
         # Keep the base candidate's finding_id: the citation resolver binds a finding to
         # its frozen source candidate through this ID. Exact-excerpt duplicates share that
         # source, so the base mapping is sufficient for every merged evidence reference.
