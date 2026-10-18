@@ -1,6 +1,6 @@
 # 产品契约与状态基线
 
-状态：U02 冻结的本地开发契约；由 [ADR-0019](../decisions/ADR-0019-product-execution-and-review-contracts.md)、`contracts/schemas/product-review-execution.schema.json` 与 OpenAPI 0.10.0 共同约束。U04 经用户授权只增加取消操作；U05 增加产品模式逐文件授权绑定字段/撤销操作，并以 [ADR-0021](../decisions/ADR-0021-tenant-execution-authorization-and-budget.md) 明确 PostgreSQL 授权/预算权威源。现有状态和响应 Schema 保持兼容。它不代表生产部署或 D1—D4 的外部授权。
+状态：U02 冻结的本地开发契约；由 [ADR-0019](../decisions/ADR-0019-product-execution-and-review-contracts.md)、`contracts/schemas/product-review-execution.schema.json` 与 OpenAPI 0.10.3 共同约束。U04 经用户授权只增加取消操作；U05 增加产品模式逐文件授权绑定字段/撤销操作；TASK-0029 明确错误响应 `details` 承载可忽略的字段级补正提示，并以 [ADR-0021](../decisions/ADR-0021-tenant-execution-authorization-and-budget.md) 明确 PostgreSQL 授权/预算权威源。现有状态和响应 Schema 保持兼容。它不代表生产部署或 D1—D4 的外部授权。
 
 ## 1. 生命周期所有权
 
@@ -42,7 +42,7 @@
 
 | 消费者 | 契约责任 | 兼容要求 |
 |---|---|---|
-| API | OpenAPI 0.10.0；逐文件授权为 `POST .../external-authorization`，撤销为 `POST .../external-authorization/revoke`；运行取消为 `POST /review-tasks/{reviewTaskId}/runs/{runId}/cancel` | 0.10.0 在 0.9.0 上加法升级：授权请求新增可选 purpose/provider/expires_at，响应新增可选授权身份/期限/撤销字段，新增撤销 operation；旧请求/旧响应消费者仍有效。旧本地验证装配收到新产品字段会明确拒绝。取消语义不变。 |
+| API | OpenAPI 0.10.3；逐文件授权为 `POST .../external-authorization`，撤销为 `POST .../external-authorization/revoke`；运行取消为 `POST /review-tasks/{reviewTaskId}/runs/{runId}/cancel` | 0.10.3 明确已有可选 `Error.details` 对象可扩展，现用于字段级补正入口；原有错误码/包络保持兼容。0.10.2 增加可选覆盖统计字段；0.10.1 增加 `product_execution` 投影；0.10.0 增加逐文件授权字段和撤销操作。旧请求/响应消费者仍有效。取消语义不变。 |
 | Worker/调度 | 新执行 envelope + 当前 DB 状态与 lease | 只处理可领取状态；旧 lease 世代写入被拒；恢复使用冻结快照。 |
 | LangGraph | 现有 `ComplianceReviewState v1alpha2` 是有界 checkpoint 投影 | 本单元不改变其字段或旧枚举含义；未来字段先改 schema 再 `scripts/generate_state.py`。历史 Checkpoint 显式按版本读取，不按新 envelope 重解释。 |
 | Model Gateway | ModelResponse v1alpha2 + 新 call outcome 身份 | 未知调用不伪装失败/成功、不自动重发；完整响应仍执行本地 Schema 验证。 |

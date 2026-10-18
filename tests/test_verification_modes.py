@@ -65,6 +65,8 @@ def test_real_git_comparison_includes_deleted_code_despite_document_rename(tmp_p
             [executable, "-C", str(tmp_path), *arguments],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=True,
             timeout=15,
         ).stdout.strip()

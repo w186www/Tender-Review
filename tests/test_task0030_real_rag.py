@@ -23,20 +23,24 @@ QUOTE = "投标人必须在本市设立分公司满三年。"
 
 
 def payload(*, legal: bool = True) -> dict[str, object]:
-    document = {"document_candidates": {"candidates": [
-        {
-            "candidate_id": CANDIDATE,
-            "category": "qualification",
-            "matched_reason": "疑似地域限制",
-            "source_excerpts": [
+    document = {
+        "document_candidates": {
+            "candidates": [
                 {
-                    "document_sha256": DOCUMENT,
-                    "quote": QUOTE,
-                    "quote_sha256": hashlib.sha256(QUOTE.encode()).hexdigest(),
+                    "candidate_id": CANDIDATE,
+                    "category": "qualification",
+                    "matched_reason": "疑似地域限制",
+                    "source_excerpts": [
+                        {
+                            "document_sha256": DOCUMENT,
+                            "quote": QUOTE,
+                            "quote_sha256": hashlib.sha256(QUOTE.encode()).hexdigest(),
+                        }
+                    ],
                 }
-            ],
+            ]
         }
-    ]}}
+    }
     if not legal:
         return document
     return {
@@ -63,13 +67,16 @@ def payload(*, legal: bool = True) -> dict[str, object]:
                 },
             }
         },
+        "candidate_related_document_evidence": {CANDIDATE: []},
     }
 
 
 def test_semantic_prompt_describes_legal_candidates_and_bumps_the_version():
-    assert SEMANTIC_PROMPT_VERSION == "task0030-semantic-rag-v1"
+    assert SEMANTIC_PROMPT_VERSION == "task0029-semantic-fulltext-v1"
     assert "legal_candidates" in SEMANTIC_PROMPT
     assert "legal_evidence_ids只能填写" in SEMANTIC_PROMPT
+    assert "关联章节用于检索全文中的例外、替代条款、反向证据" in SEMANTIC_PROMPT
+    assert "没有实际法规候选原文支持" in SEMANTIC_PROMPT
 
 
 def test_minimizer_sends_legal_candidates_with_ids_and_status():
@@ -146,6 +153,40 @@ def test_minimizer_without_legal_candidates_stays_backward_compatible():
     assert safe["law_text_included"] is False
 
 
+def test_minimizer_validates_and_sends_frozen_related_document_excerpts():
+    quote = "同等性能其他品牌的产品也可以参与响应。"
+    item = {
+        "evidence_id": "d" * 64,
+        "document_id": "doc-a",
+        "document_sha256": DOCUMENT,
+        "section_id": "section-a",
+        "section_revision": 1,
+        "locator": "pdf/page/54/line/8",
+        "page": 54,
+        "quote_sha256": hashlib.sha256(quote.encode()).hexdigest(),
+        "title": "全文交叉核对原文（非单独风险结论）",
+        "quote": quote,
+        "coordinate_system": "pdf_points",
+    }
+    raw = payload()
+    raw["candidate_related_document_evidence"] = {CANDIDATE: [item]}
+
+    safe = AuthorizedTenderMinimizer(frozenset({DOCUMENT}))(raw, real_ai_policy().data_policy)
+    assert safe["related_document_evidence"][CANDIDATE] == [
+        {
+            "evidence_id": "d" * 64,
+            "quote_sha256": item["quote_sha256"],
+            "quote": quote,
+            "page": 54,
+            "locator": "pdf/page/54/line/8",
+        }
+    ]
+
+    item["document_sha256"] = "e" * 64
+    with pytest.raises(ValueError, match="related document evidence"):
+        AuthorizedTenderMinimizer(frozenset({DOCUMENT}))(raw, real_ai_policy().data_policy)
+
+
 def test_legacy_frozen_prompt_keeps_the_law_free_payload():
     minimizer = AuthorizedTenderMinimizer(frozenset({DOCUMENT}))
     raw = payload()
@@ -195,19 +236,18 @@ def test_duplicate_findings_on_the_same_excerpt_merge_sources_and_evidence():
     from bidding_compliance.services.review_projection import merge_duplicate_findings
 
     model_one = _finding(
+        finding_id="1" * 64,
         evidence=[{"evidence_id": "1" * 64, "source_hash": DOCUMENT}],
-        legal_references=[
-            {"evidence_id": EVIDENCE, "selected_by_model": False, "title": "law"}
-        ],
+        legal_references=[{"evidence_id": EVIDENCE, "selected_by_model": False, "title": "law"}],
     )
     model_two = _finding(
+        finding_id="2" * 64,
         title="same issue from the subdivided child batch",
         evidence=[{"evidence_id": "1" * 64, "source_hash": DOCUMENT}],
-        legal_references=[
-            {"evidence_id": EVIDENCE, "selected_by_model": True, "title": "law"}
-        ],
+        legal_references=[{"evidence_id": EVIDENCE, "selected_by_model": True, "title": "law"}],
     )
     rule = _finding(
+        finding_id="3" * 64,
         severity="high",
         evidence_status="suspected",
         sources=["rule"],
@@ -222,8 +262,13 @@ def test_duplicate_findings_on_the_same_excerpt_merge_sources_and_evidence():
         }
     )
 
-    first = merge_duplicate_findings([model_one, model_two, rule, other])
-    second = merge_duplicate_findings([other, rule, model_two, model_one])
+    issue_keys = {
+        "1" * 64: "registration-restriction",
+        "2" * 64: "registration-restriction",
+        "3" * 64: "registration-restriction",
+    }
+    first = merge_duplicate_findings([model_one, model_two, rule, other], issue_keys=issue_keys)
+    second = merge_duplicate_findings([other, rule, model_two, model_one], issue_keys=issue_keys)
 
     assert len(first) == 2
     merged = next(item for item in first if item["source_excerpt"]["locator"].endswith("11"))
@@ -233,9 +278,12 @@ def test_duplicate_findings_on_the_same_excerpt_merge_sources_and_evidence():
     assert merged["evidence_status"] == "insufficient_evidence"
     assert {item["evidence_id"] for item in merged["evidence"]} == {"1" * 64, "2" * 64}
     assert merged["legal_references"][0]["selected_by_model"] is True
-    assert merged["finding_id"] == next(
-        item for item in second if item["source_excerpt"]["locator"].endswith("11")
-    )["finding_id"]
+    assert (
+        merged["finding_id"]
+        == next(item for item in second if item["source_excerpt"]["locator"].endswith("11"))[
+            "finding_id"
+        ]
+    )
     assert merged["finding_id"] in {item["finding_id"] for item in (model_one, model_two, rule)}
     assert merged["review_status"] == "pending"
 
@@ -252,4 +300,16 @@ def test_findings_on_different_excerpts_are_not_merged():
         }
     )
     merged = merge_duplicate_findings([one, two])
+    assert len(merged) == 2
+
+
+def test_findings_for_distinct_issues_on_the_same_excerpt_are_not_merged():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    one = _finding(finding_id="1" * 64, title="联系人信息相同")
+    two = _finding(finding_id="2" * 64, title="机器码或加密锁号相同")
+    merged = merge_duplicate_findings(
+        [one, two],
+        issue_keys={"1" * 64: "contact-identity", "2" * 64: "machine-identity"},
+    )
     assert len(merged) == 2

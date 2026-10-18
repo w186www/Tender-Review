@@ -35,6 +35,10 @@ from bidding_compliance.persistence.models import (
     SectionRevision,
 )
 from bidding_compliance.services.identity import audit
+from bidding_compliance.services.project_context import (
+    ProjectDocumentContextMismatch,
+    document_context_mismatch_fields,
+)
 from bidding_compliance.services.projects import find_project
 
 
@@ -77,9 +81,7 @@ def list_documents(
         Document.project_id == project,
     )
     total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
-    rows = session.scalars(
-        base.order_by(Document.document_id).offset(offset).limit(limit)
-    )
+    rows = session.scalars(base.order_by(Document.document_id).offset(offset).limit(limit))
     return [response(row) for row in rows], total
 
 
@@ -301,11 +303,17 @@ def confirm_context(
 ) -> DocumentResponse:
     require_reviewer(session, principal)
     document = find_document(session, principal, project, document_id)
+    authoritative_project = find_project(session, principal, project)
     if document.status not in {"needs_confirmation", "ready"}:
         raise FileExistsError("quality or security gate is not passed")
     previous = context(session, principal, project, document_id)
     if previous.version != decision.expected_version:
         raise FileExistsError("context version conflict")
+    mismatched_fields = document_context_mismatch_fields(
+        authoritative_project.context, decision.context.model_dump(mode="json")
+    )
+    if mismatched_fields:
+        raise ProjectDocumentContextMismatch(mismatched_fields, document_id)
     updated = previous.model_copy(
         update={
             "version": previous.version + 1,

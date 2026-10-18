@@ -19,7 +19,7 @@ from pydantic import (
 
 from bidding_compliance.ingestion.schemas import IngestionPolicy
 
-from .regions import ALIASES, normalize_region
+from .regions import ALIASES, NORMALIZATION_VERSION, normalize_region
 
 REGION_VALUES: list[JsonValue] = [value for value in sorted(set(ALIASES.values()))]
 
@@ -564,8 +564,10 @@ class RetrievalRuntimeSnapshot(Closed):
             raise ValueError("reranker state and version mismatch")
         if self.algorithm == "bm25-char-cosine-rrf-5":
             if self.embedding_identity.provider != "character" or any(
-                value is not None for value in (
-                    self.vector_index_build_id, self.vector_index_item_count,
+                value is not None
+                for value in (
+                    self.vector_index_build_id,
+                    self.vector_index_item_count,
                     self.vector_source_item_count,
                 )
             ):
@@ -640,15 +642,15 @@ class RetrievalResult(Closed):
     retrieval_version: Literal["bm25-char-cosine-rrf-5", "bm25-dense-cosine-rrf-1"] = (
         "bm25-char-cosine-rrf-5"
     )
-    normalization_version: Literal["cn-regions-1"] = "cn-regions-1"
+    normalization_version: Literal["cn-regions-1", "cn-regions-2"] = cast(
+        Literal["cn-regions-1", "cn-regions-2"], NORMALIZATION_VERSION
+    )
     status: Literal["complete", "context_incomplete"] = "complete"
     context_error: Literal["REGION_UNMAPPED", "CONTEXT_INVALID"] | None = None
     query: RetrievalQuery | None
     hits: tuple[LegalHit, ...]
     citable_evidence: tuple[str, ...] = Field(json_schema_extra={"uniqueItems": True})
-    adopted_evidence: tuple[str, ...] = Field(
-        default=(), json_schema_extra={"uniqueItems": True}
-    )
+    adopted_evidence: tuple[str, ...] = Field(default=(), json_schema_extra={"uniqueItems": True})
     adoption_policy_id: str | None = Field(default=None, max_length=128)
     excluded: tuple[Excluded, ...] = ()
     run_snapshot: RunSnapshot | None = None

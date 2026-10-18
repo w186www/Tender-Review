@@ -13,8 +13,13 @@ from sqlalchemy.exc import IntegrityError
 from bidding_compliance.core.dates import isoformat_utc
 from bidding_compliance.core.tracing import get_request_id
 from bidding_compliance.services import reports, review_management, review_persistence
+from bidding_compliance.services.project_context import (
+    ProjectContextIncomplete,
+    ProjectDocumentContextMismatch,
+)
 from bidding_compliance.services.review_engine import ReviewRequest
 
+from .errors import StructuredValidationError
 from .projects import DB, User
 from .review_schemas import (
     CitationLocation,
@@ -95,9 +100,8 @@ async def create_review(
     try:
         existing = review_management.get_run_by_identity(session, principal, task_id)
         if existing is not None:
-            if (
-                existing["project_id"] != projectId
-                or sorted(existing["document_ids"]) != sorted(body.document_ids)
+            if existing["project_id"] != projectId or sorted(existing["document_ids"]) != sorted(
+                body.document_ids
             ):
                 raise FileExistsError("idempotency conflict")
             return _task_response(existing)
@@ -118,6 +122,35 @@ async def create_review(
         return _task_response(review_management.get_review_status(session, principal, task_id))
     except HTTPException:
         raise
+    except ProjectContextIncomplete as exc:
+        raise StructuredValidationError(
+            "项目上下文需补齐或修正；审查任务未创建，也未调用模型。",
+            {
+                "issue_code": "PROJECT_CONTEXT_INVALID",
+                "issues": exc.issues,
+                "correction_action": "edit_project_context",
+                "correction_path": f"/projects/{projectId}",
+            },
+        ) from exc
+    except ProjectDocumentContextMismatch as exc:
+        raise StructuredValidationError(
+            "文档确认与当前项目上下文不一致；请按当前项目值重新确认文档。",
+            {
+                "issue_code": "DOCUMENT_CONTEXT_MISMATCH",
+                "issues": [
+                    {
+                        "field": field,
+                        "code": "project_mismatch",
+                        "message": "文档确认字段须与项目上下文一致。",
+                    }
+                    for field in exc.fields
+                ],
+                "correction_action": "confirm_document_context",
+                "project_id": projectId,
+                "document_id": exc.document_id,
+                "correction_path": f"/projects/{projectId}",
+            },
+        ) from exc
     except Exception as exc:
         raise _translate(exc) from exc
 
@@ -127,9 +160,7 @@ async def create_review(
     response_model=ReviewTaskResponse,
     operation_id="getReview",
 )
-def get_review(
-    reviewTaskId: str, principal: User, session: DB
-) -> ReviewTaskResponse:
+def get_review(reviewTaskId: str, principal: User, session: DB) -> ReviewTaskResponse:
     try:
         return _task_response(review_management.get_review_status(session, principal, reviewTaskId))
     except Exception as exc:
@@ -250,9 +281,7 @@ def finding_citations(
             run_id=runId,
             finding_id=findingId,
         )
-        return ReviewCitations(
-            items=[CitationLocation.model_validate(item) for item in locations]
-        )
+        return ReviewCitations(items=[CitationLocation.model_validate(item) for item in locations])
     except Exception as exc:
         raise _translate(exc) from exc
 
@@ -340,9 +369,7 @@ async def resume(
             raise HTTPException(503, detail="review execution worker is unavailable")
         engine.schedule_resume(principal, reviewTaskId, runId)
         session.expire_all()
-        return _task_response(
-            review_management.get_review_status(session, principal, reviewTaskId)
-        )
+        return _task_response(review_management.get_review_status(session, principal, reviewTaskId))
     except HTTPException:
         raise
     except Exception as exc:
@@ -362,17 +389,13 @@ async def retry(
     session: DB,
 ) -> ReviewTaskResponse:
     try:
-        review_management.authorize_review_control(
-            session, principal, reviewTaskId, runId, "retry"
-        )
+        review_management.authorize_review_control(session, principal, reviewTaskId, runId, "retry")
         engine = getattr(request.app.state, "review_engine", None)
         if engine is None:
             raise HTTPException(503, detail="review execution worker is unavailable")
         engine.schedule_retry(principal, reviewTaskId, runId)
         session.expire_all()
-        return _task_response(
-            review_management.get_review_status(session, principal, reviewTaskId)
-        )
+        return _task_response(review_management.get_review_status(session, principal, reviewTaskId))
     except HTTPException:
         raise
     except Exception as exc:
@@ -400,9 +423,7 @@ async def cancel(
             raise HTTPException(503, detail="review execution worker is unavailable")
         engine.cancel(principal, reviewTaskId, runId)
         session.expire_all()
-        return _task_response(
-            review_management.get_review_status(session, principal, reviewTaskId)
-        )
+        return _task_response(review_management.get_review_status(session, principal, reviewTaskId))
     except HTTPException:
         raise
     except Exception as exc:

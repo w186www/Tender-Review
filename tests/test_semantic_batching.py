@@ -247,6 +247,7 @@ class Harness:
             lambda *_: (
                 {
                     "document_requests": [],
+                    "input_snapshot": {"documents": []},
                     "model_profile": "unit",
                     "prompt_version": "unit",
                     "project_context_sha256": "e" * 64,
@@ -258,6 +259,7 @@ class Harness:
         monkeypatch.setattr(
             review, "read_artifact", lambda _s, _t, ref, **_: harness.artifacts[ref]
         )
+        monkeypatch.setattr(review, "related_document_context", lambda *_, **__: [])
         monkeypatch.setattr(review, "put_artifact", store)
         review.build_review_graph(
             session_factory=Session,

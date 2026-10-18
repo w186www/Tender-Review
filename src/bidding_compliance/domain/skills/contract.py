@@ -14,14 +14,14 @@ from bidding_compliance.domain.rules.models import (
 
 DEFINITION = SkillDefinition(
     skill_id="contract_review",
-    skill_version="1.0.0",
+    skill_version="1.1.0",
     category="contract",
-    rules=(RuleReference(rule_id="TASK0007.CONTRACT.KEY-PLACEHOLDER", rule_version="1.0.0"),),
+    rules=(RuleReference(rule_id="TASK0007.CONTRACT.KEY-PLACEHOLDER", rule_version="1.1.0"),),
 )
 RULES = (
     RuleDefinition(
         rule_id="TASK0007.CONTRACT.KEY-PLACEHOLDER",
-        rule_version="1.0.0",
+        rule_version="1.1.0",
         category="contract",
         check_id="contract_key_placeholder",
         applicability="fragment",
@@ -35,6 +35,56 @@ _PLACEHOLDER_ONLY = re.compile(
     r"^[\s【】\[\]()（）:：。；;,_＿□口-]*(?:待定|待填写|待填|待补充|待协商|[_＿]{3,}|[□口]{2,})[\s【】\[\]()（）:：。；;,_＿□口-]*$"
 )
 _SCOPE = re.compile(r"合同|协议")
+_CONTRACT_START = re.compile(r"合同条款及格式|合同协议书|专用合同条款|通用合同条款")
+_CONTRACT_END = re.compile(r"(?:第[一二三四五六七八九十]+章\s*)?投标文件格式|采购文件格式")
+
+
+def _contract_pages(fragments: tuple[LocatedFragment, ...]) -> set[tuple[str, int]]:
+    """Infer a PDF contract chapter from its explicit title through the next document chapter."""
+    by_document: dict[str, list[LocatedFragment]] = defaultdict(list)
+    for item in fragments:
+        by_document[item.document.document_version_ref].append(item)
+    scoped_pages: set[tuple[str, int]] = set()
+    for document_ref, items in by_document.items():
+        start_pages = [
+            item.fragment.page
+            for item in items
+            if item.fragment.page is not None
+            and (
+                _CONTRACT_START.search(item.fragment.text)
+                or _CONTRACT_START.search(item.fragment.section)
+            )
+        ]
+        if not start_pages:
+            continue
+        start = min(start_pages)
+        end_pages = [
+            item.fragment.page
+            for item in items
+            if item.fragment.page is not None
+            and item.fragment.page > start
+            and (
+                _CONTRACT_END.search(item.fragment.text)
+                or _CONTRACT_END.search(item.fragment.section)
+            )
+        ]
+        end = (
+            min(end_pages) if end_pages else max(item.fragment.page or start for item in items) + 1
+        )
+        scoped_pages.update((document_ref, page) for page in range(start, end))
+    return scoped_pages
+
+
+def _in_scope(item: LocatedFragment, scoped_pages: set[tuple[str, int]]) -> bool:
+    fragment = item.fragment
+    return bool(
+        _SCOPE.search(fragment.section)
+        or _SCOPE.search(fragment.text)
+        or (
+            fragment.page is not None
+            and (item.document.document_version_ref, fragment.page) in scoped_pages
+        )
+    )
 
 
 def _table_groups(
@@ -60,14 +110,15 @@ def _table_groups(
 
 
 def scan(fragments: tuple[LocatedFragment, ...]) -> SkillScan:
-    if not any(_SCOPE.search(item.fragment.section) for item in fragments):
+    scoped_pages = _contract_pages(fragments)
+    if not any(_in_scope(item, scoped_pages) for item in fragments):
         return SkillScan((), "not_applicable")
     rule = RULES[0]
     matches: list[RuleMatch] = []
     consumed: set[tuple[str, str, str]] = set()
     for item in fragments:
         text = item.fragment.text.strip()
-        if _SCOPE.search(item.fragment.section) and _KEY.search(text) and _PLACEHOLDER.search(text):
+        if _in_scope(item, scoped_pages) and _KEY.search(text) and _PLACEHOLDER.search(text):
             matches.append(
                 RuleMatch(
                     rule_id=rule.rule_id,
@@ -87,7 +138,7 @@ def scan(fragments: tuple[LocatedFragment, ...]) -> SkillScan:
             if (
                 key_cell.fragment.column is not None
                 and value_cell.fragment.column == key_cell.fragment.column + 1
-                and _SCOPE.search(key_cell.fragment.section)
+                and _in_scope(key_cell, scoped_pages)
                 and _KEY.search(key_cell.fragment.text)
                 and _PLACEHOLDER_ONLY.fullmatch(value_cell.fragment.text.strip())
                 and (

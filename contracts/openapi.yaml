@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.10.2
-  description: v1alpha9 开发契约；产品审查覆盖投影新增去重候选拒绝、原因、唯一原文单元和恢复统计，既有路径与响应保持兼容。
+  version: 0.10.3
+  description: v1alpha10 开发契约；错误响应 details 明确允许结构化字段，新增上下文补正信息保持既有错误包络兼容。
 servers:
 - url: /api/v1
 paths:
@@ -3133,6 +3133,8 @@ components:
           type: string
         details:
           type: object
+          additionalProperties: true
+          description: 服务端结构化补正信息；旧消费者可忽略该可选对象。
     Role:
       type: string
       enum:

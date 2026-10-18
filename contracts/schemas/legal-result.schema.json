@@ -454,6 +454,7 @@
             "CN/天津",
             "CN/宁夏",
             "CN/安徽",
+            "CN/安徽/滁州",
             "CN/山东",
             "CN/山西",
             "CN/广东",
@@ -917,8 +918,11 @@
       "type": "string"
     },
     "normalization_version": {
-      "const": "cn-regions-1",
-      "default": "cn-regions-1",
+      "default": "cn-regions-2",
+      "enum": [
+        "cn-regions-1",
+        "cn-regions-2"
+      ],
       "title": "Normalization Version",
       "type": "string"
     },

@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from test_identity_projects import sign_in
 from test_identity_projects import system as shared_system
-from test_ingestion import pdf_payload, process, upload
+from test_ingestion import pdf_payload, process, project_context_body, upload
 from verify_contracts import ROOT, load_contracts, load_openapi, validator_for_contract
 
 from bidding_compliance.persistence.models import (
@@ -135,17 +135,45 @@ def correction_body(sections, reason, text):
     }
 
 
-def confirm_body(version, reason="合成人工核对上下文"):
+def confirm_body(client, project, headers, version, reason="合成人工核对上下文"):
+    context = project_context_body(client, project, headers)
     return {
         "expected_version": version,
         "reason": reason,
-        "context": {
-            "name": "合成项目",
-            "procurement_type": "government",
-            "project_type": "works",
-            "region": "示例地区",
-        },
+        "context": context,
     }
+
+
+def set_valid_project_context(client, project, headers):
+    current = client.get(f"/api/v1/projects/{project}", headers=headers).json()
+    body = {
+        key: current[key]
+        for key in (
+            "name",
+            "procurement_type",
+            "project_type",
+            "region",
+            "industry",
+            "budget_amount",
+            "applicable_system",
+            "procurement_method",
+            "buyer_type",
+            "subject_type",
+            "legal_frameworks",
+        )
+    }
+    body.update(
+        {
+            "region": "安徽省滁州市",
+            "procurement_method": "tender",
+            "buyer_type": "government_entity",
+            "subject_type": "works",
+            "legal_frameworks": ["tendering", "government_procurement"],
+            "expected_version": current["version"],
+        }
+    )
+    response = client.put(f"/api/v1/projects/{project}", headers=headers, json=body)
+    assert response.status_code == 200, response.text
 
 
 def test_needs_review_document_reaches_ready_through_correction_then_context(system):
@@ -178,7 +206,12 @@ def test_needs_review_document_reaches_ready_through_correction_then_context(sys
     assert unchanged.json()["status"] == "needs_review"
     assert unchanged.json()["issues"] == ["LOW_QUALITY"]
     assert unchanged.json()["parse_version"] == 2
-    assert client.post(url + "/context", headers=headers, json=confirm_body(1)).status_code == 409
+    assert (
+        client.post(
+            url + "/context", headers=headers, json=confirm_body(client, project, headers, 1)
+        ).status_code
+        == 409
+    )
 
     # The reviewer transcribes the fragment; the gate re-evaluates the corrected text.
     corrected = client.post(
@@ -205,7 +238,9 @@ def test_needs_review_document_reaches_ready_through_correction_then_context(sys
 
     # Only now, with the gate passed, the explicit context confirmation moves it to ready.
     confirmed = client.post(
-        url + "/context", headers=headers, json=confirm_body(context["version"])
+        url + "/context",
+        headers=headers,
+        json=confirm_body(client, project, headers, context["version"]),
     )
     assert confirmed.status_code == 200, confirmed.text
     assert confirmed.json()["status"] == "ready"
@@ -215,9 +250,7 @@ def test_needs_review_document_reaches_ready_through_correction_then_context(sys
     with Session(system[1]) as db:
         actions = {
             event.action
-            for event in db.scalars(
-                select(AuditEvent).where(AuditEvent.resource_id == document)
-            )
+            for event in db.scalars(select(AuditEvent).where(AuditEvent.resource_id == document))
         }
     assert {"document.text_corrected", "document.context_confirmed"} <= actions
 
@@ -247,7 +280,9 @@ def test_a_correction_that_still_fails_the_gate_never_becomes_selectable(system)
     assert client.get(url, headers=headers).json()["status"] == "needs_review"
     assert (
         client.post(
-            url + "/context", headers=headers, json=confirm_body(1, "试图跳过质量门禁")
+            url + "/context",
+            headers=headers,
+            json=confirm_body(client, project, headers, 1, "试图跳过质量门禁"),
         ).status_code
         == 409
     )
@@ -296,12 +331,17 @@ def test_a_review_cannot_be_started_from_an_unrepaired_document(system):
     assert executor.creations == 0
 
     context = client.get(url + "/context", headers=headers)
-    assert context.status_code == 200 and context.json()["version"] == corrected.json()[
-        "context_version"
-    ]
+    assert (
+        context.status_code == 200
+        and context.json()["version"] == corrected.json()["context_version"]
+    )
+    set_valid_project_context(client, project, headers)
+    context = client.get(url + "/context", headers=headers)
     assert (
         client.post(
-            url + "/context", headers=headers, json=confirm_body(context.json()["version"])
+            url + "/context",
+            headers=headers,
+            json=confirm_body(client, project, headers, context.json()["version"]),
         ).json()["status"]
         == "ready"
     )
@@ -312,6 +352,64 @@ def test_a_review_cannot_be_started_from_an_unrepaired_document(system):
     )
     assert accepted.status_code == 202, accepted.text
     assert accepted.json()["status"] == "queued"
+    assert executor.creations == 1
+
+
+def test_review_context_preflight_returns_fields_before_executor_and_accepts_same_project_mirror(
+    system,
+):
+    client, engine, _, _ = system
+    project, uploaded = upload(system)
+    document = uploaded.json()["document_id"]
+    assert process(system, document).status == "needs_confirmation"
+    headers = sign_in(system)
+    url = path(project, document)
+    context = client.get(url + "/context", headers=headers).json()
+    assert (
+        client.post(
+            url + "/context",
+            headers=headers,
+            json=confirm_body(client, project, headers, context["version"]),
+        ).status_code
+        == 200
+    )
+
+    executor = OfflineStubExecutor(sessionmaker(engine, expire_on_commit=False))
+    client.app.state.review_engine = executor
+    rejected = client.post(
+        f"/api/v1/projects/{project}/reviews",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={"document_ids": [document]},
+    )
+    assert rejected.status_code == 422, rejected.text
+    body = rejected.json()
+    assert body["details"]["issue_code"] == "PROJECT_CONTEXT_INVALID"
+    assert body["details"]["correction_action"] == "edit_project_context"
+    assert {item["field"] for item in body["details"]["issues"]} >= {
+        "region",
+        "procurement_method",
+        "buyer_type",
+        "subject_type",
+    }
+    assert executor.creations == 0
+    with Session(engine) as db:
+        assert db.scalar(select(ReviewTask).where(ReviewTask.project_id == project)) is None
+
+    set_valid_project_context(client, project, headers)
+    context = client.get(url + "/context", headers=headers).json()
+    rechecked = client.post(
+        url + "/context",
+        headers=headers,
+        json=confirm_body(client, project, headers, context["version"]),
+    )
+    assert rechecked.status_code == 200, rechecked.text
+
+    accepted = client.post(
+        f"/api/v1/projects/{project}/reviews",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={"document_ids": [document]},
+    )
+    assert accepted.status_code == 202, accepted.text
     assert executor.creations == 1
 
 
@@ -331,12 +429,13 @@ def test_corrections_are_bounded_to_this_document_tenant_and_role(system):
     other_tenant = sign_in(system, tenant="b")
     assert client.get(url + "/sections", headers=other_tenant).status_code == 404
     assert (
-        client.post(url + "/corrections", headers=other_tenant, json=correction).status_code
-        == 404
+        client.post(url + "/corrections", headers=other_tenant, json=correction).status_code == 404
     )
     assert (
         client.post(
-            url + "/context", headers=other_tenant, json=confirm_body(1, "跨租户确认")
+            url + "/context",
+            headers=other_tenant,
+            json=confirm_body(client, project, headers, 1, "跨租户确认"),
         ).status_code
         == 404
     )
@@ -348,7 +447,9 @@ def test_corrections_are_bounded_to_this_document_tenant_and_role(system):
         )
         assert (
             client.post(
-                url + "/context", headers=role_headers, json=confirm_body(1, "越权确认")
+                url + "/context",
+                headers=role_headers,
+                json=confirm_body(client, project, headers, 1, "越权确认"),
             ).status_code
             == 403
         )

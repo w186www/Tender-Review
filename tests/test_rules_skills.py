@@ -25,6 +25,7 @@ def fragment(
     *,
     locator: str = "paragraph:0",
     section: str = "正文",
+    page: int | None = None,
     kind: str = "paragraph",
     table: int | None = None,
     row: int | None = None,
@@ -32,9 +33,9 @@ def fragment(
 ) -> Fragment:
     return Fragment(
         locator=locator,
-        page=None,
-        bbox=None,
-        coordinate_system="ooxml",
+        page=page,
+        bbox=[0, 0, 100, 100] if page is not None else None,
+        coordinate_system="pdf_points" if page is not None else "ooxml",
         kind=kind,
         section=section,
         text=text,
@@ -218,6 +219,26 @@ def test_contract_ignores_unrelated_placeholder_inside_contract_section():
     out_of_scope = SKILLS["contract_review"].scan((located("付款期限：待定", section="采购要求"),))
     assert out_of_scope.matches == ()
     assert out_of_scope.status == "not_applicable"
+
+
+def test_contract_skill_uses_pdf_chapter_pages_when_pdf_fragments_have_no_section_labels():
+    result = SKILLS["contract_review"].scan(
+        (
+            located("第五章 合同条款及格式", locator="pdf/page/61/line/1", page=61, section=""),
+            located("付款期限：待填写", locator="pdf/page/70/line/5", page=70, section=""),
+            located("第九章 投标文件格式", locator="pdf/page/115/line/1", page=115, section=""),
+            located("付款期限：待填写", locator="pdf/page/116/line/5", page=116, section=""),
+        )
+    )
+
+    assert len(result.matches) == 1
+    assert result.matches[0].sources[0].fragment.page == 70
+
+
+def test_contract_skill_scope_does_not_make_ordinary_procurement_text_a_contract():
+    result = SKILLS["contract_review"].scan((located("付款期限：待填写", section="采购要求"),))
+    assert result.matches == ()
+    assert result.status == "not_applicable"
 
 
 def test_score_table_sums_complete_components_and_fails_closed_on_missing_cell():

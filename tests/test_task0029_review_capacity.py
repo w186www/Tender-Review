@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -10,17 +11,49 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from test_identity_projects import sign_in
 from test_identity_projects import system as shared_system
-from test_ingestion import process, upload
+from test_ingestion import process, project_context_body, upload
 
 from bidding_compliance.persistence.database import set_tenant
 from bidding_compliance.persistence.models import (
     Document,
+    DocumentContextVersion,
     DocumentSection,
     ReviewEngineRun,
 )
 from bidding_compliance.services import identity, review_management
 
 system = shared_system
+
+
+def set_valid_project_context(client, project, headers):
+    current = client.get(f"/api/v1/projects/{project}", headers=headers).json()
+    keys = (
+        "name",
+        "procurement_type",
+        "project_type",
+        "region",
+        "industry",
+        "budget_amount",
+        "applicable_system",
+        "procurement_method",
+        "buyer_type",
+        "subject_type",
+        "legal_frameworks",
+    )
+    body = {key: current[key] for key in keys}
+    body.update(
+        {
+            "region": "安徽省滁州市",
+            "procurement_method": "tender",
+            "buyer_type": "government_entity",
+            "subject_type": "works",
+            "legal_frameworks": ["tendering", "government_procurement"],
+            "expected_version": current["version"],
+        }
+    )
+    updated = client.put(f"/api/v1/projects/{project}", headers=headers, json=body)
+    assert updated.status_code == 200, updated.text
+    return {key: body[key] for key in keys}
 
 
 def principal(system):
@@ -34,6 +67,8 @@ def test_review_capacity_is_rejected_before_a_run_is_created(system):
     client, engine, _, _ = system
     project, uploaded = upload(system)
     document = uploaded.json()["document_id"]
+    headers = sign_in(system)
+    project_context = set_valid_project_context(client, project, headers)
     with Session(engine) as session:
         set_tenant(session, "a")
         row = session.get(Document, ("a", document))
@@ -50,6 +85,23 @@ def test_review_capacity_is_rejected_before_a_run_is_created(system):
                 revision=1,
             )
         )
+        session.add(
+            DocumentContextVersion(
+                tenant_id="a",
+                document_id=document,
+                version=1,
+                payload={
+                    "document_id": document,
+                    "version": 1,
+                    "candidates": [],
+                    "manual": project_context,
+                    "confirmed": True,
+                    "reason": "synthetic context confirmation",
+                },
+                changed_by="reviewer",
+                changed_at=datetime.now(UTC),
+            )
+        )
         session.commit()
     who = principal(system)
     with Session(engine) as session:
@@ -61,17 +113,24 @@ def test_review_capacity_is_rejected_before_a_run_is_created(system):
 
 
 def test_capacity_precheck_accepts_a_normal_parsed_document(system):
-    _, engine, _, _ = system
+    client, engine, _, _ = system
     project, uploaded = upload(system)
     document = uploaded.json()["document_id"]
     assert process(system, document).status == "needs_confirmation"
-    with Session(engine) as session:
-        set_tenant(session, "a")
-        row = session.get(Document, ("a", document))
-        row.status = "ready"
-        row.parse_version = 1
-        row.context_version = 1
-        session.commit()
+    headers = sign_in(system)
+    set_valid_project_context(client, project, headers)
+    path = f"/api/v1/projects/{project}/documents/{document}"
+    confirmed = client.post(
+        path + "/context",
+        headers=headers,
+        json={
+            "expected_version": 1,
+            "reason": "合成上下文确认",
+            "context": project_context_body(client, project, headers),
+        },
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["status"] == "ready"
     who = principal(system)
     with Session(engine) as session:
         requests = review_management.document_requests(session, who, project, [document])
@@ -85,6 +144,7 @@ def test_correction_after_ready_invalidates_context_and_blocks_the_old_review(sy
     document = uploaded.json()["document_id"]
     assert process(system, document).status == "needs_confirmation"
     headers = sign_in(system)
+    set_valid_project_context(client, project, headers)
     path = f"/api/v1/projects/{project}/documents/{document}"
     confirmed = client.post(
         path + "/context",
@@ -92,12 +152,7 @@ def test_correction_after_ready_invalidates_context_and_blocks_the_old_review(sy
         json={
             "expected_version": 1,
             "reason": "合成上下文确认",
-            "context": {
-                "name": "合成项目",
-                "procurement_type": "government",
-                "project_type": "works",
-                "region": "示例地区",
-            },
+            "context": project_context_body(client, project, headers),
         },
     )
     assert confirmed.status_code == 200, confirmed.text

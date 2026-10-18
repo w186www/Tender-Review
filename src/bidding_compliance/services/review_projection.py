@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 _SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
@@ -14,23 +15,32 @@ _EVIDENCE_ORDER = {
 }
 
 
-def merge_duplicate_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Merge findings that point at the exact same original excerpt.
+def merge_duplicate_findings(
+    findings: list[dict[str, Any]], *, issue_keys: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
+    """Merge the same issue on the exact same excerpt, preserving distinct same-paragraph risks.
 
     The discovery artifact keeps every original candidate; this projection only decides
-    what the reviewer sees. Findings on different locators are never merged, even when
-    their titles look similar, because that would require a semantic judgement the server
-    cannot make deterministically. A merged finding keeps the union of rule/model sources,
+    what the reviewer sees. Findings on different locators or with different stable
+    problem keys are never merged. A merged finding keeps the union of rule/model sources,
     rule IDs, document evidence, legal references and conflict records.
     """
+    stable_issue_keys = issue_keys or {}
     groups: dict[tuple[object, ...], list[dict[str, Any]]] = {}
     for finding in findings:
         excerpt = finding.get("source_excerpt") or {}
+        issue_key = stable_issue_keys.get(str(finding.get("finding_id", "")))
+        if issue_key is None:
+            title = re.sub(r"^待核验[：:]", "", str(finding.get("title", "")))
+            issue_key = re.sub(r"[^\w\u4e00-\u9fff]", "", title).casefold()
+        if not issue_key:
+            issue_key = str(finding.get("finding_id", ""))
         group_key = (
             finding.get("category"),
             excerpt.get("source_hash"),
             excerpt.get("locator"),
             excerpt.get("quote"),
+            issue_key,
         )
         groups.setdefault(group_key, []).append(finding)
     merged: list[dict[str, Any]] = []
@@ -56,12 +66,8 @@ def merge_duplicate_findings(findings: list[dict[str, Any]]) -> list[dict[str, A
                 best_score = current
         assert best is not None
         result: dict[str, Any] = dict(best)
-        result["sources"] = sorted(
-            {source for item in group for source in item.get("sources", [])}
-        )
-        result["rule_ids"] = sorted(
-            {rule for item in group for rule in item.get("rule_ids", [])}
-        )
+        result["sources"] = sorted({source for item in group for source in item.get("sources", [])})
+        result["rule_ids"] = sorted({rule for item in group for rule in item.get("rule_ids", [])})
         result["severity"] = max(
             (item.get("severity", "low") for item in group),
             key=lambda value: _SEVERITY_ORDER.get(value, 0),
@@ -85,8 +91,7 @@ def merge_duplicate_findings(findings: list[dict[str, Any]]) -> list[dict[str, A
                     continue
                 previous = references.get(str(identity))
                 if previous is None or (
-                    reference.get("selected_by_model")
-                    and not previous.get("selected_by_model")
+                    reference.get("selected_by_model") and not previous.get("selected_by_model")
                 ):
                     references[str(identity)] = reference
         result["legal_references"] = list(references.values())

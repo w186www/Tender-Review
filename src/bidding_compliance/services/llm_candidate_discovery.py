@@ -68,9 +68,7 @@ def batch_coverage(
         "depth": batch.depth,
         "batch_input_hash": batch.input_hash,
         "section_count": len(batch.sections),
-        "source_unit_hashes": sorted(
-            {source_unit_hash(item.located) for item in batch.sections}
-        ),
+        "source_unit_hashes": sorted({source_unit_hash(item.located) for item in batch.sections}),
         "accepted_count": accepted_count,
         "rejected_count": rejected_count,
         "saturated": saturated,
@@ -87,11 +85,7 @@ def coverage_summary(
     """Aggregate plan coverage; subdivision is neutral only when its children complete."""
     saturated = [item for item in batches if item.get("status") == "saturated"]
     failed = [item for item in batches if item.get("status") == "failed"]
-    partial = [
-        item
-        for item in batches
-        if item.get("status") in {"saturated", "partial", "failed"}
-    ]
+    partial = [item for item in batches if item.get("status") in {"saturated", "partial", "failed"}]
     subdivided = [item for item in batches if item.get("status") == "subdivided"]
     all_source_units = {
         str(source_hash)
@@ -207,9 +201,7 @@ def coverage_summary(
         "completed_batches": sum(item.get("status") == "completed" for item in batches),
         "partial_batches": sum(item.get("status") == "partial" for item in batches),
         "subdivided_batches": len(subdivided),
-        "subdivision_calls": sum(
-            item.get("parent_index") is not None for item in batches
-        ),
+        "subdivision_calls": sum(item.get("parent_index") is not None for item in batches),
         "saturated_batches": len(saturated),
         "saturated_batch_indices": [item["batch_index"] for item in saturated],
         "saturated_sections": len(saturated_source_units),
@@ -228,11 +220,7 @@ def coverage_summary(
         "failed_batches": len(failed),
         "failed_batch_indices": [item["batch_index"] for item in failed],
         "failed_batch_codes": sorted(
-            {
-                str(item.get("failure_code"))
-                for item in failed
-                if item.get("failure_code")
-            }
+            {str(item.get("failure_code")) for item in failed if item.get("failure_code")}
         ),
         "accepted_candidates": sum(int(item.get("accepted_count", 0)) for item in batches),
         "rejected_candidates": sum(int(item.get("rejected_count", 0)) for item in batches),
@@ -261,9 +249,7 @@ def source_unit_hash(item: LocatedFragment) -> str:
     )
 
 
-def _candidate_family_hash(
-    source_hash: str, category: str, description: str
-) -> str:
+def _candidate_family_hash(source_hash: str, category: str, description: str) -> str:
     return _hash(
         {
             "source_unit_hash": source_hash,
@@ -288,6 +274,7 @@ def candidate_family_hash(candidate: CandidateFinding) -> str:
     )
     return _candidate_family_hash(source_hash, candidate.category, candidate.matched_reason)
 
+
 # Batch capacity is deliberately set from the authorized input-token ceiling: the
 # gateway rejects any request above 65,536 input tokens, and the per-batch finding
 # limit is what bounds model output, so wider batches trade candidate count for calls.
@@ -304,6 +291,11 @@ def _hash(value: object) -> str:
     return hashlib.sha256(
         json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def _model_problem_key(category: str, description: str) -> str:
+    normalized = "".join(description.split())
+    return "llm-" + _hash({"category": category, "description": normalized})
 
 
 def discovery_schema(root: Path = ROOT) -> dict[str, Any]:
@@ -761,16 +753,12 @@ def validate_response(
         safe = section.safe_text
         source_span = _unique_source_span(safe, quote)
         if source_span is None:
-            rejections.append(
-                rejected_candidate("quote_missing_or_ambiguous", item, section)
-            )
+            rejections.append(rejected_candidate("quote_missing_or_ambiguous", item, section))
             continue
         local_start, local_end = source_span
         absolute_start = section.start + local_start
         matched_quote = safe[local_start:local_end]
-        original_quote = section.located.fragment.text[
-            absolute_start : section.start + local_end
-        ]
+        original_quote = section.located.fragment.text[absolute_start : section.start + local_end]
         # Safe string equality proves exact original offsets even where PII was masked.
         if len(original_quote) != len(matched_quote) or any(
             sent != original and sent != "*"
@@ -810,7 +798,7 @@ def validate_response(
                 origin="model",
                 category=category,
                 document_version_ref=section.located.document.document_version_ref,
-                problem_key="llm_review_question",
+                problem_key=_model_problem_key(category, item["description"]),
                 deduplication_key=key,
                 source_excerpts=(excerpt,),
                 matched_reason=item["description"],

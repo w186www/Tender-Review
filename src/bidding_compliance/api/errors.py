@@ -26,6 +26,15 @@ ERRORS: dict[int, tuple[ErrorCode, str]] = {
 }
 
 
+class StructuredValidationError(HTTPException):
+    """A server-authored, field-specific 422 without exposing arbitrary exception data."""
+
+    def __init__(self, message: str, details: dict[str, object]) -> None:
+        super().__init__(status_code=422)
+        self.public_message = message
+        self.public_details = details
+
+
 def error_response(status_code: int, details: dict[str, object] | None = None) -> JSONResponse:
     code, message = ERRORS.get(
         status_code, ERRORS[500] if status_code >= 500 else (ErrorCode.HTTP_ERROR, "请求无法处理。")
@@ -39,7 +48,16 @@ def error_response(status_code: int, details: dict[str, object] | None = None) -
 async def http_error_handler(request: Request, exception: Exception) -> JSONResponse:
     del request
     error = cast(HTTPException, exception)
-    response = error_response(error.status_code)
+    if isinstance(error, StructuredValidationError):
+        body = ErrorResponse(
+            code=ErrorCode.VALIDATION_ERROR,
+            message=error.public_message,
+            request_id=get_request_id(),
+            details=error.public_details,
+        )
+        response = JSONResponse(status_code=422, content=body.model_dump())
+    else:
+        response = error_response(error.status_code)
     # Preserve protocol headers, not arbitrary values from exception payloads.
     for key, value in (error.headers or {}).items():
         if key.lower() in {"allow", "retry-after", "www-authenticate"}:

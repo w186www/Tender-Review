@@ -1,5 +1,6 @@
 """TASK0010 report rendering must preserve published evidence and Chinese text."""
 
+import hashlib
 import json
 from datetime import datetime
 from io import BytesIO
@@ -104,6 +105,49 @@ def test_task0010_word_and_pdf_are_real_parseable_chinese_reports() -> None:
     assert "confirmed" not in pdf_text
 
 
+def test_related_full_document_excerpts_are_labeled_as_context_in_word_and_pdf() -> None:
+    report = _report()
+    finding = report["findings"][0]
+    quote = "技术需求正文允许同等性能产品替代。"
+    source_hash = "d" * 64
+    locator = "paragraph:22"
+    finding["evidence"] = [
+        {
+            "kind": "document",
+            "title": "全文交叉核对原文（非单独风险结论）",
+            "source_hash": source_hash,
+            "page": None,
+            "locator": locator,
+            "quote": quote,
+        }
+    ]
+    finding["citations"].append(
+        {
+            "document_id": "doc-old-version",
+            "raw_source_sha256": source_hash,
+            "parse_version": 1,
+            "section_id": "section-22",
+            "section_revision": 1,
+            "locator": locator,
+            "page": None,
+            "coordinate_system": "ooxml",
+            "quote": quote,
+            "quote_sha256": hashlib.sha256(quote.encode("utf-8")).hexdigest(),
+        }
+    )
+
+    word_text = "\n".join(
+        paragraph.text for paragraph in Document(BytesIO(render_docx(report))).paragraphs
+    )
+    pdf_text = "\n".join(
+        page.extract_text() or "" for page in PdfReader(BytesIO(render_pdf(report))).pages
+    )
+    for output in (word_text, pdf_text):
+        compact = "".join(output.split())
+        assert "全文关联原文（上下文，不单独支持风险结论）" in compact
+        assert quote in compact
+
+
 def test_task0022_zero_candidate_reports_disclose_actual_run_limits() -> None:
     report = _report()
     report.update(
@@ -170,8 +214,9 @@ def test_task0022_zero_candidate_reports_disclose_actual_run_limits() -> None:
         }
     )
     schema = json.loads(
-        (Path(__file__).resolve().parents[1] / "contracts/schemas/review-report.schema.json")
-        .read_text(encoding="utf-8")
+        (
+            Path(__file__).resolve().parents[1] / "contracts/schemas/review-report.schema.json"
+        ).read_text(encoding="utf-8")
     )
     Draft202012Validator(schema).validate(report)
 
@@ -261,9 +306,7 @@ def test_reference_only_clauses_render_in_word_and_pdf_without_becoming_evidence
 
     docx_bytes = render_docx(report)  # type: ignore[arg-type]
     pdf_bytes = render_pdf(report)  # type: ignore[arg-type]
-    word_text = "".join(
-        paragraph.text for paragraph in Document(BytesIO(docx_bytes)).paragraphs
-    )
+    word_text = "".join(paragraph.text for paragraph in Document(BytesIO(docx_bytes)).paragraphs)
     pdf_text = "".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf_bytes)).pages)
 
     for label, text in (("docx", word_text), ("pdf", pdf_text)):
@@ -466,7 +509,8 @@ def test_v3_report_discloses_partial_coverage_in_word_and_pdf() -> None:
     validator.validate(report)
 
     word_text = "".join(
-        paragraph.text for paragraph in Document(BytesIO(render_docx(report))).paragraphs  # type: ignore[arg-type]
+        paragraph.text
+        for paragraph in Document(BytesIO(render_docx(report))).paragraphs  # type: ignore[arg-type]
     )
     pdf_text = "".join(
         page.extract_text() or ""
@@ -544,7 +588,8 @@ def test_v3_report_discloses_project_adopted_legal_references() -> None:
     validator.validate(report)
 
     word_text = "".join(
-        paragraph.text for paragraph in Document(BytesIO(render_docx(report))).paragraphs  # type: ignore[arg-type]
+        paragraph.text
+        for paragraph in Document(BytesIO(render_docx(report))).paragraphs  # type: ignore[arg-type]
     )
     pdf_text = "".join(
         page.extract_text() or ""

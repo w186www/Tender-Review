@@ -35,6 +35,8 @@ from bidding_compliance.services.real_ai_runtime import (
     DISCOVERY_PROMPT_VERSION,
     LEGACY_SEMANTIC_PROMPT,
     LEGACY_SEMANTIC_PROMPT_VERSION,
+    PREVIOUS_SEMANTIC_PROMPT,
+    PREVIOUS_SEMANTIC_PROMPT_VERSION,
     SEMANTIC_PROMPT,
     SEMANTIC_PROMPT_VERSION,
     AuthorizedRealReviewEngine,
@@ -76,9 +78,7 @@ def create_product_runtime(
         raise ValueError("product mode requires server-side supplier credentials")
     session_factory = sessionmaker(database, expire_on_commit=False)
     with session_factory() as session:
-        policy = require_execution_policy(
-            session, tenant_id, provider=provider, purpose=purpose
-        )
+        policy = require_execution_policy(session, tenant_id, provider=provider, purpose=purpose)
     budget = PostgresBudgetLedger(
         session_factory,
         tenant_id=tenant_id,
@@ -88,9 +88,7 @@ def create_product_runtime(
     )
     account = budget.verify_account()
     if Decimal(account["limit_cny"]) != policy.budget_cny:
-        raise ValueError(
-            "the tenant policy budget and the PostgreSQL budget account limit differ"
-        )
+        raise ValueError("the tenant policy budget and the PostgreSQL budget account limit differ")
     gate = PostgresAuthorizationGate(
         session_factory,
         tenant_id=tenant_id,
@@ -120,14 +118,13 @@ def create_product_runtime(
                 )
             }
         ),
-        adapters={
-            provider: BailianQwenChatAdapter(api_key, workspace_id, transport=transport)
-        },
+        adapters={provider: BailianQwenChatAdapter(api_key, workspace_id, transport=transport)},
         authorization=authorization,
         budgets=budget,
         approved_prompts={
             DISCOVERY_PROMPT_VERSION: DISCOVERY_PROMPT,
             SEMANTIC_PROMPT_VERSION: SEMANTIC_PROMPT,
+            PREVIOUS_SEMANTIC_PROMPT_VERSION: PREVIOUS_SEMANTIC_PROMPT,
             LEGACY_SEMANTIC_PROMPT_VERSION: LEGACY_SEMANTIC_PROMPT,
         },
         audit_sink=MetadataAuditSink(private_root / "product-model-audit.jsonl"),

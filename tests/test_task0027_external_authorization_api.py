@@ -15,6 +15,7 @@ still validated against the contract.
 
 import json
 import re
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -35,6 +36,7 @@ from bidding_compliance.persistence.database import make_engine
 from bidding_compliance.persistence.models import (
     AuditEvent,
     Document,
+    DocumentContextVersion,
     ReviewEngineRun,
     ReviewTask,
 )
@@ -61,9 +63,38 @@ def validate(name, data):
 
 
 def endpoint(project_id, document_id):
-    return (
-        f"/api/v1/projects/{project_id}/documents/{document_id}/external-authorization"
+    return f"/api/v1/projects/{project_id}/documents/{document_id}/external-authorization"
+
+
+def set_valid_project_context(client, project_id, headers):
+    current = client.get(f"/api/v1/projects/{project_id}", headers=headers).json()
+    fields = (
+        "name",
+        "procurement_type",
+        "project_type",
+        "region",
+        "industry",
+        "budget_amount",
+        "applicable_system",
+        "procurement_method",
+        "buyer_type",
+        "subject_type",
+        "legal_frameworks",
     )
+    body = {key: current[key] for key in fields}
+    body.update(
+        {
+            "region": "安徽省滁州市",
+            "procurement_method": "tender",
+            "buyer_type": "government_entity",
+            "subject_type": "works",
+            "legal_frameworks": ["tendering", "government_procurement"],
+            "expected_version": current["version"],
+        }
+    )
+    saved = client.put(f"/api/v1/projects/{project_id}", headers=headers, json=body)
+    assert saved.status_code == 200, saved.text
+    return {key: body[key] for key in fields}
 
 
 def test_the_endpoint_is_unavailable_when_no_real_authorization_is_assembled(system):
@@ -111,9 +142,7 @@ def test_reviewer_confirms_one_file_and_the_audit_row_records_it(system, tmp_pat
 
     # Only a reviewer (the role that may write projects) can record the confirmation.
     auditor = sign_in(system, role="auditor")
-    denied = client.post(
-        url, headers=auditor, json={"reason": "审计员无权登记", "confirmed": True}
-    )
+    denied = client.post(url, headers=auditor, json={"reason": "审计员无权登记", "confirmed": True})
     assert denied.status_code == 403, denied.text
     assert not registry_path.exists()
 
@@ -278,7 +307,8 @@ def test_the_confirmation_of_the_uploaded_file_is_what_lets_that_file_leave_the_
     section = {"section_key": "s000000c000", "text": "合成资格条件原文。", "document_sha256": ""}
     section["document_sha256"] = document["sha256"]
     assert minimizer({"discovery_sections": [section]}, DataPolicy.CONFIDENTIAL) == {
-        "discovery_sections": [{"section_key": "s000000c000", "text": "合成资格条件原文。"}]}
+        "discovery_sections": [{"section_key": "s000000c000", "text": "合成资格条件原文。"}]
+    }
     section["document_sha256"] = other["sha256"]
     with pytest.raises(ValueError, match="outside authorized scope"):
         minimizer({"discovery_sections": [section]}, DataPolicy.CONFIDENTIAL)
@@ -337,10 +367,28 @@ def test_starting_a_review_of_an_unconfirmed_file_is_refused_with_403(system, tm
     headers = sign_in(system)
     project, uploaded = upload(system)
     document = uploaded.json()
+    authoritative_context = set_valid_project_context(client, project, headers)
     # A ready document: only the external-processing authorization is missing.
     with Session(engine) as db:
         row = db.get(Document, ("a", document["document_id"]))
         row.status, row.parse_version, row.context_version = "ready", 1, 1
+        db.add(
+            DocumentContextVersion(
+                tenant_id="a",
+                document_id=document["document_id"],
+                version=1,
+                payload={
+                    "document_id": document["document_id"],
+                    "version": 1,
+                    "candidates": [],
+                    "manual": authoritative_context,
+                    "confirmed": True,
+                    "reason": "synthetic context confirmation",
+                },
+                changed_by="reviewer",
+                changed_at=datetime.now(UTC),
+            )
+        )
         db.commit()
 
     settings = Settings(

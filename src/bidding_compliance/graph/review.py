@@ -51,15 +51,24 @@ from bidding_compliance.services import llm_candidate_discovery as llm_discovery
 from bidding_compliance.services.candidate_discovery import snapshot_for_project
 from bidding_compliance.services.documents import find_document, sections
 from bidding_compliance.services.evidence_checker import (
+    actionable_recommendation,
+    claim_evidence_mismatch,
     evidence_status_for_support,
     has_confirmable_legal_support,
+    has_unsupported_normative_claim,
+    related_document_context,
     verify_document_excerpt,
     verify_legal_hit,
+    verify_related_document_evidence,
 )
 from bidding_compliance.services.legal import require_identity
 from bidding_compliance.services.legal_management import (
     read_publication,
     retrieve_published_for_project,
+)
+from bidding_compliance.services.project_context import (
+    ProjectContextIncomplete,
+    project_context_issues,
 )
 from bidding_compliance.services.review_configurations import verify_frozen_configuration
 from bidding_compliance.services.review_persistence import (
@@ -154,6 +163,9 @@ def _snapshot_inputs(
         or content_hash(context) != snapshot["project_context_sha256"]
     ):
         raise ValueError("project context changed; create a new review run")
+    context_issues = project_context_issues(context)
+    if context_issues:
+        raise ProjectContextIncomplete(context_issues)
     publication, bundle = read_publication(session, principal, snapshot["legal_publication_id"])
     if (
         publication.publication_id != row.publication_id
@@ -323,9 +335,7 @@ def build_review_graph(
     schema_root = legal_root or ROOT
     adoption_policy = load_adoption_policy(schema_root)
     rule_law_bindings = (
-        load_rule_law_bindings(schema_root, adoption_policy)
-        if adoption_policy is not None
-        else ()
+        load_rule_law_bindings(schema_root, adoption_policy) if adoption_policy is not None else ()
     )
     analysis_schema = _analysis_schema(schema_root)
     selected_skill_ids = tuple(sorted(skill_ids or SKILLS))
@@ -790,15 +800,12 @@ def build_review_graph(
                     )
                 except (ModelGatewayError, ValidationError, ValueError) as exc:
                     failure_code = (
-                        exc.code.value
-                        if isinstance(exc, ModelGatewayError)
-                        else "response_invalid"
+                        exc.code.value if isinstance(exc, ModelGatewayError) else "response_invalid"
                     )
                     failed_children: tuple[Any, ...] = ()
                     if (
                         len(batch.sections) >= 2
-                        and subdivision_batches + 2
-                        <= llm_discovery.MAX_SUBDIVISION_BATCHES
+                        and subdivision_batches + 2 <= llm_discovery.MAX_SUBDIVISION_BATCHES
                     ):
                         failed_children = llm_discovery.subdivide_batch(batch, next_index)
                     if failed_children:
@@ -826,9 +833,7 @@ def build_review_graph(
                             "failure_code": failure_code,
                             "artifact_ref": None,
                             "response_hash": None,
-                            "subdivision_children": [
-                                child.index for child in failed_children
-                            ],
+                            "subdivision_children": [child.index for child in failed_children],
                         }
                     )
                     continue
@@ -865,14 +870,11 @@ def build_review_graph(
                     )
                     session.commit()
                 candidates.extend(accepted)
-                coverage = llm_discovery.batch_coverage(
-                    batch, len(accepted), len(rejected)
-                )
+                coverage = llm_discovery.batch_coverage(batch, len(accepted), len(rejected))
                 children: tuple[Any, ...] = ()
                 if (
                     coverage["saturated"]
-                    and subdivision_batches + 2
-                    <= llm_discovery.MAX_SUBDIVISION_BATCHES
+                    and subdivision_batches + 2 <= llm_discovery.MAX_SUBDIVISION_BATCHES
                 ):
                     children = llm_discovery.subdivide_batch(batch, next_index)
                     if children:
@@ -898,9 +900,7 @@ def build_review_graph(
                         "subdivision_children": [child.index for child in children],
                     }
                 )
-            failed_batches = [
-                item for item in batch_results if item.get("status") == "failed"
-            ]
+            failed_batches = [item for item in batch_results if item.get("status") == "failed"]
             if failed_batches and not candidates and len(failed_batches) == len(batch_results):
                 last_failure = failed_batches[-1].get("failure_code")
                 raw_code = last_failure if isinstance(last_failure, str) else "response_invalid"
@@ -1017,6 +1017,7 @@ def build_review_graph(
                 )[:1000]
                 queries.append((candidate.candidate_id, query))
             records = []
+            context_incomplete: list[dict[str, str]] = []
             for work_item_id, query in queries:
                 result = retrieve_published_for_project(
                     session,
@@ -1029,7 +1030,23 @@ def build_review_graph(
                     publication_id=row.publication_id,
                     retriever_factory=retriever_factory,
                 )
+                result_payload = result.model_dump(mode="json")
                 if result.run_snapshot is None:
+                    if result.status == "context_incomplete":
+                        context_incomplete.append(
+                            {
+                                "work_item_id": work_item_id,
+                                "context_error": result.context_error or "CONTEXT_INVALID",
+                            }
+                        )
+                        records.append(
+                            {
+                                "work_item_id": work_item_id,
+                                "publication_id": row.publication_id,
+                                "revision_id": row.revision_id,
+                                "result": result_payload,
+                            }
+                        )
                     continue
                 if result.run_snapshot.tenant_id != principal.tenant_id:
                     raise PermissionError("retrieval result tenant mismatch")
@@ -1038,7 +1055,7 @@ def build_review_graph(
                         "work_item_id": work_item_id,
                         "publication_id": row.publication_id,
                         "revision_id": row.revision_id,
-                        "result": result.model_dump(mode="json"),
+                        "result": result_payload,
                     }
                 )
             if len(records) != len(queries):
@@ -1061,6 +1078,21 @@ def build_review_graph(
                 content,
             )
             session.commit()
+            if context_incomplete:
+                return {
+                    "retrieval_results_ref": retrieval_ref,
+                    "status": "failed",
+                    "errors": [
+                        {
+                            "code": "legal_retrieval_context_incomplete",
+                            "message": (
+                                "法规检索上下文未通过检索契约校验；语义分析和报告发布已停止。"
+                            ),
+                            "node": "legal_retrieval",
+                            "retryable": False,
+                        }
+                    ],
+                }
             return {"retrieval_results_ref": retrieval_ref}
 
         try:
@@ -1073,8 +1105,7 @@ def build_review_graph(
             error_method = getattr(exc, "errors", None)
             if callable(error_method):
                 paths = [
-                    ".".join(str(part) for part in item.get("loc", ()))
-                    for item in error_method()
+                    ".".join(str(part) for part in item.get("loc", ())) for item in error_method()
                 ]
                 paths = [path for path in paths if path]
                 if paths:
@@ -1171,6 +1202,38 @@ def build_review_graph(
                 batches = _semantic_batches(discovery.candidates)
                 if not batches or len(batches) > MAX_SEMANTIC_BATCHES:
                     raise ValueError("semantic analysis exceeds the authorized batch capacity")
+                expected_documents = {
+                    item["document_id"]: item for item in snapshot["input_snapshot"]["documents"]
+                }
+                related_by_candidate = {
+                    candidate.candidate_id: related_document_context(
+                        session,
+                        principal,
+                        project_id=row.project_id,
+                        candidate=candidate,
+                        expected_documents=expected_documents,
+                    )
+                    for candidate in discovery.candidates
+                }
+                related_content = {
+                    "snapshot_hash": row.snapshot_hash,
+                    "candidates": [
+                        {
+                            "candidate_id": candidate_id,
+                            "items": entries,
+                        }
+                        for candidate_id, entries in sorted(related_by_candidate.items())
+                    ],
+                }
+                related_context_ref = put_artifact(
+                    session,
+                    principal.tenant_id,
+                    row.review_task_id,
+                    row.run_id,
+                    "semantic_document_context",
+                    related_content,
+                )
+                session.commit()
                 single = len(batches) == 1
                 discovery_json = discovery.model_dump(mode="json")
                 plan: list[tuple[int, ModelRequest]] = []
@@ -1190,6 +1253,10 @@ def build_review_graph(
                         "legal_retrieval": retrieval,
                         "candidate_legal_evidence": {
                             identifier: retrieval_by_id.get(identifier)
+                            for identifier in identifiers
+                        },
+                        "candidate_related_document_evidence": {
+                            identifier: related_by_candidate.get(identifier, [])
                             for identifier in identifiers
                         },
                         "prompt_version": snapshot["prompt_version"],
@@ -1344,6 +1411,7 @@ def build_review_graph(
                 "response_hash": head["response_hash"],
                 "usage": usage,
                 "content": {"schema_version": "v1alpha1", "findings": findings},
+                "related_document_evidence_ref": related_context_ref,
             }
         else:
             merged_content = {"schema_version": "v1alpha1", "findings": findings}
@@ -1353,12 +1421,11 @@ def build_review_graph(
                 "model_profile": head["profile"],
                 "provider": head["provider"],
                 "model": head["model"],
-                "response_hash": hashlib.sha256(
-                    _json(merged_content).encode("utf-8")
-                ).hexdigest(),
+                "response_hash": hashlib.sha256(_json(merged_content).encode("utf-8")).hexdigest(),
                 "usage": usage,
                 "content": merged_content,
                 "semantic_batches": batch_audit,
+                "related_document_evidence_ref": related_context_ref,
             }
         with session_factory() as session:
             row = _load_run(session, principal, state)
@@ -1395,6 +1462,28 @@ def build_review_graph(
                 review_task_id=row.review_task_id,
                 run_id=row.run_id,
             )
+            related_by_candidate: dict[str, list[dict[str, Any]]] = {}
+            related_ref = model_record.get("related_document_evidence_ref")
+            if isinstance(related_ref, str):
+                related_context = read_artifact(
+                    session,
+                    principal.tenant_id,
+                    related_ref,
+                    review_task_id=row.review_task_id,
+                    run_id=row.run_id,
+                )
+                if related_context.get("snapshot_hash") != row.snapshot_hash:
+                    raise ValueError("related document evidence does not match the frozen run")
+                for entry in related_context.get("candidates", []):
+                    candidate_id = entry.get("candidate_id")
+                    items = entry.get("items")
+                    if (
+                        candidate_id not in {item.candidate_id for item in discovery.candidates}
+                        or not isinstance(items, list)
+                        or candidate_id in related_by_candidate
+                    ):
+                        raise ValueError("related document evidence identity is invalid")
+                    related_by_candidate[candidate_id] = items
             model_items = model_record["content"].get("findings", [])
             by_candidate = {}
             invalid_model_refs = False
@@ -1417,6 +1506,9 @@ def build_review_graph(
                 item["document_id"]: item["document_version_ref"]
                 for item in snapshot["input_snapshot"]["documents"]
             }
+            expected_documents = {
+                item["document_id"]: item for item in snapshot["input_snapshot"]["documents"]
+            }
             risk_schema = _risk_schema(schema_root)
             evidence_schema = _evidence_schema(schema_root)
             from referencing import Registry, Resource
@@ -1435,6 +1527,7 @@ def build_review_graph(
             )
             risk_validator = Draft202012Validator(risk_schema, registry=registry)
             findings: list[dict[str, Any]] = []
+            issue_keys: dict[str, str] = {}
             for candidate in discovery.candidates:
                 model = by_candidate.get(candidate.candidate_id)
                 candidate_result = results_by_id.get(candidate.candidate_id)
@@ -1453,6 +1546,19 @@ def build_review_graph(
                         document_valid = False
                     else:
                         doc_evidence.append(evidence)
+                for related_item in related_by_candidate.get(candidate.candidate_id, []):
+                    related_evidence = verify_related_document_evidence(
+                        session,
+                        principal,
+                        project_id=row.project_id,
+                        item=related_item,
+                        expected_documents=expected_documents,
+                    )
+                    if related_evidence is None:
+                        raise ValueError(
+                            "related document evidence changed after semantic analysis"
+                        )
+                    doc_evidence.append(related_evidence)
                 source_hashes = set(model.get("source_quote_sha256", [])) if model else set()
                 if model and (
                     not source_hashes
@@ -1534,9 +1640,8 @@ def build_review_graph(
                 # No such binding has been manually approved for this release (D2 is pending),
                 # so keep even verified clauses as references and do not emit a legal conclusion.
                 rule_law_binding_confirmed = False
-                legal_valid = (
-                    rule_law_binding_confirmed
-                    and has_confirmable_legal_support(confirmable_laws, invalid=law_invalid)
+                legal_valid = rule_law_binding_confirmed and has_confirmable_legal_support(
+                    confirmable_laws, invalid=law_invalid
                 )
                 evidence_status = evidence_status_for_support(
                     document_valid=document_valid, legal_valid=legal_valid
@@ -1643,17 +1748,13 @@ def build_review_graph(
                         )
                         if reference_hit is None:
                             continue
-                        legal_references.append(
-                            reference_payload(reference_hit, selected=False)
-                        )
+                        legal_references.append(reference_payload(reference_hit, selected=False))
                         reference_only_count += 1
                 # A configured rule-law association is surfaced for the reviewer even when
                 # the model chose not to cite it. It remains a reference, never formal
                 # evidence, and only appears when the exact clause was retrieved.
                 if candidate_result is not None and candidate_rule_ids:
-                    existing_by_id = {
-                        item.get("evidence_id"): item for item in legal_references
-                    }
+                    existing_by_id = {item.get("evidence_id"): item for item in legal_references}
                     for hit_payload in candidate_result["result"]["hits"]:
                         binding_hit, _ = verify_legal_hit(
                             session,
@@ -1730,8 +1831,63 @@ def build_review_graph(
                     "confidence": model.get("confidence") if model else None,
                     "legal_references": legal_references,
                 }
+                issue_keys[finding_id] = candidate.problem_key
                 if conflicts:
                     finding["conflicts"] = conflicts
+                mismatched_anchors = claim_evidence_mismatch(
+                    f"{finding['title']} {finding['description']}",
+                    [item.quote for item in candidate.source_excerpts],
+                )
+                if mismatched_anchors:
+                    finding.update(
+                        {
+                            "title": "原文引用与风险判断不一致",
+                            "description": (
+                                "当前引用未显示判断所指的对象或事实，不能据此维持该项风险结论。"
+                                "请先核对引用对象与判断对象；无法从该原文确认时，应补充可定位的对应原文后再评估。"
+                            ),
+                            "reasoning_summary": (
+                                "引用原文未出现风险判断所指的对象类别；当前材料不能支持该对象层面的判断。"
+                            ),
+                            "severity": "low",
+                            "evidence_status": "insufficient_evidence",
+                            "recommendation": (
+                                "逐项对照本项引用与风险判断涉及的对象；若对象写错，按原文对象更正；"
+                                "若拟核查的是另一类事实，请补充该事实所在条款和定位后重新评估。"
+                            ),
+                        }
+                    )
+                    finding.setdefault("conflicts", []).append(
+                        {
+                            "source": "model",
+                            "assessment": "evidence_mismatch",
+                            "summary": "风险判断中的对象类别与引用原文不一致。",
+                        }
+                    )
+                if not legal_valid and any(
+                    has_unsupported_normative_claim(str(finding.get(field, "")))
+                    for field in ("title", "description", "reasoning_summary", "recommendation")
+                ):
+                    finding["title"] = "规范依据待核验"
+                    finding["description"] = (
+                        "原判断包含未获已确认适用条文支持的规范性要求，不能据此认定期限或程序不符合规定。"
+                        "本项保留为待核验问题，须对照适用条文后再决定是否调整。"
+                    )
+                    finding["recommendation"] = (
+                        "逐项对照本次检索到的法规原文、版本和适用条件；确认条文适用后，按具体条文要求调整期限并写明计算口径。"
+                    )
+                    finding.setdefault("conflicts", []).append(
+                        {
+                            "source": "retrieval",
+                            "assessment": "unsupported_normative_claim",
+                            "summary": (
+                                "当前运行未形成已确认适用的法条证据，规范性期限表述降为待核验。"
+                            ),
+                        }
+                    )
+                finding["recommendation"] = actionable_recommendation(
+                    category, str(finding.get("recommendation", ""))
+                )
                 if not legal_valid:
                     for field in ("title", "description", "recommendation", "reasoning_summary"):
                         value = finding.get(field)
@@ -1743,7 +1899,7 @@ def build_review_graph(
                     )[:4000]
                 risk_validator.validate(finding)
                 findings.append(finding)
-            findings = merge_duplicate_findings(findings)
+            findings = merge_duplicate_findings(findings, issue_keys=issue_keys)
             findings.sort(key=lambda item: item["finding_id"])
             artifact_payload = {
                 "snapshot_hash": row.snapshot_hash,
@@ -1830,9 +1986,7 @@ def build_review_graph(
         def action(session: Session) -> dict[str, Any]:
             row = _load_run(session, principal, state)
             worker_resume = (
-                principal.background_worker
-                and row.status == "running"
-                and row.action == "resume"
+                principal.background_worker and row.status == "running" and row.action == "resume"
             )
             if row.status != "waiting_human" and not worker_resume:
                 raise ValueError("review is no longer waiting for human review")

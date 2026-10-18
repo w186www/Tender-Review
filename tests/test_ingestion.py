@@ -102,6 +102,26 @@ def upload(system, payload=None, filename="synthetic.pdf", media="application/pd
     return project, response
 
 
+def project_context_body(client, project, headers):
+    value = client.get(f"/api/v1/projects/{project}", headers=headers).json()
+    return {
+        key: value.get(key)
+        for key in (
+            "name",
+            "procurement_type",
+            "project_type",
+            "region",
+            "industry",
+            "budget_amount",
+            "applicable_system",
+            "procurement_method",
+            "buyer_type",
+            "subject_type",
+            "legal_frameworks",
+        )
+    }
+
+
 def process(system, document, parser=None, scanner=None):
     _, engine, settings, _ = system
     return execute(
@@ -244,15 +264,24 @@ def test_document_lifecycle_and_context_version_history(system):
     context = client.get(path + "/context", headers=headers).json()
     validate("DocumentContext", context)
     assert any(v["field"] == "procurement_type" for v in context["candidates"])
+    mirrored_context = project_context_body(client, project, headers)
+    mismatch = client.post(
+        path + "/context",
+        headers=headers,
+        json={
+            "expected_version": 1,
+            "reason": "合成不一致字段反例",
+            "context": {**mirrored_context, "region": "北京"},
+        },
+    )
+    assert mismatch.status_code == 422, mismatch.text
+    assert mismatch.json()["details"]["issue_code"] == "DOCUMENT_CONTEXT_MISMATCH"
+    assert mismatch.json()["details"]["correction_action"] == "edit_project_context"
+    assert client.get(path + "/context", headers=headers).json()["version"] == 1
     decision = {
         "expected_version": 1,
         "reason": "合成人工确认",
-        "context": dict(
-            name="synthetic",
-            procurement_type="government",
-            project_type="works",
-            region="synthetic",
-        ),
+        "context": mirrored_context,
     }
     confirmed = client.post(path + "/context", headers=headers, json=decision)
     assert confirmed.status_code == 200, confirmed.text
@@ -343,9 +372,7 @@ def test_cross_tenant_access_upload_and_role_writes_are_rejected(system):
         json={
             "expected_parse_version": 1,
             "reason": "cross-tenant access must be denied",
-            "corrections": [
-                {"section_id": section["section_id"], "text": "Unauthorized change."}
-            ],
+            "corrections": [{"section_id": section["section_id"], "text": "Unauthorized change."}],
         },
     )
     assert denied_correction.status_code == 404
@@ -516,12 +543,7 @@ def test_text_correction_racing_context_confirmation_returns_conflict(system, mo
             json={
                 "expected_version": 1,
                 "reason": "Synthetic concurrent confirmation",
-                "context": dict(
-                    name="synthetic",
-                    procurement_type="government",
-                    project_type="works",
-                    region="synthetic",
-                ),
+                "context": project_context_body(client, project, headers),
             },
         )
         assert confirmation.status_code == 200

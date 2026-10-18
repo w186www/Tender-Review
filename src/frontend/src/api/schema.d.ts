@@ -1291,7 +1291,10 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
             message: string;
             request_id: string;
-            details?: Record<string, never>;
+            /** @description 服务端结构化补正信息；旧消费者可忽略该可选对象。 */
+            details?: {
+                [key: string]: unknown;
+            };
         };
         /** @enum {string} */
         Role: "admin" | "reviewer" | "auditor" | "operator";

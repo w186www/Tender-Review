@@ -51,6 +51,10 @@ from bidding_compliance.services.identity import audit
 from bidding_compliance.services.legal import require_identity
 from bidding_compliance.services.legal_management import read_publication
 from bidding_compliance.services.persisted_model_gateway import PersistedModelGateway
+from bidding_compliance.services.project_context import (
+    ProjectContextIncomplete,
+    project_context_issues,
+)
 from bidding_compliance.services.projects import find_project
 from bidding_compliance.services.review_configurations import resolve_execution_configuration
 from bidding_compliance.services.review_persistence import (
@@ -241,6 +245,9 @@ class ReviewEngine:
                 find_project(session, principal, existing.project_id)
                 return self._handle(existing)
             project = find_project(session, principal, request.project_id)
+            context_issues = project_context_issues(project.context)
+            if context_issues:
+                raise ProjectContextIncomplete(context_issues)
             input_snapshot, _ = snapshot_for_project(
                 session,
                 principal,
@@ -464,9 +471,7 @@ class ReviewEngine:
                             row.lease_id = None
                             row.lease_until = None
                             row.updated_at = now
-                            task = session.get(
-                                ReviewTask, (tenant_id, row.review_task_id)
-                            )
+                            task = session.get(ReviewTask, (tenant_id, row.review_task_id))
                             if task is not None:
                                 task.status = "failed"
                             session.commit()
@@ -735,9 +740,7 @@ class ReviewEngine:
         if principal.role is not Role.REVIEWER:
             raise PermissionError("review resume requires reviewer role")
         with self.session_factory() as session:
-            mutable = authorized_run(
-                session, principal, review_task_id, run_id, for_update=True
-            )
+            mutable = authorized_run(session, principal, review_task_id, run_id, for_update=True)
             if mutable.status == "queued" and mutable.action == "resume":
                 return self._handle(mutable)
             if mutable.status != "waiting_human":
@@ -796,9 +799,7 @@ class ReviewEngine:
         if principal.role is not Role.REVIEWER:
             raise PermissionError("review retry requires reviewer role")
         with self.session_factory() as session:
-            mutable = authorized_run(
-                session, principal, review_task_id, run_id, for_update=True
-            )
+            mutable = authorized_run(session, principal, review_task_id, run_id, for_update=True)
             if mutable.status == "queued" and mutable.action == "retry":
                 return self._handle(mutable)
             if (
@@ -911,9 +912,7 @@ class ReviewEngine:
                 else self.model_policy
             )
             with self.session_factory() as session:
-                persisted_run = authorized_run(
-                    session, principal, row.review_task_id, row.run_id
-                )
+                persisted_run = authorized_run(session, principal, row.review_task_id, row.run_id)
                 gateway = PersistedModelGateway(
                     self.gateway,
                     session_factory=self.session_factory,
