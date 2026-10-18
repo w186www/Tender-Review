@@ -387,6 +387,131 @@ def test_task0029_merges_known_semantic_duplicates_but_keeps_distinct_brand_issu
     assert any("中标后处理" in item["title"] for item in technical)
 
 
+def test_task0029_merges_same_fact_duplicates_and_keeps_different_scoring_issues():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    cases = [
+        (
+            "qualification",
+            "信用管理系统查不到企业信用分的，本项按最低档得分。",
+            [
+                ("信用分缺失直接判最低档", "未区分系统故障等非主观原因。"),
+                ("信用分缺失直接判最低档，缺乏救济机制", "没有写明信用异议的纠错机会。"),
+            ],
+            "信用分缺失时按最低档计分的处理需补充分情形规则",
+        ),
+        (
+            "contract",
+            "项目经理变更按照通知执行；未按要求履行的，追究违约责任。",
+            [
+                ("客观原因变更人员收违约金", "未区分获准变更与违约情形。"),
+                ("项目经理变更与违约责任衔接不清", "客观原因变更是否承担违约责任未说明。"),
+            ],
+            "项目经理变更条件与违约责任的衔接需明确",
+        ),
+        (
+            "procedure",
+            "同一事项规定不一致的，以编排顺序在后者为准。",
+            [
+                ("文件冲突以后者为准", "未说明该规则与合同条款优先顺序如何衔接。"),
+                ("文件冲突解释规则存歧义", "需明确澄清文件与原文件的关系。"),
+            ],
+            "同一事项在招标文件中的冲突优先顺序需明确",
+        ),
+        (
+            "qualification",
+            "拒不配合调查的，由天长市发展和改革委员会依法处理。",
+            [
+                ("指定发改委处理投诉", "需核对该项目的行政监督职责。"),
+                ("指定发改委执法管辖存疑", "需核对该机构的地域管辖权。"),
+            ],
+            "投诉或调查处理部门及管辖依据需明确",
+        ),
+        (
+            "qualification",
+            "项目经理不得在其他尚未完工项目任职。",
+            [
+                ("项目经理多标段任职限制不清", "未明确是否包括本项目其他标段。"),
+                ("项目经理任职限制不明", "其他未完工项目的范围需要明确。"),
+            ],
+            "项目经理未完工项目限制的范围需明确",
+        ),
+        (
+            "evaluation",
+            "其中J=9%，该值由招标人根据具体项目情况自行设定。",
+            [
+                ("J值设定依据不清", "未说明设定范围及评分影响。"),
+                ("J参数自行设定风险", "没有说明计算条件及取值边界。"),
+            ],
+            "J值的设定依据与评分影响需明确",
+        ),
+        (
+            "evaluation",
+            "招标人在线抽取K值，评标委员会根据抽取的K值计算F值。",
+            [
+                ("K值抽取过程不透明", "未说明抽取时点和见证方式。"),
+                ("K值及F值计算流程不清", "取值范围和公式需公开。"),
+            ],
+            "K值抽取及计算过程需明确",
+        ),
+    ]
+    findings = []
+    for index, (category, quote, variants, _expected_title) in enumerate(cases, start=1):
+        for offset, (title, description) in enumerate(variants):
+            finding_id = str(index * 10 + offset) * 64
+            findings.append(
+                _finding(
+                    finding_id=finding_id,
+                    category=category,
+                    title=title,
+                    description=description,
+                    source_excerpt={
+                        "source_hash": DOCUMENT,
+                        "locator": f"p{index}:same-cell",
+                        "quote": quote,
+                    },
+                )
+            )
+    distinct_formula = _finding(
+        finding_id="9" * 64,
+        category="evaluation",
+        title="报价偏差率公式量纲歧义",
+        source_excerpt={
+            "source_hash": DOCUMENT,
+            "locator": "p41:same-table",
+            "quote": "偏差率乘以100并按不同区间扣分。",
+        },
+    )
+    distinct_low_bid = _finding(
+        finding_id="8" * 64,
+        category="evaluation",
+        title="低价扣分系数较低",
+        source_excerpt={
+            "source_hash": DOCUMENT,
+            "locator": "p41:same-table",
+            "quote": "偏差率乘以100并按不同区间扣分。",
+        },
+    )
+    merged = merge_duplicate_findings([*findings, distinct_formula, distinct_low_bid])
+
+    assert len(merged) == len(cases) + 2
+    for index, (_category, _quote, _variants, expected_title) in enumerate(cases, start=1):
+        locator = f"p{index}:same-cell"
+        item = next(
+            finding
+            for finding in merged
+            if finding["source_excerpt"]["locator"] == locator
+        )
+        assert item["title"] == expected_title
+        assert item["review_status"] == "pending"
+    remaining_scoring_issues = {
+        item["title"]
+        for item in merged
+        if item["source_excerpt"]["locator"] == "p41:same-table"
+    }
+    assert remaining_scoring_issues == {"报价偏差率公式量纲歧义", "低价扣分系数较低"}
+
+
 def test_task0029_suppresses_only_ai_no_issue_without_rule_or_skill_conflict():
     from bidding_compliance.services.review_projection import should_suppress_model_no_issue
 

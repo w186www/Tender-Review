@@ -61,6 +61,7 @@ def _merge(
     verified,
     hits=None,
     description="需人工核对原文与适用法规。",
+    return_artifacts=False,
 ):
     """Run merge_findings with one model candidate and a controlled retrieval result."""
     from test_llm_candidate_discovery import graph_harness
@@ -81,11 +82,34 @@ def _merge(
         "reasoning_summary": "合成夹具。",
     }
     artifacts["model"] = {"content": {"findings": [model_entry]}}
+    hit = verified[0] or _hit(
+        eligible=False, reason="unverified", version_status="unverified"
+    )
+    persisted_hit = {
+        "evidence_id": hit.evidence_id,
+        "law_id": hit.law_id,
+        "title": hit.evidence.model_dump()["title"],
+        "article": hit.article,
+        "version": hit.version,
+        "quote": hit.quote,
+        "quote_hash": hit.quote_hash,
+        "source_uri": hit.source_uri,
+        "source_hash": hit.source_hash,
+        "text_hash": hit.text_hash,
+        "locator": hit.locator,
+        "applicable_frameworks": list(hit.applicable_frameworks),
+        "adoption_status": hit.adoption_status,
+        "eligible_for_confirmation": hit.eligible_for_confirmation,
+        "reason": hit.reason,
+    }
     artifacts["retrieval"] = {
         "results": [
             {
                 "work_item_id": candidate["candidate_id"],
-                "result": {"hits": hits if hits is not None else [{"evidence_id": "e" * 64}]},
+                "result": {
+                    "query": {"legal_frameworks": ["tendering"]},
+                    "hits": hits if hits is not None else [persisted_hit],
+                },
             }
         ]
     }
@@ -108,7 +132,7 @@ def _merge(
     state.update(discovered, model_findings_ref="model", retrieval_results_ref="retrieval")
     merged = nodes["merge_findings"](state)
     (finding,) = artifacts[merged["rule_findings_ref"]]["findings"]
-    return finding
+    return (finding, artifacts) if return_artifacts else finding
 
 
 @pytest.mark.parametrize(
@@ -192,11 +216,29 @@ def test_tampered_or_cross_publication_reference_is_rejected(monkeypatch, failur
     assert finding["evidence_status"] == "insufficient_evidence"
 
 
-def test_model_selecting_nothing_keeps_references_available(monkeypatch):
-    """With no model selection the retrieved clause is still offered as a reference."""
+def test_model_selecting_nothing_keeps_references_traceable_in_retrieval_artifact(monkeypatch):
+    """Unselected law stays in the frozen retrieval artifact, not finding support."""
     hit = _hit(eligible=False, reason="unverified", version_status="unverified")
-    finding = _merge(monkeypatch, selected=False, verified=(hit, hit.quote))
+    finding, artifacts = _merge(
+        monkeypatch,
+        selected=False,
+        verified=(hit, hit.quote),
+        return_artifacts=True,
+    )
 
-    assert len(finding["legal_references"]) == 1
+    assert finding["legal_references"] == []
     assert all(item["kind"] == "document" for item in finding["evidence"])
     assert finding["evidence_status"] == "insufficient_evidence"
+    (retrieval_record,) = artifacts["retrieval"]["results"]
+    (retrieved,) = retrieval_record["result"]["hits"]
+    assert retrieval_record["work_item_id"]
+    assert retrieved["evidence_id"] == hit.evidence_id
+    assert retrieved["law_id"] == hit.law_id
+    assert retrieved["version"] == hit.version
+    assert retrieved["article"] == hit.article
+    assert retrieved["quote"] == hit.quote
+    assert retrieved["source_uri"] == hit.source_uri
+    assert retrieved["source_hash"] == hit.source_hash
+    assert retrieved["text_hash"] == hit.text_hash
+    assert retrieved["applicable_frameworks"] == ["tendering"]
+    assert retrieved["adoption_status"] == hit.adoption_status
