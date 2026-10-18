@@ -28,7 +28,7 @@ from bidding_compliance.model_gateway.authorized_runtime import (
     Dec005BudgetLedger,
 )
 from bidding_compliance.model_gateway.contracts import ModelRequest
-from bidding_compliance.model_gateway.errors import ModelGatewayError
+from bidding_compliance.model_gateway.errors import ModelGatewayError, ModelInputError
 from bidding_compliance.persistence.database import make_engine
 from bidding_compliance.services.llm_candidate_discovery import discovery_schema
 from bidding_compliance.services.real_ai_runtime import (
@@ -226,9 +226,7 @@ def test_corrupt_or_unknown_registry_entries_fail_closed(tmp_path):
 
 def test_authorized_documents_are_the_union_and_never_auto_approved(tmp_path):
     store = registry(tmp_path)
-    store.approve(
-        sha256=REGISTERED, document_id="doc-1", reason="合成样本", approved_by="operator"
-    )
+    store.approve(sha256=REGISTERED, document_id="doc-1", reason="合成样本", approved_by="operator")
     union = resolve_authorized_documents(registry=store, environment_hashes={"a" * 64, ""})
     assert union == frozenset({"a" * 64, REGISTERED})
     assert UNREGISTERED not in union
@@ -253,8 +251,9 @@ def test_minimizer_refuses_an_unregistered_document(tmp_path):
         "text": "合成片段内容。",
         "document_sha256": UNREGISTERED,
     }
-    with pytest.raises(ValueError, match="outside authorized scope"):
+    with pytest.raises(ModelInputError) as denied:
         minimizer({"discovery_sections": [section]}, policy)
+    assert denied.value.diagnostic_code == "discovery_section_fields_or_scope_invalid"
     section["document_sha256"] = REGISTERED
     assert minimizer({"discovery_sections": [section]}, policy) == {
         "discovery_sections": [{"section_key": "s000000c000", "text": "合成片段内容。"}]
@@ -263,9 +262,7 @@ def test_minimizer_refuses_an_unregistered_document(tmp_path):
 
 def test_unregistered_document_is_denied_before_any_gateway_work(tmp_path):
     store = registry(tmp_path)
-    store.approve(
-        sha256=REGISTERED, document_id="doc-1", reason="合成样本", approved_by="operator"
-    )
+    store.approve(sha256=REGISTERED, document_id="doc-1", reason="合成样本", approved_by="operator")
     allowed = resolve_authorized_documents(registry=store, environment_hashes=())
     engine = review_engine(tmp_path, allowed)
 
@@ -298,27 +295,28 @@ def test_legacy_authorization_identity_and_scope_are_preserved(tmp_path):
     assert legacy.ledger_path == tmp_path / "dec005-budget.sqlite3"
     assert legacy.model_audit_path == tmp_path / "model-audit.jsonl"
     assert legacy.allowed_documents == frozenset({"a" * 64})
-    assert legacy.scope_sha256 == hashlib.sha256(
-        json.dumps(
-            {
-                "authorization": SEMANTIC_AUTHORIZATION_ID,
-                "tenant": "tenant-a",
-                "documents": ["a" * 64],
-                "provider": "bailian-cn-beijing",
-                "model": "qwen3.8-flash",
-                "embedding": "text-embedding-v4/1024",
-            },
-            sort_keys=True,
-        ).encode()
-    ).hexdigest()
+    assert (
+        legacy.scope_sha256
+        == hashlib.sha256(
+            json.dumps(
+                {
+                    "authorization": SEMANTIC_AUTHORIZATION_ID,
+                    "tenant": "tenant-a",
+                    "documents": ["a" * 64],
+                    "provider": "bailian-cn-beijing",
+                    "model": "qwen3.8-flash",
+                    "embedding": "text-embedding-v4/1024",
+                },
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+    )
 
 
 def test_approving_a_file_never_resets_or_invalidates_the_ledger(tmp_path):
     registry_path = tmp_path / "authorization-registry.jsonl"
     store = FileAuthorizationRegistry(registry_path)
-    store.approve(
-        sha256=REGISTERED, document_id="doc-1", reason="首个样本", approved_by="operator"
-    )
+    store.approve(sha256=REGISTERED, document_id="doc-1", reason="首个样本", approved_by="operator")
     environment = {
         "DEC007_AUTHORIZATION_ID": FULL_CAPABILITY_AUTHORIZATION_ID,
         "DEC007_AUTHORIZATION_REGISTRY": str(registry_path),
@@ -452,8 +450,9 @@ def test_minimizer_refuses_a_revoked_document_at_the_next_egress_decision(tmp_pa
     FileAuthorizationRegistry(registry_path).revoke(
         sha256=REGISTERED, document_id="doc-1", reason="收回授权", approved_by="operator"
     )
-    with pytest.raises(ValueError, match="outside authorized scope"):
+    with pytest.raises(ModelInputError) as denied:
         minimizer({"discovery_sections": [section]}, policy)
+    assert denied.value.diagnostic_code == "discovery_section_fields_or_scope_invalid"
     section["document_sha256"] = other
     assert minimizer({"discovery_sections": [section]}, policy) == {
         "discovery_sections": [{"section_key": "s000000c000", "text": "合成片段内容。"}]

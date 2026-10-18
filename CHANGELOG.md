@@ -1,10 +1,57 @@
 # Changelog
 
+- 2026-10-19 TASK-0029 CI 阻断修复：报告生成不再按制品 kind 任选 `candidate_discovery`/`legal_retrieval`/`model_analysis`/`llm_candidate_discovery`，而是跟随 `merged_findings` 冻结的 `discovery_ref`/`retrieval_results_ref`/`model_findings_ref`/`llm_discovery_ref`；新增 coverage 引用回归。该修复解决 CI postgres 失败，需重新通过 baseline（Full）与 required checks。
+
+- 2026-10-19 TASK-0029 发布候选 Full 通过：本机官方 `.\scripts\verify.ps1 -Mode Full` 七阶段 exit 0，后端 **1066 passed / 0 failed / 0 skipped / 6 既有 warnings**，653.02s；JUnit `.verification/pytest-result.xml`（tests=1066/failures=0/errors=0/skipped=0，SHA-256 `82dd70e2811ab7c84ffe334ba51abe4fad31d9d3d8b288b72f3778e159eca929`）。Full 后仅更新记录并执行 Quick；随后提交/推送/PR/CI/合并/部署，真实效果由用户自行网站验收，不登记用户验收或正式交付。
+
+- 2026-10-19 TASK-0029 Mypy 接续：product_runtime 的两个提示版本常量改为直接从 review_contracts 导入，避免隐式重导出；未变更常量值或业务装配，未运行验证。
+
+- 2026-10-19 TASK-0029 静态错误接续：修正 Luna 回报的 3 处 E501 和 1 处 B023，字符串值不变，法规关联映射显式绑定到当前候选。未运行验证，待 Luna 接续 Focused。
+
+- 2026-10-19 TASK-0029 根因修正（代码实现、未验证）：修复法规结果层级错配、细分批次/重试 ID 未登记及明确发送前失败被记为 unknown；修正饱和计数、父批成功/补扫失败含义。新增版本化多段引文、问题身份/重复代表项、条件反证和逐法条关系契约；v2路径按同源事实与问题身份归并并留记录；工作区保留既有legacy关键词归并，后续收口取消其固定事实摘要。同步出站容量规划、网页和报告限制；OpenAPI 0.10.5、契约集 v1alpha12、报告 v3.4。按用户要求未新增/运行测试、未运行门禁或模型、未提交推送部署，历史证据不覆盖当前工作区。
+
+- 2026-10-18 TASK-0029 冻结候选重复风险修正：对同一原文中的暂估价“第2种方式”定义不明重复候选增加窄语义族归并，保留同段确认/批准主体等不同问题。Focused 25 passed；正常本机执行方式下官方 Full 994 passed、0 failed/skipped，真实 HTTP/鉴权生命周期通过。沙箱首次 Full 的两个 Git/MSYS fresh-checkout 错误原始 JUnit 保留，明确记录正常执行入口；PR #8 CI 待 baseline 结束。未改变检索参考保留或展示逻辑，待 CI、备份恢复、部署及同 PDF 新候选验证。
+
 本项目遵循语义化版本；正式发布前使用 `0.x`。
 
 ## [Unreleased]
 
+- 2026-10-19 唯一门禁失败接续（夹具已修改，尚未复验）：用户转交原九文件119 passed/1 failed、扩展18文件249 passed/1 failed及静态/契约检查通过的复核报告；唯一失败为test_task0029_report_citations的ReportSession把继承的related_row用于ReviewArtifact查询。现按查询实体分流scalars：ReviewArtifact返回本测试的artifact，其他查询继续父类行为；scalar队列只保留两次Document读取，并断言队列耗尽。保留原文/关联摘录/哈希及定位断言，不改运行时代码或验收标准。
+本会话未执行上述报告中的检查，也未收到新JUnit原始路径；本次未运行pytest、Quick/Focused/Full、完整Ruff/Mypy、CI、模型或部署，仅编辑、导入整理与格式化。前次119/1、249/1保留为用户提供证据，不提前写成120通过。
+最小化器/路由身份及legacy分类覆盖维持已记录边界；counterevidence非空作为后续产品语义建议保留，不在此次夹具修复中新增硬门槛。现有no_issue仍必须满足contradicted、完整已复核引文集合及主文真实性等校验；空counterevidence不代表已经有可验证的反证，不宣称其质量已独立验收。
+下一步：由用户统一重跑原九文件/既有扩展集合，保存新日志和JUnit；通过后按既定门禁推进。TASK-0029保持in_progress，不提交或部署。
+
+### TASK-0029 扩展复核收口（尚未复验）
+
+2026-10-19 扩展复核残余项收口（代码/回归用例已改，待统一核查）：
+用户提供复核结果：原九文件116 passed/2 failed、扩展18文件227 passed/2 failed，Ruff/Mypy及契约/仓库检查据其报告通过；两项失败均指向法规分类_hit夹具顶层缺title。未提供本次原始日志/JUnit路径，本会话未独立执行上述检查，不把这些结果冒充自测或当前候选已通过。
+- 两个既有失败：_hit顶层补title，与真实LegalHit契约及其evidence内容一致；生产selected_citations不以空字符串掩盖缺失字段。
+- 残余1：v2引用集合在校验前按可信文档位置规范排序、去重，拒绝顺序/身份和恢复族采用稳定主来源；legacy保持原算法。添加双无效、后段无效、未知+无效以及正反顺序/修正后恢复族一致性用例，不放宽原文字符校验。
+- 残余2：条件反证逐字段检查标题、描述、推理摘要和建议；逐句识别局部否定、显式条件和反向事实，不跨字段用否定句遮盖另一处绝对判断。来源中的不允许/不可选用不当成允许入口。新增句子反例与四个字段的图节点连接用例；校验冲突保留待复核，不自动编造修正结论。
+- 残余3：扩展test_model_gateway_security，直接证明preflight/授权/预算拒绝的provider_invoked=False、适配器后输出/超时失败为True、fallback后本地拒绝不清除此前调用标记、独立调用的标记重置。测试均使用既有假传输，不涉及真实供应商；True只表示可能已发送，不能证明供应商收到。
+- 残余4：报告源定位candidate_discovery和覆盖llm_candidate_discovery统一走_optional_run_artifact，校验租户/task/run/kind唯一性及内容哈希；歧义拒绝。覆盖制品缺失时保留模型旧运行unknown/确定性not_applicable回退，未知调用COUNT标量查询不改。添加唯一/歧义/损坏、两个调用入口及历史缺失回退用例。
+- 残余5/6：不新增整仓SHA/路由缓存失效机制，不改legacy分类归并算法；低优先级最小化器/路由溯源建议保留，当前缓存沿已有冻结输入及原始provider/model记录读取，不自动付费重放。legacy只影响未发布在途计算，原始分类/来源留痕；v2仍不走关键词族，已发布记录不重写。
+- 残余7：本条为新的接续记录，前次未运行/第三方核查结果保留其发生时含义。本轮未运行pytest、Quick/Focused/Full、完整Ruff/Mypy、CI、浏览器或模型验证；仅编辑、格式化及导入整理。未提交/推送/合并/部署、未连接服务器；TASK-0029保持in_progress。
+下一核查：复用现有扩展集合，包含test_legal_evidence_classification、test_model_gateway_security、test_task0029_semantic_v2的本次新增/修正内容，保存新日志/JUnit；不要预先把通过数写成固定目标，也不复用此前118 passed作为本候选通过证据。
+
+### TASK-0029 审查收口（未运行验证）
+
+2026-10-19 用户审查14项意见统一收口（实现及回归用例已写，未运行）：
+1/2 明确context_review针对疑点，supported/qualified不得配no_issue，contradicted配no_issue，unresolved配uncertain；矛盾保留待复核。提示要求列出实际发送的全部主/关联摘录哈希，v2 context哈希容量26，未发送摘录仍记录容量限制。
+3/11 单批/多批统一semantic_analysis_batch_N，与最终model_analysis分离；记录规范化输入哈希和排序候选ID，绑定提示/Schema/策略，缓存响应同样校验候选集合、响应哈希及服务端调用身份。重试可复用已验证旧尝试，不自动重放未知；缺少绑定的legacy缓存明确拒绝恢复，不改写旧制品或补造哈希。
+4 取消_apply_family_summary和固定事实摘要，保留原有legacy归并与代表项原文、证据及冲突；不把强制品牌改写成允许替代。对应旧测试改为检查真实代表项，不以固定模板句子作为正确性标准。
+5 同步三个逐文件授权拒绝断言为ModelInputError及准确diagnostic_code，不降低鉴权。
+6 增加tests/test_task0029_semantic_v2.py；扩展现有semantic_batching、persisted_model_gateway、real_ai_runtime回归：v2图/最小化器连接、矛盾no_issue人工保留、全哈希复核、重复关系反例、缓存重复/输入变化/旧单批、容量删减、失败发送边界、授权上限和重试、白名单与脱敏、多段精确引文及顺序、报告引用和原文事实保留。全部尚未运行。
+7 报告从model_analysis.related_document_evidence_ref精确读取上下文，核对租户/task/run/快照/内容哈希；同类权威制品不唯一则拒绝，不任选第一条；历史缺引用不补造容量信息。
+8/9 保留DEC-009库内法规采用：仅匹配实际已选支持条文的引用式分析可带条件保留，不自动认定违法；无关法条不能放行其他规范结论。v2条件建议仅用于v2；v1提示/Schema与已发布结果不改写，在途证据安全/事实真实性纠错边界已记录。
+10 v2引文按可信文档位置及字符区间规范排序、去重后算候选身份和展示首定位；跨片段拼接和缺字仍拒绝。
+12/13 保留100候选/100语义批的有界授权登记及既有预算；补最高批次和retry ID、隐私白名单检查及用途说明，不新建授权或预算体系。
+14 同步OpenAPI0.10.5/契约集v1alpha12及关键v2证据入口。
+本次仅源码/测试/文档编辑及格式化、导入整理；未运行pytest/Quick/Focused/Full、完整Ruff/Mypy、CI、浏览器或模型验证，未提交/推送/合并/部署，未连接服务器。用户提供的118 passed/3 failed是第三方核查线索，未冒充本轮结果。TASK-0029继续in_progress，私人question.txt和界面图不动。
+核查入口：原九文件Focused加 tests/test_task0029_semantic_v2.py、tests/test_semantic_batching.py、tests/test_real_ai_runtime.py、tests/test_task0028_persisted_model_gateway.py、tests/test_task0027_per_file_authorization.py、tests/test_task0027_external_authorization_api.py。先统一核查本候选，未通过不得进入发布。
+
 ### Added
+- 2026-10-19 Focused 29项失败接续（仅修正，未复验）：读取本次 pytest-focused-result.xml，117项为29 failed/88 passed。26项涉及旧版本断言、最小化器v2必填上下文/同源候选、无prompt_version的旧graph夹具或错误文本匹配。现同步v2输入和内容无关诊断码断言，旧graph夹具显式冻结fulltext-v1；不在运行时代码中默认为缺失快照补版本。另3项原本调用旧关键词归并路径，现明确提供v2已审查问题身份，仍要求归并数量1/1/2，保留全部证据、独立评审标准，并补不同来源/不同问题不归并、分类冲突和归并来源断言。品牌泛化标题仍作为条件反证拒绝检查；不依靠模板把它改写成已支持结论。法规最小化器同一正例同时覆盖真实直接hits和旧result包络。这些是输入/断言与当前契约的同步，不证明模型能正确产生问题身份，亦不证明真实报告合格。原失败日志和JUnit保留；本会话未运行任何验证/测试、CI或发布，未连接服务器、未提交。下一步由Luna复用原九文件Focused；失败报告完整新JUnit，通过后才进入既定Full/发布门禁。
 - 2026-10-18 TASK-0029 基于同一 PDF 的真实运行修复风险投影：缩窄对象—证据一致性锚点，避免机器码结论被泛化的“资格审查”描述误降级；把已校验的全文关联摘录纳入对象一致性检查；仅在同一类别、文档哈希、定位及原文下合并已知同事实候选（信用分缺失、人员变更责任、文件冲突顺序、监管管辖、项目经理任职范围、J/K 评分参数），保留同段不同评分问题；未被模型选中且无精确规则绑定的法规命中不再作为风险附件自动填充。回归覆盖见 `tests/test_task0029_evidence_quality.py`、`tests/test_task0030_real_rag.py`。修复后 Focused 后端 78 passed；官方 Full 后端 992 passed、0 failed/skipped，2 条既有 pypdf 弃用警告；契约生成、Ruff、Mypy、前端 14/14、生产构建及真实 HTTP 生命周期检查通过。保存响应离线重验模型引文 39/39、候选投影 27 项、模型调用新增 0。PR/CI、部署及同 PDF 新运行待完成。TASK-0029 继续 `in_progress`，不改变法规独立核验、人工决定或用户验收状态。
 - 2026-10-18 TASK-0029 真实法规审查报告投影修正：法规参考保留法规 ID/版本/条号、官方来源 URI 与哈希、法规文本哈希/定位、生效区间、适用框架、确认资格/原因、采用政策与引用身份；仍不提升正式证据资格。AI-only `no_issue` 候选不再作为待审风险；同原文下仅合并经语义族明确识别的公示期限、调查举证与品牌中标后处理重复项，不合并同段不同问题。OpenAPI 0.10.4 / 契约集 v1alpha11，无数据库迁移。官方 Full 988 passed、0 failed/skipped，2 条既有 pypdf warning；相关 Focused 142 passed。PR、CI、服务器部署和新 PDF 真实运行待完成。
 - 2026-10-18 TASK-0029 真实 PDF 审查质量修复：在统一项目上下文契约下，于审查/付费模型调用前逐字段补正；保留检索快照，区分上下文失败、检索服务失败与有效零命中；把受原文哈希/定位约束的全文关联条款送入语义分析并在 Word/PDF 中标为上下文；增加对象—证据一致性、规范性说法、重复风险、同段多问题、品牌例外和合同 Skill PDF 范围回归。OpenAPI 升至 0.10.3 / v1alpha10。候选 `2088d2c` 本地官方 Full 七阶段通过（985 passed、2 条既有警告）；部署前真实报告验证尚待 CI 与服务器发布。
@@ -160,3 +207,6 @@
 - State类型从Schema生成，阻断字段与必填定义漂移。
 - TASK-0001完成范围修正为初始治理，不表示两个适配器或生产交接已验收。
 
+
+
+- 2026-10-19 TASK-0029：整理同一真实PDF的38条未验收报告候选、旧21条风险对照、4笔未知调用与预算只读核对，以及四层根因修正方案；保留Focused失败证据，未发布或改动服务端运行版本。

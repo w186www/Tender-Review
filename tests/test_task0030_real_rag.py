@@ -7,6 +7,7 @@ import hashlib
 import pytest
 
 from bidding_compliance.model_gateway.contracts import DataPolicy
+from bidding_compliance.model_gateway.errors import ModelInputError
 from bidding_compliance.services.real_ai_runtime import (
     MAX_LEGAL_CANDIDATES_PER_CANDIDATE,
     MAX_LEGAL_QUOTE_CHARACTERS,
@@ -15,6 +16,7 @@ from bidding_compliance.services.real_ai_runtime import (
     AuthorizedTenderMinimizer,
     real_ai_policy,
 )
+from bidding_compliance.services.review_contracts import issue_identity_key
 
 DOCUMENT = "a" * 64
 CANDIDATE = "b" * 64
@@ -46,6 +48,24 @@ def payload(*, legal: bool = True) -> dict[str, object]:
     return {
         **document,
         "prompt_version": SEMANTIC_PROMPT_VERSION,
+        "project_context": {
+            "region": "安徽省滁州市",
+            "procurement_type": "工程招标",
+            "project_type": "学校改造",
+            "procurement_method": "公开招标",
+            "buyer_type": "事业单位",
+            "subject_type": "施工",
+            "legal_frameworks": ["招标投标法"],
+        },
+        "same_source_candidates": {
+            CANDIDATE: [
+                {
+                    "candidate_id": CANDIDATE,
+                    "category": "qualification",
+                    "suspected_problem": "疑似地域限制",
+                }
+            ]
+        },
         "candidate_legal_evidence": {
             CANDIDATE: {
                 "work_item_id": CANDIDATE,
@@ -72,16 +92,23 @@ def payload(*, legal: bool = True) -> dict[str, object]:
 
 
 def test_semantic_prompt_describes_legal_candidates_and_bumps_the_version():
-    assert SEMANTIC_PROMPT_VERSION == "task0029-semantic-fulltext-v1"
+    assert SEMANTIC_PROMPT_VERSION == "task0029-semantic-evidence-v2"
     assert "legal_candidates" in SEMANTIC_PROMPT
     assert "legal_evidence_ids只能填写" in SEMANTIC_PROMPT
     assert "关联章节用于检索全文中的例外、替代条款、反向证据" in SEMANTIC_PROMPT
     assert "没有实际法规候选原文支持" in SEMANTIC_PROMPT
 
 
-def test_minimizer_sends_legal_candidates_with_ids_and_status():
+@pytest.mark.parametrize("legacy_envelope", [False, True])
+def test_minimizer_sends_legal_candidates_with_ids_and_status(legacy_envelope):
     minimizer = AuthorizedTenderMinimizer(frozenset({DOCUMENT}))
-    safe = minimizer(payload(), real_ai_policy().data_policy)
+    raw = payload()
+    if not legacy_envelope:
+        # The graph sends the retrieval result directly; frozen older callers may
+        # still send a work-item envelope. Both must reach the outbound request.
+        entry = raw["candidate_legal_evidence"][CANDIDATE]
+        raw["candidate_legal_evidence"][CANDIDATE] = entry["result"]
+    safe = minimizer(raw, real_ai_policy().data_policy)
 
     assert safe["law_text_included"] is True
     hits = safe["legal_candidates"][CANDIDATE]
@@ -91,6 +118,8 @@ def test_minimizer_sends_legal_candidates_with_ids_and_status():
     assert hits[0]["version_status"] == "unverified"
     assert hits[0]["eligible_for_confirmation"] is False
     assert hits[0]["quote"] == "招标人不得以不合理条件限制、排斥潜在投标人。"
+    assert safe["project_context"] == raw["project_context"]
+    assert safe["same_source_candidates"] == raw["same_source_candidates"]
 
 
 def test_minimizer_bounds_legal_quote_and_marks_truncation():
@@ -141,8 +170,9 @@ def test_minimizer_refuses_malformed_legal_candidate_fields(field, value):
     raw = payload()
     raw["candidate_legal_evidence"][CANDIDATE]["result"]["hits"][0][field] = value
 
-    with pytest.raises(ValueError, match="legal candidate"):
+    with pytest.raises(ModelInputError) as rejected:
         minimizer(raw, DataPolicy.CONFIDENTIAL)
+    assert rejected.value.diagnostic_code == "legal_candidate_fields_invalid"
 
 
 def test_minimizer_without_legal_candidates_stays_backward_compatible():
@@ -183,8 +213,9 @@ def test_minimizer_validates_and_sends_frozen_related_document_excerpts():
     ]
 
     item["document_sha256"] = "e" * 64
-    with pytest.raises(ValueError, match="related document evidence"):
+    with pytest.raises(ModelInputError) as rejected:
         AuthorizedTenderMinimizer(frozenset({DOCUMENT}))(raw, real_ai_policy().data_policy)
+    assert rejected.value.diagnostic_code == "related_document_evidence_fields_invalid"
 
 
 def test_legacy_frozen_prompt_keeps_the_law_free_payload():
@@ -444,12 +475,296 @@ def test_task0029_merges_known_semantic_duplicates_but_keeps_distinct_brand_issu
     public = next(item for item in merged if item["category"] == "procedure")
     inquiry = next(item for item in merged if item["category"] == "qualification")
     technical = [item for item in merged if item["category"] == "technical"]
-    assert "一日与三日" in public["title"]
-    assert "起止计算方式" in public["recommendation"]
-    assert "限期举证要求不够明确" in inquiry["title"]
+    assert public["title"] == public_one["title"]
+    assert public["description"] == public_one["description"]
+    assert inquiry["title"] == inquiry_one["title"]
+    assert inquiry["description"] == inquiry_one["description"]
     assert len(technical) == 2
     assert any("评审标准" in item["title"] for item in technical)
-    assert any("中标后处理" in item["title"] for item in technical)
+    lock = next(item for item in technical if item["finding_id"] == price_lock["finding_id"])
+    assert lock["title"] == price_lock["title"]
+    assert lock["description"] == price_lock["description"]
+
+
+def test_task0029_merges_same_contact_phone_rejection_across_categories():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    quote = "（15）投标人联系人或联系电话相同的。"
+    shared = {
+        "source_hash": DOCUMENT,
+        "locator": "pdf/page/58/line/18",
+        "quote": quote,
+    }
+    candidates = [
+        _finding(
+            finding_id="1" * 64,
+            category="evaluation",
+            title="待核验：联系人电话相同即否决风险",
+            description="联系人或联系电话相同作为否决条件，需核验是否有串通事实。",
+            source_excerpt=dict(shared),
+            severity="medium",
+            evidence=[{"evidence_id": "a" * 64}],
+        ),
+        _finding(
+            finding_id="2" * 64,
+            category="qualification",
+            title="待核验：资格限制条款公平性待核",
+            description="该条将联系人或电话相同列为否决条件，未说明合理解释路径。",
+            source_excerpt=dict(shared),
+            severity="high",
+            evidence=[{"evidence_id": "b" * 64}],
+            sources=["rule"],
+        ),
+        _finding(
+            finding_id="3" * 64,
+            category="qualification",
+            title="待核验：联系人电话相同直接否决存疑",
+            description="联系人电话相同即否决，未区分偶然共用情形。",
+            source_excerpt=dict(shared),
+            evidence=[{"evidence_id": "c" * 64}],
+        ),
+        _finding(
+            finding_id="4" * 64,
+            category="qualification",
+            title="机器码相同直接否决条件需核验",
+            description="机器码相同是否足以证明投标人串通需要单独核验。",
+            source_excerpt={**shared, "quote": "（16）投标文件制作机器码相同的。"},
+        ),
+    ]
+
+    merged = merge_duplicate_findings(
+        candidates,
+        issue_keys={str(index) * 64: f"candidate-{index}" for index in range(1, 5)},
+    )
+
+    assert len(merged) == 2
+    phone = next(item for item in merged if item["source_excerpt"]["quote"] == quote)
+    assert phone["category"] == "qualification"
+    assert phone["title"] == candidates[0]["title"]
+    assert phone["description"] == candidates[0]["description"]
+    assert phone["severity"] == "high"
+    assert {item["evidence_id"] for item in phone["evidence"]} == {
+        "a" * 64,
+        "b" * 64,
+        "c" * 64,
+    }
+    assert set(phone["sources"]) == {"model", "rule"}
+    assert any("机器码相同" in item["title"] for item in merged)
+
+
+def test_task0029_merges_nonfirst_collusion_effect_across_categories():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    quote = "依法必须进行招标的项目，除第一中标候选人或者中标人以外的其他投标人存在串通投标、弄"
+    excerpt = {"source_hash": DOCUMENT, "locator": "pdf/page/60/line/3", "quote": quote}
+    findings = [
+        _finding(
+            finding_id="1" * 64,
+            category="procedure",
+            title="非第一中标候选人串通行为影响条款待核查",
+            description="规定非第一候选人串通行为视为无实质影响。",
+            source_excerpt=dict(excerpt),
+            evidence=[{"evidence_id": "a" * 64}],
+        ),
+        _finding(
+            finding_id="2" * 64,
+            category="procedure",
+            title="串通投标认定条款合规性待核",
+            description="原文规定非第一中标候选人串通视为无实质影响。",
+            source_excerpt=dict(excerpt),
+            evidence=[{"evidence_id": "b" * 64}],
+        ),
+        _finding(
+            finding_id="3" * 64,
+            category="contract",
+            title="非第一候选人串通免责条款存疑",
+            description="规定非第一候选人串通不影响中标结果。",
+            source_excerpt=dict(excerpt),
+            evidence=[{"evidence_id": "c" * 64}],
+        ),
+    ]
+
+    # v2 receives a reviewed problem identity, not a phrase-family guess. The
+    # cross-category merge must preserve evidence and the classification conflict.
+    identity = issue_identity_key(
+        {
+            "subject": "非第一中标候选人或中标人以外的投标人",
+            "mechanism": "串通行为被视为对中标结果无实质影响",
+            "condition": "依法必须进行招标的项目",
+        }
+    )
+    assert identity is not None
+    keys = {item["finding_id"]: identity for item in findings}
+    audit = []
+    merged = merge_duplicate_findings(findings, issue_keys=keys, merge_audit=audit)
+
+    assert len(merged) == 1
+    assert merged[0]["category"] == "procedure"
+    assert "非第一中标候选人" in merged[0]["title"]
+    assert {item["evidence_id"] for item in merged[0]["evidence"]} == {
+        "a" * 64,
+        "b" * 64,
+        "c" * 64,
+    }
+    assert audit[0]["finding_ids"] == ["1" * 64, "2" * 64, "3" * 64]
+    assert any(
+        conflict["assessment"] == "merged_category_disagreement"
+        for conflict in merged[0]["conflicts"]
+    )
+    other_source = {
+        **findings[2],
+        "source_excerpt": {**excerpt, "source_hash": "e" * 64},
+    }
+    assert len(merge_duplicate_findings([*findings[:2], other_source], issue_keys=keys)) == 2
+
+
+def test_task0029_merges_same_price_limit_timeline_issue():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+
+    quote = (
+        "公布的最高投标限价：4491268.69元。\n"
+        "发布时间：2026年7月24日17时前。\n"
+        "发布媒介：滁州市公共资源交易中心网站。"
+    )
+    excerpt = {
+        "source_hash": DOCUMENT,
+        "locator": "pdf/page/15/table/0/row/0/cell/2",
+        "quote": quote,
+    }
+    variants = [
+        ("最高投标限价发布时间与异议期衔接待核", "限价发布时间、异议截止和开标时间的衔接需核验。"),
+        ("最高限价公布时间合规性待核", "需核对限价发布到投标截止时间是否满足适用期限。"),
+        ("限价发布至开标间隔待核", "应核对最高投标限价发布时间和开标日期。"),
+    ]
+    findings = [
+        _finding(
+            finding_id=f"{index}" * 64,
+            category="procedure",
+            title=title,
+            description=description,
+            recommendation="先核对适用期限、起算点、投标截止和开标日期，再判断是否需要调整。",
+            source_excerpt=dict(excerpt),
+        )
+        for index, (title, description) in enumerate(variants, start=1)
+    ]
+
+    identity = issue_identity_key(
+        {
+            "subject": "最高投标限价发布时间",
+            "mechanism": "与投标截止、异议期和开标时间衔接待核",
+            "condition": "适用期限及起算点尚待确认",
+        }
+    )
+    assert identity is not None
+    keys = {item["finding_id"]: identity for item in findings}
+    merged = merge_duplicate_findings(findings, issue_keys=keys)
+
+    assert len(merged) == 1
+    assert "最高投标限价发布时间" in merged[0]["title"]
+    assert "起算点" in merged[0]["recommendation"]
+    assert merged[0]["title"] == findings[0]["title"]
+    other_issue = issue_identity_key(
+        {
+            "subject": "最高投标限价发布时间",
+            "mechanism": "发布媒介名称缺失",
+            "condition": "发布媒介需可查询",
+        }
+    )
+    assert other_issue is not None and other_issue != identity
+    assert len(merge_duplicate_findings(findings, issue_keys={**keys, "3" * 64: other_issue})) == 2
+
+
+def test_task0029_merges_brand_post_award_issue_but_keeps_review_criteria_issue():
+    from bidding_compliance.services.review_projection import merge_duplicate_findings
+    from bidding_compliance.services.semantic_review import unresolved_conditional_claim
+
+    quote = (
+        "投标人可选用推荐品牌或不低于推荐品牌技术性能指标的其他品牌；"
+        "采用其他品牌的应注明指标，评审未通过的，中标后只能从推荐品牌中选择，"
+        "合同价格\n不予调整。"
+    )
+    excerpt = {
+        "source_hash": DOCUMENT,
+        "locator": "pdf/page/18/table/0/row/6/cell/2",
+        "quote": quote,
+    }
+    findings = [
+        _finding(
+            finding_id="1" * 64,
+            category="technical",
+            title="允许等同性能替代品牌条款的中标后处理待核查",
+            description=(
+                "条款允许等同性能替代，不应概括为全面禁止替代品牌；"
+                "窄问题是评审未通过后强制使用推荐品牌且价格不予调整。"
+            ),
+            source_excerpt=dict(excerpt),
+            evidence=[{"evidence_id": "a" * 64}],
+        ),
+        _finding(
+            finding_id="2" * 64,
+            category="technical",
+            title="品牌评审未通过强制锁定且不调价",
+            description="替代品牌材料未通过评审，中标后锁定推荐品牌且不调整价格。",
+            source_excerpt=dict(excerpt),
+            evidence=[{"evidence_id": "b" * 64}],
+        ),
+        _finding(
+            finding_id="3" * 64,
+            category="technical",
+            title="替代品牌评审未通过后的推荐品牌选用与价格处理待核查",
+            description="虽允许同等性能替代，但评审未通过后强制使用推荐品牌且不调价。",
+            source_excerpt=dict(excerpt),
+            evidence=[{"evidence_id": "c" * 64}],
+        ),
+        _finding(
+            finding_id="4" * 64,
+            category="technical",
+            title="替代品牌评审标准缺少客观量化方法",
+            description="应明确评审标准，当前缺少客观量化方法。",
+            source_excerpt=dict(excerpt),
+        ),
+    ]
+
+    # An overbroad model title must be flagged before projection, never repaired
+    # into a supported fact merely because a keyword-family template exists.
+    assert unresolved_conditional_claim("品牌限制条款涉嫌排斥竞争", [quote])
+    assert not unresolved_conditional_claim(findings[0]["title"], [quote])
+    post_award_identity = issue_identity_key(
+        {
+            "subject": "采用其他品牌的中标人",
+            "mechanism": "转为推荐品牌且合同价格不调整",
+            "condition": "替代品牌资料缺失或评审未通过",
+        }
+    )
+    criteria_identity = issue_identity_key(
+        {
+            "subject": "替代品牌评审",
+            "mechanism": "缺少客观量化方法",
+            "condition": "投标人选择同等性能其他品牌",
+        }
+    )
+    assert post_award_identity is not None
+    assert criteria_identity is not None and criteria_identity != post_award_identity
+    keys = {
+        **{str(index) * 64: post_award_identity for index in range(1, 4)},
+        "4" * 64: criteria_identity,
+    }
+    audit = []
+    merged = merge_duplicate_findings(findings, issue_keys=keys, merge_audit=audit)
+
+    assert len(merged) == 2
+    post_award = next(item for item in merged if "中标后处理" in item["title"])
+    assert "允许等同性能替代品牌" in post_award["title"]
+    assert "不应概括为全面禁止替代品牌" in post_award["description"]
+    assert {item["evidence_id"] for item in post_award["evidence"]} == {
+        "a" * 64,
+        "b" * 64,
+        "c" * 64,
+    }
+    criteria = next(item for item in merged if "客观量化方法" in item["title"])
+    assert criteria["category"] == "technical"
+    assert post_award["title"] == findings[0]["title"]
+    assert audit[0]["finding_ids"] == ["1" * 64, "2" * 64, "3" * 64]
 
 
 def test_task0029_merges_same_fact_duplicates_and_keeps_different_scoring_issues():
@@ -560,19 +875,16 @@ def test_task0029_merges_same_fact_duplicates_and_keeps_different_scoring_issues
     merged = merge_duplicate_findings([*findings, distinct_formula, distinct_low_bid])
 
     assert len(merged) == len(cases) + 2
-    for index, (_category, _quote, _variants, expected_title) in enumerate(cases, start=1):
+    for index, (_category, _quote, variants, _old_template) in enumerate(cases, start=1):
         locator = f"p{index}:same-cell"
         item = next(
-            finding
-            for finding in merged
-            if finding["source_excerpt"]["locator"] == locator
+            finding for finding in merged if finding["source_excerpt"]["locator"] == locator
         )
-        assert item["title"] == expected_title
+        assert item["title"] == variants[0][0]
+        assert item["description"] == variants[0][1]
         assert item["review_status"] == "pending"
     remaining_scoring_issues = {
-        item["title"]
-        for item in merged
-        if item["source_excerpt"]["locator"] == "p41:same-table"
+        item["title"] for item in merged if item["source_excerpt"]["locator"] == "p41:same-table"
     }
     assert remaining_scoring_issues == {"报价偏差率公式量纲歧义", "低价扣分系数较低"}
 

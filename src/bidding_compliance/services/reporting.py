@@ -45,9 +45,7 @@ def _legal_reference_metadata(reference: dict[str, Any], *, source_kind: str) ->
         else None,
     ]
     text_identity = [
-        f"库内文本SHA-256 {reference.get('text_hash')}"
-        if reference.get("text_hash")
-        else None,
+        f"库内文本SHA-256 {reference.get('text_hash')}" if reference.get("text_hash") else None,
         f"文本定位 {reference.get('locator')}" if reference.get("locator") else None,
         f"适用框架 {', '.join(reference['applicable_frameworks'])}"
         if reference.get("applicable_frameworks")
@@ -58,9 +56,7 @@ def _legal_reference_metadata(reference: dict[str, Any], *, source_kind: str) ->
         else None,
     ]
     state = [
-        f"版本状态 {reference.get('version_status')}"
-        if reference.get("version_status")
-        else None,
+        f"版本状态 {reference.get('version_status')}" if reference.get("version_status") else None,
         f"适用状态 {reference.get('applicability_status')}"
         if reference.get("applicability_status")
         else None,
@@ -89,6 +85,12 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
     if not isinstance(scope, dict):
         return []
     lines: list[str] = []
+    omitted_context = scope.get("model_context_capacity_omitted_excerpts")
+    if isinstance(omitted_context, int) and omitted_context > 0:
+        lines.append(
+            f"受单次模型输入容量限制，有 {omitted_context} 个关联原文摘录未发送；"
+            "模型判断基于所提供的部分上下文，不能据此认定全文不存在例外或反向条款。"
+        )
     candidate_count = scope.get("candidate_count")
     if isinstance(candidate_count, int):
         if "model_candidate_count" in scope:
@@ -245,6 +247,12 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
         unprocessed = product.get("unprocessed_units")
         if isinstance(unprocessed, int) and unprocessed > 0:
             lines.append(f"未提交模型或调用失败的 section：{unprocessed} 个，需人工处理。")
+        failed_rescan = product.get("failed_rescan_units")
+        if isinstance(failed_rescan, int) and failed_rescan > 0:
+            lines.append(
+                f"已随成功父批次提交、但后续细分补扫失败的原文单元：{failed_rescan} 个；"
+                "这不是从未处理，但补扫覆盖仍不完整。"
+            )
         truncated_batches = product.get("truncated_batches")
         if isinstance(truncated_batches, int) and truncated_batches > 0:
             lines.append(f"模型响应截断的批次：{truncated_batches} 个，覆盖不完整。")
@@ -252,7 +260,10 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
             lines.append("模型发现存在饱和批次；覆盖状态按部分完成处理。")
         unknown_calls = product.get("unknown_model_call_count")
         if isinstance(unknown_calls, int) and unknown_calls > 0:
-            lines.append(f"结果未知的模型调用 {unknown_calls} 次；未自动重放，费用按预留上限保留。")
+            lines.append(
+                f"结果未知的模型调用 {unknown_calls} 次；未自动重放。"
+                "费用是否存在预留及最终结算须以对应调用账本为准。"
+            )
 
     confirmation = scope.get("no_findings_confirmation")
     if confirmation == "confirm_no_findings":

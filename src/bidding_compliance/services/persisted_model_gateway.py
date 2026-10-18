@@ -193,7 +193,9 @@ class PersistedModelGateway:
             session.commit()
         return digest, None
 
-    def _mark_unknown(self, call_id: str, error_code: str) -> None:
+    def _mark_failure(
+        self, call_id: str, error_code: str, *, definitely_not_sent: bool = False
+    ) -> None:
         with self.session_factory() as session:
             authorized_run(
                 session,
@@ -208,8 +210,8 @@ class PersistedModelGateway:
             )
             if row is None or row.state != "dispatched":
                 return
-            row.state = "unknown"
-            row.usage_status = "unknown"
+            row.state = "failed" if definitely_not_sent else "unknown"
+            row.usage_status = "not_applicable" if definitely_not_sent else "unknown"
             row.error_code = error_code[:100]
             row.updated_at = datetime.now(UTC)
             session.commit()
@@ -268,8 +270,15 @@ class PersistedModelGateway:
             response = await self.delegate.generate_structured(request, output_schema, policy)
         except BaseException as exc:
             error_code = getattr(getattr(exc, "code", None), "value", "call_outcome_unknown")
+            diagnostic = getattr(exc, "diagnostic_code", None)
+            if isinstance(diagnostic, str) and diagnostic.replace("_", "").isalnum():
+                error_code = f"{error_code}:{diagnostic}"
             try:
-                self._mark_unknown(request.call_id, str(error_code))
+                self._mark_failure(
+                    request.call_id,
+                    str(error_code),
+                    definitely_not_sent=getattr(exc, "provider_invoked", None) is False,
+                )
             except Exception as mark_error:
                 # The durable dispatch row remains and is treated as unknown by the next worker.
                 LOGGER.error(

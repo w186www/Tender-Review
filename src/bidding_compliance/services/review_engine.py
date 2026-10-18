@@ -57,6 +57,10 @@ from bidding_compliance.services.project_context import (
 )
 from bidding_compliance.services.projects import find_project
 from bidding_compliance.services.review_configurations import resolve_execution_configuration
+from bidding_compliance.services.review_contracts import (
+    SEMANTIC_EVIDENCE_PROMPT_VERSION,
+    discovery_prompt_for,
+)
 from bidding_compliance.services.review_persistence import (
     approved_findings,
     authorized_run,
@@ -325,6 +329,12 @@ class ReviewEngine:
                 "configuration_snapshot": config_snapshot,
                 "runtime_provenance": runtime_provenance.model_dump(mode="json"),
             }
+            if request.prompt_version == SEMANTIC_EVIDENCE_PROMPT_VERSION:
+                discovery_version = discovery_prompt_for(request.prompt_version)
+                frozen["discovery_prompt_version"] = discovery_version
+                frozen["discovery_prompt_sha256"] = self.gateway.prompt_sha256(discovery_version)
+                frozen["semantic_response_schema"] = "semantic-analysis-v2.schema.json"
+                frozen["discovery_response_schema"] = "llm-candidate-discovery-v2.schema.json"
             snapshot_hash = content_hash(frozen)
             task = session.get(
                 ReviewTask, (principal.tenant_id, request.review_task_id), populate_existing=True

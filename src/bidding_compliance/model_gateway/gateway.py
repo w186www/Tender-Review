@@ -14,7 +14,7 @@ from typing import Any, Protocol
 from .authorization import AuthorizationPolicy
 from .budget import BudgetLedger
 from .contracts import DataPolicy, ModelPolicy, ModelRequest, ModelResponse, ModelUsage
-from .errors import GatewayErrorCode, ModelGatewayError
+from .errors import GatewayErrorCode, ModelGatewayError, ModelInputError
 from .routing import ModelTarget, ProfileRouter
 from .validation import parse_and_validate, validate_schema
 
@@ -113,6 +113,23 @@ class ModelGatewayService:
     async def generate_structured(
         self, request: ModelRequest, output_schema: Any, policy: ModelPolicy
     ) -> ModelResponse:
+        # State is local to this invocation, including all fallback attempts. Do
+        # not infer "not sent" from an exception code after an earlier attempt.
+        dispatch = {"provider_invoked": False}
+        try:
+            return await self._generate_structured(request, output_schema, policy, dispatch)
+        except BaseException as exc:
+            if isinstance(exc, ModelGatewayError):
+                exc.provider_invoked = dispatch["provider_invoked"]
+            raise
+
+    async def _generate_structured(
+        self,
+        request: ModelRequest,
+        output_schema: Any,
+        policy: ModelPolicy,
+        dispatch: dict[str, bool],
+    ) -> ModelResponse:
         # Input, prompt, schema, and budget preconditions all run before any adapter call.
         validate_schema(output_schema)
         if policy.profile not in self._router.routes:
@@ -156,9 +173,17 @@ class ModelGatewayService:
                 separators=(",", ":"),
                 allow_nan=False,
             )
+        except ModelInputError as exc:
+            raise ModelGatewayError(
+                GatewayErrorCode.INPUT_INVALID,
+                "Model input failed outbound preflight.",
+                diagnostic_code=exc.diagnostic_code,
+            ) from None
         except Exception:
             raise ModelGatewayError(
-                GatewayErrorCode.INPUT_INVALID, "Model input is not bounded JSON data."
+                GatewayErrorCode.INPUT_INVALID,
+                "Model input is not bounded JSON data.",
+                diagnostic_code="input_serialization_or_minimization",
             ) from None
         safe_request = replace(
             request, system_instruction=approved_prompt, input_payload=json.loads(safe_payload)
@@ -265,6 +290,7 @@ class ModelGatewayService:
                     # restart can then distinguish "never dispatched" from "outcome unknown".
                     self._budgets.mark_dispatched(reservation)
                     provider_invoked = True
+                    dispatch["provider_invoked"] = True
                     result = await adapter.generate(
                         safe_request,
                         dict(output_schema),

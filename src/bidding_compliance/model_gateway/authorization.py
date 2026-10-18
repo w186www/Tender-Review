@@ -25,6 +25,7 @@ class AuthorizationPolicy:
             raise ModelGatewayError(
                 GatewayErrorCode.INPUT_INVALID,
                 "Model request is not bound to a trusted tenant, task, and node context.",
+                diagnostic_code="untrusted_call_context",
             )
         if provider not in self.tenant_providers.get(request.tenant_id, frozenset()):
             raise ModelGatewayError(

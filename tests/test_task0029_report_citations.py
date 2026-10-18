@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from bidding_compliance.domain.identity import Principal, Role
 from bidding_compliance.ingestion.schemas import Fragment
-from bidding_compliance.persistence.models import DocumentSection, SectionRevision
+from bidding_compliance.persistence.models import DocumentSection, ReviewArtifact, SectionRevision
 from bidding_compliance.services import evidence_checker, reports
 from bidding_compliance.services.evidence_checker import evidence_identity
 from bidding_compliance.services.review_persistence import content_hash
@@ -136,7 +136,12 @@ def test_related_context_is_rechecked_and_resolved_to_report_citation(monkeypatc
 
     class ReportSession(RelatedSession):
         def __init__(self):
-            self.scalar_values = deque([artifact, document, document])
+            self.scalar_values = deque([document, document])
+
+        def scalars(self, statement):
+            if statement.column_descriptions[0]["entity"] is ReviewArtifact:
+                return iter([artifact])
+            return super().scalars(statement)
 
         def scalar(self, _statement):
             return self.scalar_values.popleft()
@@ -144,8 +149,9 @@ def test_related_context_is_rechecked_and_resolved_to_report_citation(monkeypatc
     finding_id = hashlib.sha256(
         f"{tenant_id}:{task_id}:{run_id}:{candidate_id}".encode()
     ).hexdigest()
+    report_session = ReportSession()
     locations = reports._resolve_source_locations(
-        ReportSession(),
+        report_session,
         principal,
         project_id=project_id,
         review_task_id=task_id,
@@ -179,3 +185,4 @@ def test_related_context_is_rechecked_and_resolved_to_report_citation(monkeypatc
     assert [item["quote"] for item in locations] == [source.text, related.text]
     assert locations[1]["section_id"] == "related-section"
     assert locations[1]["raw_source_sha256"] == document_sha
+    assert not report_session.scalar_values

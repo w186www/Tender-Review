@@ -237,6 +237,7 @@ export function ReviewPage() {
         unrecovered_candidate_families?: number;
         recovered_source_unit_count?: number;
         failed_units?: number;
+        failed_rescan_units?: number;
         unsubmitted_units?: number;
         truncated_batches?: number;
         truncated?: boolean;
@@ -555,6 +556,10 @@ export function ReviewPage() {
           {typeof execution.unprocessed_units === "number" &&
           execution.unprocessed_units > 0
             ? `：${execution.unprocessed_units} 个 section 未提交或调用失败`
+            : ""}
+          {typeof execution.failed_rescan_units === "number" &&
+          execution.failed_rescan_units > 0
+            ? `；${execution.failed_rescan_units} 个原文单元已随父批次提交，但后续细分补扫失败`
             : ""}
           {typeof execution.saturated_units === "number" &&
           execution.saturated_units > 0

@@ -3,18 +3,22 @@
 import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
 
+from bidding_compliance.graph.review import MAX_SEMANTIC_BATCHES
 from bidding_compliance.model_gateway.contracts import ModelRequest
 from bidding_compliance.model_gateway.errors import ModelGatewayError
 from bidding_compliance.services.llm_candidate_discovery import discovery_schema
 from bidding_compliance.services.real_ai_runtime import (
     DISCOVERY_PROMPT_VERSION,
+    AuthorizedRealReviewEngine,
     create_dec005_gateway,
     real_ai_policy,
 )
+from bidding_compliance.services.review_engine import ReviewEngine
 from bidding_compliance.services.risk_language import unverified_risk_text
 
 
@@ -147,3 +151,68 @@ def test_unverified_model_text_cannot_declare_illegality() -> None:
     assert "要求额外注册地条件" in result and "需核对必要性" in result
     assert "违反" not in result and "违法" not in result
     assert "缺少有效法规支持" in result
+
+
+def test_adopted_reference_allows_only_the_matching_conditional_citation() -> None:
+    statement = "依据《合成招标规则》第三条，应当明确评审条件。"
+    matched = unverified_risk_text(
+        statement,
+        has_selected_reference=True,
+        selected_citations=(("合成招标规则", "第三条"),),
+    )
+    assert statement in matched and "条件性参考分析" in matched
+    assert "适用性待人工确认" in matched
+    for title, article in (("另一规则", "第三条"), ("合成招标规则", "第四条")):
+        wrong = unverified_risk_text(
+            statement,
+            has_selected_reference=True,
+            selected_citations=((title, article),),
+        )
+        assert "应当明确评审条件" not in wrong
+    illegal = unverified_risk_text(
+        "依据《合成招标规则》第三条，此条款违法。",
+        has_selected_reference=True,
+        selected_citations=(("合成招标规则", "第三条"),),
+    )
+    assert "违法" not in illegal
+
+
+def test_highest_semantic_and_discovery_retry_ids_remain_server_registered(monkeypatch):
+    import hashlib
+
+    engine = object.__new__(AuthorizedRealReviewEngine)
+    engine.authorization = SimpleNamespace(trusted_calls={})
+    monkeypatch.setattr(engine, "_require_authorized_documents", lambda _: None)
+
+    async def no_dispatch(*_, **__):
+        return {"status": "synthetic"}
+
+    monkeypatch.setattr(ReviewEngine, "_invoke", no_dispatch)
+    row = SimpleNamespace(
+        snapshot={"document_requests": [{"raw_source_sha256": "a" * 64}]},
+        review_task_id="task-a",
+        run_id="run-a",
+        snapshot_hash="b" * 64,
+        retry_count=2,
+    )
+    asyncio.run(
+        engine._invoke(
+            SimpleNamespace(tenant_id="tenant-a"),
+            row,
+            resume=False,
+            retry=True,
+        )
+    )
+    from bidding_compliance.services.llm_candidate_discovery import (
+        MAX_DISCOVERY_BATCHES,
+        MAX_SUBDIVISION_BATCHES,
+    )
+
+    for suffix in (
+        f"semantic:{MAX_SEMANTIC_BATCHES - 1}",
+        f"discovery:{MAX_DISCOVERY_BATCHES + MAX_SUBDIVISION_BATCHES - 1}",
+    ):
+        identifier = hashlib.sha256(f"tenant-a:task-a:run-a:{suffix}".encode()).hexdigest()
+        assert identifier in engine.authorization.trusted_calls
+        retried = hashlib.sha256(f"{identifier}\0retry:2".encode()).hexdigest()
+        assert retried in engine.authorization.trusted_calls
