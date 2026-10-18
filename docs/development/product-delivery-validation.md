@@ -746,6 +746,7 @@
 - DOCX/派生文本 PDF 历史风险差异的因果与拒绝源单元恢复关系仍无法从旧制品还原；当前服务器新候选运行需补完整覆盖数据。U11/U15 异常、撤权、多角色/多租户、暂停/恢复、容量、备份和报告矩阵按总体验收继续。专家标签为 0、precision/recall 未测；用户独立验收未发生。
 ## 2026-10-18 部署后服务器复验与剩余登录阻塞
 
+- **CI：**状态证据提交 `a5db88f9b7c704bf4bd4b42623c3db0effaf3eb4` 的 Actions run `39100590866` success；`impact`、docs-only `quick`、`verify-required` success，`postgres`、`ingestion`、`baseline` 按条件 skipped。
 - **候选发布：**代码候选 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04` 经官方 Full（945 passed、0 failed/skipped）后，源码推进到记录提交 `33a7e812ecc3f505943b2d35bbbde3adbb071cbc` 并部署。部署前新备份 `/opt/tender-review/backups/20261018T051801Z` 的官方 `restore.sh --verify` 通过。API/web 镜像 `task0029-33a7e81`；固定 parser 镜像 `sha256:b33847d4b2dd39790edd3f5af5898442cf07d9a7035a2dbc1e39c517de4e9ca5`。仅重启 api/review-worker/worker/nginx，未重启数据服务或触碰卷。
 - **部署后状态：**`APP_ENV=staging`、`DEPLOY_REVIEW_MODE=product-postgres`、TLS overlay、迁移 `202610172000` 保持；health HTTP 200，api/review-worker/worker/nginx 均运行。账本 limit ¥200、spent ¥1.04007020、reserved ¥0，477 条 reservation 全部 settled（312 embedding/165 LLM），unknown/unsettled 0；本轮未触发模型调用或额外费用。不存在活跃 engine run/ingestion job；8 个旧父 `review_task=running` 仍关联已结束的 `result_published` engine run，未修改生产记录。
 - **回退专项：**在部署 API 镜像中以 staging + `authorized-real` 启动隔离、只读、无网络容器，实际 exit 2，并输出拒绝 DEC-007 独立账本装配的预期错误；同候选 CI PostgreSQL 专项通过迁移、RLS、租户隔离、并发和数据库回退门禁。
