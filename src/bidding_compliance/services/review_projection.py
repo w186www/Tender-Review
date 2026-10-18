@@ -121,9 +121,17 @@ def project_product_execution(
             "completion_status": "partial" if unknown_count else "complete",
             "coverage_status": "not_applicable",
             "unprocessed_units": 0,
+            "planned_units": 0,
             "analyzed_units": 0,
             "saturated_units": 0,
             "rejected_units": 0,
+            "rejected_candidate_attempts": 0,
+            "rejected_candidate_count": 0,
+            "rejected_source_unit_count": 0,
+            "rejection_reason_counts": {},
+            "recovered_candidate_families": 0,
+            "unrecovered_candidate_families": 0,
+            "recovered_source_unit_count": 0,
             "failed_units": 0,
             "unsubmitted_units": 0,
             "truncated_batches": 0,
@@ -190,10 +198,12 @@ def project_product_execution(
         reasons.append("provider_output_truncated")
     if unknown_count:
         reasons.append("model_call_outcome_unknown")
-    return {
+    projected = {
         "completion_status": "partial" if partial or unknown_count else "complete",
         "coverage_status": "partial" if partial else "complete",
-        "unprocessed_units": failed_sections + unsubmitted_sections,
+        "unprocessed_units": int(
+            coverage.get("unprocessed_sections", failed_sections + unsubmitted_sections)
+        ),
         "analyzed_units": submitted_sections,
         "saturated_units": saturated_sections,
         "rejected_units": rejected_sections,
@@ -205,3 +215,18 @@ def project_product_execution(
         "reason_codes": reasons or ["discovery_complete"],
         "unknown_model_call_count": unknown_count,
     }
+    rejection_fields = (
+        "rejected_candidate_attempts",
+        "rejected_candidate_count",
+        "rejected_source_unit_count",
+        "rejection_reason_counts",
+        "recovered_candidate_families",
+        "unrecovered_candidate_families",
+        "recovered_source_unit_count",
+    )
+    for field in rejection_fields:
+        if field in coverage:
+            projected[field] = coverage[field]
+    if "source_unit_count" in coverage:
+        projected["planned_units"] = int(coverage["source_unit_count"])
+    return projected

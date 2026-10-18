@@ -147,7 +147,15 @@ def test_fabricated_unknown_and_ambiguous_references_are_rejected(quote, section
     (batch,) = llm.plan_discovery(mapping)
     accepted, rejected = validate(batch, response_for(batch, quote=quote, section_key=section_key))
     assert not accepted
-    assert rejected == ({"reason": reason},)
+    assert len(rejected) == 1
+    assert rejected[0]["reason"] == reason
+    assert len(rejected[0]["candidate_identity_hash"]) == 64
+    if reason == "unknown_section":
+        assert rejected[0]["source_unit_hash"] is None
+        assert rejected[0]["candidate_family_hash"] is None
+    else:
+        assert len(rejected[0]["source_unit_hash"]) == 64
+        assert len(rejected[0]["candidate_family_hash"]) == 64
 
 
 def test_overlapping_duplicate_quote_is_rejected_as_ambiguous():
@@ -155,7 +163,9 @@ def test_overlapping_duplicate_quote_is_rejected_as_ambiguous():
     batch, = llm.plan_discovery(mapping)
     accepted, rejected = validate(batch, response_for(batch, quote="aaaa"))
     assert not accepted
-    assert rejected == ({"reason": "quote_missing_or_ambiguous"},)
+    assert len(rejected) == 1
+    assert rejected[0]["reason"] == "quote_missing_or_ambiguous"
+    assert len(rejected[0]["candidate_identity_hash"]) == 64
 
 
 def test_redaction_maps_exact_safe_quote_to_original_without_sending_contacts():

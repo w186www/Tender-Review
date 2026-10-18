@@ -227,7 +227,12 @@ def safe_path(root: Path, relative: str) -> Path:
     return target
 
 
-def check_dependencies(records: dict[str, dict], prefix: str) -> list[str]:
+def check_dependencies(
+    records: dict[str, dict],
+    prefix: str,
+    *,
+    allow_in_progress_before_dependencies: bool = False,
+) -> list[str]:
     errors = []
     visiting = set()
     visited = set()
@@ -244,9 +249,14 @@ def check_dependencies(records: dict[str, dict], prefix: str) -> list[str]:
                 errors.append(f"{prefix} {identifier} has unknown dependency {dependency}")
             else:
                 visit(dependency)
-                if (
-                    records[identifier]["status"] in {"in_progress", "completed"}
-                    and records[dependency]["status"] != "completed"
+                dependency_incomplete = records[dependency]["status"] != "completed"
+                unit_status = records[identifier]["status"]
+                if dependency_incomplete and unit_status == "completed":
+                    errors.append(f"{prefix} {identifier} completed before {dependency} completed")
+                elif (
+                    dependency_incomplete
+                    and unit_status == "in_progress"
+                    and not allow_in_progress_before_dependencies
                 ):
                     errors.append(f"{prefix} {identifier} started before {dependency} completed")
         visiting.remove(identifier)
@@ -381,7 +391,13 @@ def check_delivery_units(roadmap: dict, tasks: dict) -> list[str]:
                 f"missing={sorted(expected - set(records))}, "
                 f"unexpected={sorted(set(records) - expected)}"
             )
-        return check_dependencies(records, "delivery unit")
+        # Unit dependencies gate completion. In-progress engineering can proceed on
+        # independent work while a separate dependency remains open.
+        return check_dependencies(
+            records,
+            "delivery unit",
+            allow_in_progress_before_dependencies=True,
+        )
     except Exception as exc:
         return [f"invalid product delivery units: {exc}"]
 

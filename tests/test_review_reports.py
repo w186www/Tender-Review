@@ -343,6 +343,36 @@ def test_product_execution_projection_marks_saturation_and_unknown_calls_partial
     assert partial["unknown_model_call_count"] == 1
     assert {"discovery_saturated", "model_call_outcome_unknown"} <= set(partial["reason_codes"])
 
+    rejected = project_product_execution(
+        {
+            "status": "partial",
+            "saturated_batches": 0,
+            "partial_batches": 1,
+            "failed_batches": 0,
+            "saturated_sections": 0,
+            "rejected_sections": 12,
+            "failed_sections": 0,
+            "submitted_sections": 12,
+            "unsubmitted_sections": 0,
+            "truncated_batches": 0,
+            "rejected_candidate_attempts": 4,
+            "rejected_candidate_count": 3,
+            "rejected_source_unit_count": 2,
+            "rejection_reason_counts": {
+                "quote_missing_or_ambiguous": 2,
+                "unknown_section": 1,
+            },
+            "recovered_candidate_families": 1,
+            "unrecovered_candidate_families": 1,
+            "recovered_source_unit_count": 1,
+        },
+        unknown_model_call_count=0,
+    )
+    assert rejected["rejected_units"] == 12  # legacy section total remains stable
+    assert rejected["rejected_candidate_count"] == 3
+    assert rejected["rejected_source_unit_count"] == 2
+    assert rejected["rejection_reason_counts"]["quote_missing_or_ambiguous"] == 2
+
     failed = project_product_execution(
         {
             "status": "partial",
@@ -414,6 +444,13 @@ def test_v3_report_discloses_partial_coverage_in_word_and_pdf() -> None:
             "saturated": True,
             "reason_codes": ["discovery_saturated"],
             "unknown_model_call_count": 0,
+            "rejected_candidate_attempts": 4,
+            "rejected_candidate_count": 3,
+            "rejected_source_unit_count": 2,
+            "rejection_reason_counts": {"quote_missing_or_ambiguous": 2, "unknown_section": 1},
+            "recovered_candidate_families": 1,
+            "unrecovered_candidate_families": 1,
+            "recovered_source_unit_count": 1,
         }
     )
     documents, registry, errors = load_contracts(Path(__file__).resolve().parents[1])
@@ -441,6 +478,10 @@ def test_v3_report_discloses_partial_coverage_in_word_and_pdf() -> None:
         assert "不得解释为全部内容已审查完成" in compact, label
         assert "未提交模型或调用失败的section" in compact, label
         assert "饱和" in compact, label
+        assert "去重候选3个" in compact, label
+        assert "拒绝尝试4次" in compact, label
+        assert "quote_missing_or_ambiguous2个" in compact, label
+        assert "恢复候选族1个" in compact, label
 
 
 def test_v3_report_discloses_project_adopted_legal_references() -> None:

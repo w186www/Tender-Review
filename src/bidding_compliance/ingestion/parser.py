@@ -29,6 +29,7 @@ from .schemas import (
     Fragment,
     IngestionPolicy,
     OCRRuntimeIdentity,
+    OCRWordRecord,
     ParsedDocument,
     ParserExecutionMetrics,
     ParserRequest,
@@ -100,20 +101,33 @@ class TesseractOCR:
             if result.returncode != 0 or len(result.stdout) > 2000000:
                 raise IngestionError("PARSE_FAILED")
             rows = csv.DictReader(io.StringIO(result.stdout.decode("utf-8")), delimiter="\t")
-            return [
-                dict(
-                    text=row["text"],
-                    confidence=float(row["conf"]) / 100,
-                    bbox=[
-                        int(row["left"]),
-                        int(row["top"]),
-                        int(row["left"]) + int(row["width"]),
-                        int(row["top"]) + int(row["height"]),
-                    ],
+            recognized: list[dict[str, Any]] = []
+            for row in rows:
+                text = row["text"].strip()
+                raw_confidence = float(row["conf"])
+                if not text or raw_confidence < 0:
+                    continue
+                left, top = int(row["left"]), int(row["top"])
+                width, height = int(row["width"]), int(row["height"])
+                recognized.append(
+                    {
+                        "text": text,
+                        "confidence": raw_confidence / 100,
+                        "bbox": [left, top, left + width, top + height],
+                        "level": int(row["level"]),
+                        "page_num": int(row["page_num"]),
+                        "block_num": int(row["block_num"]),
+                        "par_num": int(row["par_num"]),
+                        "line_num": int(row["line_num"]),
+                        "word_num": int(row["word_num"]),
+                        "raw_left": left,
+                        "raw_top": top,
+                        "raw_width": width,
+                        "raw_height": height,
+                        "raw_confidence": raw_confidence,
+                    }
                 )
-                for row in rows
-                if row["text"].strip() and float(row["conf"]) >= 0
-            ]
+            return recognized
 
 
 def inspect_pdf(payload: bytes, policy: IngestionPolicy) -> None:
@@ -187,20 +201,147 @@ def ocr_fragments(
                 confidence=0,
             )
         ]
-    return [
-        Fragment(
-            locator=locator + "/word/" + str(index),
-            page=page,
-            bbox=[float(v) / scale for v in word["bbox"]],
-            coordinate_system=coordinate,
-            kind="ocr",
-            text=word["text"],
-            text_sha256=digest(word["text"]),
-            source="ocr",
-            confidence=word["confidence"],
+    normalized: list[dict[str, Any]] = []
+    for index, word in enumerate(words, 1):
+        raw_bbox = [float(value) for value in word["bbox"]]
+        x0, y0, x1, y1 = raw_bbox
+        confidence = float(word["confidence"])
+        normalized.append(
+            {
+                "text": str(word["text"]),
+                "confidence": confidence,
+                "bbox": [x0 / scale, y0 / scale, x1 / scale, y1 / scale],
+                "level": int(word.get("level", 5)),
+                "page_num": page,
+                "tsv_page_num": int(word.get("page_num", 1)),
+                "block_num": int(word.get("block_num", 0)),
+                "par_num": int(word.get("par_num", 0)),
+                "line_num": int(word.get("line_num", 0)),
+                "word_num": int(word.get("word_num", index)),
+                "raw_left": int(word.get("raw_left", round(x0))),
+                "raw_top": int(word.get("raw_top", round(y0))),
+                "raw_width": int(word.get("raw_width", round(x1 - x0))),
+                "raw_height": int(word.get("raw_height", round(y1 - y0))),
+                "raw_confidence": float(word.get("raw_confidence", confidence * 100)),
+            }
         )
-        for index, word in enumerate(words, 1)
-    ]
+
+    has_tsv_layout = all(
+        all(key in word for key in ("block_num", "par_num", "line_num"))
+        for word in words
+    )
+    if not has_tsv_layout:
+        lines: list[list[dict[str, Any]]] = []
+        for word in normalized:
+            x0, y0, x1, y1 = word["bbox"]
+            center_y = (y0 + y1) / 2
+            height = max(1.0, y1 - y0)
+            matching = next(
+                (
+                    line
+                    for line in lines
+                    if abs(line[0]["center_y"] - center_y)
+                    <= max(height, line[0]["height"]) * 0.45
+                ),
+                None,
+            )
+            value = {"word": word, "center_y": center_y, "height": height, "x0": x0, "x1": x1}
+            if matching is None:
+                lines.append([value])
+            else:
+                matching.append(value)
+        for line_num, line in enumerate(lines, 1):
+            line.sort(key=lambda item: item["x0"])
+            for word_num, item in enumerate(line, 1):
+                word = item["word"]
+                word.update(block_num=1, par_num=1, line_num=line_num, word_num=word_num)
+
+    paragraphs: dict[tuple[int, int], dict[int, list[dict[str, Any]]]] = {}
+    for word in normalized:
+        paragraph = paragraphs.setdefault((word["block_num"], word["par_num"]), {})
+        paragraph.setdefault(word["line_num"], []).append(word)
+
+    def line_text(line: list[dict[str, Any]]) -> str:
+        ordered = sorted(line, key=lambda item: item["word_num"])
+        text = ""
+        for word in ordered:
+            value = word["text"]
+            if text and not (_contains_cjk(text[-1]) or _contains_cjk(value[0])):
+                text += " "
+            text += value
+        return text
+
+    def split_long_line(line: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+        parts: list[list[dict[str, Any]]] = []
+        current: list[dict[str, Any]] = []
+        for word in sorted(line, key=lambda item: item["word_num"]):
+            candidate = current + [word]
+            if current and len(line_text(candidate)) > 8000:
+                parts.append(current)
+                current = [word]
+            else:
+                current = candidate
+        if current:
+            parts.append(current)
+        if any(len(line_text(part)) > 8000 for part in parts):
+            raise IngestionError("OUTPUT_LIMIT")
+        return parts
+
+    fragments: list[Fragment] = []
+    for (block_num, par_num), line_map in paragraphs.items():
+        chunks: list[list[list[dict[str, Any]]]] = []
+        current: list[list[dict[str, Any]]] = []
+        current_length = 0
+        for line_num in sorted(line_map):
+            for line_part in split_long_line(line_map[line_num]):
+                line_length = len(line_text(line_part))
+                if current and current_length + 1 + line_length > 8000:
+                    chunks.append(current)
+                    current, current_length = [], 0
+                current.append(line_part)
+                current_length += line_length + (1 if len(current) > 1 else 0)
+        if current:
+            chunks.append(current)
+        for part_index, line_parts in enumerate(chunks, 1):
+            text = "\n".join(line_text(line) for line in line_parts)
+            records = [
+                OCRWordRecord.model_validate(
+                    {
+                        **word,
+                        "page_num": page,
+                    }
+                )
+                for line in line_parts
+                for word in sorted(line, key=lambda item: item["word_num"])
+            ]
+            boxes = [record.bbox for record in records]
+            fragment_bbox = [
+                min(box[0] for box in boxes),
+                min(box[1] for box in boxes),
+                max(box[2] for box in boxes),
+                max(box[3] for box in boxes),
+            ]
+            fragments.append(
+                Fragment(
+                    locator=(
+                        f"{locator}/block/{block_num}/paragraph/{par_num}/part/{part_index}"
+                    ),
+                    page=page,
+                    bbox=fragment_bbox,
+                    coordinate_system=coordinate,
+                    kind="ocr",
+                    text=text,
+                    text_sha256=digest(text),
+                    source="ocr",
+                    confidence=sum(record.confidence for record in records) / len(records),
+                    ocr_words=records,
+                )
+            )
+    return fragments
+
+
+def _contains_cjk(value: str) -> bool:
+    return any("\u3400" <= character <= "\u9fff" for character in value)
 
 
 def parse_pdf(payload: bytes, policy: IngestionPolicy, ocr: OCR) -> tuple[list[Fragment], int]:
@@ -455,8 +596,9 @@ def parse_docx(payload: bytes, policy: IngestionPolicy) -> list[Fragment]:
 
 
 def check_limits(fragments: list[Fragment], policy: IngestionPolicy) -> None:
+    logical_units = sum(max(1, len(fragment.ocr_words)) for fragment in fragments)
     if (
-        len(fragments) > policy.max_fragments
+        logical_units > policy.max_fragments
         or sum(len(f.text) for f in fragments) > policy.max_text_chars
     ):
         raise IngestionError("TEXT_LIMIT")

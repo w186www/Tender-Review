@@ -159,6 +159,34 @@ def test_product_delivery_units_cover_all_units_and_resolve_task_mapping():
     assert check_delivery_units(roadmap, tasks) == []
 
 
+def test_product_delivery_unit_can_advance_engineering_before_dependency_exit():
+    roadmap = load_yaml(ROOT / "docs/development/roadmap.yaml")
+    tasks = {}
+    for folder in ("tasks/active", "tasks/completed"):
+        for path in (ROOT / folder).glob("TASK-*.yaml"):
+            task = load_yaml(path)
+            tasks[task["task_id"]] = task
+
+    units = {unit["id"]: unit for unit in roadmap["product_delivery_units"]}
+    units["U03"]["status"] = "in_progress"
+    units["U06"]["status"] = "in_progress"
+    assert check_delivery_units(roadmap, tasks) == []
+
+
+def test_product_delivery_unit_cannot_complete_before_dependency_exit():
+    roadmap = load_yaml(ROOT / "docs/development/roadmap.yaml")
+    tasks = {}
+    for folder in ("tasks/active", "tasks/completed"):
+        for path in (ROOT / folder).glob("TASK-*.yaml"):
+            task = load_yaml(path)
+            tasks[task["task_id"]] = task
+
+    units = {unit["id"]: unit for unit in roadmap["product_delivery_units"]}
+    units["U06"]["status"] = "completed"
+    errors = check_delivery_units(roadmap, tasks)
+    assert any("U06 completed before U03 completed" in error for error in errors)
+
+
 def test_product_traceability_covers_all_requirements_and_unit_evidence(tmp_path):
     source = load_yaml(ROOT / "docs/development/product-delivery-traceability.yaml")
     target = tmp_path / "docs/development/product-delivery-traceability.yaml"

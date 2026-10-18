@@ -126,6 +126,26 @@ class IngestionPolicy(Closed):
     max_attempts: int = Field(ge=1, le=3)
 
 
+class OCRWordRecord(Closed):
+    """One Tesseract TSV word with both source-pixel and document coordinates."""
+
+    text: str = Field(min_length=1, max_length=500)
+    confidence: float = Field(ge=0, le=1)
+    bbox: list[float] = Field(min_length=4, max_length=4)
+    level: int = Field(ge=1, le=5)
+    page_num: int = Field(ge=1, le=300)
+    tsv_page_num: int = Field(ge=1, le=300)
+    block_num: int = Field(ge=0)
+    par_num: int = Field(ge=0)
+    line_num: int = Field(ge=0)
+    word_num: int = Field(ge=0)
+    raw_left: int = Field(ge=0)
+    raw_top: int = Field(ge=0)
+    raw_width: int = Field(ge=0)
+    raw_height: int = Field(ge=0)
+    raw_confidence: float = Field(ge=0, le=100)
+
+
 class Fragment(Closed):
     model_config = ConfigDict(
         extra="forbid",
@@ -175,6 +195,7 @@ class Fragment(Closed):
     text_sha256: str = Field(pattern="^[a-f0-9]{64}$")
     source: Literal["native", "ocr", "manual"]
     confidence: float | None = Field(default=None, ge=0, le=1)
+    ocr_words: list[OCRWordRecord] = Field(default_factory=list, max_length=10000)
     table: int | None = Field(default=None, ge=0)
     row: int | None = Field(default=None, ge=0)
     column: int | None = Field(default=None, ge=0)

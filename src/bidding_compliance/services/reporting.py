@@ -137,9 +137,37 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
                 f"已提交模型但达到单批发现上限、覆盖无法确认的 section：{saturated_units} 个；"
                 "这不是完全未处理，但报告不声称这些 section 已覆盖全部疑点。"
             )
-        rejected_units = product.get("rejected_units")
-        if isinstance(rejected_units, int) and rejected_units > 0:
-            lines.append(f"已分析但候选被拒绝的 section：{rejected_units} 个。")
+        rejected_attempts = product.get("rejected_candidate_attempts")
+        rejected_candidates = product.get("rejected_candidate_count")
+        rejected_source_units = product.get("rejected_source_unit_count")
+        if all(
+            isinstance(value, int)
+            for value in (rejected_attempts, rejected_candidates, rejected_source_units)
+        ) and (rejected_attempts or rejected_candidates):
+            lines.append(
+                f"模型候选原文校验拒绝：去重候选 {rejected_candidates} 个，"
+                f"拒绝尝试 {rejected_attempts} 次，涉及 {rejected_source_units} 个唯一原文片段。"
+            )
+        reason_counts = product.get("rejection_reason_counts")
+        if isinstance(reason_counts, dict) and reason_counts:
+            reasons = "、".join(
+                f"{reason} {count} 个"
+                for reason, count in sorted(reason_counts.items())
+                if isinstance(reason, str) and isinstance(count, int)
+            )
+            if reasons:
+                lines.append(f"候选拒绝原因（按去重候选统计）：{reasons}。")
+        recovered_families = product.get("recovered_candidate_families")
+        unrecovered_families = product.get("unrecovered_candidate_families")
+        recovered_units = product.get("recovered_source_unit_count")
+        if all(
+            isinstance(value, int)
+            for value in (recovered_families, unrecovered_families, recovered_units)
+        ) and (recovered_families or unrecovered_families):
+            lines.append(
+                f"后续子批中有效原文引用恢复候选族 {recovered_families} 个，"
+                f"未恢复 {unrecovered_families} 个，涉及 {recovered_units} 个唯一原文片段。"
+            )
         unprocessed = product.get("unprocessed_units")
         if isinstance(unprocessed, int) and unprocessed > 0:
             lines.append(

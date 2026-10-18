@@ -38,7 +38,7 @@ SATURATION_FINDING_LIMIT = 3
 # Bounded subdivision: a saturated batch may be split at section boundaries, but only
 # within a fixed depth and a fixed number of additional calls. Hitting either bound
 # leaves the batch visibly saturated/partial; it never claims complete coverage.
-MAX_SUBDIVISION_DEPTH = 2
+MAX_SUBDIVISION_DEPTH = 3
 # Four saturated parents can each produce two children (8) and their saturated
 # children need one more bounded split (8 more); sixteen extra batches is the measured
 # ceiling for a 1,155-section real tender without allowing unbounded rescanning.
@@ -66,7 +66,11 @@ def batch_coverage(
         "batch_index": batch.index,
         "parent_index": batch.parent_index,
         "depth": batch.depth,
+        "batch_input_hash": batch.input_hash,
         "section_count": len(batch.sections),
+        "source_unit_hashes": sorted(
+            {source_unit_hash(item.located) for item in batch.sections}
+        ),
         "accepted_count": accepted_count,
         "rejected_count": rejected_count,
         "saturated": saturated,
@@ -89,36 +93,117 @@ def coverage_summary(
         if item.get("status") in {"saturated", "partial", "failed"}
     ]
     subdivided = [item for item in batches if item.get("status") == "subdivided"]
-    saturated_sections = sum(
-        int(item.get("section_count", 0) or 0)
+    all_source_units = {
+        str(source_hash)
+        for item in batches
+        for source_hash in item.get("source_unit_hashes", [])
+        if isinstance(source_hash, str)
+    }
+    saturated_source_units = {
+        str(source_hash)
         for item in batches
         if item.get("status") == "saturated"
-    )
+        for source_hash in item.get("source_unit_hashes", [])
+        if isinstance(source_hash, str)
+    }
     rejected_sections = sum(
         int(item.get("section_count", 0) or 0)
         for item in batches
         if item.get("status") == "partial"
     )
-    failed_sections = sum(
-        int(item.get("section_count", 0) or 0)
+    submitted_source_units = {
+        str(source_hash)
+        for item in batches
+        if item.get("response_hash") is not None
+        or (
+            item.get("status") in {"completed", "partial", "saturated"}
+            and not item.get("failure_code")
+        )
+        for source_hash in item.get("source_unit_hashes", [])
+        if isinstance(source_hash, str)
+    }
+    failed_source_units = {
+        str(source_hash)
         for item in failed
-    )
-    submitted_sections = sum(
-        int(item.get("section_count", 0) or 0)
+        for source_hash in item.get("source_unit_hashes", [])
+        if isinstance(source_hash, str)
+    }
+    failed_sections = len(failed_source_units)
+    submitted_sections = len(submitted_source_units)
+    unsubmitted_source_units = all_source_units - submitted_source_units - failed_source_units
+    unsubmitted_sections = len(unsubmitted_source_units)
+    unprocessed_sections = len(failed_source_units | unsubmitted_source_units)
+    rejection_rows = [
+        rejection
         for item in batches
-        if item.get("status") in {"completed", "partial", "saturated"}
-    )
-    unsubmitted_sections = max(0, section_count - submitted_sections - failed_sections)
-    truncated = [
-        item
-        for item in batches
-        if item.get("status") in {"completed", "partial", "saturated"}
-        and item.get("finish_reason") in {"length", "max_tokens"}
+        for rejection in item.get("rejection_summaries", [])
+        if isinstance(rejection, dict)
     ]
+    rejection_keys = {
+        str(item["candidate_identity_hash"])
+        for item in rejection_rows
+        if isinstance(item.get("candidate_identity_hash"), str)
+    }
+    rejection_reason_keys: dict[str, set[str]] = {}
+    rejection_source_units: set[str] = set()
+    rejection_family_units: dict[str, str] = {}
+    rejection_family_first_batch: dict[str, int] = {}
+    for item in batches:
+        batch_index = int(item.get("batch_index", 0))
+        for rejection in item.get("rejection_summaries", []):
+            if not isinstance(rejection, dict):
+                continue
+            candidate_key = rejection.get("candidate_identity_hash")
+            reason = rejection.get("reason")
+            if isinstance(candidate_key, str) and isinstance(reason, str):
+                rejection_reason_keys.setdefault(reason, set()).add(candidate_key)
+            source_hash = rejection.get("source_unit_hash")
+            if isinstance(source_hash, str):
+                rejection_source_units.add(source_hash)
+            family_hash = rejection.get("candidate_family_hash")
+            if isinstance(family_hash, str):
+                rejection_family_first_batch[family_hash] = min(
+                    batch_index,
+                    rejection_family_first_batch.get(family_hash, batch_index),
+                )
+                if isinstance(source_hash, str):
+                    rejection_family_units[family_hash] = source_hash
+    accepted_family_first_batch: dict[str, int] = {}
+    for item in batches:
+        batch_index = int(item.get("batch_index", 0))
+        for family_hash in item.get("accepted_candidate_family_hashes", []):
+            if isinstance(family_hash, str):
+                accepted_family_first_batch[family_hash] = min(
+                    batch_index,
+                    accepted_family_first_batch.get(family_hash, batch_index),
+                )
+    recovered_families = {
+        family_hash
+        for family_hash, rejected_batch in rejection_family_first_batch.items()
+        if accepted_family_first_batch.get(family_hash, rejected_batch) > rejected_batch
+    }
+    rejected_families = set(rejection_family_first_batch)
+    recovered_source_units = {
+        rejection_family_units[family_hash]
+        for family_hash in recovered_families
+        if family_hash in rejection_family_units
+    }
+    truncated = {
+        str(item.get("batch_input_hash", item.get("batch_index")))
+        for item in batches
+        if item.get("response_hash") is not None
+        and item.get("finish_reason") in {"length", "max_tokens"}
+    }
+    failed_attempts = {
+        str(item.get("batch_input_hash", item.get("batch_index")))
+        for item in batches
+        if item.get("failure_code")
+    }
     return {
         "status": "partial" if partial else "complete",
         "batch_count": len(batches),
         "section_count": section_count,
+        "source_unit_count": len(all_source_units),
         "completed_batches": sum(item.get("status") == "completed" for item in batches),
         "partial_batches": sum(item.get("status") == "partial" for item in batches),
         "subdivided_batches": len(subdivided),
@@ -127,13 +212,19 @@ def coverage_summary(
         ),
         "saturated_batches": len(saturated),
         "saturated_batch_indices": [item["batch_index"] for item in saturated],
-        "saturated_sections": saturated_sections,
+        "saturated_sections": len(saturated_source_units),
         "rejected_sections": rejected_sections,
         "failed_sections": failed_sections,
         "submitted_sections": submitted_sections,
         "unsubmitted_sections": unsubmitted_sections,
+        "unprocessed_sections": unprocessed_sections,
         "truncated_batches": len(truncated),
-        "truncated_batch_indices": [item["batch_index"] for item in truncated],
+        "truncated_batch_indices": [
+            int(item["batch_index"])
+            for item in batches
+            if str(item.get("batch_input_hash", item.get("batch_index"))) in truncated
+        ],
+        "failed_batch_attempts": len(failed_attempts),
         "failed_batches": len(failed),
         "failed_batch_indices": [item["batch_index"] for item in failed],
         "failed_batch_codes": sorted(
@@ -145,7 +236,57 @@ def coverage_summary(
         ),
         "accepted_candidates": sum(int(item.get("accepted_count", 0)) for item in batches),
         "rejected_candidates": sum(int(item.get("rejected_count", 0)) for item in batches),
+        "rejected_candidate_attempts": len(rejection_rows),
+        "rejected_candidate_count": len(rejection_keys),
+        "rejected_source_unit_count": len(rejection_source_units),
+        "rejection_reason_counts": {
+            reason: len(candidate_keys)
+            for reason, candidate_keys in sorted(rejection_reason_keys.items())
+        },
+        "recovered_candidate_families": len(recovered_families),
+        "unrecovered_candidate_families": len(rejected_families - recovered_families),
+        "recovered_source_unit_count": len(recovered_source_units),
     }
+
+
+def source_unit_hash(item: LocatedFragment) -> str:
+    """Hash a stable source-fragment identity without exposing tender text."""
+    return _hash(
+        {
+            "document_version_ref": item.document.document_version_ref,
+            "section_id": item.section_id,
+            "section_revision": item.section_revision,
+            "source_sha256": item.fragment.text_sha256,
+        }
+    )
+
+
+def _candidate_family_hash(
+    source_hash: str, category: str, description: str
+) -> str:
+    return _hash(
+        {
+            "source_unit_hash": source_hash,
+            "category": category,
+            "normalized_description": "".join(description.split()),
+        }
+    )
+
+
+def candidate_family_hash(candidate: CandidateFinding) -> str:
+    """Stable family key used only to measure later recovery of a rejected suggestion."""
+    if not candidate.source_excerpts:
+        return ""
+    excerpt = candidate.source_excerpts[0]
+    source_hash = _hash(
+        {
+            "document_version_ref": candidate.document_version_ref,
+            "section_id": excerpt.section_id,
+            "section_revision": excerpt.section_revision,
+            "source_sha256": excerpt.quote_sha256,
+        }
+    )
+    return _candidate_family_hash(source_hash, candidate.category, candidate.matched_reason)
 
 # Batch capacity is deliberately set from the authorized input-token ceiling: the
 # gateway rejects any request above 65,536 input tokens, and the per-batch finding
@@ -389,24 +530,57 @@ class DiscoveryBatch:
 
 
 def subdivide_batch(batch: DiscoveryBatch, next_index: int) -> tuple[DiscoveryBatch, ...]:
-    """Split a saturated batch at section boundaries, bounded by depth.
-
-    A one-section batch cannot be subdivided at this layer; the caller must leave it
-    saturated/partial instead of pretending the rescan was exhaustive.
-    """
-    if len(batch.sections) < 2 or batch.depth >= MAX_SUBDIVISION_DEPTH:
+    """Split saturated or failed input, including long single sections, within fixed budgets."""
+    if not batch.sections or batch.depth >= MAX_SUBDIVISION_DEPTH:
         return ()
-    midpoint = len(batch.sections) // 2
+    if len(batch.sections) >= 2:
+        midpoint = len(batch.sections) // 2
+        left_sections = batch.sections[:midpoint]
+        right_sections = batch.sections[midpoint:]
+    else:
+        section = batch.sections[0]
+        if section.end - section.start < 8:
+            return ()
+        text = section.text
+        midpoint = len(text) // 2
+        lower, upper = 4, len(text) - 4
+        boundaries = [
+            index + 1
+            for index, character in enumerate(text)
+            if character in "。！？；;\n" and lower <= index + 1 <= upper
+        ]
+        split_at = (
+            min(boundaries, key=lambda value: abs(value - midpoint)) if boundaries else midpoint
+        )
+        split_at = min(max(split_at, lower), upper)
+        left_sections = (
+            DiscoverySection(
+                section_key=f"s{900000 + next_index:06d}c000",
+                located=section.located,
+                start=section.start,
+                end=section.start + split_at,
+                safe_source_text=section.safe_source_text,
+            ),
+        )
+        right_sections = (
+            DiscoverySection(
+                section_key=f"s{900001 + next_index:06d}c000",
+                located=section.located,
+                start=section.start + split_at,
+                end=section.end,
+                safe_source_text=section.safe_source_text,
+            ),
+        )
     return (
         DiscoveryBatch(
             next_index,
-            batch.sections[:midpoint],
+            left_sections,
             parent_index=batch.index,
             depth=batch.depth + 1,
         ),
         DiscoveryBatch(
             next_index + 1,
-            batch.sections[midpoint:],
+            right_sections,
             parent_index=batch.index,
             depth=batch.depth + 1,
         ),
@@ -511,7 +685,7 @@ def validate_response(
     expected_call_id: str,
     profile: str,
     schema: dict[str, Any],
-) -> tuple[tuple[CandidateFinding, ...], tuple[dict[str, str], ...]]:
+) -> tuple[tuple[CandidateFinding, ...], tuple[dict[str, Any], ...]]:
     Draft202012Validator(schema).validate(dict(response.content))
     if (
         response.call_id != expected_call_id
@@ -521,23 +695,52 @@ def validate_response(
         raise ValueError("discovery response identity or hash mismatch")
     sections_by_alias = {item.section_key: item for item in batch.sections}
     candidates: list[CandidateFinding] = []
-    rejections: list[dict[str, str]] = []
+    rejections: list[dict[str, Any]] = []
     provenance = ModelCandidateProvenance(
         provider=response.provider,
         model=response.model,
         prompt_version=TASK0023_DISCOVERY_PROMPT_VERSION,
         response_hash=response.response_hash,
     )
+
+    def rejected_candidate(
+        reason: str, item: Mapping[str, Any], section: DiscoverySection | None
+    ) -> dict[str, Any]:
+        source_hash = source_unit_hash(section.located) if section is not None else None
+        description = str(item["description"])
+        category = str(item["category"])
+        identity_hash = _hash(
+            {
+                "source_unit_hash": source_hash,
+                "section_key": item["section_key"],
+                "category": category,
+                "normalized_description": "".join(description.split()),
+                "quote_sha256": hashlib.sha256(str(item["quote"]).encode()).hexdigest(),
+            }
+        )
+        return {
+            "reason": reason,
+            "candidate_identity_hash": identity_hash,
+            "candidate_family_hash": (
+                _candidate_family_hash(source_hash, category, description)
+                if source_hash is not None
+                else None
+            ),
+            "source_unit_hash": source_hash,
+        }
+
     for item in response.content["findings"]:
         section = sections_by_alias.get(item["section_key"])
         if section is None:
-            rejections.append({"reason": "unknown_section"})
+            rejections.append(rejected_candidate("unknown_section", item, None))
             continue
         quote = item["quote"]
         safe = section.safe_text
         local_start = safe.find(quote)
         if local_start < 0 or safe.find(quote, local_start + 1) >= 0:
-            rejections.append({"reason": "quote_missing_or_ambiguous"})
+            rejections.append(
+                rejected_candidate("quote_missing_or_ambiguous", item, section)
+            )
             continue
         absolute_start = section.start + local_start
         original_quote = section.located.fragment.text[absolute_start : absolute_start + len(quote)]
@@ -546,7 +749,7 @@ def validate_response(
             sent != original and sent != "*"
             for sent, original in zip(quote, original_quote, strict=True)
         ):
-            rejections.append({"reason": "quote_mapping_invalid"})
+            rejections.append(rejected_candidate("quote_mapping_invalid", item, section))
             continue
         excerpt = source_excerpt(section.located)
         category = cast(Category, item["category"])

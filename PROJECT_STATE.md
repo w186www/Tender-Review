@@ -2,26 +2,58 @@
 
 更新时间：2026-10-18
 
-## 当前有效进度：U01/U02/U04/U05 已完成；U03/U07/U10 进行中；U06/U08/U09/U11/U12 有真实交付证据但正式单元仍待 D2/冻结评测；服务器已切换到 product-postgres，PostgreSQL 是唯一授权/预算权威源
+## 接续实施状态（2026-10-18，验证环境恢复后）
 
-- 固定目录与分支：`D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`，`work/TASK-0027`；当前文档/证据 HEAD `006afc029709171e1585a7599afd84eafaf551f0`，运行时代码候选 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`，均已推送 `origin/work/TASK-0027`。未合并 main。`question.txt` 保持未跟踪私人文件。
+### 已完成
+
+- 工作树在 `work/TASK-0027`，HEAD/origin 为 `43c615c4c2d3665fcfe2f4da7d86e4f73e8e1076`；TASK-0029 候选已完成官方 Full、PostgreSQL 专项和浏览器 E2E，尚未提交、推送或部署。未跟踪的私人 `question.txt` 未读写、不得提交。
+- Docker Linux Engine 实际运行（Server 29.2.1）；named-pipe Access denied 来自受限命令环境的桌面 IPC 访问边界，不是引擎未启动、context 错误或 Docker 安装损坏。通过官方权限申请执行后 Docker 与 daemon 均可用；没有重装 Docker、改 ACL 或清理卷。
+- Alibaba workbench 使用现有 `default` 身份隐藏启动 daemon 并可直连 ECS。ECS 列表 API 因缺少 `ecs:DescribeInstances` 返回 403，但对已授权实例的 `workbench exec` 可用；未换账户、读取或输出凭据。
+- 当前候选官方 `./scripts/verify.ps1 -Mode Full` 退出码 0：七阶段通过，后端 **941 passed, 0 failed, 2 existing pypdf deprecation warnings in 741.573s**。受限沙箱内首次命令遇到 Windows Git 命名对象拒绝后，经正常权限申请对同一候选完整重跑通过。
+- 同一候选 PostgreSQL 专项 `scripts/check_postgres.py` 通过：临时、无持久卷的 PostgreSQL 16，覆盖迁移、RLS、跨租户访问/外键、并发、检索记录和回退迁移；临时数据库及容器在结束时移除。
+- `scripts/run_task0011_e2e.py` 在重建当前源码对应的隔离 parser 镜像后通过 **5/5 浏览器案例**（JUnit failures/errors/skipped 均为 0）；队列并发、租约接管、取消和 unknown 调用恢复检查也通过。报告在 `.verification/task0011-e2e-f3d70aa2e13945a893ea2ca7869906d3/`。
+- ECS 只读核对：`/opt/tender-review` 工作树干净，HEAD 为旧部署候选 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`，TLS Compose 覆盖生效；API/review-worker/worker/nginx 运行 `task0030-d3cb613`，模式 `staging/product-postgres`，迁移 `202610172000`。PG 账本 477 条 reservation，spent ¥1.04007020、reserved ¥0、unknown 0；embedding 312 笔、LLM 165 笔均 settled。最近全量备份 `/opt/tender-review-backups/20261017T213903Z` 的 PG、MinIO、modelstate 三个归档 SHA-256 校验通过；部署前仍须新建备份。
+
+### 正在进行
+
+- 覆盖实现分别投影候选尝试数、去重候选数、拒绝原因、唯一原文单元、恢复/未恢复族和截断等字段；OCR 保留词级坐标/置信度、页码和行段结构；staging/production 拒绝独立 DEC-007 `authorized-real` 回退。TASK-0029 仍 `in_progress`。
+- 服务器历史工件已找到：真实 DOCX 候选拒绝 6 个、派生文本 PDF 17 个，均因 `quote_missing_or_ambiguous`；唯一输入源单元数分别 1,155 / 1,562。历史逐批工件没有 rejected-candidate 到源单元/恢复族的映射，故旧运行无法可靠还原拒绝涉及的唯一单元或恢复数。旧 `rejected_units=503/1423` 是可能重复的 partial 批次 section 计数总和，不是候选拒绝数。
+- DOCX 41 条与其派生文本 PDF 13 条风险的类别统计、标题指纹交集及原文定位差异已核对；两次结果数不同，PDF 也不是独立原生样本。证据不足以把差异归因到某个解析/分批/定位/拒绝原因，不能宣称已证明无遗漏。新候选部署后的审查可记录修复后覆盖统计。
+
+### 下一步
+
+- 更新正式验证记录后跑 Quick；提交仅限本 TASK 文件集，推送并核对 CI。
+- 部署前生成新的全量备份并核验；按既有 `docker-compose.demo.yml` + `deploy/docker-compose.tls.yml` 流程发布候选，记录源码、镜像、迁移和配置身份。
+- 在新候选上用已有授权与受保护配置完成清晰中文扫描 PDF 的 OCR、上下文、真实审查及 Word/PDF 内容/版式验收；采集一次真实审查的排队/解析/模型/报告耗时与容器资源。该样本不等于完整容量压测。
+- 复验服务器候选覆盖、OCR 和回退拒绝；继续 U11/U15 异常/角色/多租户矩阵及必要运行检查。用户独立验收仍由用户本人完成。
+
+### 已知问题与待决策
+
+- 8 条 `review_task=running` 当前都关联到已 `result_published` 的 engine run；无 running engine run、ingestion job 或 unsettled reservation。这是历史父任务状态不一致，不是正在执行的调用；不直接改生产记录。
+- 新旧候选历史 DOCX/PDF 的逐条风险差异不能用旧报告证明因果；真实扫描 PDF 全链、实际审查资源样本、完整容量、外部告警送达仍未完成。专家标签为 0，precision/recall 未测；独立法规核验依据为 0；用户独立验收尚未发生。
+- 部署前仍需核对新备份、当前在途任务和服务状态。ECS 实例列表 API 的 `ecs:DescribeInstances` 权限不足不影响已授权实例的直接操作；若直接操作权限后续失败，再报告具体请求与最小解除动作。
+
+
+## 前次正式进度快照：U01/U02/U04/U05 已完成；U03/U07/U10 进行中；U06/U08/U09/U11/U12 有真实交付证据但未全部满足正式单元条件；服务器上次记录为 product-postgres。当前接续状态如下。
+
+- 固定目录与分支：`D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`，`work/TASK-0027`；当前 HEAD/origin `43c615c4c2d3665fcfe2f4da7d86e4f73e8e1076`，运行时代码候选 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`；本轮工作树修改未提交/推送，未合并 main。`question.txt` 保持未跟踪私人文件。
 - 授权：用户 2026-10-18 以 [DEC-008](docs/decisions/DEC-008-product-delivery-d1-d4-authorization-20261018.md) 批准 D1 首版范围、D2 工程侧核验/标签准备、D3 既有百炼供应商受控真实调用（累计 200 元/2000 次/2000 批，不新增额度）、D4 现有 ECS 备份/隔离演练/候选发布，以及必要的提交/推送/合并。用户同日的夜间指令进一步要求完成 product-postgres 切换与真实文件验证；D2 的逐条内容确认、专家金标和用户独立验收仍未发生。
 - U03（in_progress）：评测器/测试/两份历史结果已恢复，原始 SHA-256 与暂停清单一致；缺失法规报告已重新生成。五案例/阈值/OCR/检索身份、开发/冻结/安全分区和待裁定标签材料见 `evals/capability_baseline/`。专家确认标签仍为 0，precision/recall 未测量。
-- U06（planned，真实文件证据已补充）：D1 范围（PDF/DOCX/PNG/JPEG、10 MiB、300 页、OCR 30 页）由 `tests/test_task0029_support_scope.py` 覆盖。真实天津地铁 DOCX 已完成校正/上下文/审查；派生真实扫描 PDF 实际执行 tesseract 5.3.0 OCR（`LOW_CONFIDENCE_NUMERIC`，578 个低质量片段）并按设计转人工检查；PNG/JPEG 上传 202、解析成功、同样转人工检查。扫描/图片 OCR 的字符切分质量不足，不能声称扫描件可直接进入审查；正式 U06 仍待 U03 冻结样本与 D2 标签。
-- U07（in_progress）：法规/规则/配置生命周期、发布/回退、无人工 binding 不作违法结论的工程边界已实现；D2 的法规内容核验与规则—法规绑定签署未完成。
+- U06（in_progress，真实文件证据已补充）：D1 范围（PDF/DOCX/PNG/JPEG、10 MiB、300 页、OCR 30 页）由 `tests/test_task0029_support_scope.py` 覆盖。真实天津地铁 DOCX 已完成校正/上下文/审查；派生真实扫描 PDF 实际执行 tesseract 5.3.0 OCR（`LOW_CONFIDENCE_NUMERIC`，578 个低质量片段）并按设计转人工检查；PNG/JPEG 上传 202、解析成功、同样转人工检查。本轮新增词级坐标、置信度、页码和段行元数据及段落重建，但尚未在真实清晰中文扫描 PDF 上运行隔离解析至审查/报告全链；扫描/图片可用性仍未验收，正式 U06 条件未全部满足；专家标签只影响效果测量。
+- U07（in_progress）：法规/规则/配置生命周期、发布/回退、无人工 binding 不作违法结论的工程边界已实现；按 DEC-009/ADR-0022 直接采用冻结库条文作参考。独立核验依据数为 0，未签署规则绑定不阻止本版工程交付。
 - 法规采用政策（2026-10-18，DEC-009/ADR-0022）：用户决定本版直接采用现有法规库（43 版本/3120 片段，LF 规范化 manifest `1cd46d8b…`，索引 `69d340d6…`）。`config/legal/adoption-policy.json` 与 `rule-law-bindings.json` 冻结库身份、采用参考范围和 11 条工程配置关联。采用不等于独立法律核验：不改变 verified/期限/裁定人，不把参考条款并入 `citable_evidence`；报告/网页标注“项目采用库内版本（未经独立法律核验）”。规则—法规关联为 `engineering-config`，不是专家签字；引用仍须通过 ID/原文/版本/来源/适用条件校验。
-- U08（planned，真实覆盖证据已产生）：饱和、未提交/失败、候选被拒绝、实际截断和 unknown 调用分列；按 section 有界细分/重扫、父子覆盖和缓存复用已实现。真实 DOCX 报告为 258 饱和/503 拒绝/0 未提交/0 实际截断；真实文本 PDF 产品运行为 50 饱和/1423 拒绝/0 未提交。正式完成仍待冻结集评测，TASK0029-004 不提前标完成。
-- U09/U10（U10 in_progress）：预构建向量索引、Embedding 身份（3112/3120，build `c7344cac…`）、参考排名与正式证据资格分离已在真实服务器运行；每个候选前 6 条法规候选真实进入 `task0030-semantic-rag-v1`，服务端用 `verify_legal_hit` 重核。真实天津 DOCX：41 条风险、111 条项目采用参考、0 条正式可引用；真实文本 PDF（product-postgres）：13 条风险、43 条采用参考、0 条正式可引用、17 次 LLM 全部 settled。报告 v3.2 已披露采用政策、饱和/拒绝/未提交和“不构成违法认定”。正式 U10 仍受 D2 法律资格与冻结集效果限制。
+- U08（in_progress，真实覆盖证据已产生）：饱和、未提交/失败、候选被拒绝、实际截断和 unknown 调用分列；按 section 有界细分/重扫、父子覆盖和缓存复用已实现。上次 DOCX/PDF 记录的 258/50 为饱和源单元数；旧 `rejected_units=503/1423` 是 partial 批次 section_count 累加（可能重复），不是候选拒绝数。旧报告未保存候选级统计，本地 JSON/JSONL 工件扫描无结果，服务器端是否留存待核对。新实现保存去重候选数/尝试数/拒绝原因/唯一源单元/恢复族；本轮 Focused 与 Full 尚未全部通过，真实覆盖仍为 partial，TASK0029-004 不提前标完成。
+- U09/U10（U10 in_progress）：预构建向量索引、Embedding 身份（3112/3120，build `c7344cac…`）、参考排名与正式证据资格分离已在真实服务器运行；每个候选前 6 条法规候选真实进入 `task0030-semantic-rag-v1`，服务端用 `verify_legal_hit` 重核。真实天津 DOCX：41 条风险、111 条项目采用参考、0 条正式可引用；真实文本 PDF（product-postgres）：13 条风险、43 条采用参考、0 条正式可引用、17 次 LLM 全部 settled。报告 v3.2 已披露采用政策、饱和/拒绝/未提交和“不构成违法认定”。采用条文可用于参考，独立核验依据仍为 0；冻结集效果仍未测量。
 - U11/U12：正常路径（登录、上传、上下文、逐文件授权、发起审查、原文定位、人工复核、发布、Word/PDF 下载）已在公网真实浏览器通过；product-postgres 的逐文件授权返回 201，撤销后发起审查返回 403，恢复授权 201；auditor 建项目 403，匿名项目列表 401。失败/取消/暂停/恢复、多租户和完整浏览器矩阵仍未全部覆盖，U11/U12 正式仍 planned。
 - 服务器与备份（D4）：实际服务器 `i-j6ccqpfriae57w0hkskn`（`/opt/tender-review`，公网 `https://47.83.132.211`）。最终源码候选 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`；部署镜像 `tender-review-api:task0030-d3cb613`、`tender-review-web:task0030-d3cb613`，parser `sha256:be158f24…`；数据库迁移 `202610172000`；api/review-worker/nginx 运行新候选，nginx 使用 `deploy/docker-compose.tls.yml` 叠加层，health 200。全量备份 `/opt/tender-review-backups/20261017T213903Z`（postgres.dump、miniodata.tar.gz、modelstate.tar.gz、manifest）已生成；`restore.sh --verify` 通过，数据库计数与源库一致（tenant=1、app_user=3、project=20、document=30、ingestion_job=30、review_task=26、review_result=16、review_report=34、review_report_content=17、audit=978），卷校验通过。
 - product-postgres 切换：新表策略/账户已在生产库 provision（tenant-a、bailian/external_review、limit ¥200、单次 LLM ¥0.25、Embedding 批 ¥0.10、授权 TTL 3600s）。历史 DEC-007 账本 dry-run 与正式导入：460 条 reservation（148 LLM/312 Embedding，¥0.9496789）全部 settled、unknown=0；历史 JSONL registry 因 `dec007-synthetic-v1` 无对应文档和 2 条同文件重复 approve 被整个批次拒绝，未导入陈旧授权，产品模式改由 API 逐文件授权。`demo_init.py` 已补齐运行时角色对 `model_execution_policy`/`model_budget_account`/`model_budget_reservation`/`document_external_authorization` 的必要权限，并由 `init storage` 幂等应用。
 - 公网验收（真实文件）：天津地铁 3 号线 DOCX（SHA-256 `506e9ec1…`，689,683 字节）41 条风险、全部人工接受/发布，Word/PDF v3.2 报告下载哈希与服务端一致（docx `25c3569c…`、pdf `83ab6475…`）；派生真实文本 PDF（35 页/1562 片段）在 product-postgres 下 13 条风险、17 次真实 LLM、全部有原文定位、人工接受/发布，Word/PDF 哈希 `87c8c15f…`/`96728496…` 与服务端一致；项目 `35869b18-084e-43ea-9ebb-fabcf5667232`、文档 `21e20387-eb49-44d3-b2a0-7d05d98334f6`、run `b05e858f-cd77-5c82-a2c3-3c9fb2b18bfc`、result `3227580c-f227-4387-9d3c-7f822b8ac847`。
 - 真实扫描/图片限制：派生真实扫描 PDF（2 页）与合成高分辨率扫描 PDF 均实际 OCR，但因 `LOW_CONFIDENCE_NUMERIC` 和碎片化段落（578/362 个 section）进入 `needs_review`，未进入审查；PNG/JPEG 同样上传成功并 OCR 后转人工检查。这是质量门禁按设计工作，不是扫描件可用性验收通过。
-- 账本（PostgreSQL 为当前权威源，DEC-007 SQLite 保持只读历史）：历史导入 148 LLM/312 Embedding/¥0.9496789；产品模式新增 17 次 LLM/¥0.0903913；当前 PG 账户 limit ¥200、spent ¥1.0400702、reserved 0，477 条 reservation，真实调用全部 settled、unknown=0。额度仍为累计 2000 次/2000 批/¥200，未新增额度或账户。
-- 验证：最终运行时代码候选 `d3cb613` 官方 Full 七阶段全部通过：后端 `928 passed, 6 warnings in 767.84s`，HTTP health=200/404、登录/项目生命周期 PASS（`.verification/final-full-d3cb613.log`）；GitHub Actions run 39074476065 success。后续仅文档/任务元数据变化，HEAD `006afc0` 的 CI run 39075809619 success，本地 Quick 通过。此前 `667f956` Full 为 `927 passed`，`8b4a690` 为 `927 passed`。前端 OpenAPI/Biome/TypeScript/Vitest 14/14/build 通过。6 条 warning 为 2 条既有 pypdf 弃用 + 4 条既有 PowerShell 输出解码警告。
+- 上次账本记录（PostgreSQL 为产品权威源，DEC-007 SQLite 保持只读历史；本轮未能从 ECS 重新核对）：历史导入 148 LLM/312 Embedding/¥0.9496789；产品模式新增 17 次 LLM/¥0.0903913；当前 PG 账户 limit ¥200、spent ¥1.0400702、reserved 0，477 条 reservation，真实调用全部 settled、unknown=0。额度仍为累计 2000 次/2000 批/¥200，未新增额度或账户。
+- 上次代码候选验证（仅适用于 `d3cb613`，不覆盖本轮未提交改动）：官方 Full 七阶段全部通过：后端 `928 passed, 6 warnings in 767.84s`，HTTP health=200/404、登录/项目生命周期 PASS（`.verification/final-full-d3cb613.log`）；GitHub Actions run 39074476065 success。后续仅文档/任务元数据变化，HEAD `006afc0` 的 CI run 39075809619 success，本地 Quick 通过。此前 `667f956` Full 为 `927 passed`，`8b4a690` 为 `927 passed`。前端 OpenAPI/Biome/TypeScript/Vitest 14/14/build 通过。6 条 warning 为 2 条既有 pypdf 弃用 + 4 条既有 PowerShell 输出解码警告。
 - 容量/监控：50 次并发 10 的 API 列表请求全部 200，p95 744.4ms、19.26 rps（本机到公网 TLS smoke，不是完整 NFR 压测）；磁盘 40G 用 15G/可用 23G，内存 7.5GiB/可用约 5.1GiB；TLS 证书 notAfter 2026-10-22 10:10:41 GMT，certbot renew/expiry timer 均 active；外部告警渠道仍未配置，只有系统内 health/审计。
 - 已知问题与未满足条件：正式法律支持仍为 0（无独立核验、无规则—法规人工签署），参考检索仍有噪声；跨不同原文行的同义风险可能保留两条；真实 DOCX/文本 PDF 覆盖为 partial（饱和/拒绝，非全部未处理）；扫描/图片 OCR 质量不足，需人工校正；U11 的失败/取消/恢复/多角色/多租户完整矩阵和 U15 的故障/供应链/告警矩阵未完成；外部告警渠道未配置；专家金标与用户独立验收未发生。
-- 下一步：向用户提供服务器验收地址、账号交接方式、真实/合成样本与步骤、最终 SHA/镜像/迁移身份、U01—U16 状态、D2 待确认材料、费用/剩余额度、备份恢复与回滚说明、已知限制和独立验收清单。用户独立验收未发生，不得登记“用户验收通过”或正式交付完成。
+- 下一步：按上方接续状态先完成本地 Full，再恢复 ECS/Docker 连接核验运行态与候选工件，补齐扫描件和异常/容量矩阵；不得用上次账本数据冒充当前余额，也不得把待用户独立验收登记为已通过。
 
 ## TASK-0027 第七轮交付快照（第七轮实现已完成；TASK-0027 总体仍 in_progress）
 

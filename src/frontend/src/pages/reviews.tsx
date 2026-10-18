@@ -229,6 +229,13 @@ export function ReviewPage() {
         analyzed_units?: number;
         saturated_units?: number;
         rejected_units?: number;
+        rejected_candidate_attempts?: number;
+        rejected_candidate_count?: number;
+        rejected_source_unit_count?: number;
+        rejection_reason_counts?: Record<string, number>;
+        recovered_candidate_families?: number;
+        unrecovered_candidate_families?: number;
+        recovered_source_unit_count?: number;
         failed_units?: number;
         unsubmitted_units?: number;
         truncated_batches?: number;
@@ -239,6 +246,13 @@ export function ReviewPage() {
       }
     | null
     | undefined;
+  const rejectionReasonSummary = execution?.rejection_reason_counts
+    ? Object.entries(execution.rejection_reason_counts)
+        .filter(([, count]) => typeof count === "number")
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([reason, count]) => `${reason} ${count} 个`)
+        .join("、")
+    : "";
   const counts = useMemo(() => {
     const rows = data?.findings ?? [];
     return {
@@ -548,9 +562,19 @@ export function ReviewPage() {
             : execution.saturated
               ? "；模型发现存在饱和批次"
               : ""}
-          {typeof execution.rejected_units === "number" &&
-          execution.rejected_units > 0
-            ? `；${execution.rejected_units} 个 section 的候选被拒绝`
+          {typeof execution.rejected_candidate_count === "number" &&
+          execution.rejected_candidate_count > 0
+            ? `；原文校验拒绝去重候选 ${execution.rejected_candidate_count} 个（${execution.rejected_candidate_attempts ?? 0} 次尝试，涉及 ${execution.rejected_source_unit_count ?? 0} 个唯一原文单元）`
+            : ""}
+          {rejectionReasonSummary
+            ? `；候选拒绝原因：${rejectionReasonSummary}`
+            : ""}
+          {typeof execution.recovered_candidate_families === "number" &&
+          typeof execution.unrecovered_candidate_families === "number" &&
+          execution.recovered_candidate_families +
+            execution.unrecovered_candidate_families >
+            0
+            ? `；后续批次恢复 ${execution.recovered_candidate_families} 个候选族，未恢复 ${execution.unrecovered_candidate_families} 个（涉及 ${execution.recovered_source_unit_count ?? 0} 个原文单元）`
             : ""}
           {typeof execution.truncated_batches === "number" &&
           execution.truncated_batches > 0

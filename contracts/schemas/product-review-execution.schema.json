@@ -439,6 +439,11 @@
           "type": "integer",
           "minimum": 0
         },
+        "planned_units": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique original source fragments in the discovery plan when the producer has source-unit identities."
+        },
         "truncated": {
           "type": "boolean"
         },
@@ -468,7 +473,46 @@
         },
         "rejected_units": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Legacy partial-batch section total. It can include repeated source sections and is not a rejected-candidate count; new consumers should use the explicit rejection fields below."
+        },
+        "rejected_candidate_attempts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Invalid candidate outputs across all model responses, including repeated attempts."
+        },
+        "rejected_candidate_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique invalid candidate identities after de-duplicating identical outputs for the same source chunk."
+        },
+        "rejected_source_unit_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique original source fragments implicated by rejected candidates; candidates without a resolvable source are excluded."
+        },
+        "rejection_reason_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Unique rejected candidate identities by validation reason. A candidate may appear under more than one reason if repeated responses fail differently."
+        },
+        "recovered_candidate_families": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rejected source/category/description families later accepted with a valid exact-source quote in a subsequent batch."
+        },
+        "unrecovered_candidate_families": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rejected source/category/description families with no later valid exact-source candidate."
+        },
+        "recovered_source_unit_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique original source fragments with at least one subsequently recovered candidate family."
         },
         "failed_units": {
           "type": "integer",

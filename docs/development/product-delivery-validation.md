@@ -683,15 +683,15 @@
 
 ### 3. product-postgres 真实文件验收
 
-- 真实天津地铁 3 号线 DOCX（已授权，SHA-256 `506e9ec1…`，689,683 字节）此前完成 41 条风险、人工接受/发布；本轮用 v3.2 模板重新生成 Word/PDF，报告含 111 条项目采用参考、258 饱和/503 拒绝/0 未提交、0 正式可引用依据；41 个标题全部出现在 Word/PDF，下载 SHA-256 `25c3569c…`/`83ab6475…` 与服务端 `content_hash` 一致。
-- 派生真实文本 PDF（35 页、1562 片段）在 product-postgres 下完成公网网页流程：项目 `35869b18-084e-43ea-9ebb-fabcf5667232`、文档 `21e20387-eb49-44d3-b2a0-7d05d98334f6`、task `a3e40c51-0547-5a0e-b40d-801ccbf707cf`、run `b05e858f-cd77-5c82-a2c3-3c9fb2b18bfc`、result `3227580c-f227-4387-9d3c-7f822b8ac847`。逐文件授权 201，13 条风险全部有服务端原文定位和采用法规参考，人工接受/发布；17 次真实 LLM 全部 succeeded/reported，Word/PDF 哈希 `87c8c15f…`/`96728496…` 与服务端一致；报告为 43 条采用参考、50 饱和/1423 拒绝/0 未提交、0 正式可引用依据。
+- 真实天津地铁 3 号线 DOCX（已授权，SHA-256 `506e9ec1…`，689,683 字节）此前完成 41 条风险、人工接受/发布；本轮用 v3.2 模板重新生成 Word/PDF，报告含 111 条项目采用参考、258 饱和、旧字段 `rejected_units=503`、0 未提交、0 正式可引用依据；41 个标题全部出现在 Word/PDF，下载 SHA-256 `25c3569c…`/`83ab6475…` 与服务端 `content_hash` 一致。旧字段 503 是 partial 批次涉及的 section_count 累加（可能重复），不是被拒候选数；该历史报告未保留候选级明细，不能据此还原唯一候选拒绝数、原因、唯一原文单元或恢复关系。
+- 派生真实文本 PDF（35 页、1562 片段）在 product-postgres 下完成公网网页流程：项目 `35869b18-084e-43ea-9ebb-fabcf5667232`、文档 `21e20387-eb49-44d3-b2a0-7d05d98334f6`、task `a3e40c51-0547-5a0e-b40d-801ccbf707cf`、run `b05e858f-cd77-5c82-a2c3-3c9fb2b18bfc`、result `3227580c-f227-4387-9d3c-7f822b8ac847`。逐文件授权 201，13 条风险全部有服务端原文定位和采用法规参考，人工接受/发布；17 次真实 LLM 全部 succeeded/reported，Word/PDF 哈希 `87c8c15f…`/`96728496…` 与服务端一致；报告为 43 条采用参考、50 饱和、旧字段 `rejected_units=1423`、0 未提交、0 正式可引用依据。旧字段 1423 是 partial 批次涉及的 section_count 累加（可能重复），不是被拒候选数；该历史报告未保留候选级明细，不能据此还原唯一候选拒绝数、原因、唯一原文单元或恢复关系。
 - 账本：PG 账户 limit ¥200、spent ¥1.0400702、reserved 0、477 条 reservation；历史 148 LLM + 产品运行新增 17 LLM，Embedding 312 批；unknown=0。DEC-007 SQLite 保持只读历史 148 LLM/¥0.9496789，未改写。
 
 ### 4. 撤销、角色与回退
 
 - 对已 ready 的真实文本 PDF 文档执行撤销（200）后立即发起审查返回 **403 FORBIDDEN**；重新登记授权返回 201。未登记授权的文件在上下文未确认前返回 422（先被状态门禁拒绝），状态门禁优先于外发门禁。
 - auditor 创建项目 403；匿名项目列表 401；reviewer 访问法规只读能力与既有角色边界保持不变。
-- 回退演练：切回 `authorized-real` 后 api/review-worker 正常启动、DEC-007 账本仍为 148 LLM、health 200；随后切回 `product-postgres`，两个进程均打印 product 模式与 ¥200 账户身份，health 200。PostgreSQL 授权/预算记录保留，未删除/重置。
+- 旧回退演练曾验证 `authorized-real` 可启动及 health=200，但 DEC-007 仍为迁移时 148 LLM，无法覆盖 product-postgres 后续消费、撤权或 unknown，因此不构成安全回退证据。TASK-0029 接续实现生产模式启动拒绝该旧真实外发装配；安全回退限于 product-postgres 的兼容候选或 offline。新增的隔离启动拒绝测试见 `tests/test_task0029_production_rollback_guard.py`；生产服务器状态及账本当前数值未能从本机 ECS workbench 连接确认，本轮未宣称线上已应用此门禁。
 
 ### 5. 扫描与图片格式的真实限制
 
@@ -700,5 +700,20 @@
 
 ### 6. 结论与边界
 
-- product-postgres 已在实际服务器启用并完成真实文件端到端验收；PostgreSQL 是当前唯一授权/预算权威源，DEC-007 历史账本只读保留，回退路径可用。
+- 上次记录显示 product-postgres 已在实际服务器启用并完成真实文件端到端验收；本次无法连接 ECS workbench，因此该服务器状态、当前账户数值和部署是否含接续门禁均未重新确认。代码定义的安全生产回退是 product-postgres 兼容候选或 offline；历史 DEC-007 回退启动成功不能证明账本安全。
 - 正式法律支持仍为 0（无独立核验、无人工规则—法规签署）；扫描/图片 OCR 质量不足；覆盖为 partial；外部告警与完整 U11/U15 矩阵未完成。以上不等于用户独立验收，也不构成专业法律结论。
+
+## 2026-10-18 TASK-0029 接续：候选覆盖、OCR结构和预算安全回退
+
+**范围：** 用户接续指令 A/B/C；实现绑定 TASK-0029。候选已经过本机官方 Full、PostgreSQL 专项与 TASK-0011 隔离浏览器 E2E；尚未提交、推送或部署。用户独立验收未发生。
+
+- **覆盖契约与统计：** OpenAPI 升至 0.10.2、契约集 v1alpha9。覆盖增量字段分别表达拒绝尝试数、去重候选数、拒绝原因、唯一源单元、候选族恢复/未恢复；候选拒绝明细仅保存哈希/定位引用与原因，不保存摘录或招标正文。父/子批次与重扫按文档版本、section/revision 和原文 SHA 去重；submitted/failed/unsubmitted 按唯一源单元统计。保留旧 `rejected_units` 字段，并明确它是 partial 批次的 `section_count` 累加，可能重复，不是候选数。
+- **服务器历史候选实测：** 当前 ECS 保留旧 `candidate_discovery` / `llm_candidate_discovery` 与分批制品。真实 DOCX 候选数 57、实际拒绝 6；其派生文本 PDF 候选数 21、实际拒绝 17；两个运行唯一保留的拒绝原因为 `quote_missing_or_ambiguous`。候选发现 subdivision calls 分别为 16/6。按 `document_id + section_id + section_revision + source_sha256` 去重，输入源单元为 1,155/1,562，批次 section 出现次数为 2,104/2,041。旧 rejection 项只有 reason，没有候选族或具体源单元关联；历史被拒唯一源单元数及其恢复数不可还原，不能把全部输入单元数冒充拒绝单元数。新运行才会输出上述新分项。
+- **DOCX 与 PDF 风险差异：** 最终风险 41/13。DOCX 类别：contract 19、evaluation 5、procedure 10、qualification 5、technical 2；派生 PDF：contract 7、procedure 3、qualification 3。精确标题指纹交集 1/13 与 1/41；该比较不代表语义等价。两次结果都保留原文定位，但旧拒绝制品没有源单元映射，故不足以把差异归因到解析、分批、定位或拒绝，也不能证明无遗漏。PDF 是由 DOCX 派生的文本 PDF，不是独立原生样本。
+- **有界恢复：** 最大额外 subdivision 为 16 批、深度上限 3；长单 section 可按原始偏移在句读附近细分并复用原 locator，短文本不拆。原文定位/摘录校验不放宽。旧批次没有 response_hash 时仍按既有请求状态正确算作 submitted。新实际运行可核对重试后覆盖与恢复统计。
+- **OCR结构：** Parser 合同保留词级文字、置信度、页码、TSV 页/块/段/行/词编号和原始栅格坐标；OCR 输出按段落/行组装，平均置信度按词加权，数字风险只由含数字 OCR 词触发。`LOW_CONFIDENCE_NUMERIC` 门禁及阈值未降低。Docker Linux Engine Access denied 已定位为受限命令环境的 named-pipe IPC 访问边界；通过官方权限申请后连接恢复。Docker Server 29.2.1。此前重建的是源版本过期的隔离 parser 镜像，E2E 已用当前源码重建并通过；清晰扫描 PDF 全链仍待新候选部署后的真实验收。
+- **预算回退：** `authorized-real` 的 DEC-007 SQLite 账本无法反映 PostgreSQL 后续消费、撤权或 unknown。部署入口和旧真实装配现共同限制仅允许 `APP_ENV=development/test`；staging、production、未设置环境均拒绝。安全回退限定为兼容 `product-postgres` 或 `offline`；旧账本只读、不重置。6 项隔离进程启动回归与同候选 Full 通过。官方 `scripts/check_postgres.py` 在一次性 PostgreSQL 16、无持久卷数据库中通过迁移、API/RLS、跨租户外键、并发、检索记录、不可变审计及 downgrade/upgrade；测试结束后临时容器和数据库已移除。真实生产未制造未知费用或回退故障。
+- **官方 Full 与浏览器 E2E：** 同一候选执行 `./scripts/verify.ps1 -Mode Full` 退出码 0，七阶段均通过；后端 **941 passed, 0 failed, 0 skipped, 2 existing pypdf deprecation warnings in 741.573s**。E2E `task0011-e2e-f3d70aa2e13945a893ea2ca7869906d3`：5 个真实浏览器案例，JUnit failures/errors/skipped 均为 0；另有 PostgreSQL queue concurrency、lease takeover、cancellation 和 unknown-call recovery PASS。首次沙箱运行遇到 Windows Git 命名对象访问拒绝；未更改断言或安全检查，经正常权限申请在同一候选上完整重跑通过。E2E 前只重建了过期隔离 parser 镜像。此范围尚不代表完整 U11/U15 异常矩阵、容量压测或外部告警已完成。
+- **部署前服务器基线：** workbench 使用现有身份隐藏启动 daemon 并可执行对已授权 ECS 的直接命令；列表 API 缺 `ecs:DescribeInstances` 返回 403，但没有换身份。服务器 `/opt/tender-review` 工作树干净，旧 HEAD 为 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`；`staging/product-postgres`、迁移 `202610172000`、TLS Compose 覆盖生效，api/review-worker/worker/nginx 均运行 `task0030-d3cb613`。PostgreSQL limit ¥200，spent ¥1.04007020，reserved ¥0，477 条 reservation；165 LLM 和 312 embedding 均 settled，无 unknown/unsettled。8 个 review_task 显示 running，但各自 engine run 已 result_published；无 running engine run 或 ingestion job。这是持久父状态不一致，未直接修改生产记录。最近备份 `/opt/tender-review-backups/20261017T213903Z` 的 PostgreSQL、MinIO、modelstate 归档 SHA-256 均通过；候选部署前仍须新备份并复验。
+- **记录与下一步：** 更新状态/证据后运行官方 Quick（该命令不运行运行时测试），再提交限于 TASK-0029 的文件、推送并核对 CI；先新建与校验全量备份，再按 `docker-compose.demo.yml` 叠加 `deploy/docker-compose.tls.yml` 发布。部署后使用既有受保护身份对清晰中文扫描 PDF 完成 OCR→上下文→真实审查→Word/PDF 下载，并核对报告内容/版式与服务端冻结结果；采集该次真实审查各阶段耗时和容器资源。一个低页数 OCR 样本是工作负载观测，不等于完整容量压测。
+- **尚未完成：** DOCX/PDF 逐条差异因果、历史拒绝源单元/恢复统计、真实扫描 PDF 完整链、实际审查资源样本、完整 U11/U15 角色/异常/多租户与运行/容量矩阵、外部告警送达、专家金标效果指标和用户独立验收。现有证据不能证明完全无遗漏；法规独立核验依据数为 0，不阻止按 DEC-009 的库内采用政策继续工程交付，也不得伪称已核验或法律结论。

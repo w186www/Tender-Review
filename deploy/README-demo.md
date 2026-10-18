@@ -503,6 +503,10 @@ IMAGE_TAG=task0027-validation $D run --rm --no-deps api \
 
 ### 8.5 阶段二公网切换到 `authorized-real`：准备清单与回滚（本节只写步骤，不代执行）
 
+> 历史运维流程：仅用于回看原 DEC-007 部署验证。product-postgres 已作为产品模式上线记录，
+> 本节的真实模式切换步骤不得用于 staging/production；当前启动门禁会拒绝非 development/test
+> 环境的 `authorized-real`。生产安全回退按 8.6.5 执行：使用兼容的 product-postgres 候选或 offline。
+
 公网实例切换**不是**一次 `docker compose up`：两个镜像各自要构建成正确的版本，切换前后都有
 可核对的只读证据。**在切换完成并通过下列前置之前，公网不得出现任何真实供应商调用**；
 默认状态保持 `DEPLOY_REVIEW_MODE=offline`。
@@ -599,13 +603,15 @@ bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private
   切换期间产生的已结算计数（如有）如实保留，下一次切换继续累计。
 - **`revoke` 立即生效**：逐文件授权是追加式审计文件，运行中的 API 在下一次外发判定时重新读取，
   撤销无需等待重启；回滚期间担心外发时，先 `revoke` 再改模式，双保险。
-- 回滚后如需再切回 `authorized-real`，重新执行 8.5.2 的全部前置（包括新鲜 offline 证据与基线核对）。
+- 回滚后只有在 `APP_ENV=development/test` 的本地环境，才可按历史前置再次运行 `authorized-real`；
+  staging/production 不得切回该独立 DEC-007 额度模式。
 - 演示结束仍按第十节清理；**不要把账本/注册表的备份文件留在共享目录外泄**。
 
 ### 8.6 产品模式（`product-postgres`）：PostgreSQL 为唯一授权/预算权威源
 
-本节描述 U05 新增的**产品装配**，不改变当前已部署的 `authorized-real`/DEC-007 栈。
-切换需要 D3/D4 单独批准；未批准时只在本机合成数据上演练。
+本节描述 U05 的**产品装配**。上次服务器证据记录生产已启用 `product-postgres`，PostgreSQL 是唯一授权/预算权威源；
+2026-10-18 本次接续因 ECS workbench 不可达，未重新核对线上状态。
+`authorized-real` 仅允许 `APP_ENV=development/test` 的本地验证；staging、production 或环境未设置时均被硬门禁拒绝，避免回退到迁移时冻结的 DEC-007 账本。
 
 1. **模式与前置**：`DEPLOY_REVIEW_MODE=product-postgres`（`deploy/api_entry.py` 映射到
    `scripts/task0028_product_app.py`）。必须显式提供 `PRODUCT_TENANT_ID`、
@@ -642,9 +648,11 @@ bash deploy/verify_api_offline_mode.sh --evidence-dir /opt/tender-review-private
    登记，绑定租户、项目、文档 SHA-256、parse_version、用途、供应商、期限和授权人；
    `POST .../external-authorization/revoke` 撤销。授权/撤销与审计同事务，下一次出站重新查库；
    已发出的在途请求不能撤回。未登记、过期、版本变化、供应商/用途不匹配、策略停用或跨租户一律拒绝。
-5. **回退**：停止外发并把 `DEPLOY_REVIEW_MODE` 改回 `authorized-real` 或 `offline`，重建 api/nginx；
-   PostgreSQL 中的授权/预算/导入记录保留，不删除、不重置；历史 SQLite/JSONL 文件保持只读。
-   回退前先核对在途调用和未知预留，未核账不得重新放行外发。
+5. **回退**：停止外发并回到 `product-postgres` 的兼容候选，或把 `DEPLOY_REVIEW_MODE` 改为 `offline`；
+   不得在生产回退到 `authorized-real`。该旧装配使用独立 DEC-007 SQLite 额度和授权，无法与
+   PostgreSQL 后续消费、撤权及 unknown 预留统一核账；非本地环境（含 staging、production 及环境未设置）
+   下部署入口和旧装配均会拒绝启动它。PostgreSQL 中的授权/预算/导入记录保留，不删除、不重置；旧 SQLite/JSONL 只读。
+   回退前仍须核对在途调用和 PostgreSQL 未知预留。
 6. **验证入口**：本机真实 PostgreSQL 专项为 `scripts/check_postgres.py`（CI 使用
    `POSTGRES_VERIFY_URL`，数据库名必须是 `task0004_verification`），U05 检查在
    `scripts/check_u05.py`；部署调度兼容仍由 `scripts/run_task0011_e2e.py` 覆盖。

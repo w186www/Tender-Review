@@ -105,6 +105,7 @@ function fragment(
     text_sha256: "b".repeat(64),
     source: "native",
     confidence: null,
+    ocr_words: [],
     table: null,
     row: null,
     column: null,

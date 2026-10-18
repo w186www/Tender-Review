@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.10.1
-  description: v1alpha6 开发契约；新增产品模式租户策略、版本绑定逐文件外发授权/撤销与 PostgreSQL 预算一致性；既有路径与响应保持兼容。
+  version: 0.10.2
+  description: v1alpha9 开发契约；产品审查覆盖投影新增去重候选拒绝、原因、唯一原文单元和恢复统计，既有路径与响应保持兼容。
 servers:
 - url: /api/v1
 paths:
@@ -2629,10 +2629,20 @@ components:
         completion_status: {type: string, enum: [pending, complete, partial]}
         coverage_status: {type: string, enum: [complete, partial, failed, not_applicable, unknown]}
         unprocessed_units: {type: integer, minimum: 0}
+        planned_units: {type: integer, minimum: 0}
         truncated: {type: boolean}
         saturated: {type: boolean}
         unknown_model_call_count: {type: integer, minimum: 0}
         reason_codes: {type: array, uniqueItems: true, items: {type: string}}
+        rejected_candidate_attempts: {type: integer, minimum: 0}
+        rejected_candidate_count: {type: integer, minimum: 0}
+        rejected_source_unit_count: {type: integer, minimum: 0}
+        rejection_reason_counts:
+          type: object
+          additionalProperties: {type: integer, minimum: 0}
+        recovered_candidate_families: {type: integer, minimum: 0}
+        unrecovered_candidate_families: {type: integer, minimum: 0}
+        recovered_source_unit_count: {type: integer, minimum: 0}
     EvidenceRef:
       type: object
       additionalProperties: false
@@ -3236,6 +3246,31 @@ components:
           - revoked
       required:
       - status
+    OCRWordRecord:
+      additionalProperties: false
+      properties:
+        text: {type: string, minLength: 1, maxLength: 500}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        bbox:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: {type: number}
+        level: {type: integer, minimum: 1, maximum: 5}
+        page_num: {type: integer, minimum: 1, maximum: 300}
+        tsv_page_num: {type: integer, minimum: 1, maximum: 300}
+        block_num: {type: integer, minimum: 0}
+        par_num: {type: integer, minimum: 0}
+        line_num: {type: integer, minimum: 0}
+        word_num: {type: integer, minimum: 0}
+        raw_left: {type: integer, minimum: 0}
+        raw_top: {type: integer, minimum: 0}
+        raw_width: {type: integer, minimum: 0}
+        raw_height: {type: integer, minimum: 0}
+        raw_confidence: {type: number, minimum: 0, maximum: 100}
+      required: [text, confidence, bbox, level, page_num, tsv_page_num, block_num, par_num, line_num, word_num, raw_left, raw_top, raw_width, raw_height, raw_confidence]
+      title: OCRWordRecord
+      type: object
     Fragment:
       additionalProperties: false
       allOf:
@@ -3353,6 +3388,13 @@ components:
           - type: 'null'
           default: null
           title: Confidence
+        ocr_words:
+          default: []
+          items:
+            $ref: '#/components/schemas/OCRWordRecord'
+          maxItems: 10000
+          title: Ocr Words
+          type: array
         table:
           anyOf:
           - minimum: 0

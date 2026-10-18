@@ -997,10 +997,20 @@ export interface components {
             /** @enum {string} */
             coverage_status: "complete" | "partial" | "failed" | "not_applicable" | "unknown";
             unprocessed_units: number;
+            planned_units?: number;
             truncated: boolean;
             saturated: boolean;
             unknown_model_call_count: number;
             reason_codes: string[];
+            rejected_candidate_attempts?: number;
+            rejected_candidate_count?: number;
+            rejected_source_unit_count?: number;
+            rejection_reason_counts?: {
+                [key: string]: number;
+            };
+            recovered_candidate_families?: number;
+            unrecovered_candidate_families?: number;
+            recovered_source_unit_count?: number;
         };
         EvidenceRef: {
             evidence_id: string;
@@ -1317,6 +1327,24 @@ export interface components {
             /** @enum {string} */
             status: "revoked";
         };
+        /** OCRWordRecord */
+        OCRWordRecord: {
+            text: string;
+            confidence: number;
+            bbox: number[];
+            level: number;
+            page_num: number;
+            tsv_page_num: number;
+            block_num: number;
+            par_num: number;
+            line_num: number;
+            word_num: number;
+            raw_left: number;
+            raw_top: number;
+            raw_width: number;
+            raw_height: number;
+            raw_confidence: number;
+        };
         /** Fragment */
         Fragment: {
             /** Locator */
@@ -1360,6 +1388,11 @@ export interface components {
              * @default null
              */
             confidence: number | null;
+            /**
+             * Ocr Words
+             * @default []
+             */
+            ocr_words: components["schemas"]["OCRWordRecord"][];
             /**
              * Table
              * @default null

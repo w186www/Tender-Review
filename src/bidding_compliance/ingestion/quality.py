@@ -22,13 +22,25 @@ def _normalized(text: str) -> str:
 
 
 def _has_ocr_numeric_low_confidence(fragments: list[Fragment], policy: IngestionPolicy) -> bool:
-    return any(
-        fragment.source == "ocr"
-        and fragment.confidence is not None
-        and re.search(r"\d", fragment.text)
-        and fragment.confidence < policy.min_numeric_confidence
-        for fragment in fragments
-    )
+    for fragment in fragments:
+        if fragment.source != "ocr":
+            continue
+        if fragment.ocr_words:
+            if any(
+                re.search(r"\d", word.text)
+                and word.confidence < policy.min_numeric_confidence
+                for word in fragment.ocr_words
+            ):
+                return True
+        elif (
+            fragment.confidence is not None
+            and re.search(r"\d", fragment.text)
+            and fragment.confidence < policy.min_numeric_confidence
+        ):
+            # Historical parser output has only fragment-level confidence; retain its
+            # conservative gate until the document is reparsed with word records.
+            return True
+    return False
 
 
 def _has_invalid_date(fragments: list[Fragment]) -> bool:
@@ -120,10 +132,16 @@ def quality_issues(fragments: list[Fragment], policy: IngestionPolicy) -> list[I
     if any("(cid:" in fragment.text or "\ufffd" in fragment.text for fragment in fragments):
         issues.append("LOW_QUALITY")
     ocr = [
+        word.confidence
+        for fragment in fragments
+        if fragment.source == "ocr" and fragment.ocr_words
+        for word in fragment.ocr_words
+    ]
+    ocr.extend(
         fragment.confidence or 0
         for fragment in fragments
-        if fragment.source == "ocr"
-    ]
+        if fragment.source == "ocr" and not fragment.ocr_words
+    )
     if ocr and sum(ocr) / len(ocr) < policy.min_ocr_confidence:
         issues.append("LOW_QUALITY")
     if _has_ocr_numeric_low_confidence(fragments, policy):

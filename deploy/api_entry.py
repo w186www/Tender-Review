@@ -14,7 +14,7 @@ offline          (default) scripts/task0011_e2e_app.py assembly: the real LangGr
 authorized-real  scripts/task0023_real_ai_app.py assembly: the same pipeline with the
                  Bailian Qwen gateway. It starts only when the independent model
                  authorization variables are present and the budget ledger still has
-                 headroom; otherwise this process exits non-zero.
+                 headroom; this legacy ledger mode is limited to APP_ENV=development/test.
 product-postgres scripts/task0028_product_app.py assembly: the product-mode authority is
                  PostgreSQL only (tenant policy, per-file authorization, budget). It
                  refuses the legacy SQLite ledger configuration and exits non-zero when
@@ -35,8 +35,14 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import uvicorn  # noqa: E402
 
 from bidding_compliance.core.logging import configure_logging  # noqa: E402
+from bidding_compliance.core.deployment_mode import validate_deployment_mode  # noqa: E402
 
 MODE = os.environ.get("DEPLOY_REVIEW_MODE", "offline").strip().lower()
+try:
+    validate_deployment_mode(MODE, os.environ.get("APP_ENV", "production"))
+except RuntimeError as exc:
+    print(str(exc), file=sys.stderr)
+    raise SystemExit(2) from exc
 
 if MODE == "offline":
     import task0011_e2e_app as assembly  # noqa: E402

@@ -175,6 +175,14 @@
           "default": null,
           "title": "Confidence"
         },
+        "ocr_words": {
+          "items": {
+            "$ref": "#/$defs/OCRWordRecord"
+          },
+          "maxItems": 10000,
+          "title": "Ocr Words",
+          "type": "array"
+        },
         "table": {
           "anyOf": [
             {
@@ -298,6 +306,116 @@
         "identity_sha256"
       ],
       "title": "OCRRuntimeIdentity",
+      "type": "object"
+    },
+    "OCRWordRecord": {
+      "additionalProperties": false,
+      "description": "One Tesseract TSV word with both source-pixel and document coordinates.",
+      "properties": {
+        "text": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "bbox": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Bbox",
+          "type": "array"
+        },
+        "level": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "page_num": {
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Page Num",
+          "type": "integer"
+        },
+        "tsv_page_num": {
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Tsv Page Num",
+          "type": "integer"
+        },
+        "block_num": {
+          "minimum": 0,
+          "title": "Block Num",
+          "type": "integer"
+        },
+        "par_num": {
+          "minimum": 0,
+          "title": "Par Num",
+          "type": "integer"
+        },
+        "line_num": {
+          "minimum": 0,
+          "title": "Line Num",
+          "type": "integer"
+        },
+        "word_num": {
+          "minimum": 0,
+          "title": "Word Num",
+          "type": "integer"
+        },
+        "raw_left": {
+          "minimum": 0,
+          "title": "Raw Left",
+          "type": "integer"
+        },
+        "raw_top": {
+          "minimum": 0,
+          "title": "Raw Top",
+          "type": "integer"
+        },
+        "raw_width": {
+          "minimum": 0,
+          "title": "Raw Width",
+          "type": "integer"
+        },
+        "raw_height": {
+          "minimum": 0,
+          "title": "Raw Height",
+          "type": "integer"
+        },
+        "raw_confidence": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Raw Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "text",
+        "confidence",
+        "bbox",
+        "level",
+        "page_num",
+        "tsv_page_num",
+        "block_num",
+        "par_num",
+        "line_num",
+        "word_num",
+        "raw_left",
+        "raw_top",
+        "raw_width",
+        "raw_height",
+        "raw_confidence"
+      ],
+      "title": "OCRWordRecord",
       "type": "object"
     },
     "ParsedDocument": {

@@ -810,7 +810,14 @@ def build_review_graph(
                             "batch_index": batch.index,
                             "parent_index": batch.parent_index,
                             "depth": batch.depth,
+                            "batch_input_hash": batch.input_hash,
                             "section_count": len(batch.sections),
+                            "source_unit_hashes": sorted(
+                                {
+                                    llm_discovery.source_unit_hash(item.located)
+                                    for item in batch.sections
+                                }
+                            ),
                             "accepted_count": 0,
                             "rejected_count": 0,
                             "saturated": False,
@@ -881,6 +888,13 @@ def build_review_graph(
                         "artifact_ref": ref,
                         "response_hash": response.response_hash,
                         "finish_reason": response.finish_reason,
+                        "rejection_summaries": list(rejected),
+                        "accepted_candidate_family_hashes": sorted(
+                            {
+                                llm_discovery.candidate_family_hash(candidate)
+                                for candidate in accepted
+                            }
+                        ),
                         "subdivision_children": [child.index for child in children],
                     }
                 )

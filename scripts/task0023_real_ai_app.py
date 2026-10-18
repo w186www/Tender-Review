@@ -1,10 +1,12 @@
 """Authorized real-model app assembly: the authenticated review endpoints use real Qwen.
 
-The assembly starts only under an explicit server authorization (DEC-007 through
-``DEC007_AUTHORIZATION_ID``, or the legacy DEC-005/006 identity). Every document it may
-send is read from the operator's static environment allowlist plus the append-only
-per-file registry; nothing is authorized implicitly and the process exits non-zero rather
-than degrading to a different authorization or to a mock gateway.
+The assembly starts only under an explicit authorization (DEC-007 through
+``DEC007_AUTHORIZATION_ID``, or the legacy DEC-005/006 identity) in a local development/test
+environment. Production and staging use PostgreSQL product authority or offline mode; this
+legacy SQLite ledger cannot reconcile later product consumption, revocation, or unknown calls.
+Every document it may send is read from the operator's static environment allowlist plus the
+append-only per-file registry; nothing is authorized implicitly and the process exits
+non-zero rather than degrading to another authorization or a mock gateway.
 """
 
 from __future__ import annotations
@@ -12,6 +14,14 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+
+from bidding_compliance.core.deployment_mode import validate_deployment_mode
+
+try:
+    validate_deployment_mode("authorized-real", os.environ.get("APP_ENV", "production"))
+except RuntimeError as exc:
+    print(str(exc), file=sys.stderr, flush=True)
+    raise SystemExit(2) from exc
 
 from sqlalchemy.orm import sessionmaker
 

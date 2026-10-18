@@ -106,7 +106,15 @@
     {
       "id": "TASK0029-002",
       "description": "U06 支持范围、质量信号、人工校正、版本失效和原文定位由冻结样本/专项验证；失败输入不能继续审查。",
-      "evidence": []
+      "evidence": [
+        "docs/development/ingestion-support-matrix.md",
+        "src/bidding_compliance/ingestion/schemas.py",
+        "src/bidding_compliance/ingestion/parser.py",
+        "src/bidding_compliance/ingestion/quality.py",
+        "tests/test_task0029_ocr_structure.py",
+        "tests/test_task0029_quality_structure.py",
+        "tests/test_task0029_support_scope.py"
+      ]
     },
     {
       "id": "TASK0029-003",
@@ -120,7 +128,10 @@
         "docs/development/product-delivery-validation.md",
         "tests/test_task0029_discovery_coverage.py",
         "tests/test_llm_candidate_discovery.py",
-        "src/bidding_compliance/services/llm_candidate_discovery.py"
+        "src/bidding_compliance/services/llm_candidate_discovery.py",
+        "src/bidding_compliance/services/review_projection.py",
+        "src/bidding_compliance/services/reporting.py",
+        "src/frontend/src/pages/reviews.tsx"
       ]
     },
     {
@@ -150,7 +161,11 @@
     {
       "id": "TASK0029-007",
       "description": "U11 浏览器覆盖正常、失败、部分完成、校正、找回、授权和多角色租户分支；OpenAPI 与生成客户端一致。",
-      "evidence": []
+      "evidence": [
+        "docs/development/product-delivery-validation.md",
+        "scripts/run_task0011_e2e.py",
+        "src/frontend/e2e/workbench.spec.ts"
+      ]
     },
     {
       "id": "TASK0029-008",
@@ -167,5 +182,4 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "2026-10-18 最终状态：源码候选 d3cb613c1b766239cc14bf6f107c3f1f203cae6f（官方 Full 928 passed，CI run 39074476065 success），部署 api/web/worker task0030-d3cb613，迁移 202610172000，服务器已切换 product-postgres（PostgreSQL 为唯一授权/预算权威源）。历史 DEC-007 账本 460 条 reservation/¥0.9496789 已导入；历史 registry 因 1 条无对应文档和 2 条重复 approve 整批拒绝，逐文件授权改由 API。产品模式真实文本 PDF：13 风险/17 次 LLM/50 饱和/1423 候选拒绝/0 未提交，Word/PDF 哈希与服务端一致；真实天津 DOCX 41 风险，v3.2 报告为 258 饱和/503 拒绝/0 未提交。撤销后发起审查 403，重新授权 201；auditor 建项目 403、匿名 401；回退 authorized-real 再切回 product-postgres 均验证。扫描/图片实际 OCR 但因 LOW_CONFIDENCE_NUMERIC/碎片化转 needs_review，不宣称扫描件可直接可用。正式法律支持 0（DEC-009 采用政策不等于独立核验）、专家标签 0、覆盖 partial、外部告警与完整 U11/U15 矩阵未完成。用户独立验收未发生，不由本任务状态替代。"
-}
+  "handoff_notes": "2026-10-18 最终状态：源码候选 d3cb613c1b766239cc14bf6f107c3f1f203cae6f（官方 Full 928 passed，CI run 39074476065 success），部署 api/web/worker task0030-d3cb613，迁移 202610172000，服务器已切换 product-postgres（PostgreSQL 为唯一授权/预算权威源）。历史 DEC-007 账本 460 条 reservation/¥0.9496789 已导入；历史 registry 因 1 条无对应文档和 2 条重复 approve 整批拒绝，逐文件授权改由 API。产品模式真实文本 PDF：13 风险/17 次 LLM/50 饱和/旧 rejected_units=1423（partial 批次 section_count 累加，非候选拒绝数）/0 未提交，Word/PDF 哈希与服务端一致；真实天津 DOCX 41 风险，v3.2 报告为 258 饱和/旧 rejected_units=503（partial 批次 section_count 累加，非候选拒绝数）/0 未提交。撤销后发起审查 403，重新授权 201；auditor 建项目 403、匿名 401；旧回退仅验证 authorized-real 启动/health 后切回，未证明预算安全；本地已增加生产环境拒绝旧装配的启动门禁。扫描/图片实际 OCR 但因 LOW_CONFIDENCE_NUMERIC/碎片化转 needs_review，不宣称扫描件可直接可用。正式法律支持 0（DEC-009 采用政策不等于独立核验）、专家标签 0、覆盖 partial、外部告警与完整 U11/U15 矩阵未完成。用户独立验收未发生，不由本任务状态替代。 接续状态（2026-10-18，环境恢复与同候选验证）：Docker Server 29.2.1 和现有 Alibaba workbench 身份已恢复可用；ECS 直接操作可用、实例列表因缺少 ecs:DescribeInstances 返回 403。当前候选官方 Full 七阶段 exit 0（941 passed、0 failed、2 条既有 pypdf 弃用警告，741.573s）；独立 PostgreSQL 16 临时实例 scripts/check_postgres.py 通过并自动移除；隔离 TASK-0011 浏览器 E2E 为 5/5、JUnit 0 failures/errors/skipped，队列并发、租约接管、取消和 unknown recovery 通过。服务器旧工件核对：DOCX/PDF 候选 57/21、实际拒绝 6/17，原因均为 quote_missing_or_ambiguous；输入唯一源单元 1155/1562，旧拒绝制品未绑定具体源单元或恢复族，不能还原拒绝唯一单元/恢复数。DOCX/PDF 风险 41/13，分类与标题指纹差异已记录，但原因未证明、不得宣称无遗漏。服务器部署前状态为 staging/product-postgres，旧 HEAD d3cb613c1b766239cc14bf6f107c3f1f203cae6f，镜像 task0030-d3cb613，账本 spent ¥1.04007020/reserved 0/477 settled reservations，历史备份校验通过；8 个父 review_task 与 result_published engine_run 状态不一致，无活跃 engine run/ingestion/unknown reservation。候选尚未提交、推送或部署；部署前需新备份。真实清晰扫描 PDF 完整网页审查、报告内容/版式、实际审查资源样本、完整 U11/U15/容量/告警矩阵、专家金标和用户独立验收尚未完成。"}

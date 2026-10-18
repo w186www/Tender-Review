@@ -1706,9 +1706,17 @@
             "completion_status": "complete",
             "coverage_status": "complete",
             "unprocessed_units": 0,
+            "planned_units": 12,
             "truncated": false,
             "saturated": false,
-            "unknown_model_call_count": 0
+            "unknown_model_call_count": 0,
+            "rejected_candidate_attempts": 0,
+            "rejected_candidate_count": 0,
+            "rejected_source_unit_count": 0,
+            "rejection_reason_counts": {},
+            "recovered_candidate_families": 0,
+            "unrecovered_candidate_families": 0,
+            "recovered_source_unit_count": 0
           }
         }
       },
@@ -1753,10 +1761,21 @@
             "completion_status": "complete",
             "coverage_status": "partial",
             "unprocessed_units": 1,
+            "planned_units": 3,
             "truncated": true,
             "saturated": false,
             "reason_codes": ["provider_output_truncated"],
-            "unknown_model_call_count": 0
+            "unknown_model_call_count": 0,
+            "rejected_candidate_attempts": 4,
+            "rejected_candidate_count": 3,
+            "rejected_source_unit_count": 2,
+            "rejection_reason_counts": {
+              "quote_missing_or_ambiguous": 2,
+              "unknown_section": 1
+            },
+            "recovered_candidate_families": 1,
+            "unrecovered_candidate_families": 1,
+            "recovered_source_unit_count": 1
           }
         }
       },

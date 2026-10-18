@@ -1,15 +1,15 @@
 # 开发契约版本与兼容性
 
-当前契约集合：v1alpha8（2026-10-18），尚未对生产消费者发布。
+当前契约集合：v1alpha9（2026-10-18），尚未对生产消费者发布。
 
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
 | EvidenceRef / LegalResult / ReviewReport | v1alpha8 加法 | 新增可选 `adoption_status`、`adopted_evidence`、`adoption_policy_id` 及报告 `legal_adoption_policy`/采用参考计数；采用政策不等于独立法律核验，`citable_evidence` 仍只含原独立核验命中；旧字段和旧报告保持原义 |
-| OpenAPI | 0.10.1 | 在 0.10.0 上加法升级：检索结果新增可选 `product_execution` 覆盖与完整度投影；旧响应字段与消费者保持有效。0.10.0 曾于 0.9.0 上加法升级：逐文件授权请求新增可选 purpose/provider/expires_at，响应新增可选授权身份/期限/撤销字段，新增撤销操作；旧请求字段和旧响应消费者保持有效 |
+| OpenAPI | 0.10.2 | 在 0.10.1 上加法升级：产品执行投影新增候选拒绝尝试/去重数、原因、唯一原文单元和后续恢复统计；旧响应字段与消费者保持有效。0.10.1 在 0.10.0 上新增可选 `product_execution` 覆盖与完整度投影；0.10.0 曾于 0.9.0 上增加逐文件授权绑定与撤销操作 |
 | LegalManifest、LegalIndex | Manifest v1alpha3 / Index v1alpha4 | D01条款效力；D07冻结原始字节/PDF字符框映射与显式文本排除；旧索引明确升级，原文与来源字节不变 |
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha3 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |
 | RetrievalResult | schema_version=v1alpha5 / Query v1alpha3 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |
-| ParsedDocument、ParserRequest、ParserResponse | schema_version=v1alpha1 / 集合v1alpha2 | 闭合字段、定位、哈希、OCR置信度、封闭问题码、资源策略、结果/错误互斥；由类型源生成并验证漂移 |
+| ParsedDocument、ParserRequest、ParserResponse、Fragment | schema_version=v1alpha1 / 集合v1alpha9 | 闭合字段、定位、哈希、OCR置信度和可选词级 TSV 记录（文档页码、块/段/行/词序、原始像素框/置信度及文档坐标）、封闭问题码、资源策略、结果/错误互斥；解析类型为源并生成验证，OpenAPI 加法字段保持旧片段兼容 |
 | ComplianceReviewState / ComplianceFinding | schema_version=v1alpha2 / 集合v1alpha2 | TASK-0009增加有界Skill汇合/结果引用、result_published和显式冲突；State findings为摘要子集 |
 | SemanticAnalysisResponse | schema_version=v1alpha1 | 新增严格闭合的模型语义响应契约，模型只产生分析建议 |
 | DevelopmentTask | schema_version=v1alpha2 | 相关需求与局部验收分离，completed逐项需要证据 |
@@ -35,6 +35,8 @@ U02 (2026-10-17)新增 `product-review-execution.v1alpha1` 与 `task0010-report.
 U04 (2026-10-17，经用户授权) 将 OpenAPI 从 0.8.0 加至 0.9.0，新增 `POST /review-tasks/{reviewTaskId}/runs/{runId}/cancel`。这是只增加 operation 的向后兼容变化：无请求体，返回既有 ReviewTask；旧状态/Schema、数据库表与既有路由不变。仅审核员可调用；重复取消返回当前 cancelled 状态；已发布结果返回 409。取消事务锁定运行行并清除 lease，阻止活动/过期 Worker 写入。未对生产消费者发布，无数据库迁移。
 
 U05 (2026-10-17) 将 OpenAPI 从 0.9.0 加至 0.10.0，新增产品模式逐文件授权的可选绑定字段和 `POST /projects/{projectId}/documents/{documentId}/external-authorization/revoke`。授权请求仍只要求 `reason`/`confirmed`，旧客户端不发送新字段时由服务端策略填入 purpose/provider/expiry；旧本地验证装配收到新字段会明确拒绝而不是静默忽略。数据库迁移 `202610172000` 只新增租户策略、授权、预算、预留和导入表，不改既有表或历史账本。产品模式（`DEPLOY_REVIEW_MODE=product-postgres`）以 PostgreSQL 为唯一授权/预算权威源；DEC-007 的 JSONL/SQLite 装配保留为本地验证路径。切换、真实迁移与真实外发仍受 D3/D4 约束。
+
+U08 (2026-10-18) 将契约集合升级到 v1alpha9、OpenAPI 0.10.2，只加可选覆盖统计字段。新生产者以稳定来源身份去重计划、提交、失败、饱和和被拒绝原文单元；明确区分候选拒绝尝试、去重候选、原因及后续子批恢复。旧 `rejected_units` 保持原值并标注为历史 partial-batch section 总数，不再当作候选拒绝数展示；旧报告仍按原契约读取。无数据库迁移。
 
 全局管理新增CorpusBundle/RevisionRequest/PublicationRequest/OperatorCapabilities独立Schema；actor不从请求取得。数据库新迁移1600授权及1700不可变修订/发布/状态/身份，不更改已有业务表。Result仍v1alpha5，持久请求额外冻结publication/revision标识，由request_hash绑定并读回对照不可变索引。
 
