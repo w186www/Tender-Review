@@ -2,6 +2,15 @@
 
 更新时间：2026-10-18
 
+## 当前专项：用户真实 PDF 上传误拒（2026-10-18，已修复部署并通过网页原文件复验）
+
+- 原文件 SHA-256 `4fe02d53170581fdec1986e647dfacc6ab530bf6847d52cae5b91c881380924a`，1,185,979 字节、152 页、未加密，符合既有支持范围。两个旧上传记录曾为 `rejected/INVALID_FILE`，均保留。已修复 `inspect_pdf` 将书签 `/Next` 间接引用链误当作 50 层内联嵌套的问题；保留 50,000 次工作量、50 层内联嵌套与全部恶意内容检查。
+- 同一原文件暴露的表格质量误报一并修复：保留空白单元格结构，以页/表为身份并根据单元格实际边界处理横向/纵向合并；OOXML 或无可信几何时沿用行列检查，真实结构缺格反例继续拦截。原文未改写，正文始终 86,182 字；片段从 3,450 增至含空单元格的 4,405，质量 `passed/issues=[]`。
+- 最终源码 `63dd7879769769982bd38c4d7e967c64da602175`，新增 7 项图遍历和 3 项表格回归；最终官方 Full 七阶段 exit 0：968 passed、2 条既有 pypdf warning、600.66s。日志 `.verification/completion-20261018/chuzhou-final-full.log`；PR CI run `39113130830` 的 impact/ingestion/postgres/baseline/verify-required 全部 success，quick 按 Full 条件 skipped。修正 PR #3 已普通合并，merge SHA `7d1bd70f6f43e9738d0a0a97ccfd75a805ebdabf`。
+- 部署前备份 `/opt/tender-review/backups/20261018T084638Z` 官方隔离恢复校验通过；额外受保护配置副本 `deploy.env.before-bookmarkfix` 位于同一备份目录（600）。服务器源码为 `63dd787`，API 镜像 `sha256:edffa9778f0075887d174aef20b058efd448b85d6a0e4eae735335047d65cac1`，parser 镜像 `sha256:113dc124c4d77f7f05815eb6d64576b30d2e9df178d95ffb5a0ffa2eb4982afe`；web 复用原镜像。仅重建/重启 api、review-worker、worker、nginx，TLS overlay、product-postgres、数据服务和卷保持，部署后 HTTPS health=200，无数据库迁移。
+- 公网 Edge 网页在用户原项目 `4b3738a2-0e77-4939-a93e-04dd58fb6d00` 上传同一原 PDF：HTTP 202，新文档 `2f71831c-31b1-4a65-8870-843cdb1a1ab1` 实际状态 `needs_confirmation`（网页“等待上下文确认”）、P1/C1、issues=[]、摄取 job succeeded/attempts=1。证据 `.verification/completion-20261018/chuzhou-browser-result.json` 和 `chuzhou-browser-upload.png`；只上传一次，没有改写旧记录。未替用户确认项目上下文或登记外发授权，未请求模型审查；调用数仍 218，spent ¥1.41978080/reserved 0，原 PDF 与私人 question.txt 未修改/提交。
+- 用户下一步：刷新原项目，选择 `2f71831c` 开头的记录 →“查看上下文”，按实际文件核对地区/制度等并确认 → 按既有产品流程登记逐文件外发授权 → 发起审查。当前项目地区仍为用户原配置“北京”，本轮没有擅自替换适用性信息。TASK-0029 总体继续 in_progress，既有风险覆盖/效果指标与用户最终验收边界不变。本节只证明本文件上传解析缺陷已关闭，不表示本轮已生成其合规报告。
+
 ## 接续实施状态（2026-10-18，最终工程候选已部署；等待用户独立网页验收）
 
 ### 已完成
