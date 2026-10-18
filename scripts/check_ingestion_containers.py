@@ -96,6 +96,21 @@ def scanned_pdf() -> bytes:
     return buffer.getvalue()
 
 
+def wait_for_scanner(scanner: ClamAVScanner, timeout_seconds: float = 240) -> None:
+    """Wait for startup signature updates; never accept an unavailable/stale scanner."""
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            scanner.scan(b"Synthetic clean scanner test.")
+            return
+        except IngestionError as exc:
+            if exc.code not in {"SCANNER_UNAVAILABLE", "SCANNER_STALE"}:
+                raise
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"ClamAV readiness failed: {exc.code}") from exc
+            time.sleep(min(2, max(0, deadline - time.monotonic())))
+
+
 def main() -> None:
     parser_image = os.environ.get("PARSER_VERIFY_IMAGE")
     if not parser_image:
@@ -190,17 +205,7 @@ def main() -> None:
                 time.sleep(1)
         store.client.create_bucket(Bucket=settings.object_storage_bucket)
         print("Real MinIO ready; waiting for ClamAV definitions and engine.", flush=True)
-        deadline = time.monotonic() + 240
-        while True:
-            try:
-                scanner.scan(b"Synthetic clean scanner test.")
-                break
-            except IngestionError as exc:
-                if exc.code == "SCANNER_STALE":
-                    raise
-                if time.monotonic() > deadline:
-                    raise RuntimeError("ClamAV readiness failed") from exc
-                time.sleep(2)
+        wait_for_scanner(scanner)
         # Standard harmless antivirus test string exists only in memory and goes to localhost.
         eicar = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}" + b"$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
         try:
