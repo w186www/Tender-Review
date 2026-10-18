@@ -357,7 +357,9 @@ def parse_pdf(payload: bytes, policy: IngestionPolicy, ocr: OCR) -> tuple[list[F
                     for r, row in enumerate(table.rows):
                         for c, bounds in enumerate(row.cells):
                             text = (values[r][c] or "") if values[r][c] is not None else ""
-                            if bounds is not None and text:
+                            # Empty cells still carry the table's structure. Dropping them
+                            # makes blank forms and merged rows look like missing columns.
+                            if bounds is not None:
                                 fragments.append(
                                     Fragment(
                                         locator=f"pdf/page/{index}/table/{t}/row/{r}/cell/{c}",

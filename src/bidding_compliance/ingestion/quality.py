@@ -2,6 +2,7 @@
 
 import hashlib
 import re
+from bisect import bisect_left
 from collections import defaultdict
 from datetime import date
 
@@ -168,8 +169,28 @@ def _has_reading_order_gap(fragments: list[Fragment]) -> bool:
     return False
 
 
+def _pdf_table_widths(cells: list[Fragment]) -> list[int] | None:
+    """Count covered grid columns, including blank and spanning PDF cells."""
+    if any(cell.coordinate_system != "pdf_points" or cell.bbox is None for cell in cells):
+        return None
+    boxes = [tuple(round(v, 3) for v in cell.bbox) for cell in cells if cell.bbox]
+    if len(set(boxes)) != len(boxes) or any(x1 <= x0 or y1 <= y0 for x0, y0, x1, y1 in boxes):
+        return None
+    xs = sorted({x for x0, _, x1, _ in boxes for x in (x0, x1)})
+    ys = sorted({y for _, y0, _, y1 in boxes for y in (y0, y1)})
+    widths = []
+    for top, bottom in zip(ys, ys[1:], strict=False):
+        midpoint = (top + bottom) / 2
+        columns: set[int] = set()
+        for left, y0, right, y1 in boxes:
+            if y0 <= midpoint < y1:
+                columns.update(range(bisect_left(xs, left), bisect_left(xs, right)))
+        widths.append(len(columns))
+    return widths
+
+
 def _has_table_structure_gap(fragments: list[Fragment], policy: IngestionPolicy) -> bool:
-    tables: dict[int, dict[int, set[int]]] = defaultdict(lambda: defaultdict(set))
+    tables: dict[tuple[int | None, int], list[Fragment]] = defaultdict(list)
     for fragment in fragments:
         if (
             fragment.kind == "table_cell"
@@ -177,11 +198,18 @@ def _has_table_structure_gap(fragments: list[Fragment], policy: IngestionPolicy)
             and fragment.row is not None
             and fragment.column is not None
         ):
-            tables[fragment.table][fragment.row].add(fragment.column)
-    for rows in tables.values():
-        if len(rows) < 2:
+            # PDF table numbers restart on each page; OOXML uses document-wide IDs.
+            tables[(fragment.page, fragment.table)].append(fragment)
+    for cells in tables.values():
+        widths = _pdf_table_widths(cells)
+        if widths is None:
+            rows: dict[int, set[int]] = defaultdict(set)
+            for cell in cells:
+                if cell.row is not None and cell.column is not None:
+                    rows[cell.row].add(cell.column)
+            widths = [len(columns) for columns in rows.values()]
+        if len(widths) < 2:
             continue
-        widths = [len(columns) for columns in rows.values()]
         modal = max(set(widths), key=widths.count)
         # Merged/header rows legitimately have fewer cells. Flag only systematic extra-cell
         # extraction or a severe width jump, not every merged cell in a real tender table.
@@ -189,7 +217,7 @@ def _has_table_structure_gap(fragments: list[Fragment], policy: IngestionPolicy)
         if not wider:
             continue
         anomalous = len(wider)
-        if max(wider) > modal + 1 and anomalous >= max(1, (len(rows) + 3) // 4):
+        if max(wider) > modal + 1 and anomalous >= max(1, (len(widths) + 3) // 4):
             return True
     return False
 
