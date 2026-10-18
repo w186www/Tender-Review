@@ -6,7 +6,7 @@
 
 ### 已完成
 
-- 工作树在 `work/TASK-0027`，HEAD/origin 为 `d0176891cdd05d04b9efc9f1e7fbaf32c1cd09a3`；本轮新增代码/测试仅涉及 `quality.py` 与 `test_task0029_ocr_structure.py`，TASK/G3/CHANGELOG 状态记录也已更新。候选尚未提交、推送或部署。未跟踪的私人 `question.txt` 未读写、不得提交。
+- 工作树在 `work/TASK-0027`，代码候选提交为 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04`，Full 的代码与测试文件对应此候选；当前 HEAD 比 origin 超前 1 个提交，尚未推送或部署。Full 后的状态/CI 身份记录正在单独更新并按 Quick 验证。未跟踪的私人 `question.txt` 未读写、不得提交。
 - Docker Linux Engine 实际运行（Server 29.2.1）；named-pipe Access denied 来自受限命令环境的桌面 IPC 访问边界，不是引擎未启动、context 错误或 Docker 安装损坏。通过官方权限申请执行后 Docker 与 daemon 均可用；没有重装 Docker、改 ACL 或清理卷。
 - Alibaba workbench 使用现有 `default` 身份隐藏启动 daemon 并可直连 ECS。ECS 列表 API 因缺少 `ecs:DescribeInstances` 返回 403，但对已授权实例的 `workbench exec` 可用；未换账户、读取或输出凭据。
 - 当前 OCR 修正候选官方 `./scripts/verify.ps1 -Mode Full` 退出码 0：七阶段通过，后端 **945 passed, 0 failed, 0 skipped, 2 existing pypdf deprecation warnings in 629.20s**；HTTP health/404、登录、项目生命周期及登出撤权 PASS。上一 SHA `d017689` 的 Full（941 passed）及 CI run 39095130975 是此前代码证据，不替代本轮结果。
@@ -24,7 +24,7 @@
 
 ### 下一步
 
-- TASK/G3/CHANGELOG 正式记录已更新，官方 Quick 退出码 0；提交仅限 OCR 修正与相关状态记录文件，推送并核对新 SHA 的 CI。
+- OCR 修正已提交为 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04`；Full 后的状态记录只改元数据，Quick 已通过。完成该状态提交后推送两个本地提交并核对新 SHA CI。
 - CI 通过后先新建并核验全量备份，再按保留 TLS 覆盖的既有流程部署；记录源码、镜像、迁移和配置身份。
 - 在新候选上用已有授权与受保护配置完成清晰中文扫描 PDF 的 OCR、上下文、真实审查及 Word/PDF 内容/版式验收；采集一次真实审查的排队/解析/模型/报告耗时与容器资源。该样本不等于完整容量压测。
 - 复验服务器候选覆盖、OCR 和回退拒绝；继续 U11/U15 异常/角色/多租户矩阵及必要运行检查。用户独立验收仍由用户本人完成。
@@ -32,7 +32,7 @@
 ### 已知问题与待决策
 
 - 8 条 `review_task=running` 当前都关联到已 `result_published` 的 engine run；无 running engine run、ingestion job 或 unsettled reservation。这是历史父任务状态不一致，不是正在执行的调用；不直接改生产记录。
-- 新旧候选历史 DOCX/PDF 的逐条风险差异不能用旧报告证明因果；扫描 PDF 仅本机隔离解析/质量通过，网页真实模型全链、导出报告内容版式、实际审查资源样本、完整容量、外部告警送达仍未完成。新候选 Full 后尚未提交/推送，部署须等待该 SHA CI。专家标签为 0，precision/recall 未测；独立法规核验依据为 0；用户独立验收尚未发生。
+- 新旧候选历史 DOCX/PDF 的逐条风险差异不能用旧报告证明因果；扫描 PDF 仅本机隔离解析/质量通过，网页真实模型全链、导出报告内容版式、实际审查资源样本、完整容量、外部告警送达仍未完成。代码提交尚未推送；部署须等待对应 SHA CI。专家标签为 0，precision/recall 未测；独立法规核验依据为 0；用户独立验收尚未发生。
 - 部署前仍需核对新备份、当前在途任务和服务状态。ECS 实例列表 API 的 `ecs:DescribeInstances` 权限不足不影响已授权实例的直接操作；若直接操作权限后续失败，再报告具体请求与最小解除动作。
 
 
