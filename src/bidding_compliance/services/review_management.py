@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 from bidding_compliance.core.dates import isoformat_utc
 from bidding_compliance.domain.identity import Principal, Role
 from bidding_compliance.domain.rules.models import DiscoveryDocumentRequest
+from bidding_compliance.ingestion.schemas import DocumentContext
 from bidding_compliance.persistence.models import (
     Document,
+    DocumentContextVersion,
     DocumentSection,
     ReviewArtifact,
     ReviewDecision,
@@ -27,6 +29,12 @@ from bidding_compliance.services.llm_candidate_discovery import (
     MAX_BATCH_SECTIONS,
     MAX_BATCH_SOURCE_BYTES,
     MAX_DISCOVERY_BATCHES,
+)
+from bidding_compliance.services.project_context import (
+    ProjectContextIncomplete,
+    ProjectDocumentContextMismatch,
+    document_context_mismatch_fields,
+    project_context_issues,
 )
 from bidding_compliance.services.projects import find_project
 from bidding_compliance.services.review_persistence import (
@@ -51,7 +59,10 @@ def document_requests(
     require_identity(session, principal)
     if principal.role is not Role.REVIEWER:
         raise PermissionError("review creation requires reviewer role")
-    find_project(session, principal, project_id)
+    project = find_project(session, principal, project_id)
+    context_issues = project_context_issues(project.context)
+    if context_issues:
+        raise ProjectContextIncomplete(context_issues)
     rows = list(
         session.scalars(
             select(Document).where(
@@ -97,6 +108,20 @@ def document_requests(
         row = by_id[document_id]
         if row.status != "ready" or row.parse_version < 1 or row.context_version < 1:
             raise ValueError("review requires parsed documents with confirmed context")
+        context_record = session.get(
+            DocumentContextVersion,
+            (principal.tenant_id, document_id, row.context_version),
+        )
+        if context_record is None:
+            raise ValueError("review requires a persisted document context confirmation")
+        confirmed_context = DocumentContext.model_validate(context_record.payload)
+        if not confirmed_context.confirmed or confirmed_context.manual is None:
+            raise ValueError("review requires a confirmed document context")
+        mismatched_fields = document_context_mismatch_fields(
+            project.context, confirmed_context.manual.model_dump(mode="json")
+        )
+        if mismatched_fields:
+            raise ProjectDocumentContextMismatch(mismatched_fields, document_id)
         requests.append(
             DiscoveryDocumentRequest(
                 document_id=row.document_id,
@@ -369,10 +394,7 @@ def get_findings(
         raw_batches = discovery.content.get("batches")
         if isinstance(raw_batches, list):
             batches = raw_batches
-    if (
-        coverage is None
-        and int(_runtime_projection(session, row)["model_candidate_count"]) > 0
-    ):
+    if coverage is None and int(_runtime_projection(session, row)["model_candidate_count"]) > 0:
         product_execution = {
             "completion_status": "partial",
             "coverage_status": "unknown",

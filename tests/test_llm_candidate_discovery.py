@@ -95,7 +95,6 @@ def test_zero_skill_candidates_still_produce_bound_model_candidate(monkeypatch):
             )
         )
     ).validate(merged.model_dump(mode="json"))
-
     original = mapping["doc-a"][0]
     monkeypatch.setattr(
         evidence_checker.documents,
@@ -134,6 +133,32 @@ def test_zero_skill_candidates_still_produce_bound_model_candidate(monkeypatch):
     )
 
 
+def test_distinct_model_questions_on_one_excerpt_keep_distinct_problem_keys():
+    text = "采购款项在设备通过验收且收到发票后支付。"
+    snapshot, mapping = freeze((located(text),))
+    rules = discover(snapshot, mapping)
+    (batch,) = llm.plan_discovery(mapping)
+    first, first_rejected = validate(
+        batch,
+        response_for(batch, description="付款条件是否与合同约定一致"),
+    )
+    second, second_rejected = validate(
+        batch,
+        response_for(batch, description="验收后付款节点是否明确"),
+    )
+    repeated, repeated_rejected = validate(
+        batch,
+        response_for(batch, description="付款条件是否与合同约定一致"),
+    )
+
+    assert not first_rejected + second_rejected + repeated_rejected
+    assert first[0].source_excerpts[0].locator == second[0].source_excerpts[0].locator
+    assert first[0].problem_key != second[0].problem_key
+    assert first[0].problem_key == repeated[0].problem_key
+    combined = llm.merge_model_candidates(rules, (*first, *second, *repeated))
+    assert len(combined.candidates) == 2
+
+
 @pytest.mark.parametrize(
     ("quote", "section_key", "reason"),
     [
@@ -160,7 +185,7 @@ def test_fabricated_unknown_and_ambiguous_references_are_rejected(quote, section
 
 def test_overlapping_duplicate_quote_is_rejected_as_ambiguous():
     _, mapping = freeze((located("aaaaa"),))
-    batch, = llm.plan_discovery(mapping)
+    (batch,) = llm.plan_discovery(mapping)
     accepted, rejected = validate(batch, response_for(batch, quote="aaaa"))
     assert not accepted
     assert len(rejected) == 1
@@ -334,8 +359,7 @@ def test_all_fragments_have_exhaustive_bounded_coverage_and_overflow_fails_close
     assert per_batch >= 1
     assert sum(len(batch.sections) for batch in batches) == snapshot.documents[0].fragment_count
     assert all(
-        sum(len(section.text.encode()) for section in batch.sections)
-        <= llm.MAX_BATCH_SOURCE_BYTES
+        sum(len(section.text.encode()) for section in batch.sections) <= llm.MAX_BATCH_SOURCE_BYTES
         for batch in batches
     )
     records = [section.coverage() for batch in batches for section in batch.sections]
@@ -650,11 +674,7 @@ def test_a_failed_discovery_batch_is_boundedly_split_instead_of_failing_the_run(
     assert coverage["status"] == "complete"
     assert coverage["subdivided_batches"] == 1
     assert coverage["failed_batches"] == 0
-    parent = next(
-        item
-        for item in coverage_record["batches"]
-        if item.get("subdivision_children")
-    )
+    parent = next(item for item in coverage_record["batches"] if item.get("subdivision_children"))
     assert parent["status"] == "subdivided"
     assert parent["failure_code"] == "response_invalid"
     assert parent["subdivision_children"]

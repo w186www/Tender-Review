@@ -52,6 +52,8 @@ from bidding_compliance.persistence.database import make_engine, migrate
 from bidding_compliance.persistence.models import (
     AuditEvent,
     Document,
+    DocumentContextVersion,
+    Project,
     ReviewEngineRun,
     ReviewTask,
     Tenant,
@@ -271,9 +273,13 @@ class System:
                 "name": "超时找回合成项目",
                 "procurement_type": "government",
                 "project_type": "works",
-                "region": "示例",
+                "region": "安徽省滁州市",
                 "applicable_system": "合成内部制度",
                 "budget_amount": 1000.0,
+                "procurement_method": "tender",
+                "buyer_type": "government_entity",
+                "subject_type": "works",
+                "legal_frameworks": ["tendering", "government_procurement"],
             },
         )
         assert response.status_code == 201, response.text
@@ -282,6 +288,8 @@ class System:
     def document(self, project_id: str) -> str:
         document_id = str(uuid4())
         with Session(self.engine) as db:
+            project = db.get(Project, ("a", project_id))
+            assert project is not None
             db.add(
                 Document(
                     tenant_id="a",
@@ -298,6 +306,24 @@ class System:
                     parse_version=1,
                     context_version=1,
                     issues=[],
+                )
+            )
+            db.flush()
+            db.add(
+                DocumentContextVersion(
+                    tenant_id="a",
+                    document_id=document_id,
+                    version=1,
+                    payload={
+                        "document_id": document_id,
+                        "version": 1,
+                        "candidates": [],
+                        "manual": project.context,
+                        "confirmed": True,
+                        "reason": "synthetic context confirmation",
+                    },
+                    changed_by="reviewer",
+                    changed_at=datetime.now(UTC),
                 )
             )
             db.commit()
@@ -395,9 +421,7 @@ def test_cancel_review_is_idempotent_reviewer_only_and_audited_once(system):
             json={"tenant_id": "a", "username": "operator", "password": system.password},
         )
         assert operator_login.status_code == 200, operator_login.text
-        operator_headers = {
-            "Authorization": "Bearer " + operator_login.json()["access_token"]
-        }
+        operator_headers = {"Authorization": "Bearer " + operator_login.json()["access_token"]}
         project_id = system.project(client, reviewer_headers)
         document_id = system.document(project_id)
         created = client.post(
@@ -413,9 +437,12 @@ def test_cancel_review_is_idempotent_reviewer_only_and_audited_once(system):
 
         denied = client.post(endpoint, headers=operator_headers)
         assert denied.status_code == 403
-        assert client.get(
-            f"/api/v1/reviews/{review_task_id}", headers=reviewer_headers
-        ).json()["status"] == "queued"
+        assert (
+            client.get(f"/api/v1/reviews/{review_task_id}", headers=reviewer_headers).json()[
+                "status"
+            ]
+            == "queued"
+        )
 
         cancelled = client.post(endpoint, headers=reviewer_headers)
         assert cancelled.status_code == 200, cancelled.text

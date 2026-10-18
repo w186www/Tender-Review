@@ -20,7 +20,9 @@ from bidding_compliance.ingestion.schemas import (
 from bidding_compliance.ingestion.storage import make_store
 from bidding_compliance.services import documents, execution_authorization, reports
 from bidding_compliance.services.identity import audit
+from bidding_compliance.services.project_context import ProjectDocumentContextMismatch
 
+from .errors import StructuredValidationError
 from .projects import DB, User
 from .schemas import (
     ErrorResponse,
@@ -144,6 +146,25 @@ def confirm_context(
 ) -> DocumentResponse:
     try:
         return documents.confirm_context(session, principal, projectId, documentId, body)
+    except ProjectDocumentContextMismatch as exc:
+        raise StructuredValidationError(
+            "文档确认字段须与当前项目上下文一致。请先修正项目上下文，或按当前项目值重新确认文档。",
+            {
+                "issue_code": "DOCUMENT_CONTEXT_MISMATCH",
+                "issues": [
+                    {
+                        "field": field,
+                        "code": "project_mismatch",
+                        "message": "此字段由项目上下文统一维护。",
+                    }
+                    for field in exc.fields
+                ],
+                "correction_action": "edit_project_context",
+                "project_id": projectId,
+                "document_id": documentId,
+                "correction_path": f"/projects/{projectId}",
+            },
+        ) from exc
     except (PermissionError, LookupError, FileExistsError) as exc:
         raise translate(exc) from exc
 
@@ -194,9 +215,7 @@ def authorize_external_processing(
         # instead of pretending the confirmation was recorded somewhere.
         raise HTTPException(503, detail="external processing authorization is unavailable")
     if product_mode:
-        purpose = body.purpose or getattr(
-            request.app.state, "external_authorization_purpose", None
-        )
+        purpose = body.purpose or getattr(request.app.state, "external_authorization_purpose", None)
         provider = body.provider or getattr(
             request.app.state, "external_authorization_provider", None
         )
@@ -289,9 +308,7 @@ def revoke_external_processing(
     if not product_mode and registry is None:
         raise HTTPException(503, detail="external processing authorization is unavailable")
     if product_mode:
-        purpose = body.purpose or getattr(
-            request.app.state, "external_authorization_purpose", None
-        )
+        purpose = body.purpose or getattr(request.app.state, "external_authorization_purpose", None)
         provider = body.provider or getattr(
             request.app.state, "external_authorization_provider", None
         )

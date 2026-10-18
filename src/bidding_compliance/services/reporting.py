@@ -10,6 +10,20 @@ def _text(value: object, default: str = "未提供") -> str:
     return value if isinstance(value, str) and value.strip() else default
 
 
+def _citation_label(finding: dict[str, Any], citation: dict[str, Any]) -> str:
+    for evidence in finding.get("evidence", []):
+        if (
+            evidence.get("kind") == "document"
+            and evidence.get("source_hash") == citation.get("raw_source_sha256")
+            and evidence.get("page") == citation.get("page")
+            and evidence.get("locator") == citation.get("locator")
+            and evidence.get("quote") == citation.get("quote")
+        ):
+            if "全文交叉核对" in str(evidence.get("title", "")):
+                return "全文关联原文（上下文，不单独支持风险结论）"
+    return "风险判断引用原文"
+
+
 def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
     scope = report.get("assessment_scope")
     if not isinstance(scope, dict):
@@ -170,9 +184,7 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
             )
         unprocessed = product.get("unprocessed_units")
         if isinstance(unprocessed, int) and unprocessed > 0:
-            lines.append(
-                f"未提交模型或调用失败的 section：{unprocessed} 个，需人工处理。"
-            )
+            lines.append(f"未提交模型或调用失败的 section：{unprocessed} 个，需人工处理。")
         truncated_batches = product.get("truncated_batches")
         if isinstance(truncated_batches, int) and truncated_batches > 0:
             lines.append(f"模型响应截断的批次：{truncated_batches} 个，覆盖不完整。")
@@ -180,9 +192,7 @@ def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
             lines.append("模型发现存在饱和批次；覆盖状态按部分完成处理。")
         unknown_calls = product.get("unknown_model_call_count")
         if isinstance(unknown_calls, int) and unknown_calls > 0:
-            lines.append(
-                f"结果未知的模型调用 {unknown_calls} 次；未自动重放，费用按预留上限保留。"
-            )
+            lines.append(f"结果未知的模型调用 {unknown_calls} 次；未自动重放，费用按预留上限保留。")
 
     confirmation = scope.get("no_findings_confirmation")
     if confirmation == "confirm_no_findings":
@@ -322,7 +332,8 @@ def render_docx(report: dict[str, Any]) -> bytes:
             location = cite.get("page")
             page_label = f"第 {location} 页" if location is not None else "原文无可靠页码"
             document.add_paragraph(
-                f"原文证据：文档 {cite['document_id']}，版本 {cite['raw_source_sha256']}，"
+                f"{_citation_label(finding, cite)}：文档 {cite['document_id']}，"
+                f"版本 {cite['raw_source_sha256']}，"
                 f"{page_label}，定位 {cite['locator']}，"
                 f"片段 {cite['section_id']}@{cite['section_revision']}。"
             )
@@ -355,9 +366,7 @@ def render_docx(report: dict[str, Any]) -> bytes:
                     f"{reference_item.get('article') or '条款未提供'}"
                 )
                 source_kind = (
-                    "模型引用候选"
-                    if reference_item.get("selected_by_model")
-                    else "检索候选"
+                    "模型引用候选" if reference_item.get("selected_by_model") else "检索候选"
                 )
                 suffix = (
                     "；项目采用库内版本（未经独立法律核验）"
@@ -550,7 +559,8 @@ def render_pdf(report: dict[str, Any]) -> bytes:
             page = f"第 {cite['page']} 页" if cite.get("page") is not None else "原文无可靠页码"
             story.append(
                 para(
-                    f"原文定位：文档 {cite['document_id']}，SHA-256 {cite['raw_source_sha256']}，"
+                    f"{_citation_label(item, cite)}定位：文档 {cite['document_id']}，"
+                    f"SHA-256 {cite['raw_source_sha256']}，"
                     f"{page}，{cite['locator']}，片段 "
                     f"{cite['section_id']}@{cite['section_revision']}。"
                 )
@@ -584,9 +594,7 @@ def render_pdf(report: dict[str, Any]) -> bytes:
             )
             for reference_item in references[:3]:
                 source_kind = (
-                    "模型引用候选"
-                    if reference_item.get("selected_by_model")
-                    else "检索候选"
+                    "模型引用候选" if reference_item.get("selected_by_model") else "检索候选"
                 )
                 suffix = (
                     "；项目采用库内版本（未经独立法律核验）"

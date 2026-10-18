@@ -40,7 +40,7 @@ from bidding_compliance.services.review_persistence import (
 )
 from bidding_compliance.services.review_projection import project_product_execution
 
-TEMPLATE_VERSION = "task0010-v3.2"
+TEMPLATE_VERSION = "task0010-v3.3"
 ROOT = Path(__file__).resolve().parents[3]
 MAX_REPORT_BYTES = 20_000_000
 
@@ -175,6 +175,122 @@ def _resolve_source_locations(
         )
     if not result_locations:
         raise ValueError("formal report requires a verifiable original document citation")
+    primary_identities = {
+        (item["raw_source_sha256"], item.get("page"), item["locator"], item["quote"])
+        for item in result_locations
+    }
+    resolved_related: set[tuple[str, str, int, str, str]] = set()
+    for reference in finding.get("evidence", []):
+        if reference.get("kind") != "document":
+            continue
+        identity = (
+            reference.get("source_hash"),
+            reference.get("page"),
+            reference.get("locator"),
+            reference.get("quote"),
+        )
+        if identity in primary_identities:
+            continue
+        uri = reference.get("source_uri", "")
+        prefix = "artifact://related-document/"
+        if not isinstance(uri, str) or not uri.startswith(prefix):
+            raise ValueError(
+                "supporting document evidence is not bound to a frozen source location"
+            )
+        parts = uri[len(prefix) :].split("/")
+        if len(parts) != 4:
+            raise ValueError("related document evidence locator is malformed")
+        document_id, source_hash, section_id, revision_text = parts
+        if (
+            not source_hash
+            or source_hash != reference.get("source_hash")
+            or not revision_text.isdigit()
+            or document_id not in snapshot_docs
+        ):
+            raise ValueError("related document evidence identity is invalid")
+        revision_number = int(revision_text)
+        expected_doc = snapshot_docs[document_id]
+        document = session.scalar(
+            select(Document).where(
+                Document.tenant_id == principal.tenant_id,
+                Document.project_id == project_id,
+                Document.document_id == document_id,
+            )
+        )
+        if (
+            document is None
+            or document.sha256 != source_hash
+            or document.sha256 != expected_doc["raw_source_sha256"]
+        ):
+            raise ValueError("related evidence source differs from the frozen input")
+        section = session.get(
+            DocumentSection,
+            (principal.tenant_id, document_id, section_id),
+        )
+        if section is None or section.revision != revision_number:
+            raise ValueError("related evidence fragment revision is unavailable")
+        if revision_number == 0:
+            fragment = section.automatic
+        else:
+            historical = session.get(
+                SectionRevision,
+                (principal.tenant_id, document_id, section_id, revision_number),
+            )
+            if historical is None and section.revision == revision_number:
+                # As with primary citations, revision 1 is the automatic fragment unless a
+                # manual revision row exists. Later revisions remain append-only.
+                fragment = section.automatic
+            elif historical is None:
+                raise ValueError("related evidence fragment revision is unavailable")
+            else:
+                fragment = historical.payload
+        quote = fragment.get("text")
+        quote_hash = hashlib.sha256(str(quote).encode("utf-8")).hexdigest()
+        if (
+            quote != reference.get("quote")
+            or fragment.get("locator") != reference.get("locator")
+            or fragment.get("page") != reference.get("page")
+        ):
+            raise ValueError("related evidence quote does not match its source fragment")
+        reference_identity = {
+            "document_id": document_id,
+            "document_sha256": source_hash,
+            "section_id": section_id,
+            "section_revision": revision_number,
+            "locator": reference.get("locator"),
+            "page": reference.get("page"),
+            "quote_sha256": quote_hash,
+        }
+        expected_evidence_id = hashlib.sha256(
+            canonical_json(reference_identity).encode("utf-8")
+        ).hexdigest()
+        if reference.get("evidence_id") != expected_evidence_id:
+            raise ValueError("related evidence identity hash is invalid")
+        related_identity = (
+            document_id,
+            section_id,
+            revision_number,
+            reference.get("locator"),
+            quote_hash,
+        )
+        if related_identity in resolved_related:
+            continue
+        resolved_related.add(related_identity)
+        result_locations.append(
+            {
+                "document_id": document_id,
+                "raw_source_sha256": source_hash,
+                "parse_version": expected_doc["parse_version"],
+                "section_id": section_id,
+                "section_revision": revision_number,
+                "locator": reference["locator"],
+                "page": reference.get("page"),
+                "coordinate_system": fragment.get("coordinate_system"),
+                "bbox": fragment.get("bbox"),
+                "quote": quote,
+                "quote_sha256": quote_hash,
+            }
+        )
     return result_locations
 
 

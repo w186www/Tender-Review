@@ -142,6 +142,8 @@
         "tests/test_legal_retrieval.py",
         "tests/test_legal_evidence.py",
         "tests/test_legal_vector_index.py",
+        "tests/test_task0029_project_context.py",
+        "tests/test_task0030_real_rag.py",
         "src/bidding_compliance/legal/retrieval.py",
         "src/bidding_compliance/services/real_embedding_runtime.py"
       ]
@@ -155,6 +157,8 @@
         "tests/test_legal_evidence_classification.py",
         "src/bidding_compliance/graph/review.py",
         "src/bidding_compliance/services/real_ai_runtime.py",
+        "tests/test_task0029_evidence_quality.py",
+        "tests/test_task0029_report_citations.py",
         "contracts/schemas/semantic-analysis.schema.json"
       ]
     },
@@ -164,7 +168,9 @@
       "evidence": [
         "docs/development/product-delivery-validation.md",
         "scripts/run_task0011_e2e.py",
-        "src/frontend/e2e/workbench.spec.ts"
+        "src/frontend/e2e/workbench.spec.ts",
+        "src/frontend/src/pages/project.test.tsx",
+        "tests/test_task0027_needs_review_repair.py"
       ]
     },
     {
@@ -175,7 +181,8 @@
         "contracts/schemas/review-report.schema.json",
         "src/bidding_compliance/services/reporting.py",
         "src/bidding_compliance/services/reports.py",
-        "tests/test_review_reports.py"
+        "tests/test_review_reports.py",
+        "tests/test_task0029_report_citations.py"
       ]
     }
   ],

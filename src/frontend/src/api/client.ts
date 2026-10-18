@@ -10,18 +10,21 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code?: ApiCode;
   readonly requestId?: string;
+  readonly details?: Record<string, unknown>;
 
   constructor(
     status: number,
     message: string,
     code?: ApiCode,
     requestId?: string,
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.requestId = requestId;
+    this.details = details;
   }
 }
 
@@ -103,16 +106,24 @@ export async function unwrap<T>(
     const body = (result.error ?? {}) as Partial<ErrorBody>;
     const code = body.code;
     const requestId = body.request_id;
+    const details = asRecord(body.details);
     throw new ApiError(
       result.response.status,
-      apiMessage(result.response.status, code),
+      body.message || apiMessage(result.response.status, code),
       code,
       requestId,
+      details,
     );
   }
   if (result.data === undefined)
     throw new ApiError(500, "服务未返回可用数据。");
   return result.data;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  return value as Record<string, unknown>;
 }
 
 export function errorText(error: unknown): string {
@@ -159,9 +170,11 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      apiMessage(response.status, payload.code),
+      (typeof payload.message === "string" && payload.message) ||
+        apiMessage(response.status, payload.code),
       payload.code,
       payload.request_id,
+      asRecord(payload.details),
     );
   }
   return payload as T;

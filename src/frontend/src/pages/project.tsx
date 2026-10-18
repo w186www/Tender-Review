@@ -250,6 +250,20 @@ export function ProjectPage() {
           `${errorText(reason)}真实模型部署还要求所选文件已逐个登记外发授权；` +
             "请先在文档行完成「登记外发授权」，或取消选择未登记的文件后重试。",
         );
+      } else if (reason instanceof ApiError) {
+        const action = reason.details?.correction_action;
+        const documentId = reason.details?.document_id;
+        setError(errorText(reason));
+        if (action === "edit_project_context") {
+          setShowProjectEdit(true);
+        } else if (
+          action === "confirm_document_context" &&
+          typeof documentId === "string"
+        ) {
+          setContextDocument(
+            documents.find((item) => item.document_id === documentId) ?? null,
+          );
+        }
       } else {
         setError(errorText(reason));
       }
@@ -560,6 +574,10 @@ export function ProjectPage() {
         document={contextDocument}
         project={project}
         canEdit={identity?.role === "reviewer"}
+        onEditProjectContext={() => {
+          setContextDocument(null);
+          setShowProjectEdit(true);
+        }}
         onClose={() => setContextDocument(null)}
         onSaved={() => {
           setContextDocument(null);
@@ -947,15 +965,16 @@ function ContextDialog({
   canEdit,
   onClose,
   onSaved,
+  onEditProjectContext,
 }: {
   document: DocumentRecord | null;
   project: Project;
   canEdit: boolean;
   onClose: () => void;
   onSaved: () => void;
+  onEditProjectContext: () => void;
 }) {
   const [data, setData] = useState<ContextData | null>(null);
-  const [fields, setFields] = useState<ContextFields | null>(null);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -965,62 +984,40 @@ function ContextDialog({
     if (!document) return;
     let active = true;
     setData(null);
-    setFields(null);
+    setReason("");
     setError(null);
     setLoading(true);
     api
       .documentContext(document.project_id, document.document_id)
-      .then((context) => {
-        if (!active) return;
-        setData(context);
-        const value = (field: ContextData["candidates"][number]["field"]) =>
-          context.candidates.find((item) => item.field === field)?.value;
-        const manual = context.manual;
-        const validChoice = <T extends string>(
-          candidate: string | null | undefined,
-          allowed: readonly T[],
-          fallback: T,
-        ): T =>
-          candidate && allowed.includes(candidate as T)
-            ? (candidate as T)
-            : fallback;
-        setFields(
-          manual || {
-            name: value("name") || project.name,
-            procurement_type: validChoice(
-              value("procurement_type"),
-              ["government", "enterprise", "other"],
-              project.procurement_type,
-            ),
-            project_type: validChoice(
-              value("project_type"),
-              ["works", "goods", "services"],
-              project.project_type,
-            ),
-            region: value("region") || project.region,
-            industry: value("industry") ?? project.industry ?? null,
-            budget_amount: value("budget_amount")
-              ? Number(value("budget_amount"))
-              : (project.budget_amount ?? null),
-            applicable_system:
-              value("applicable_system") ?? project.applicable_system ?? null,
-            procurement_method: project.procurement_method,
-            buyer_type: project.buyer_type,
-            subject_type: project.subject_type,
-            legal_frameworks: project.legal_frameworks ?? [],
-          },
-        );
-      })
-      .catch((reason: unknown) => active && setError(errorText(reason)))
+      .then((context) => active && setData(context))
+      .catch(
+        (reasonValue: unknown) => active && setError(errorText(reasonValue)),
+      )
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [document, project]);
+  }, [document]);
+
+  function projectFields(): ContextFields {
+    return {
+      name: project.name,
+      procurement_type: project.procurement_type,
+      project_type: project.project_type,
+      region: project.region,
+      industry: project.industry ?? null,
+      budget_amount: project.budget_amount ?? null,
+      applicable_system: project.applicable_system ?? null,
+      procurement_method: project.procurement_method,
+      buyer_type: project.buyer_type,
+      subject_type: project.subject_type,
+      legal_frameworks: project.legal_frameworks ?? [],
+    };
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!document || !data || !fields) return;
+    if (!document || !data) return;
     setSaving(true);
     setError(null);
     try {
@@ -1030,7 +1027,7 @@ function ContextDialog({
         {
           expected_version: data.version,
           reason: reason.trim(),
-          context: fields,
+          context: projectFields(),
         },
       );
       onSaved();
@@ -1039,13 +1036,6 @@ function ContextDialog({
     } finally {
       setSaving(false);
     }
-  }
-
-  function update<K extends keyof ContextFields>(
-    key: K,
-    value: ContextFields[K],
-  ) {
-    setFields((current) => (current ? { ...current, [key]: value } : current));
   }
 
   return (
@@ -1079,120 +1069,76 @@ function ContextDialog({
               </Notice>
             )}
           </div>
-          {data && (
-            <div className="candidate-panel">
-              <h3>解析得到的上下文候选</h3>
-              {data.candidates.length === 0 ? (
-                <p className="muted">
-                  服务端未返回上下文候选。请按项目正式资料核对后填写。
-                </p>
-              ) : (
-                <ul className="candidate-list">
-                  {data.candidates.map((candidate, index) => (
-                    <li
-                      key={`${candidate.field}-${candidate.section_id || index}`}
-                    >
-                      <span>{apiEnumLabel(candidate.field)}</span>
-                      <strong>{candidate.value ?? "未识别"}</strong>
-                      <small>
-                        置信度 {Math.round(candidate.confidence * 100)}%
-                        {candidate.section_id
-                          ? ` · 片段 ${candidate.section_id}`
-                          : ""}
-                      </small>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          <div className="candidate-panel">
+            <h3>解析得到的上下文候选</h3>
+            {!data || data.candidates.length === 0 ? (
               <p className="muted">
-                候选值来自服务端解析，不会自动视为已确认。保存后将生成新的上下文版本。
+                服务端未返回上下文候选。请依据项目正式资料核对项目上下文。
               </p>
-            </div>
-          )}
+            ) : (
+              <ul className="candidate-list">
+                {data.candidates.map((candidate, index) => (
+                  <li
+                    key={`${candidate.field}-${candidate.section_id || index}`}
+                  >
+                    <span>{apiEnumLabel(candidate.field)}</span>
+                    <strong>{candidate.value ?? "未识别"}</strong>
+                    <small>
+                      置信度 {Math.round(candidate.confidence * 100)}%
+                      {candidate.section_id
+                        ? ` · 片段 ${candidate.section_id}`
+                        : ""}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="muted">
+              解析候选仅作为原文线索，不会自动成为检索依据。项目上下文是检索和审查的唯一权威来源。
+            </p>
+          </div>
+          {data?.manual &&
+            JSON.stringify(data.manual) !== JSON.stringify(projectFields()) && (
+              <Notice kind="info">
+                此文档原确认版本与当前项目上下文不同。确认时将记录当前项目值，保留本次版本和审计理由。
+              </Notice>
+            )}
+          <div className="candidate-panel">
+            <h3>当前项目上下文（唯一审查依据）</h3>
+            <dl className="context-project-values">
+              <dt>项目名称</dt>
+              <dd>{project.name}</dd>
+              <dt>地区</dt>
+              <dd>{project.region}</dd>
+              <dt>采购类型 / 方式</dt>
+              <dd>
+                {apiEnumLabel(project.procurement_type)} /{" "}
+                {apiEnumLabel(project.procurement_method)}
+              </dd>
+              <dt>采购主体</dt>
+              <dd>{apiEnumLabel(project.buyer_type)}</dd>
+              <dt>项目 / 标的类型</dt>
+              <dd>
+                {apiEnumLabel(project.project_type)} /{" "}
+                {apiEnumLabel(project.subject_type)}
+              </dd>
+              <dt>法律框架</dt>
+              <dd>
+                {(project.legal_frameworks ?? [])
+                  .map((item) => apiEnumLabel(item))
+                  .join("、") || "未指定"}
+              </dd>
+            </dl>
+          </div>
           {canEdit &&
-          fields &&
           (document.status === "needs_confirmation" ||
             document.status === "ready") ? (
             <form className="form-grid" onSubmit={(event) => void save(event)}>
               <div className="form-span">
-                <h3>审核并确认上下文</h3>
-              </div>
-              <ContextInput
-                label="项目名称"
-                value={fields.name}
-                onChange={(value) => update("name", value)}
-              />
-              <div className="form-field">
-                <label htmlFor="context-procurement">采购类型</label>
-                <select
-                  id="context-procurement"
-                  value={fields.procurement_type}
-                  onChange={(event) =>
-                    update(
-                      "procurement_type",
-                      event.target.value as ContextFields["procurement_type"],
-                    )
-                  }
-                >
-                  <option value="government">政府采购</option>
-                  <option value="enterprise">企业采购</option>
-                  <option value="other">其他</option>
-                </select>
-              </div>
-              <div className="form-field">
-                <label htmlFor="context-project-type">项目类型</label>
-                <select
-                  id="context-project-type"
-                  value={fields.project_type}
-                  onChange={(event) =>
-                    update(
-                      "project_type",
-                      event.target.value as ContextFields["project_type"],
-                    )
-                  }
-                >
-                  <option value="works">工程</option>
-                  <option value="goods">货物</option>
-                  <option value="services">服务</option>
-                </select>
-              </div>
-              <ContextInput
-                label="地区"
-                value={fields.region}
-                onChange={(value) => update("region", value)}
-              />
-              <ContextInput
-                label="行业"
-                value={fields.industry || ""}
-                required={false}
-                onChange={(value) => update("industry", value || null)}
-              />
-              <div className="form-field">
-                <label htmlFor="context-budget">预算金额（元）</label>
-                <input
-                  id="context-budget"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={fields.budget_amount ?? ""}
-                  onChange={(event) =>
-                    update(
-                      "budget_amount",
-                      event.target.value ? Number(event.target.value) : null,
-                    )
-                  }
-                />
-              </div>
-              <div className="form-field form-span">
-                <label htmlFor="context-system">适用制度说明</label>
-                <textarea
-                  id="context-system"
-                  rows={2}
-                  value={fields.applicable_system || ""}
-                  onChange={(event) =>
-                    update("applicable_system", event.target.value || null)
-                  }
-                />
+                <h3>确认文档与项目上下文一致</h3>
+                <p className="muted">
+                  如上方项目字段有误，先编辑项目上下文；本页不再维护第二份可编辑副本。
+                </p>
               </div>
               <div className="form-field form-span">
                 <label htmlFor="context-reason">
@@ -1206,22 +1152,24 @@ function ContextDialog({
                   required
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
-                  aria-describedby="context-reason-hint"
                 />
-                <small id="context-reason-hint">
-                  请说明核对来源或需要修正的内容。
+                <small>
+                  请说明依据的文件位置或项目资料来源。确认将生成新的文档上下文版本。
                 </small>
               </div>
               <div className="modal-actions form-span">
+                <Button type="button" onClick={onEditProjectContext}>
+                  编辑项目上下文
+                </Button>
                 <Button type="button" onClick={onClose}>
                   关闭
                 </Button>
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={saving || loading}
+                  disabled={saving || loading || !data}
                 >
-                  {saving ? "正在保存…" : "确认上下文"}
+                  {saving ? "正在保存…" : "按项目上下文确认"}
                 </Button>
               </div>
             </form>
@@ -1237,31 +1185,5 @@ function ContextDialog({
         </div>
       )}
     </Dialog>
-  );
-}
-
-function ContextInput({
-  label,
-  value,
-  onChange,
-  required = true,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-}) {
-  const id = `context-${label}`;
-  return (
-    <div className="form-field">
-      <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        required={required}
-        maxLength={300}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </div>
   );
 }

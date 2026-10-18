@@ -335,7 +335,7 @@ describe("project page document repair path", () => {
       await screen.findByLabelText(/确认理由/),
       "已核对项目资料与原件，确认上下文",
     );
-    await user.click(screen.getByRole("button", { name: "确认上下文" }));
+    await user.click(screen.getByRole("button", { name: "按项目上下文确认" }));
     await waitFor(() =>
       expect(
         calls.filter(
