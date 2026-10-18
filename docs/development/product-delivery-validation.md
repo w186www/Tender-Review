@@ -781,3 +781,29 @@
 - 四组真实浏览器结果（清晰扫描 PDF、派生文本 PDF、DOCX、200 页合成容量样本）及每组 10 项 content-check 保留在 gitignored `.verification/acceptance/2026-10-18/`；它们是上一部署候选 `33a7e81` 的公网结果。最终候选的运行时差异已由镜像内重放覆盖，既有发布结果未被改写；本轮没有为部署重复全部耗时真实审查。
 - 覆盖仍为 partial：DOCX 458 个饱和源单元、2 次候选拒绝；文本 PDF 剩余 13 次引用拒绝；DOCX/派生 PDF 风险 44/17 的差异没有被完全因果解释；清晰扫描样本仅 2 页且主要为目录；200 页容量为单次合成样本（创建至等待人工约 890.784 秒，含前序排队），不是 P95/一般容量承诺。外部告警渠道未配置；正式法律支持为 0（无独立核验/签署）；专家标签为 0，precision/recall 未测。
 - 用户独立网页验收尚未发生；本轮交付工程候选，不声称用户已验收，不把自动确认脚本或本记录当作验收。
+
+## 2026-10-18 TASK-0029 用户真实 PDF 上传误拒修复
+
+### 事实与修正
+
+- 用户原 PDF 为 1,185,979 字节、152 页、未加密、原文 SHA-256 `4fe02d53170581fdec1986e647dfacc6ab530bf6847d52cae5b91c881380924a`。服务器两个既有记录均在解析阶段报 `INVALID_FILE`，并非超大小/页数、病毒或模型拒绝；两条原记录完整保留。
+- `src/bidding_compliance/ingestion/parser.py::inspect_pdf` 的递归深度混合了对象图引用和内联嵌套，正常书签 `/Next` 链触发 depth>50。修正为有界迭代遍历和间接引用去重；单对象内联嵌套 50 层、工作量 50,000、JavaScript/Launch/附加文件/主动动作等检查保留。新增 `tests/test_ingestion_pdf_graph.py` 7 项覆盖正常长书签、深链中的主动内容、深内联及超量对象。
+- 修正书签后另有 `TABLE_STRUCTURE_GAP`。只读渲染 PDF 17/122 页显示正常合并单元格、空白填写栏；原 parser 丢弃空单元格，旧 quality 又混合不同页的同号表，非空列计数不能表达真实结构。现保留空单元格、按 `(page, table)` 分组，几何检查覆盖跨行/跨列单元格；无可信 PDF 几何或 OOXML 仍采用原行列判断。同一阈值和缺格反例保持，没有全局关闭质量门禁。
+- 新增结构测试 3 项覆盖横向/纵向合并与空格、真实几何缺格、跨页同号表。接口/Schema 无变化，空文本原已在 Fragment 契约中允许。源文件正文始终 86,182 字，定位不改写；新输出 4,405 片段中保留空单元格，quality=passed、issues=[]。
+
+### 验证和部署身份
+
+- 图/摄取 Focused 38 passed；新增图/结构定向 18 passed。最终源码 `63dd7879769769982bd38c4d7e967c64da602175` 的官方 Full 七阶段 exit 0：968 passed、2 项既有 pypdf 弃用警告、600.66s；HTTP health/404、鉴权/项目生命周期通过。首轮仅书签修正的 965 项不替代最终候选证据。最终日志 `.verification/completion-20261018/chuzhou-final-full.log`。
+- [PR 全量 CI 39113130830](https://github.com/w186www/Tender-Review/actions/runs/39113130830) 的 impact、真实 ingestion、真实 PostgreSQL、baseline、verify-required 均 success；quick 在 Full 模式 skipped。修正 [PR #3](https://github.com/w186www/Tender-Review/pull/3) 普通合并，SHA `7d1bd70f6f43e9738d0a0a97ccfd75a805ebdabf`。
+- 部署前备份 `/opt/tender-review/backups/20261018T084638Z`；官方 restore --verify 通过，41 个 document 等逐表计数一致，MinIO/modelstate checksum 通过。受保护配置副本位于同目录 `deploy.env.before-bookmarkfix`、600 权限。未使用破坏性恢复。
+- 部署 `63dd787`：API `sha256:edffa9778f0075887d174aef20b058efd448b85d6a0e4eae735335047d65cac1`，parser `sha256:113dc124c4d77f7f05815eb6d64576b30d2e9df178d95ffb5a0ffa2eb4982afe`；web 使用原镜像新标签。仅重建/重启 api、review-worker、worker、nginx；保留 product-postgres、TLS overlay、数据服务、卷，无迁移。部署完成后 HTTPS health=200。
+
+### 用户原文件公网网页复验
+
+- Edge 在用户原项目 `4b3738a2-0e77-4939-a93e-04dd58fb6d00` 真实选择原始文件并点击上传，HTTP 202。新文档 `2f71831c-31b1-4a65-8870-843cdb1a1ab1` → `needs_confirmation`，网页“等待上下文确认”；DB P1/C1、issues=[]、job succeeded/attempts=1、SHA 与原文件一致。两条旧拒绝记录未清除。
+- 原始私有证据保存在 gitignored `.verification/completion-20261018/chuzhou-browser-result.json`、`chuzhou-browser-upload.png`、`chuzhou-final-status.json`、`chuzhou-deployed.json`、`chuzhou-backup.json`，真实 PDF 不进入 Git。最终服务器 DB 复核调用数仍 218、spent ¥1.41978080/reserved 0，本轮没有模型调用和费用。
+- 停在人工上下文确认前；未替用户确认适用范围、登记外发授权、发起审查或签署验收。当前项目地区仍为用户原配置“北京”，应由用户依据文件核对。本专项证明上传解析恢复，不证明该文件已生成合规结果；TASK-0029 总体状态仍 in_progress。
+
+### 回退
+
+- 旧 API/web `task0029-89766d8` 与旧 parser `sha256:b33847d4b2dd39790edd3f5af5898442cf07d9a7035a2dbc1e39c517de4e9ca5` 保留。必要时使用受保护的部署前配置恢复上述身份，再通过 base+TLS overlay 重启四个应用服务；不恢复业务数据库、不覆盖账本、不删除卷。本次无需数据回退。
