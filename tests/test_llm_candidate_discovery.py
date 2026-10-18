@@ -168,6 +168,47 @@ def test_overlapping_duplicate_quote_is_rejected_as_ambiguous():
     assert len(rejected[0]["candidate_identity_hash"]) == 64
 
 
+@pytest.mark.parametrize(
+    ("source", "quote"),
+    [
+        ("收到发票后\n支付货款。", "收到发票后支付货款。"),
+        ("收到发票后支付货款。", "收到发票后 支付货款。"),
+        ("收到发票后\u3000支付货款。", "收到发票后支付货款。"),
+    ],
+)
+def test_whitespace_only_quote_mapping_preserves_original_evidence(source, quote):
+    _, mapping = freeze((located(source),))
+    (batch,) = llm.plan_discovery(mapping)
+    accepted, rejected = validate(batch, response_for(batch, quote=quote))
+    assert rejected == ()
+    assert len(accepted) == 1
+    excerpt = accepted[0].source_excerpts[0]
+    assert excerpt.quote == source
+    assert excerpt.quote_sha256 == hashlib.sha256(source.encode()).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("source", "quote"),
+    [
+        ("验收后付款。验收 后付款。", "验收\n后付款。"),
+        ("收到发票后支付货款。", "收到发票前支付货款。"),
+        ("收到发票后支付货款。", "收到发票后，支付货款。"),
+    ],
+)
+def test_quote_mapping_still_rejects_ambiguity_and_non_whitespace_edits(source, quote):
+    _, mapping = freeze((located(source),))
+    (batch,) = llm.plan_discovery(mapping)
+    accepted, rejected = validate(batch, response_for(batch, quote=quote))
+    assert not accepted
+    assert rejected[0]["reason"] == "quote_missing_or_ambiguous"
+
+
+def test_quote_span_mapping_never_crosses_sections_or_accepts_blank_text():
+    assert llm._unique_source_span("验收后付款。", " \n\t") is None
+    assert llm._unique_source_span("验收后", "验收后付款。") is None
+    assert llm._unique_source_span("aaaaa", "aaaa") is None
+
+
 def test_redaction_maps_exact_safe_quote_to_original_without_sending_contacts():
     text = "联系人：张某某，电话13812345678，邮箱review@example.test。采购款项验收后支付。"
     _, mapping = freeze((located(text),))

@@ -678,6 +678,29 @@ def make_discovery_request(
     )
 
 
+def _unique_source_span(text: str, quote: str) -> tuple[int, int] | None:
+    """Resolve an exact quote, or whitespace-only formatting, to original offsets.
+
+    No non-whitespace character is substituted or guessed. The fallback requires a
+    unique normalized occurrence and returns the untouched source span, never the
+    model's reformatted text. Repeated/overlapping occurrences remain ambiguous.
+    """
+    if not quote or not quote.strip():
+        return None
+    start = text.find(quote)
+    if start >= 0:
+        if text.find(quote, start + 1) >= 0:
+            return None
+        return start, start + len(quote)
+    normalized_quote = "".join(character for character in quote if not character.isspace())
+    offsets = [index for index, character in enumerate(text) if not character.isspace()]
+    normalized_text = "".join(text[index] for index in offsets)
+    start = normalized_text.find(normalized_quote)
+    if start < 0 or normalized_text.find(normalized_quote, start + 1) >= 0:
+        return None
+    return offsets[start], offsets[start + len(normalized_quote) - 1] + 1
+
+
 def validate_response(
     batch: DiscoveryBatch,
     response: ModelResponse,
@@ -736,18 +759,22 @@ def validate_response(
             continue
         quote = item["quote"]
         safe = section.safe_text
-        local_start = safe.find(quote)
-        if local_start < 0 or safe.find(quote, local_start + 1) >= 0:
+        source_span = _unique_source_span(safe, quote)
+        if source_span is None:
             rejections.append(
                 rejected_candidate("quote_missing_or_ambiguous", item, section)
             )
             continue
+        local_start, local_end = source_span
         absolute_start = section.start + local_start
-        original_quote = section.located.fragment.text[absolute_start : absolute_start + len(quote)]
+        matched_quote = safe[local_start:local_end]
+        original_quote = section.located.fragment.text[
+            absolute_start : section.start + local_end
+        ]
         # Safe string equality proves exact original offsets even where PII was masked.
-        if len(original_quote) != len(quote) or any(
+        if len(original_quote) != len(matched_quote) or any(
             sent != original and sent != "*"
-            for sent, original in zip(quote, original_quote, strict=True)
+            for sent, original in zip(matched_quote, original_quote, strict=True)
         ):
             rejections.append(rejected_candidate("quote_mapping_invalid", item, section))
             continue
