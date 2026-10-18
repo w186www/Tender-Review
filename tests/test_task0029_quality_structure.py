@@ -101,3 +101,50 @@ def test_existing_low_quality_failures_remain_failures():
     assert not quality([fragment("短", page=1)], load_policy())
     assert not quality([fragment("(cid:12)" * 20, page=1)], load_policy())
     assert not quality([fragment("正常文字", page=1, confidence=0.1)], load_policy())
+
+
+def test_pdf_merged_header_and_blank_cells_keep_table_coverage():
+    cells = [
+        (0, 0, "合并标题", [0, 0, 30, 10]),
+        (1, 0, "", [0, 10, 10, 20]),
+        (1, 1, "", [10, 10, 20, 20]),
+        (1, 2, "备注", [20, 10, 30, 40]),
+        (2, 0, "", [0, 20, 10, 30]),
+        (2, 1, "", [10, 20, 20, 30]),
+        (3, 0, "合计", [0, 30, 20, 40]),
+    ]
+    items = [
+        fragment(
+            text, kind="table_cell", source="native", table=0, row=row, column=column
+        ).model_copy(update={"bbox": bounds})
+        for row, column, text, bounds in cells
+    ]
+    assert "TABLE_STRUCTURE_GAP" not in quality_issues(items, load_policy())
+
+
+def test_pdf_geometry_still_flags_missing_cell_coverage():
+    items = [
+        fragment(
+            "内容", kind="table_cell", source="native", table=0, row=row, column=column
+        ).model_copy(update={"bbox": [column * 10, row * 10, (column + 1) * 10, (row + 1) * 10]})
+        for row in range(4)
+        for column in range(3 if row == 3 else 1)
+    ]
+    assert "TABLE_STRUCTURE_GAP" in quality_issues(items, load_policy())
+
+
+def test_table_numbers_are_scoped_to_pdf_page():
+    items = [
+        fragment(
+            f"内容{page}{row}{column}",
+            page=page,
+            kind="table_cell",
+            table=0,
+            row=row,
+            column=column,
+        )
+        for page, rows, columns in [(1, 5, 2), (2, 2, 5)]
+        for row in range(rows)
+        for column in range(columns)
+    ]
+    assert "TABLE_STRUCTURE_GAP" not in quality_issues(items, load_policy())
