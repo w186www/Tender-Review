@@ -2,37 +2,28 @@
 
 更新时间：2026-10-18
 
-## 接续实施状态（2026-10-18，Full/CI/备份通过，部署受 Workbench SessionLimit 阻塞）
+## 接续实施状态（2026-10-18，候选已部署；公网真实文件验收受登录 401 阻塞）
 
 ### 已完成
 
-- 当前分支 `work/TASK-0027`，HEAD 与 origin 一致为 `0f498c6ae41dd1230f83b303490243a543e09140`；OCR 代码候选 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04` 已提交、推送。唯一私人未跟踪文件 `question.txt` 未读写、不得提交。
-- Docker 客户端/Server 均为 29.2.1，Linux Engine `desktop-linux` 正常。受限命令进程访问 Windows named pipe 返回 Access denied；通过系统常规提升权限路径只读连接成功。未重装、改 ACL、清理卷或改 context。
-- Alibaba Workbench CLI v1.0.4 使用现有 `default` 身份，daemon 已按要求隐藏启动。直接 `workbench exec` 曾正常读取 ECS；ECS 列表 API 缺少 `ecs:DescribeInstances` 返回 403，不换账户、不读取或输出凭据。
-- 代码候选官方 Full：`./scripts/verify.ps1 -Mode Full` 退出码 0，七阶段通过；后端 **945 passed / 0 failed / 0 skipped / 2 条既有 pypdf 弃用警告，629.20s**。Full 后只有状态元数据变化，Quick 已通过。
-- GitHub Actions run [39097499595](https://github.com/w186www/Tender-Review/actions/runs/39097499595) 对 HEAD `0f498c6` 的 `impact/postgres/ingestion/baseline/verify-required` 全部 success；`quick` 在 Full 模式下按条件 skipped。PostgreSQL 专项覆盖迁移/RLS/租户隔离/并发/回退，CI 成功。
-- U11/U15 相关官方 Focused 退出码 0：**117 passed in 133.76s**；契约、Ruff、Mypy 112 文件、前端 OpenAPI/lint/typecheck/Vitest 14/14/build 均通过。JUnit 选定文件共 117 项、0 failures/errors/skipped；队列 E2E 既有 5/5 通过。线上角色读取仅观察到 admin/auditor/reviewer 各 1 个账户，租户数为 1；三类现有 `.env` 凭据对线上登录均返回 HTTP 401，匿名项目列表 401。没有创建项目/租户、重置密码或改用其他账户。
-- 本地隔离 parser 对真实衍生扫描 PDF：2 页、70 fragments、579 OCR words、质量 `passed`、issues=[]；3 个低置信数字被识别为有标点的目录编号，数字阈值仍为 0.80；耗时 3,084 ms，进程峰值 RSS 95,711,232 字节、容器峰值 155,885,568 字节。该样本尚未完成服务器网页/模型/报告链。
-- ECS 只读状态：服务器源码仍为旧部署 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`，工作树 clean；API/review-worker/worker/nginx `task0030-d3cb613` running，`staging/product-postgres`、迁移 `202610172000`、TLS overlay 生效、health HTTP 200。账本 477 条；limit ¥200、spent ¥1.04007020、reserved ¥0；312 embedding / 165 LLM 均 settled，unknown/unsettled 0。无活跃 engine run 或 ingestion job；8 条父 `review_task=running` 均关联已结束的 `result_published` engine run，未改生产记录。
-- 新全量备份 `/opt/tender-review/backups/20261018T044240Z` 已创建；官方 `restore.sh --verify` 通过，临时恢复库表计数与线上一致（tenant 1、app_user 3、project 27、document/job 36、review_task 27、result 17、report 38、report_content 19、audit_event 1093），MinIO/modelstate checksum 均通过，生产数据未被修改。
+- 当前分支 `work/TASK-0027`，代码候选 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04` 已通过官方 Full 并部署；记录提交 HEAD/origin 为 `33a7e812ecc3f505943b2d35bbbde3adbb071cbc`。私人未跟踪 `question.txt` 保留且未读取、未提交。
+- Docker Linux Engine 29.2.1 通过既有提升权限路径可连接；普通沙箱进程访问 `desktop-linux` named pipe 曾返回 Access denied。未重装 Docker、改 ACL/context、清卷或重建依赖。Alibaba Workbench CLI v1.0.4 使用现有 `default` 身份；daemon 隐藏启动。ECS 列表 API 缺少 `ecs:DescribeInstances` 返回 403，直接受授权实例命令可用。
+- 官方 Full 对冻结代码候选退出码 0：七阶段通过，945 passed、0 failed/skipped、2 条既有 pypdf 弃用警告，629.20s。PostgreSQL 专项 CI 成功覆盖迁移、RLS、租户隔离、并发和回退；U11/U15 相关 Focused 为 117 passed、0 skipped。HEAD `0f498c6` 的 Actions run `39097499595` 所有适用作业 success；文档状态提交 `33a7e81` 的 run `39098956114` 中 impact/quick/verify-required success。
+- 服务器新全量备份 `/opt/tender-review/backups/20261018T051801Z` 在部署前创建，官方 `restore.sh --verify` 通过；隔离恢复计数与线上相符，MinIO/modelstate checksum 通过。部署源码为 `33a7e812ecc3f505943b2d35bbbde3adbb071cbc`，工作树 clean；API/web 镜像 `task0029-33a7e81`，固定 parser 镜像 `sha256:b33847d4b2dd39790edd3f5af5898442cf07d9a7035a2dbc1e39c517de4e9ca5`。只重启 api/review-worker/worker/nginx；数据服务和卷未重启/改动。
+- 部署后服务器仍为 `APP_ENV=staging`、`DEPLOY_REVIEW_MODE=product-postgres`、TLS overlay 生效、迁移 `202610172000`、health HTTP 200；API、review-worker、worker、nginx 均运行。账本仍为 limit ¥200、spent ¥1.04007020、reserved ¥0、477 条 settled reservation（312 embedding、165 LLM），unknown/unsettled 0；未增加模型调用或费用。无活跃 engine run/ingestion job；8 个旧 `review_task=running` 父记录对应已结束的 `result_published` engine run，未改生产数据。
+- 部署镜像回退启动专项通过：隔离、只读、无网络容器以 `APP_ENV=staging` 启动 `authorized-real`，按预期 exit 2 并拒绝旧 DEC-007 账本装配。PostgreSQL 隔离/回退门禁也有同候选 CI 证据。
+- 真实衍生清晰扫描 PDF 在服务器用固定 parser 镜像和生产同等限制（512 MiB、1 CPU、无网络、只读 rootfs）完整解析：2 页、70 fragments、579 OCR words、质量 `passed`、issues=[]；3 个低置信数字未触发门禁。Tesseract 5.3.0，4,382 ms，进程峰值 RSS 96,157,696 bytes。容器 memory peak 未报告。输出仅保留聚合指标；本次上传的唯一 `/tmp/task0029-scan-20261018.pdf` 已删除并确认不存在。
 
-### 正在进行
+### 正在进行 / 下一步
 
-- TASK-0029 仍 `in_progress`。候选覆盖/拒绝统计、OCR 与 staging/production 回退拒绝已有实现，但 DOCX/PDF 新候选风险差异、清晰扫描 PDF 网页端完整审查/报告内容版式/运行负载、U11/U15 线上异常与角色矩阵尚未完成。
-- 旧服务器工件：真实 DOCX 6 个、派生文本 PDF 17 个候选被拒绝，原因均为 `quote_missing_or_ambiguous`；唯一原文单元分别 1,155 / 1,562。旧工件没有拒绝候选到源单元/恢复族的映射。旧 DOCX/PDF 风险数 41/13、类别和定位差异已核对，但不能归因或宣称无遗漏。
-
-### 下一步
-
-- Workbench CLI 返回两次 `403 Forbidden.SessionLimit`：request IDs `01A14D57-1EE1-5AD4-B667-D44EF463A7CC`、`01A14D57-F673-54CC-8A6A-E5E056774771`。隐藏 daemon 的 `session list --output json` 为 `[]`；不关闭未知会话。按官方 CLI 空闲回收窗口等待后，用同一 `default` 身份重试一次；若仍超限，报告该错误并需管理员/用户在 Workbench 控制面清理残留会话。
-- 真实 API 登录使用现有 `deploy/.env` 的 `DEMO_TENANT` 和三种已配置角色，均返回 401。完成真实文件验收前需恢复这组既有凭据或由用户交互登录；不打印、重置密码或切换账户。
-- Workbench 恢复后复核在途任务/预算，快进服务器至当前候选；按既有 parser/API/nginx 部署流程保留 TLS overlay，再检查镜像/源码/迁移/worker/health/账本和备份。
-- 新候选上完成清晰扫描 PDF 全链、DOCX 与派生 PDF 的覆盖拒绝原因和风险差异、报告正文与版式、一次实际审查资源样本；继续 U11/U15 异常/多角色/多租户矩阵和必要运行检查。线上仅 1 个租户，真实跨租户必须使用隔离 PostgreSQL 验证，不能宣称已在线验收。
+- TASK-0029 保持 `in_progress`。真实网页审查、清晰扫描 PDF 的上下文/模型/发布/Word/PDF 内容与版式、DOCX/PDF 新候选拒绝原因和风险差异、真实审查负载及完整 U11/U15 线上矩阵尚未完成。
+- 继续前需通过受保护登录恢复已授权的现有角色凭据，或由用户在浏览器交互登录。现有 `deploy/.env` 的 admin/auditor/reviewer 登录均返回 HTTP 401；匿名项目列表为 401。未输出凭据、重置密码、创建项目/租户或切换账户。登录恢复后继续实际文件和角色矩阵验收；线上仅有 1 个租户，跨租户仍以隔离 PostgreSQL 验证，不能声称线上多租户已实测。
+- 旧服务器 DOCX/PDF 工件实际候选拒绝 6/17，原因均为 `quote_missing_or_ambiguous`；唯一输入源单元 1,155/1,562，但旧制品没有拒绝候选到源单元/恢复族映射。旧风险数 41/13 的因果差异未知；不得宣称无遗漏。须在新候选真实运行后补当前覆盖明细。
 
 ### 已知问题与待决策
 
-- 部署、报告下载、线上实际负载和清晰扫描网页审查目前被 Workbench SessionLimit 阻塞；真实 API 角色凭据同时返回 401。已完成的 Full/CI/Focused 与新备份 restore verify 仍是独立有效证据，不把环境失败记为通过。
-- 专家标签为 0、precision/recall 未测；独立法规核验依据为 0；历史 DOCX/PDF 差异不能用旧运行证明因果；用户独立验收尚未发生。TASK-0029 保持 `in_progress`。
-
+- 当前唯一实质执行阻塞是现有受保护角色凭据无法登录（HTTP 401）。最小解除动作：恢复当前 `deploy/.env` 已配置身份的有效凭据，或由有权用户交互完成登录；不要在聊天中粘贴秘密。WorkBench 和 Docker 环境已恢复，候选已部署，备份/服务健康/回退/OCR parser 检查均有证据。
+- 专家标签为 0、precision/recall 未测；独立法规核验依据为 0；用户独立验收尚未发生。TASK-0029 不标完成，环境失败不算验收通过。
 
 ## 前次正式进度快照：U01/U02/U04/U05 已完成；U03/U07/U10 进行中；U06/U08/U09/U11/U12 有真实交付证据但未全部满足正式单元条件；服务器上次记录为 product-postgres。当前接续状态如下。
 

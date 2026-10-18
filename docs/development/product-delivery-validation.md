@@ -744,3 +744,10 @@
 - U11/U15 针对性官方 Focused（身份/项目、逐文件授权、执行授权、超时找回、调用恢复、法规运行/发布 7 个现有测试文件）退出码 0，117 passed、0 skipped；Ruff、Mypy 112 源文件、前端 14 tests/build 通过。线上仅一个租户，角色账户各一；跨租户安全使用隔离 PostgreSQL/CI 证据，不据单租户线上环境声称已完整实测。
 - 真实扫描 PDF 的 OCR 质量门禁已通过；仍须在服务器部署该候选后完成网页上传、人工上下文、真实模型审查、发布、Word/PDF 下载，并核对报告实际文本、页数、页面布局、服务端哈希与覆盖/拒绝统计。还须采集实际负载耗时/资源；本次 2 页 parser 指标不等于产品容量验收。
 - DOCX/派生文本 PDF 历史风险差异的因果与拒绝源单元恢复关系仍无法从旧制品还原；当前服务器新候选运行需补完整覆盖数据。U11/U15 异常、撤权、多角色/多租户、暂停/恢复、容量、备份和报告矩阵按总体验收继续。专家标签为 0、precision/recall 未测；用户独立验收未发生。
+## 2026-10-18 部署后服务器复验与剩余登录阻塞
+
+- **候选发布：**代码候选 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04` 经官方 Full（945 passed、0 failed/skipped）后，源码推进到记录提交 `33a7e812ecc3f505943b2d35bbbde3adbb071cbc` 并部署。部署前新备份 `/opt/tender-review/backups/20261018T051801Z` 的官方 `restore.sh --verify` 通过。API/web 镜像 `task0029-33a7e81`；固定 parser 镜像 `sha256:b33847d4b2dd39790edd3f5af5898442cf07d9a7035a2dbc1e39c517de4e9ca5`。仅重启 api/review-worker/worker/nginx，未重启数据服务或触碰卷。
+- **部署后状态：**`APP_ENV=staging`、`DEPLOY_REVIEW_MODE=product-postgres`、TLS overlay、迁移 `202610172000` 保持；health HTTP 200，api/review-worker/worker/nginx 均运行。账本 limit ¥200、spent ¥1.04007020、reserved ¥0，477 条 reservation 全部 settled（312 embedding/165 LLM），unknown/unsettled 0；本轮未触发模型调用或额外费用。不存在活跃 engine run/ingestion job；8 个旧父 `review_task=running` 仍关联已结束的 `result_published` engine run，未修改生产记录。
+- **回退专项：**在部署 API 镜像中以 staging + `authorized-real` 启动隔离、只读、无网络容器，实际 exit 2，并输出拒绝 DEC-007 独立账本装配的预期错误；同候选 CI PostgreSQL 专项通过迁移、RLS、租户隔离、并发和数据库回退门禁。
+- **服务器 OCR：**真实衍生清晰扫描 PDF 通过固定 parser 镜像、512 MiB/1 CPU、无网络/只读 rootfs 解析：2 页、70 fragments、579 OCR words、`quality=passed`、`issues=[]`、3 个低置信数字未触发门禁；Tesseract 5.3.0，4,382 ms，进程峰值 RSS 96,157,696 bytes。容器 memory peak 未返回。无正文进入终端输出；仅删除本次上传且此前已确认不存在的 `/tmp/task0029-scan-20261018.pdf`。
+- **登录阻塞与边界：**现有 `deploy/.env` 的 admin/auditor/reviewer 登录均 HTTP 401，匿名项目列表 401。没有重置/输出凭据、换账户或创建项目/租户。因此本次服务器解析不代表网页审查、模型分析、报告下载/版式或真实业务负载验收。最小解除动作是恢复已配置的现有角色凭据或由有权用户交互登录。DOCX/PDF 旧候选拒绝 6/17 的原因可查均为 `quote_missing_or_ambiguous`，但旧工件没有候选到源单元/恢复族映射；旧风险差异 41/13 不能归因。TASK-0029 保持 `in_progress`。
