@@ -717,3 +717,27 @@
 - **部署前服务器基线：** workbench 使用现有身份隐藏启动 daemon 并可执行对已授权 ECS 的直接命令；列表 API 缺 `ecs:DescribeInstances` 返回 403，但没有换身份。服务器 `/opt/tender-review` 工作树干净，旧 HEAD 为 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`；`staging/product-postgres`、迁移 `202610172000`、TLS Compose 覆盖生效，api/review-worker/worker/nginx 均运行 `task0030-d3cb613`。PostgreSQL limit ¥200，spent ¥1.04007020，reserved ¥0，477 条 reservation；165 LLM 和 312 embedding 均 settled，无 unknown/unsettled。8 个 review_task 显示 running，但各自 engine run 已 result_published；无 running engine run 或 ingestion job。这是持久父状态不一致，未直接修改生产记录。最近备份 `/opt/tender-review-backups/20261017T213903Z` 的 PostgreSQL、MinIO、modelstate 归档 SHA-256 均通过；候选部署前仍须新备份并复验。
 - **记录与下一步：** 更新状态/证据后运行官方 Quick（该命令不运行运行时测试），再提交限于 TASK-0029 的文件、推送并核对 CI；先新建与校验全量备份，再按 `docker-compose.demo.yml` 叠加 `deploy/docker-compose.tls.yml` 发布。部署后使用既有受保护身份对清晰中文扫描 PDF 完成 OCR→上下文→真实审查→Word/PDF 下载，并核对报告内容/版式与服务端冻结结果；采集该次真实审查各阶段耗时和容器资源。一个低页数 OCR 样本是工作负载观测，不等于完整容量压测。
 - **尚未完成：** DOCX/PDF 逐条差异因果、历史拒绝源单元/恢复统计、真实扫描 PDF 完整链、实际审查资源样本、完整 U11/U15 角色/异常/多租户与运行/容量矩阵、外部告警送达、专家金标效果指标和用户独立验收。现有证据不能证明完全无遗漏；法规独立核验依据数为 0，不阻止按 DEC-009 的库内采用政策继续工程交付，也不得伪称已核验或法律结论。
+
+## 2026-10-18 清晰扫描 OCR 数字置信度定点修正与最终候选验证
+
+**执行单元/TASK：** U06 / TASK-0029（`TASK0029-002`）。本节只记录真实扫描样本暴露的质量信号误报修正；TASK-0029、U06 总体状态不据此标记完成。
+
+### 定点诊断与实现
+
+- 对既有经授权真实 DOCX 派生的两页清晰中文扫描 PDF，使用仓库既有隔离 `DockerParser` 与固定 `config/ingestion.yaml` 解析；不打印 OCR 正文。结构摘要为 70 个合并片段、579 个词级记录、两页各有密集的编号/中文标题/末尾页码目录行；`目录` 标题未被 OCR 识别。
+- 最初触发 `LOW_CONFIDENCE_NUMERIC` 的 3 个低置信数字均位于目录结构行首，是章节编号，不是正文金额、日期或末尾页码。之前将它们称为目录“页码”的表述不准确，现以词序位置和重复行结构更正。
+- `quality.py` 仅在行内有编号标点/层级、中文或字母标题、末尾有效页码，并且页面具备目录标题及多条结构行，或无标题时具备至少 12 条重复目录行（连续页至少 6 条）时，豁免该行首编号的数字置信度信号。普通纯数字表格首列不符合编号格式，仍受原门禁约束；正文金额/日期词仍逐词按 `min_numeric_confidence=0.80` 检查。未降低阈值、未移除 `needs_review` 门禁。
+- 私有公网验收脚本仅做必要适配：控制台允许字段为状态/计数/覆盖分项/报告哈希，不输出风险标题或错误响应正文；结果 JSON 与页面截图保留在 gitignored `.verification/acceptance/2026-10-18/`。`node --check` 通过。此脚本和文件不进入 Git。
+
+### 验证结果
+
+- 官方 Focused：`./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_task0029_ocr_structure.py` 退出码 0；后端 7 项通过，新增并保留目录标题页、无标题重复目录、纯数字表格和正文金额反例。Ruff 全过，Mypy 112 个源码文件无问题，前端 OpenAPI/静态/TypeScript/Vitest 14 项/生产构建通过。
+- 真实扫描隔离解析器固定镜像 `sha256:7d3a141c44e106499d7f5b9420f351a64f8dc130380c9d1d2ab3de2a6e858a26`；结果 `quality=passed`、`issues=[]`，低置信数字 3/3 被识别为目录编号，剩余低置信关键数字 0；策略阈值 0.80 未改。耗时 3,084 ms，解析进程峰值 RSS 95,711,232 bytes、容器峰值 155,885,568 bytes。该局部解析不等于网页/真实模型审查验收。
+- 最终代码候选官方 `./scripts/verify.ps1 -Mode Full` 退出码 0：七阶段通过；后端 **945 passed, 0 failed, 0 skipped, 2 existing pypdf deprecation warnings in 629.20s**。真实后端 HTTP health 200、404 与 request ID 一致；真实鉴权登录、项目创建/读取/版本及登出撤权 PASS。证据 `.verification/pytest-result.xml`，不入库。
+- PostgreSQL 16 隔离迁移/RLS/跨租户/并发/回退专项与 TASK-0011 浏览器 E2E 5/5 适用于此前同基线候选 `d0176891cdd05d04b9efc9f1e7fbaf32c1cd09a3`；本次改动仅为 OCR 质量分类与测试，未触及数据库/队列/浏览器产品流程。此前 GitHub Actions run 39095130975 对 `d017689` 全部适用工作成功；本轮新代码候选的推送 CI 尚待核对，不能引用旧 CI 代替。
+
+### 当前状态和剩余验收
+
+- 最终 Full 对应代码为 `d017689` 基础上的两文件工作树修正，验证结束时尚未提交/推送；文档和任务状态更新后执行 Quick，再提交该候选并等待新 SHA CI。
+- 真实扫描 PDF 的 OCR 质量门禁已通过；仍须在服务器部署该候选后完成网页上传、人工上下文、真实模型审查、发布、Word/PDF 下载，并核对报告实际文本、页数、页面布局、服务端哈希与覆盖/拒绝统计。还须采集实际负载耗时/资源；本次 2 页 parser 指标不等于产品容量验收。
+- DOCX/派生文本 PDF 历史风险差异的因果与拒绝源单元恢复关系仍无法从旧制品还原；当前服务器新候选运行需补完整覆盖数据。U11/U15 异常、撤权、多角色/多租户、暂停/恢复、容量、备份和报告矩阵按总体验收继续。专家标签为 0、precision/recall 未测；用户独立验收未发生。

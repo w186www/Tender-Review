@@ -148,6 +148,102 @@ def test_numeric_confidence_uses_the_numeric_word_not_paragraph_average():
     assert "LOW_CONFIDENCE_NUMERIC" in quality_issues(items, load_policy())
 
 
+def test_low_confidence_toc_section_numbers_do_not_trigger_numeric_gate():
+    items = [
+        ocr_fragment("目录", page=1, paragraph=1, words=[("目录", 0.99)]),
+        *[
+            toc_entry(
+                page=1,
+                paragraph=index + 2,
+                number=f"{index}.",
+                page_reference=str(index + 10),
+                prefix_confidence=0.45,
+            )
+            for index in range(1, 4)
+        ],
+        *[
+            toc_entry(
+                page=2,
+                paragraph=index + 1,
+                number=f"{index + 3}.",
+                page_reference=str(index + 20),
+                prefix_confidence=0.45,
+            )
+            for index in range(6)
+        ],
+    ]
+
+    assert "LOW_CONFIDENCE_NUMERIC" not in quality_issues(items, load_policy())
+
+
+def test_repeated_toc_rows_are_recognized_when_heading_is_not_ocr_readable():
+    items = [
+        *[
+            toc_entry(
+                page=page,
+                paragraph=index + 1,
+                number=f"{index + (page - 1) * 12}.",
+                page_reference=str(index + 10 + (page - 1) * 12),
+                prefix_confidence=0.45,
+            )
+            for page in (1, 2)
+            for index in range(12)
+        ],
+    ]
+
+    assert "LOW_CONFIDENCE_NUMERIC" not in quality_issues(items, load_policy())
+
+
+def test_repeated_numeric_table_rows_without_numbering_punctuation_still_gate():
+    items = [
+        toc_entry(
+            page=page,
+            paragraph=index + 1,
+            number=str(index + (page - 1) * 12 + 1),
+            page_reference=str(index + 10 + (page - 1) * 12),
+            prefix_confidence=0.45,
+        )
+        for page in (1, 2)
+        for index in range(12)
+    ]
+
+    assert "LOW_CONFIDENCE_NUMERIC" in quality_issues(items, load_policy())
+
+
+def test_toc_exemption_does_not_cover_low_confidence_body_amount():
+    items = [
+        ocr_fragment("目录", page=1, paragraph=1, words=[("目录", 0.99)]),
+        *[
+            toc_entry(
+                page=1,
+                paragraph=index + 2,
+                number=f"{index}.",
+                page_reference=str(index + 10),
+                prefix_confidence=0.45,
+            )
+            for index in range(1, 4)
+        ],
+        *[
+            toc_entry(
+                page=2,
+                paragraph=index + 1,
+                number=f"{index + 3}.",
+                page_reference=str(index + 20),
+                prefix_confidence=0.45,
+            )
+            for index in range(6)
+        ],
+        ocr_fragment(
+            "保证金 5000 元",
+            page=3,
+            paragraph=1,
+            words=[("保证金", 0.99), ("5000", 0.45), ("元", 0.99)],
+        ),
+    ]
+
+    assert "LOW_CONFIDENCE_NUMERIC" in quality_issues(items, load_policy())
+
+
 def test_ocr_word_records_still_count_toward_the_existing_fragment_budget():
     item = fragment("合并后的识别段落", confidence=0.9).model_copy(
         update={"ocr_words": [word("甲", 0.9, word_num=1), word("乙", 0.9, word_num=2)]},
@@ -168,4 +264,51 @@ def fragment(text: str, *, confidence: float) -> Fragment:
         text_sha256=hashlib.sha256(text.encode()).hexdigest(),
         source="ocr",
         confidence=confidence,
+    )
+
+
+def ocr_fragment(
+    text: str,
+    *,
+    page: int,
+    paragraph: int,
+    words: list[tuple[str, float]],
+) -> Fragment:
+    return Fragment(
+        locator=f"pdf/page/{page}/ocr/block/1/paragraph/{paragraph}/part/1",
+        page=page,
+        bbox=[0, 0, 100, 30],
+        coordinate_system="pdf_points",
+        kind="ocr",
+        text=text,
+        text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+        source="ocr",
+        confidence=0.95,
+        ocr_words=[
+            word(text, confidence, word_num=index + 1).model_copy(
+                update={"page_num": page, "tsv_page_num": page, "par_num": paragraph}
+            )
+            for index, (text, confidence) in enumerate(words)
+        ],
+    )
+
+
+def toc_entry(
+    *,
+    page: int,
+    paragraph: int,
+    number: str,
+    page_reference: str,
+    prefix_confidence: float = 0.99,
+) -> Fragment:
+    words = [
+        (number, prefix_confidence),
+        ("招标文件", 0.99),
+        (page_reference, 0.99),
+    ]
+    return ocr_fragment(
+        " ".join(text for text, _ in words),
+        page=page,
+        paragraph=paragraph,
+        words=words,
     )

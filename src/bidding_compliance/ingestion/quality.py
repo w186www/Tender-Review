@@ -5,12 +5,18 @@ import re
 from collections import defaultdict
 from datetime import date
 
-from .schemas import Fragment, IngestionPolicy, Issue
+from .schemas import Fragment, IngestionPolicy, Issue, OCRWordRecord
 
 _DATE = re.compile(
     r"(?<!\d)(\d{4})\s*(?:年|[-/.])\s*(\d{1,2})\s*(?:月|[-/.])\s*(\d{1,2})\s*日?(?!\d)"
 )
 _MIN_DUPLICATE_FRAGMENT_CHARS = 8
+_TOC_ENTRY_PREFIX = re.compile(
+    r"^(?:\d{1,3}(?:\.\d{1,3}){1,3}[.)、,，]?|\d{1,3}[.)、,，]|"
+    r"第[一二三四五六七八九十百千万零〇0-9]+[章节篇]|"
+    r"[一二三四五六七八九十百]+[、.])$"
+)
+_TOC_PAGE_NUMBER = re.compile(r"^\d{1,3}$")
 
 
 def digest(text: str) -> str:
@@ -21,7 +27,77 @@ def _normalized(text: str) -> str:
     return re.sub(r"\s+", "", text)
 
 
+def _ocr_word_key(word: OCRWordRecord) -> tuple[int, int, int, int, int]:
+    return (word.page_num, word.block_num, word.par_num, word.line_num, word.word_num)
+
+
+def _toc_entry_prefix_word(words: list[OCRWordRecord]) -> OCRWordRecord | None:
+    ordered = sorted(words, key=lambda item: item.word_num)
+    if len(ordered) < 3 or not _TOC_PAGE_NUMBER.fullmatch(ordered[-1].text.strip()):
+        return None
+    try:
+        if int(ordered[-1].text) > 300:
+            return None
+    except ValueError:
+        return None
+    if not _TOC_ENTRY_PREFIX.fullmatch(ordered[0].text.strip()):
+        return None
+    title = ordered[1:-1]
+    if not any(
+        any("\u3400" <= character <= "\u9fff" or character.isalpha() for character in item.text)
+        for item in title
+    ):
+        return None
+    return ordered[0]
+
+
+def _table_of_contents_section_number_keys(
+    fragments: list[Fragment],
+) -> set[tuple[int, int, int, int, int]]:
+    """Identify section-number prefixes only on pages strongly shaped like a TOC.
+
+    Numeric confidence remains strict for body values. An explicit directory heading plus
+    several numbered entries, or at least twelve repeated contents rows without that heading,
+    is required to classify a page. Continuation pages need six entries and must follow a
+    recognized contents page.
+    """
+    lines: dict[tuple[int, int, int, int], list[OCRWordRecord]] = defaultdict(list)
+    toc_heading_pages: set[int] = set()
+    for fragment in fragments:
+        if fragment.source != "ocr":
+            continue
+        if fragment.page is not None and "目录" in _normalized(fragment.text):
+            toc_heading_pages.add(fragment.page)
+        for word in fragment.ocr_words:
+            lines.setdefault(
+                (word.page_num, word.block_num, word.par_num, word.line_num), []
+            ).append(word)
+
+    prefixes_by_page: dict[int, set[tuple[int, int, int, int, int]]] = defaultdict(set)
+    for (page, _block, _paragraph, _line), words in lines.items():
+        prefix = _toc_entry_prefix_word(words)
+        if prefix is not None:
+            prefixes_by_page[page].add(_ocr_word_key(prefix))
+
+    toc_pages: set[int] = set()
+    for page in sorted({key[0] for key in lines}):
+        entry_count = len(prefixes_by_page.get(page, set()))
+        if page in toc_heading_pages and entry_count >= 3:
+            toc_pages.add(page)
+        elif page - 1 in toc_pages and entry_count >= 6:
+            toc_pages.add(page)
+        elif entry_count >= 12:
+            toc_pages.add(page)
+
+    return {
+        key
+        for page in toc_pages
+        for key in prefixes_by_page.get(page, set())
+    }
+
+
 def _has_ocr_numeric_low_confidence(fragments: list[Fragment], policy: IngestionPolicy) -> bool:
+    toc_section_numbers = _table_of_contents_section_number_keys(fragments)
     for fragment in fragments:
         if fragment.source != "ocr":
             continue
@@ -29,6 +105,7 @@ def _has_ocr_numeric_low_confidence(fragments: list[Fragment], policy: Ingestion
             if any(
                 re.search(r"\d", word.text)
                 and word.confidence < policy.min_numeric_confidence
+                and _ocr_word_key(word) not in toc_section_numbers
                 for word in fragment.ocr_words
             ):
                 return True

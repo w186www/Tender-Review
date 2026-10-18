@@ -6,31 +6,33 @@
 
 ### 已完成
 
-- 工作树在 `work/TASK-0027`，HEAD/origin 为 `43c615c4c2d3665fcfe2f4da7d86e4f73e8e1076`；TASK-0029 候选已完成官方 Full、PostgreSQL 专项和浏览器 E2E，尚未提交、推送或部署。未跟踪的私人 `question.txt` 未读写、不得提交。
+- 工作树在 `work/TASK-0027`，HEAD/origin 为 `d0176891cdd05d04b9efc9f1e7fbaf32c1cd09a3`；本轮新增代码/测试仅涉及 `quality.py` 与 `test_task0029_ocr_structure.py`，TASK/G3/CHANGELOG 状态记录也已更新。候选尚未提交、推送或部署。未跟踪的私人 `question.txt` 未读写、不得提交。
 - Docker Linux Engine 实际运行（Server 29.2.1）；named-pipe Access denied 来自受限命令环境的桌面 IPC 访问边界，不是引擎未启动、context 错误或 Docker 安装损坏。通过官方权限申请执行后 Docker 与 daemon 均可用；没有重装 Docker、改 ACL 或清理卷。
 - Alibaba workbench 使用现有 `default` 身份隐藏启动 daemon 并可直连 ECS。ECS 列表 API 因缺少 `ecs:DescribeInstances` 返回 403，但对已授权实例的 `workbench exec` 可用；未换账户、读取或输出凭据。
-- 当前候选官方 `./scripts/verify.ps1 -Mode Full` 退出码 0：七阶段通过，后端 **941 passed, 0 failed, 2 existing pypdf deprecation warnings in 741.573s**。受限沙箱内首次命令遇到 Windows Git 命名对象拒绝后，经正常权限申请对同一候选完整重跑通过。
+- 当前 OCR 修正候选官方 `./scripts/verify.ps1 -Mode Full` 退出码 0：七阶段通过，后端 **945 passed, 0 failed, 0 skipped, 2 existing pypdf deprecation warnings in 629.20s**；HTTP health/404、登录、项目生命周期及登出撤权 PASS。上一 SHA `d017689` 的 Full（941 passed）及 CI run 39095130975 是此前代码证据，不替代本轮结果。
+- OCR 修正官方 Focused 退出码 0：本次 7 项后端测试通过，Ruff、Mypy（112 source files）、前端 OpenAPI/静态/类型/Vitest 14/14/构建均通过。
+- 真实衍生扫描样本经当前隔离 parser（`sha256:7d3a141c44e106499d7f5b9420f351a64f8dc130380c9d1d2ab3de2a6e858a26`）解析：2 页、70 fragments、579 OCR words、质量 `passed`、issues=[]；3 个低置信数字均为有标点编号且位于重复目录行，数字置信度阈值仍为 0.80。解析耗时 3,084 ms，进程峰值 RSS 95,711,232 字节，容器峰值 155,885,568 字节。纯数字表格首列不享受豁免，有单测保护。
 - 同一候选 PostgreSQL 专项 `scripts/check_postgres.py` 通过：临时、无持久卷的 PostgreSQL 16，覆盖迁移、RLS、跨租户访问/外键、并发、检索记录和回退迁移；临时数据库及容器在结束时移除。
 - `scripts/run_task0011_e2e.py` 在重建当前源码对应的隔离 parser 镜像后通过 **5/5 浏览器案例**（JUnit failures/errors/skipped 均为 0）；队列并发、租约接管、取消和 unknown 调用恢复检查也通过。报告在 `.verification/task0011-e2e-f3d70aa2e13945a893ea2ca7869906d3/`。
 - ECS 只读核对：`/opt/tender-review` 工作树干净，HEAD 为旧部署候选 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`，TLS Compose 覆盖生效；API/review-worker/worker/nginx 运行 `task0030-d3cb613`，模式 `staging/product-postgres`，迁移 `202610172000`。PG 账本 477 条 reservation，spent ¥1.04007020、reserved ¥0、unknown 0；embedding 312 笔、LLM 165 笔均 settled。最近全量备份 `/opt/tender-review-backups/20261017T213903Z` 的 PG、MinIO、modelstate 三个归档 SHA-256 校验通过；部署前仍须新建备份。
 
 ### 正在进行
 
-- 覆盖实现分别投影候选尝试数、去重候选数、拒绝原因、唯一原文单元、恢复/未恢复族和截断等字段；OCR 保留词级坐标/置信度、页码和行段结构；staging/production 拒绝独立 DEC-007 `authorized-real` 回退。TASK-0029 仍 `in_progress`。
+- 覆盖实现分别投影候选尝试数、去重候选数、拒绝原因、唯一原文单元、恢复/未恢复族和截断等字段；OCR 保留词级坐标/置信度、页码和行段结构；staging/production 拒绝独立 DEC-007 `authorized-real` 回退。真实清晰扫描样本局部质量门禁已通过，但尚未经过服务器上传、人工上下文、模型审查和报告验收；TASK-0029 仍 `in_progress`。
 - 服务器历史工件已找到：真实 DOCX 候选拒绝 6 个、派生文本 PDF 17 个，均因 `quote_missing_or_ambiguous`；唯一输入源单元数分别 1,155 / 1,562。历史逐批工件没有 rejected-candidate 到源单元/恢复族的映射，故旧运行无法可靠还原拒绝涉及的唯一单元或恢复数。旧 `rejected_units=503/1423` 是可能重复的 partial 批次 section 计数总和，不是候选拒绝数。
 - DOCX 41 条与其派生文本 PDF 13 条风险的类别统计、标题指纹交集及原文定位差异已核对；两次结果数不同，PDF 也不是独立原生样本。证据不足以把差异归因到某个解析/分批/定位/拒绝原因，不能宣称已证明无遗漏。新候选部署后的审查可记录修复后覆盖统计。
 
 ### 下一步
 
-- 更新正式验证记录后跑 Quick；提交仅限本 TASK 文件集，推送并核对 CI。
-- 部署前生成新的全量备份并核验；按既有 `docker-compose.demo.yml` + `deploy/docker-compose.tls.yml` 流程发布候选，记录源码、镜像、迁移和配置身份。
+- TASK/G3/CHANGELOG 正式记录已更新，官方 Quick 退出码 0；提交仅限 OCR 修正与相关状态记录文件，推送并核对新 SHA 的 CI。
+- CI 通过后先新建并核验全量备份，再按保留 TLS 覆盖的既有流程部署；记录源码、镜像、迁移和配置身份。
 - 在新候选上用已有授权与受保护配置完成清晰中文扫描 PDF 的 OCR、上下文、真实审查及 Word/PDF 内容/版式验收；采集一次真实审查的排队/解析/模型/报告耗时与容器资源。该样本不等于完整容量压测。
 - 复验服务器候选覆盖、OCR 和回退拒绝；继续 U11/U15 异常/角色/多租户矩阵及必要运行检查。用户独立验收仍由用户本人完成。
 
 ### 已知问题与待决策
 
 - 8 条 `review_task=running` 当前都关联到已 `result_published` 的 engine run；无 running engine run、ingestion job 或 unsettled reservation。这是历史父任务状态不一致，不是正在执行的调用；不直接改生产记录。
-- 新旧候选历史 DOCX/PDF 的逐条风险差异不能用旧报告证明因果；真实扫描 PDF 全链、实际审查资源样本、完整容量、外部告警送达仍未完成。专家标签为 0，precision/recall 未测；独立法规核验依据为 0；用户独立验收尚未发生。
+- 新旧候选历史 DOCX/PDF 的逐条风险差异不能用旧报告证明因果；扫描 PDF 仅本机隔离解析/质量通过，网页真实模型全链、导出报告内容版式、实际审查资源样本、完整容量、外部告警送达仍未完成。新候选 Full 后尚未提交/推送，部署须等待该 SHA CI。专家标签为 0，precision/recall 未测；独立法规核验依据为 0；用户独立验收尚未发生。
 - 部署前仍需核对新备份、当前在途任务和服务状态。ECS 实例列表 API 的 `ecs:DescribeInstances` 权限不足不影响已授权实例的直接操作；若直接操作权限后续失败，再报告具体请求与最小解除动作。
 
 
