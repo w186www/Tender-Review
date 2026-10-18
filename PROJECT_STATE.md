@@ -2,28 +2,28 @@
 
 更新时间：2026-10-18
 
-## 接续实施状态（2026-10-18，候选已部署；公网真实文件验收受登录 401 阻塞）
+## 接续实施状态（2026-10-18，最终工程候选已部署；等待用户独立网页验收）
 
 ### 已完成
 
-- 当前分支 `work/TASK-0027`，HEAD 与 `origin/work/TASK-0027` 同步；代码候选 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04` 已通过官方 Full 并部署，服务器源码版本为 `33a7e812ecc3f505943b2d35bbbde3adbb071cbc`。私人未跟踪 `question.txt` 保留且未读取、未提交。
-- Docker Linux Engine 29.2.1 通过既有提升权限路径可连接；普通沙箱进程访问 `desktop-linux` named pipe 曾返回 Access denied。未重装 Docker、改 ACL/context、清卷或重建依赖。Alibaba Workbench CLI v1.0.4 使用现有 `default` 身份；daemon 隐藏启动。ECS 列表 API 缺少 `ecs:DescribeInstances` 返回 403，直接受授权实例命令可用。
-- 官方 Full 对冻结代码候选退出码 0：七阶段通过，945 passed、0 failed/skipped、2 条既有 pypdf 弃用警告，629.20s。PostgreSQL 专项 CI 成功覆盖迁移、RLS、租户隔离、并发和回退；U11/U15 相关 Focused 为 117 passed、0 skipped。HEAD `0f498c6` 的 Actions run `39097499595` 所有适用作业 success；文档状态提交 `33a7e81` 的 run `39098956114` 中 impact/quick/verify-required success；最终状态提交 `a5db88f` 的 run `39100590866` 中 impact/quick/verify-required success，postgres/ingestion/baseline 按 docs-only 条件 skipped。
-- 服务器新全量备份 `/opt/tender-review/backups/20261018T051801Z` 在部署前创建，官方 `restore.sh --verify` 通过；隔离恢复计数与线上相符，MinIO/modelstate checksum 通过。部署源码为 `33a7e812ecc3f505943b2d35bbbde3adbb071cbc`，工作树 clean；API/web 镜像 `task0029-33a7e81`，固定 parser 镜像 `sha256:b33847d4b2dd39790edd3f5af5898442cf07d9a7035a2dbc1e39c517de4e9ca5`。只重启 api/review-worker/worker/nginx；数据服务和卷未重启/改动。
-- 部署后服务器仍为 `APP_ENV=staging`、`DEPLOY_REVIEW_MODE=product-postgres`、TLS overlay 生效、迁移 `202610172000`、health HTTP 200；API、review-worker、worker、nginx 均运行。账本仍为 limit ¥200、spent ¥1.04007020、reserved ¥0、477 条 settled reservation（312 embedding、165 LLM），unknown/unsettled 0；未增加模型调用或费用。无活跃 engine run/ingestion job；8 个旧 `review_task=running` 父记录对应已结束的 `result_published` engine run，未改生产数据。
-- 部署镜像回退启动专项通过：隔离、只读、无网络容器以 `APP_ENV=staging` 启动 `authorized-real`，按预期 exit 2 并拒绝旧 DEC-007 账本装配。PostgreSQL 隔离/回退门禁也有同候选 CI 证据。
-- 真实衍生清晰扫描 PDF 在服务器用固定 parser 镜像和生产同等限制（512 MiB、1 CPU、无网络、只读 rootfs）完整解析：2 页、70 fragments、579 OCR words、质量 `passed`、issues=[]；3 个低置信数字未触发门禁。Tesseract 5.3.0，4,382 ms，进程峰值 RSS 96,157,696 bytes。容器 memory peak 未报告。输出仅保留聚合指标；本次上传的唯一 `/tmp/task0029-scan-20261018.pdf` 已删除并确认不存在。
+- 当前分支 `work/TASK-0027`，最终代码候选 `89766d86d0898aaa2c6ad3cdb07ece0bc783d4f0`（父提交含 `eca147c` 空白差异原文定位修正）。该候选已推送；私人未跟踪 `question.txt` 保留且未读取、未提交。
+- 最终候选官方 Full 退出码 0：七阶段全部通过，后端 958 passed、0 failed、0 skipped、6 条既有警告（2 条 pypdf 弃用 + 4 条既有 PowerShell 输出解码），749.33s；JUnit tests=958/failures=0/errors=0/skipped=0。日志 `.verification/completion-20261018/final-full-89766d8.log`。GitHub Actions 对 `89766d8` 的 push run `39107901768` 与 PR run `39107907712` 均为 impact/postgres/ingestion/baseline/verify-required success，`quick` 在 Full 模式按条件合法 skipped。
+- ClamAV 启动竞态修复（仅验证脚本，生产扫描器/年龄阈值/安全检查未改）：GitHub runner 上 freshclam 先完成更新、clamd 尚未创建本地 socket，`NotifyClamd` 丢失，clamd 随后加载镜像内置旧库。`scripts/check_ingestion_containers.py` 在既有 240 秒有界等待内每 20 秒请求拥有的 clamd reload，之后仍必须实际 scan 成功才继续；恶意内容不重试，到期失败关闭。真实故障日志（run `39107244495`）确认 `Can't connect to clamd through /tmp/clamd.sock`；修复后 CI ingestion run `39107901768` 真实通过（MinIO ready 后约 31 秒出现 `Real ClamAV clean/malicious gate passed`），本地同一真实容器 gate 亦通过（`.verification/completion-20261018/ingestion-local-check-reload.log`）。新增 6 项 readiness 测试（等待/超时/恶意不重试/reload 行为）。
+- 部署前全量备份 `/opt/tender-review/backups/20261018T074713Z`，官方 `deploy/restore.sh ... --verify` 通过：恢复库与线上计数一致（tenant=2、app_user=4、project=32、document=40、ingestion_job=40、review_task=32、review_result=21、review_report=46、review_report_content=23、audit_event=1624），MinIO 75 文件、modelstate 7 文件 checksum 通过，未修改线上数据。备份 manifest 的 `app_image` 字段被 `.env` 旧 `IMAGE_TAG` 覆盖，仅作记录瑕疵；实际旧运行镜像为 `task0029-33a7e81`（api `sha256:69405057…`、web `sha256:71e26067…`），保留用于回退。
+- 服务器源码快进到 `89766d86d0898aaa2c6ad3cdb07ece0bc783d4f0`；`deploy/.env` 的 `IMAGE_TAG` 更新为 `task0029-89766d8`。仅构建并重建 api/review-worker/worker/nginx；postgres/minio/clamav 仍为部署前实例（Up 2 days），卷未动。API 镜像 `sha256:4a55e8b08f1523f3af0d070e4541535035d706cb78bff441941929dae50f2012`，web 镜像 `sha256:6aee1716e5533a6c5f3618c8945c01065f877fa6b067b57816abbff38c783fc2`，固定 parser `sha256:b33847d4b2dd39790edd3f5af5898442cf07d9a7035a2dbc1e39c517de4e9ca5`。
+- 部署后保持 `APP_ENV=staging`、`DEPLOY_REVIEW_MODE=product-postgres`、migration `202610172000`、TLS overlay（80→8080、443→8443）；`https://47.83.132.211/api/v1/health`=200，根页面 200，匿名项目列表 401（预期）。admin/reviewer/auditor 现有凭据实际登录均 200，历史 401 未复现、未重置凭据或切换账户。四个应用容器 running、RestartCount=0。
+- 账本未变：limit ¥200、spent ¥1.41978080、reserved 0；218 条模型调用（217 succeeded、1 条历史 unknown），无活跃 engine run/ingestion job。部署后使用实际镜像内新验证器离线重放既有文本 PDF 响应（task `bfe5c225-6720-5a02-a245-d3d83d9e9ec2`，18 批）：存储 accepted/rejected=29/18，重放后 34/13，恢复 5 条唯一空白差异引用，剩余拒绝原因全部 `quote_missing_or_ambiguous`；重建的 18 批 input_hash 与 sent_text SHA-256 全部一致，模型调用数 218→218、账本金额不变、新增模型调用 0。
+- 本轮四组浏览器真实结果与 content-check 保留在 gitignored `.verification/acceptance/2026-10-18/`（清晰扫描 PDF、派生文本 PDF、DOCX、200 页合成容量样本；每组 10 项内容检查通过）。这些结果产生于上一部署候选 `33a7e81`；最终候选的运行时差异（空白差异引用修正）已由上述镜像内重放验证，既有已发布结果未被改写。
 
 ### 正在进行 / 下一步
 
-- TASK-0029 保持 `in_progress`。真实网页审查、清晰扫描 PDF 的上下文/模型/发布/Word/PDF 内容与版式、DOCX/PDF 新候选拒绝原因和风险差异、真实审查负载及完整 U11/U15 线上矩阵尚未完成。
-- 继续前需通过受保护登录恢复已授权的现有角色凭据，或由用户在浏览器交互登录。现有 `deploy/.env` 的 admin/auditor/reviewer 登录均返回 HTTP 401；匿名项目列表为 401。未输出凭据、重置密码、创建项目/租户或切换账户。登录恢复后继续实际文件和角色矩阵验收；线上仅有 1 个租户，跨租户仍以隔离 PostgreSQL 验证，不能声称线上多租户已实测。
-- 旧服务器 DOCX/PDF 工件实际候选拒绝 6/17，原因均为 `quote_missing_or_ambiguous`；唯一输入源单元 1,155/1,562，但旧制品没有拒绝候选到源单元/恢复族映射。旧风险数 41/13 的因果差异未知；不得宣称无遗漏。须在新候选真实运行后补当前覆盖明细。
+- 等待用户在 `https://47.83.132.211` 使用受保护账号独立验收；账号交接位置为服务器 `deploy/.env`（不在聊天或仓库输出）。当前工程候选可直接打开网页，既有已发布结果可查看，新审查会使用 `89766d8` 的验证器。
+- TASK-0029 保持 `in_progress`。仍缺：DOCX/派生 PDF 44/17 风险差异的完全因果解释；DOCX 覆盖 458 饱和源单元/2 次候选拒绝、文本 PDF 剩余 13 次引用拒绝的逐条业务裁定；清晰扫描样本仅 2 页且主要为目录，不能证明正文风险召回；200 页容量为单次合成样本（创建至等待人工约 890.784 秒，含前序排队），不是 P95/一般容量承诺；完整 U11/U15 异常/多租户/告警矩阵、外部告警渠道、专家金标与 precision/recall 仍未完成。
 
-### 已知问题与待决策
+### 已知问题与边界
 
-- 当前唯一实质执行阻塞是现有受保护角色凭据无法登录（HTTP 401）。最小解除动作：恢复当前 `deploy/.env` 已配置身份的有效凭据，或由有权用户交互完成登录；不要在聊天中粘贴秘密。WorkBench 和 Docker 环境已恢复，候选已部署，备份/服务健康/回退/OCR parser 检查均有证据。
-- 专家标签为 0、precision/recall 未测；独立法规核验依据为 0；用户独立验收尚未发生。TASK-0029 不标完成，环境失败不算验收通过。
+- 正式法律支持仍为 0（无独立核验、无人工规则—法规签署）；按 DEC-009 采用现有法规库只作参考，不构成违法认定或专家金标。
+- 用户独立验收尚未发生；自动化/人工确认脚本和本记录不能替代用户验收。TASK-0029 不标完成。
 
 ## 前次正式进度快照：U01/U02/U04/U05 已完成；U03/U07/U10 进行中；U06/U08/U09/U11/U12 有真实交付证据但未全部满足正式单元条件；服务器上次记录为 product-postgres。当前接续状态如下。
 

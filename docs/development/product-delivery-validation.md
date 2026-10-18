@@ -752,3 +752,32 @@
 - **回退专项：**在部署 API 镜像中以 staging + `authorized-real` 启动隔离、只读、无网络容器，实际 exit 2，并输出拒绝 DEC-007 独立账本装配的预期错误；同候选 CI PostgreSQL 专项通过迁移、RLS、租户隔离、并发和数据库回退门禁。
 - **服务器 OCR：**真实衍生清晰扫描 PDF 通过固定 parser 镜像、512 MiB/1 CPU、无网络/只读 rootfs 解析：2 页、70 fragments、579 OCR words、`quality=passed`、`issues=[]`、3 个低置信数字未触发门禁；Tesseract 5.3.0，4,382 ms，进程峰值 RSS 96,157,696 bytes。容器 memory peak 未返回。无正文进入终端输出；仅删除本次上传且此前已确认不存在的 `/tmp/task0029-scan-20261018.pdf`。
 - **登录阻塞与边界：**现有 `deploy/.env` 的 admin/auditor/reviewer 登录均 HTTP 401，匿名项目列表 401。没有重置/输出凭据、换账户或创建项目/租户。因此本次服务器解析不代表网页审查、模型分析、报告下载/版式或真实业务负载验收。最小解除动作是恢复已配置的现有角色凭据或由有权用户交互登录。DOCX/PDF 旧候选拒绝 6/17 的原因可查均为 `quote_missing_or_ambiguous`，但旧工件没有候选到源单元/恢复族映射；旧风险差异 41/13 不能归因。TASK-0029 保持 `in_progress`。
+
+## 2026-10-18 最终候选 `89766d8`：ClamAV 启动竞态、部署与镜像内重放
+
+**执行单元/TASK：** U06 / TASK-0029（`TASK0029-002` 的摄取安全 gate）。本节记录最终工程候选的 CI、备份、部署和既有响应重放；TASK-0029 总体仍为 `in_progress`，不构成用户独立验收。
+
+### ClamAV 启动竞态与修复
+
+- `ec5bf42` 先给 `scripts/check_ingestion_containers.py` 增加 240 秒有界等待：`SCANNER_UNAVAILABLE`/`SCANNER_STALE` 继续等待，`MALICIOUS_CONTENT` 等立即失败，到期失败关闭；生产 `ClamAVScanner`、病毒库年龄阈值（7 天）和安全检查未改。
+- 该修正在 GitHub Actions 的 run `39106574888`（commit `ec5bf42`）仍失败：等待完整 240 秒后仍为 `SCANNER_STALE`。`4c6d3af` 增加失败时输出拥有的 ClamAV 容器日志；run `39107244495` 的真实日志显示 freshclam 已完成 `daily.cld` 更新到 28157，但 `WARNING: Clamd was NOT notified: Can't connect to clamd through /tmp/clamd.sock: No such file or directory`。根因是 clamd 启动/加载旧库与 freshclam 通知的竞态：通知丢失后 clamd 不会自动加载新库。
+- `89766d8` 在既有等待循环内每 20 秒对拥有的 clamd 执行一次 `clamdscan --reload`，随后仍必须实际 `scanner.scan` 成功；reload 只针对 STALE/UNAVAILABLE，恶意内容不重试。新增 6 项 readiness 测试（等待、超时关闭、恶意不重试、reload 有界触发、恶意不 reload）。
+- 真实验证：本地同一真实 Docker/MinIO/ClamAV/OCR/HTTP gate 退出码 0（`.verification/completion-20261018/ingestion-local-check-reload.log`）；GitHub run `39107901768`（push）与 `39107907712`（PR）的 `ingestion` job 均 success，日志在 MinIO ready 后约 31 秒出现 `Real ClamAV clean/malicious gate passed`。未降低阈值、未跳过 EICAR/恶意内容/OCR/隔离解析检查。
+
+### 最终候选验证与发布
+
+- 最终候选 `89766d86d0898aaa2c6ad3cdb07ece0bc783d4f0` 的官方 Full 退出码 0：七阶段通过，后端 958 passed、0 failed、0 skipped、6 条既有警告，749.33s；JUnit tests=958/failures=0/errors=0/skipped=0。CI run `39107901768`/`39107907712` 的 impact/postgres/ingestion/baseline/verify-required 全部 success，`quick` 按 Full 模式 skipped。
+- 部署前备份 `/opt/tender-review/backups/20261018T074713Z` 的官方 `restore.sh ... --verify` 通过：恢复库与线上计数一致（tenant=2、app_user=4、project=32、document=40、ingestion_job=40、review_task=32、review_result=21、review_report=46、review_report_content=23、audit_event=1624），MinIO 75 文件、modelstate 7 文件 checksum 通过。备份 manifest 的镜像字段受 `.env` 旧 `IMAGE_TAG` 影响，实际旧运行镜像为 `task0029-33a7e81`，保留回退。
+- 服务器源码快进到 `89766d8`，仅构建并重建 api/review-worker/worker/nginx；数据服务 postgres/minio/clamav 未重启，卷未改。API 镜像 `sha256:4a55e8b08f1523f3af0d070e4541535035d706cb78bff441941929dae50f2012`，web 镜像 `sha256:6aee1716e5533a6c5f3618c8945c01065f877fa6b067b57816abbff38c783fc2`，固定 parser `sha256:b33847d4b2dd39790edd3f5af5898442cf07d9a7035a2dbc1e39c517de4e9ca5`。
+- 部署后 `staging/product-postgres`、迁移 `202610172000`、TLS overlay（80→8080、443→8443）保持；`https://47.83.132.211/api/v1/health`=200，根页面 200，匿名项目列表 401（预期）；admin/reviewer/auditor 实际登录均 200，历史 401 未复现。四个应用容器 running、RestartCount=0。
+- 账本 limit ¥200、spent ¥1.41978080、reserved 0；218 条模型调用（217 succeeded、1 条历史 unknown），无活跃 engine run/ingestion job。未新增调用或费用。
+
+### 部署内验证器重放
+
+- 用实际部署镜像内的 `llm_candidate_discovery.validate_response`（无内存补丁）重放文本 PDF task `bfe5c225-6720-5a02-a245-d3d83d9e9ec2` 的 18 个 discovery 批次：存储 accepted/rejected=29/18，重放后 34/13，恢复 5 条唯一空白差异引用；剩余拒绝原因全部 `quote_missing_or_ambiguous`。18 批的 `input_hash` 与 `sent_text_sha256` 全部匹配，未发现重建差异；模型调用数 218→218、账本金额不变，新增模型调用 0。该重放只证明验证器对既有响应的处理，不表示既有正式结果自动新增 5 条风险。
+
+### 浏览器证据与边界
+
+- 四组真实浏览器结果（清晰扫描 PDF、派生文本 PDF、DOCX、200 页合成容量样本）及每组 10 项 content-check 保留在 gitignored `.verification/acceptance/2026-10-18/`；它们是上一部署候选 `33a7e81` 的公网结果。最终候选的运行时差异已由镜像内重放覆盖，既有发布结果未被改写；本轮没有为部署重复全部耗时真实审查。
+- 覆盖仍为 partial：DOCX 458 个饱和源单元、2 次候选拒绝；文本 PDF 剩余 13 次引用拒绝；DOCX/派生 PDF 风险 44/17 的差异没有被完全因果解释；清晰扫描样本仅 2 页且主要为目录；200 页容量为单次合成样本（创建至等待人工约 890.784 秒，含前序排队），不是 P95/一般容量承诺。外部告警渠道未配置；正式法律支持为 0（无独立核验/签署）；专家标签为 0，precision/recall 未测。
+- 用户独立网页验收尚未发生；本轮交付工程候选，不声称用户已验收，不把自动确认脚本或本记录当作验收。
