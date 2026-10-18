@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-10-19 TASK-0029 发布完成：v2 证据闭环 `ba83a52` + CI 修复 `8483937`，PR #9 普通合并 `07f7a62`；CI run `39159508468` 的 impact/postgres/ingestion/baseline(Full, **1067 passed/2 warnings/742.46s**)/verify-required 全部 success，quick 按 Full 模式 skipped。现有 ECS 已部署源码 `07f7a62`、镜像 `task0029-07f7a62`；health/登录/匿名 401 通过，product-postgres、RLS、迁移、预算、DEC-009 采用与向量快照身份保持不变；部署前备份 `20261018T192909Z` 隔离恢复通过。未新增模型调用或费用；用户网站真实文件验收未发生，TASK-0029 保持 in_progress。
+
 - 2026-10-19 TASK-0029 CI 阻断修复：报告生成不再按制品 kind 任选 `candidate_discovery`/`legal_retrieval`/`model_analysis`/`llm_candidate_discovery`，而是跟随 `merged_findings` 冻结的 `discovery_ref`/`retrieval_results_ref`/`model_findings_ref`/`llm_discovery_ref`；新增 coverage 引用回归。该修复解决 CI postgres 失败，需重新通过 baseline（Full）与 required checks。
 
 - 2026-10-19 TASK-0029 发布候选 Full 通过：本机官方 `.\scripts\verify.ps1 -Mode Full` 七阶段 exit 0，后端 **1066 passed / 0 failed / 0 skipped / 6 既有 warnings**，653.02s；JUnit `.verification/pytest-result.xml`（tests=1066/failures=0/errors=0/skipped=0，SHA-256 `82dd70e2811ab7c84ffe334ba51abe4fad31d9d3d8b288b72f3778e159eca929`）。Full 后仅更新记录并执行 Quick；随后提交/推送/PR/CI/合并/部署，真实效果由用户自行网站验收，不登记用户验收或正式交付。

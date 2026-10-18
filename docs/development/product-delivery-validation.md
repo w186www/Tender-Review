@@ -1,5 +1,13 @@
 # 产品交付单元验证记录
 
+## TASK-0029 发布完成：CI、合并、部署与部署后检查｜2026-10-19
+
+- PR #9（<https://github.com/w186www/Tender-Review/pull/9>）由 `ba83a52`（v2 证据闭环）与 `8483937`（报告跟随 merged_findings 冻结引用）组成；required CI run `39159508468` 的 impact/postgres/ingestion/baseline/verify-required 全部 success，quick 按 Full 模式 skipped；CI baseline（Full）**1067 passed、2 warnings、742.46s**。普通合并到 main，merge SHA `07f7a62a818ae2956a9551f40d301b593dbf4b8e`。
+- 现有 ECS 源码 `07f7a62`，镜像 `tender-review-api:task0029-07f7a62`（`sha256:525d0f32…`）与 `tender-review-web:task0029-07f7a62`（`sha256:9bf1b940…`）；仅重建 api/review-worker/worker/nginx，postgres/MinIO/ClamAV、TLS 叠加层、账本与卷保留。local/public health=200、http=301、匿名项目 401、reviewer 登录及 `/auth/me` 200（role=reviewer）。
+- 部署前备份 `/opt/tender-review/backups/20261018T192909Z`；`restore.sh --verify` 数据库计数一致（audit_event=1956），MinIO 91 文件、modelstate 7 文件校验通过。回退版本源码 `b69a78f`、镜像 `task0029-b69a78f`（api `sha256:63e34829…`、web `sha256:b41f1630…`）。
+- 部署后只读检查：staging/product-postgres/tenant-a；`tender_runtime`、row_security=on、34/39 表 RLS；迁移 `202610172000`；策略 active、预算 limit ¥200/reserved 0/spent ¥2.48187150/709 settled；外部授权 active 7/revoked 6；运行 22 published/10 waiting_human/4 failed/1 cancelled；调用 371 succeeded/7 unknown，未新增模型调用或费用。新提示常量 `task0029-semantic-evidence-v2` / `task0029-discovery-evidence-v2`；旧 run 提示版本原样保留；DEC-009 采用政策与向量 manifest（`c7344cac…`，3112/3120）一致。
+- TASK-0029 保持 in_progress；真实效果由用户自行网站验收；不登记用户验收或正式交付。
+
 ## TASK-0029 CI 阻断修复｜2026-10-19
 
 - CI postgres 的 `check_legal_publications.py` 在报告生成时发现同一 run 在失败/重试后存在多个 `legal_retrieval` 制品；新唯一性检查正确暴露了旧报告按 kind 任选第一条的问题。已改为从 `merged_findings` 的冻结引用读取 `candidate_discovery`、`legal_retrieval`、`model_analysis` 和 `llm_candidate_discovery` 覆盖制品；旧制品缺少 `llm_discovery_ref` 时保留既有回退，唯一性冲突仍失败关闭。
