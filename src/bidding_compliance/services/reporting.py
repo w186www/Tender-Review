@@ -24,6 +24,66 @@ def _citation_label(finding: dict[str, Any], citation: dict[str, Any]) -> str:
     return "风险判断引用原文"
 
 
+def _legal_reference_metadata(reference: dict[str, Any], *, source_kind: str) -> list[str]:
+    """Render the retrieval identity without promoting a reference to evidence."""
+    identity = [
+        f"引用ID {reference.get('evidence_id')}" if reference.get("evidence_id") else None,
+        f"法规ID {reference.get('law_id')}" if reference.get("law_id") else None,
+        f"版本 {reference.get('version')}" if reference.get("version") else None,
+        f"条款定位 {reference.get('article') or '未定位'}",
+        source_kind,
+    ]
+    source = [
+        f"官方来源 {reference.get('official_source_uri')}"
+        if reference.get("official_source_uri")
+        else None,
+        f"来源SHA-256 {reference.get('official_source_hash')}"
+        if reference.get("official_source_hash")
+        else None,
+        f"原文定位 {reference.get('official_source_locator')}"
+        if reference.get("official_source_locator")
+        else None,
+    ]
+    text_identity = [
+        f"库内文本SHA-256 {reference.get('text_hash')}"
+        if reference.get("text_hash")
+        else None,
+        f"文本定位 {reference.get('locator')}" if reference.get("locator") else None,
+        f"适用框架 {', '.join(reference['applicable_frameworks'])}"
+        if reference.get("applicable_frameworks")
+        else None,
+        f"生效区间 {reference.get('effective_from') or '未确认'} 至 "
+        f"{reference.get('effective_to') or '未确认'}"
+        if "effective_from" in reference or "effective_to" in reference
+        else None,
+    ]
+    state = [
+        f"版本状态 {reference.get('version_status')}"
+        if reference.get("version_status")
+        else None,
+        f"适用状态 {reference.get('applicability_status')}"
+        if reference.get("applicability_status")
+        else None,
+        f"确认资格 {reference.get('eligible_for_confirmation')}"
+        if "eligible_for_confirmation" in reference
+        else None,
+        f"未确认原因 {reference.get('confirmation_reason')}"
+        if reference.get("confirmation_reason")
+        else None,
+        f"采用状态 {reference.get('adoption_status')}"
+        if reference.get("adoption_status")
+        else None,
+        f"采用政策 {reference.get('adoption_policy_id')}"
+        if reference.get("adoption_policy_id")
+        else None,
+    ]
+    binding = reference.get("rule_law_binding_id")
+    if binding:
+        state.append(f"工程配置规则—法规关联 {binding}（非人工裁定）")
+    lines = (identity, source, text_identity, state)
+    return ["；".join(value for value in line if value) for line in lines]
+
+
 def _assessment_scope_lines(report: dict[str, Any]) -> list[str]:
     scope = report.get("assessment_scope")
     if not isinstance(scope, dict):
@@ -381,6 +441,10 @@ def render_docx(report: dict[str, Any]) -> bytes:
                     f"{reference_item.get('version_status')}；未确认原因 "
                     f"{reference_item.get('confirmation_reason')}{suffix}。"
                 )
+                for metadata_line in _legal_reference_metadata(
+                    reference_item, source_kind=source_kind
+                ):
+                    document.add_paragraph(metadata_line)
                 document.add_paragraph(f"“{reference_item.get('quote', '')}”")
     scope_lines = _assessment_scope_lines(report)
     if scope_lines:
@@ -610,6 +674,12 @@ def render_pdf(report: dict[str, Any]) -> bytes:
                         f"{reference_item.get('article') or '条款未提供'}；版本状态 "
                         f"{reference_item.get('version_status')}；未确认原因 "
                         f"{reference_item.get('confirmation_reason')}{suffix}。"
+                    )
+                )
+                story.extend(
+                    para(metadata_line)
+                    for metadata_line in _legal_reference_metadata(
+                        reference_item, source_kind=source_kind
                     )
                 )
                 story.append(para(f"“{reference_item.get('quote', '')}”"))

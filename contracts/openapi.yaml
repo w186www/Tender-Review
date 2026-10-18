@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.10.3
-  description: v1alpha10 开发契约；错误响应 details 明确允许结构化字段，新增上下文补正信息保持既有错误包络兼容。
+  version: 0.10.4
+  description: v1alpha11 开发契约；错误响应 details 明确允许结构化字段，法规参考新增可选追溯字段，保持既有响应兼容。
 servers:
 - url: /api/v1
 paths:
@@ -2704,6 +2704,29 @@ components:
           items:
             type: object
             additionalProperties: true
+            properties:
+              law_id: {type: string, minLength: 1, maxLength: 128}
+              version: {type: string, minLength: 1, maxLength: 500}
+              quote_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+              text_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+              official_source_uri: {type: string, minLength: 1, maxLength: 2048}
+              official_source_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+              official_source_locator: {type: string, minLength: 1, maxLength: 2500}
+              effective_from: {type: [string, 'null'], format: date}
+              effective_to: {type: [string, 'null'], format: date}
+              eligible_for_confirmation: {type: boolean}
+              reason:
+                type: string
+                enum: [valid, unverified, outside_verification_horizon, unlocated, unknown_end, clause_unverified, extraction_unverified, applicability_unverified]
+              applicable: {type: boolean}
+              applicability_status: {type: string, enum: [verified, unverified]}
+              applicable_frameworks:
+                type: array
+                uniqueItems: true
+                items: {type: string, enum: [tendering, government_procurement]}
+              adoption_status: {type: string, enum: [project_adopted, not_adopted]}
+              adoption_policy_id: {type: [string, 'null'], maxLength: 128}
+              confirmation_reason: {type: string, maxLength: 200}
         human_review:
           type: object
           additionalProperties: false
