@@ -1,5 +1,66 @@
 # 产品交付单元验证记录
 
+## TASK-0029 发布候选 Full 通过｜2026-10-19
+
+- 用户确认后，本机官方 `.\scripts\verify.ps1 -Mode Full` 七阶段 exit 0：后端 **1066 passed、0 failed、0 skipped、6 条既有 warnings**，653.02 秒；JUnit `.verification/pytest-result.xml`（tests=1066/failures=0/errors=0/skipped=0，SHA-256 `82dd70e2811ab7c84ffe334ba51abe4fad31d9d3d8b288b72f3778e159eca929`）；契约生成、Ruff、Mypy、前端 14/14 及生产构建、真实 HTTP 启动与鉴权生命周期均通过。
+- 原九文件 Focused 120 passed；扩展 18 文件回归 130 passed。Full 后核对无代码、契约、测试、配置或依赖变化；仅更新记录并执行 Quick。
+- 发布流程仍待执行：提交/推送、PR、required CI、普通合并、现有 ECS 备份及隔离恢复校验、部署与部署后无模型费用检查。真实效果由用户自行网站验收；TASK-0029 保持 in_progress，不登记用户验收或正式交付。
+
+## 此前记录：TASK-0029 报告Session夹具接续（发生时状态）
+
+2026-10-19 唯一门禁失败接续（夹具已修改，尚未复验）：用户转交原九文件119 passed/1 failed、扩展18文件249 passed/1 failed及静态/契约检查通过的复核报告；唯一失败为test_task0029_report_citations的ReportSession把继承的related_row用于ReviewArtifact查询。现按查询实体分流scalars：ReviewArtifact返回本测试的artifact，其他查询继续父类行为；scalar队列只保留两次Document读取，并断言队列耗尽。保留原文/关联摘录/哈希及定位断言，不改运行时代码或验收标准。
+本会话未执行上述报告中的检查，也未收到新JUnit原始路径；本次未运行pytest、Quick/Focused/Full、完整Ruff/Mypy、CI、模型或部署，仅编辑、导入整理与格式化。前次119/1、249/1保留为用户提供证据，不提前写成120通过。
+最小化器/路由身份及legacy分类覆盖维持已记录边界；counterevidence非空作为后续产品语义建议保留，不在此次夹具修复中新增硬门槛。现有no_issue仍必须满足contradicted、完整已复核引文集合及主文真实性等校验；空counterevidence不代表已经有可验证的反证，不宣称其质量已独立验收。
+下一步：由用户统一重跑原九文件/既有扩展集合，保存新日志和JUnit；通过后按既定门禁推进。TASK-0029保持in_progress，不提交或部署。
+
+## TASK-0029 扩展复核残余项｜实现待验证
+
+2026-10-19 扩展复核残余项收口（代码/回归用例已改，待统一核查）：
+用户提供复核结果：原九文件116 passed/2 failed、扩展18文件227 passed/2 failed，Ruff/Mypy及契约/仓库检查据其报告通过；两项失败均指向法规分类_hit夹具顶层缺title。未提供本次原始日志/JUnit路径，本会话未独立执行上述检查，不把这些结果冒充自测或当前候选已通过。
+- 两个既有失败：_hit顶层补title，与真实LegalHit契约及其evidence内容一致；生产selected_citations不以空字符串掩盖缺失字段。
+- 残余1：v2引用集合在校验前按可信文档位置规范排序、去重，拒绝顺序/身份和恢复族采用稳定主来源；legacy保持原算法。添加双无效、后段无效、未知+无效以及正反顺序/修正后恢复族一致性用例，不放宽原文字符校验。
+- 残余2：条件反证逐字段检查标题、描述、推理摘要和建议；逐句识别局部否定、显式条件和反向事实，不跨字段用否定句遮盖另一处绝对判断。来源中的不允许/不可选用不当成允许入口。新增句子反例与四个字段的图节点连接用例；校验冲突保留待复核，不自动编造修正结论。
+- 残余3：扩展test_model_gateway_security，直接证明preflight/授权/预算拒绝的provider_invoked=False、适配器后输出/超时失败为True、fallback后本地拒绝不清除此前调用标记、独立调用的标记重置。测试均使用既有假传输，不涉及真实供应商；True只表示可能已发送，不能证明供应商收到。
+- 残余4：报告源定位candidate_discovery和覆盖llm_candidate_discovery统一走_optional_run_artifact，校验租户/task/run/kind唯一性及内容哈希；歧义拒绝。覆盖制品缺失时保留模型旧运行unknown/确定性not_applicable回退，未知调用COUNT标量查询不改。添加唯一/歧义/损坏、两个调用入口及历史缺失回退用例。
+- 残余5/6：不新增整仓SHA/路由缓存失效机制，不改legacy分类归并算法；低优先级最小化器/路由溯源建议保留，当前缓存沿已有冻结输入及原始provider/model记录读取，不自动付费重放。legacy只影响未发布在途计算，原始分类/来源留痕；v2仍不走关键词族，已发布记录不重写。
+- 残余7：本条为新的接续记录，前次未运行/第三方核查结果保留其发生时含义。本轮未运行pytest、Quick/Focused/Full、完整Ruff/Mypy、CI、浏览器或模型验证；仅编辑、格式化及导入整理。未提交/推送/合并/部署、未连接服务器；TASK-0029保持in_progress。
+下一核查：复用现有扩展集合，包含test_legal_evidence_classification、test_model_gateway_security、test_task0029_semantic_v2的本次新增/修正内容，保存新日志/JUnit；不要预先把通过数写成固定目标，也不复用此前118 passed作为本候选通过证据。
+
+## TASK-0029 审查意见收口｜2026-10-19｜实现待统一核查
+
+2026-10-19 用户审查14项意见统一收口（实现及回归用例已写，未运行）：
+1/2 明确context_review针对疑点，supported/qualified不得配no_issue，contradicted配no_issue，unresolved配uncertain；矛盾保留待复核。提示要求列出实际发送的全部主/关联摘录哈希，v2 context哈希容量26，未发送摘录仍记录容量限制。
+3/11 单批/多批统一semantic_analysis_batch_N，与最终model_analysis分离；记录规范化输入哈希和排序候选ID，绑定提示/Schema/策略，缓存响应同样校验候选集合、响应哈希及服务端调用身份。重试可复用已验证旧尝试，不自动重放未知；缺少绑定的legacy缓存明确拒绝恢复，不改写旧制品或补造哈希。
+4 取消_apply_family_summary和固定事实摘要，保留原有legacy归并与代表项原文、证据及冲突；不把强制品牌改写成允许替代。对应旧测试改为检查真实代表项，不以固定模板句子作为正确性标准。
+5 同步三个逐文件授权拒绝断言为ModelInputError及准确diagnostic_code，不降低鉴权。
+6 增加tests/test_task0029_semantic_v2.py；扩展现有semantic_batching、persisted_model_gateway、real_ai_runtime回归：v2图/最小化器连接、矛盾no_issue人工保留、全哈希复核、重复关系反例、缓存重复/输入变化/旧单批、容量删减、失败发送边界、授权上限和重试、白名单与脱敏、多段精确引文及顺序、报告引用和原文事实保留。全部尚未运行。
+7 报告从model_analysis.related_document_evidence_ref精确读取上下文，核对租户/task/run/快照/内容哈希；同类权威制品不唯一则拒绝，不任选第一条；历史缺引用不补造容量信息。
+8/9 保留DEC-009库内法规采用：仅匹配实际已选支持条文的引用式分析可带条件保留，不自动认定违法；无关法条不能放行其他规范结论。v2条件建议仅用于v2；v1提示/Schema与已发布结果不改写，在途证据安全/事实真实性纠错边界已记录。
+10 v2引文按可信文档位置及字符区间规范排序、去重后算候选身份和展示首定位；跨片段拼接和缺字仍拒绝。
+12/13 保留100候选/100语义批的有界授权登记及既有预算；补最高批次和retry ID、隐私白名单检查及用途说明，不新建授权或预算体系。
+14 同步OpenAPI0.10.5/契约集v1alpha12及关键v2证据入口。
+本次仅源码/测试/文档编辑及格式化、导入整理；未运行pytest/Quick/Focused/Full、完整Ruff/Mypy、CI、浏览器或模型验证，未提交/推送/合并/部署，未连接服务器。用户提供的118 passed/3 failed是第三方核查线索，未冒充本轮结果。TASK-0029继续in_progress，私人question.txt和界面图不动。
+核查入口：原九文件Focused加 tests/test_task0029_semantic_v2.py、tests/test_semantic_batching.py、tests/test_real_ai_runtime.py、tests/test_task0028_persisted_model_gateway.py、tests/test_task0027_per_file_authorization.py、tests/test_task0027_external_authorization_api.py。先统一核查本候选，未通过不得进入发布。
+
+## TASK-0029 首轮根因修正实现｜2026-10-19｜历史阶段，未验证
+
+用户要求先全部修改代码，随后统一验证。本轮未新增/运行测试，未运行 Quick/Focused/Full、CI、部署或付费调用；仅生成前端契约类型并格式化源码，不把这些操作列为验收证据。
+
+修改覆盖法规结果层级错配、细分批次/重试 ID 授权、发送边界与失败状态、父批/补扫覆盖、饱和计数、多段独立精确引文，以及问题身份、条件反证和逐法条支持关系。新去重按已验证同源事实和问题身份工作，不把类别当事实隔离键，v2不使用关键词族；工作区原有legacy关键词归并仍保留，已取消固定事实摘要；归并来源与分类/严重度差异留存。上下文或支持关系无法核验时保留待复核。
+
+新增 v2 发现/语义 Schema，按新提示版本选择，旧 v1 文本和 Schema 保留。OpenAPI 0.10.5 / 契约集 v1alpha12 / 报告 v3.4，无数据库迁移。语义调用前按实际最小化载荷规划容量，未发送关联摘录数写入报告限制。历史运行和四笔 unknown 不改写、不重放、不改账。
+
+当前代码、契约、前端与报告未完成验证。旧 29 项/4 失败 Focused、旧候选 Full/CI 均不覆盖本次修改。TASK-0029 不标完成，等待用户统一验证。
+
+## TASK-0029 真实报告重复风险专项接续｜2026-10-18
+
+- 本轮仅修复已部署候选在同一文件/定位/原文中，将“暂估价第 2 种方式未定义”分别以高、中文本严重程度重复投影的问题。修正规则要求候选叙述指向方式定义或指代不明；同一原文中的批准主体等其他问题仍单独报告。未新增法规展示或适用性体系。
+- 代码/测试：`src/bidding_compliance/services/review_projection.py` 与 `tests/test_task0030_real_rag.py`。Focused 25 passed；Ruff/Mypy、OpenAPI/生成一致性、前端 14/14 与生产构建通过。
+- 冻结提交 `ed0f80faa0198b4c480a112da21139b316bcf8a0`，PR #8（`https://github.com/w186www/Tender-Review/pull/8`）。官方 Full 正常执行方式七阶段通过：994 passed、0 failed、0 skipped、2 条既有 pypdf warning；真实后端 health/404、登录、项目创建/读取/版本及退出/撤销 HTTP 检查通过。
+- 沙箱首次 Full 的两个 `test_real_corpus_fresh_checkout_preserves_hashes_and_locators` 用例被 Windows Git/MSYS 的 `NtCreateDirectoryObject ... 0xC0000022` 环境权限拒绝。原失败 JUnit `.verification/pytest-result-full-sandbox-failed-20261018.xml` SHA-256 `F3E1A9A3B689F08EB505557A839DA81F23DFB32ED19EC1E864727821C7D75983` 保留；同一 clone 在用户批准的正常本机执行方式下成功，之后同一官方 Full 完整通过。后续本地 Full 固定使用该正常执行方式，不重复已知沙箱失败入口。
+- PR CI run `39141643058` 在本记录更新时 impact/PostgreSQL/ingestion 均 success，baseline 尚在运行，quick 在 Full 模式 skipped。随后只做代码候选不变前提下的 CI、普通合并、部署备份/隔离恢复、同原 PDF 新候选验证；记录更新后执行 Quick，不因记录改动重跑 Full。
+- 业务限制：最终候选仍等待人工复核；不生成 `result_id`、不自动接受/发布、不登记用户验收。原运行检索命中制品已保留未选中参考，可追溯；DEC-009 项目采用库内法规仍不等于独立核验或确定法律依据。
+
 本文件只保存 U01—U16 的单元验收证据和历史 G3 报告；当前进度唯一摘要见 `PROJECT_STATE.md`，机读依赖见 `roadmap.yaml`。
 
 ## U01｜统一实施基线、任务归属和有效状态
@@ -848,3 +909,13 @@
 - 关键回归覆盖机器码与联系人错配、泛化资格描述、评分对象正例、上述同事实重复族及同段不同评分问题。`scripts/verify.ps1 -Mode Focused -TestPaths tests/test_task0029_evidence_quality.py,tests/test_task0030_real_rag.py,tests/test_legal_evidence_classification.py,tests/test_llm_candidate_discovery.py` 通过：后端 78 passed；契约生成、Ruff、Mypy、前端 lint/typecheck、14 项前端测试和生产构建通过。冻结候选的官方 `scripts/verify.ps1 -Mode Full` 退出码 0：后端 992 passed、0 failed、0 skipped、2 条既有 pypdf 弃用警告；真实 HTTP health/login/project/version/logout 检查通过，JUnit `.verification/pytest-result.xml`。Full 后仅更新状态/证据记录，后续 Quick 复核。PR/CI、服务器备份/部署及修复后同一 PDF 新审查尚未完成。
 - 新运行仍须保持 `waiting_human`；采购时间/评分/合同 Skill 实际适用性、被拒候选和覆盖 partial 如实显示。该运行无 result_id、人工决定为 0、发布为 0。
 - 对冻结语义/检索制品的离线复核不产生模型调用：39/39 个模型引文哈希匹配主文或服务端冻结的全文关联摘录；候选风险投影 27 项。旧 `merged_findings` 中修复前自动挂载的 108 条法规参考只作历史状态说明，实际模型选中法规 ID 为 0；完整 44 条检索结果（440 原始命中、255 个唯一证据身份）仍保存在同运行 `legal_retrieval` 制品。离线检查不冒充部署后新运行。其旧报告 21 项映射和 DOCX 版式验收将在修复代码部署后的新候选上完成；不重写旧报告或旧结果。
+
+
+## 2026-10-19 TASK-0029 有限业务核对与明确停点
+
+- 同一原 PDF SHA-256 `4fe02d53170581fdec1986e647dfacc6ab530bf6847d52cae5b91c881380924a` 的新运行 `6ea4f0d3-920b-5d74-b8a8-f7a82ca37ed4` / `b4e709ff-b04e-5460-b641-5f6692253e52` 仍为 `waiting_human`，无 `result_id`、无正式报告内容、未发布。项目上下文冻结为安徽省滁州市 / government / works / tender / government_entity，法律框架 tendering + government_procurement；检索无 context error。
+- 从冻结快照整理的38条可读发现候选、21条旧报告逐项对照和有限业务核对见 `.verification/completion-20261018/real-20261019-candidate-report.md`、`old-report-21-crosswalk-20261019.md`、`business-quality-and-repair-plan-20261019.md`。候选明确标注本轮质量验收不通过；38条均 `insufficient_evidence`。
+- 49/49法规检索 complete（490 hits / 274 unique adopted references），但模型语义响应的 `legal_evidence_ids` 与全部发现的 `legal_references` 均为空；不把检索命中解释为支持结论。DEC-009项目采用状态不等于独立核验。采购程序、评标Skill incomplete；发现覆盖 partial，26个候选定位拒绝、100个单元在batch 28–31失败未处理。
+- 34个模型调用成功并结算，4个 `input_invalid` 调用记录为 unknown/unknown；同一租户RLS核对未找到4笔对应reservation，34笔reservation settled，task费用¥0.24352240，当前reserved ¥0；累计账户spent ¥2.48187150。34笔settled记录的 `review_run_id` 为NULL，按task及唯一call_id对照。本轮未重放或调整账本。JSON证据：`.verification/completion-20261018/budget-reconciliation-20261019.json`。
+- 真实候选的重复/品牌判断与定位恢复缺陷详见业务核对材料。本地投影试修Focused记录为29项/4失败；未据此宣称通过。旧 Git/MSYS fresh-checkout 沙箱失败保留原记录。
+- 本轮没有运行Full、PR、部署、应用重启或付费模型调用。任务保持 `in_progress`，不作为产品交付或用户验收完成。

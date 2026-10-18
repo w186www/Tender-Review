@@ -37,10 +37,11 @@ from bidding_compliance.services.review_persistence import (
     authorized_run,
     canonical_json,
     content_hash,
+    read_artifact,
 )
 from bidding_compliance.services.review_projection import project_product_execution
 
-TEMPLATE_VERSION = "task0010-v3.3"
+TEMPLATE_VERSION = "task0010-v3.4"
 ROOT = Path(__file__).resolve().parents[3]
 MAX_REPORT_BYTES = 20_000_000
 
@@ -73,13 +74,12 @@ def _resolve_source_locations(
     snapshot: dict[str, Any],
     finding: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    discovery_row = session.scalar(
-        select(ReviewArtifact).where(
-            ReviewArtifact.tenant_id == principal.tenant_id,
-            ReviewArtifact.review_task_id == review_task_id,
-            ReviewArtifact.run_id == run_id,
-            ReviewArtifact.kind == "candidate_discovery",
-        )
+    discovery_row = _optional_run_artifact(
+        session,
+        principal,
+        review_task_id=review_task_id,
+        run_id=run_id,
+        kind="candidate_discovery",
     )
     if discovery_row is None or content_hash(discovery_row.content) != discovery_row.content_hash:
         raise ValueError("frozen source locator artifact is unavailable")
@@ -294,23 +294,68 @@ def _resolve_source_locations(
     return result_locations
 
 
-def _verified_run_artifact(
+def _optional_run_artifact(
     session: Session,
     principal: Principal,
-    result: ReviewResult,
+    *,
+    review_task_id: str,
+    run_id: str,
     kind: str,
-) -> ReviewArtifact:
-    artifact = session.scalar(
-        select(ReviewArtifact).where(
-            ReviewArtifact.tenant_id == principal.tenant_id,
-            ReviewArtifact.review_task_id == result.review_task_id,
-            ReviewArtifact.run_id == result.run_id,
-            ReviewArtifact.kind == kind,
+) -> ReviewArtifact | None:
+    artifacts = list(
+        session.scalars(
+            select(ReviewArtifact).where(
+                ReviewArtifact.tenant_id == principal.tenant_id,
+                ReviewArtifact.review_task_id == review_task_id,
+                ReviewArtifact.run_id == run_id,
+                ReviewArtifact.kind == kind,
+            )
         )
     )
+    if len(artifacts) > 1:
+        raise ValueError(f"verified {kind} artifact is ambiguous")
+    if not artifacts:
+        return None
+    artifact = artifacts[0]
     if artifact is None or content_hash(artifact.content) != artifact.content_hash:
         raise ValueError(f"verified {kind} artifact is unavailable or changed")
     return artifact
+
+
+def _verified_run_artifact(
+    session: Session, principal: Principal, result: ReviewResult, kind: str
+) -> ReviewArtifact:
+    artifact = _optional_run_artifact(
+        session,
+        principal,
+        review_task_id=result.review_task_id,
+        run_id=result.run_id,
+        kind=kind,
+    )
+    if artifact is None:
+        raise ValueError(f"verified {kind} artifact is unavailable or changed")
+    return artifact
+
+
+def _related_analysis_context(
+    session: Session, principal: Principal, result: ReviewResult, model_content: dict[str, Any]
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Follow the exact analysis reference; never guess among same-kind artifacts."""
+    reference = model_content.get("related_document_evidence_ref")
+    if reference is None:
+        return None, None  # Historical/zero-candidate analyses did not record a context.
+    if not isinstance(reference, str):
+        raise ValueError("report related-document context reference is invalid")
+    content = read_artifact(
+        session,
+        principal.tenant_id,
+        reference,
+        review_task_id=result.review_task_id,
+        run_id=result.run_id,
+    )
+    if content.get("snapshot_hash") != result.snapshot_hash:
+        raise ValueError("report related-document context snapshot mismatch")
+    return content, content_hash(content)
 
 
 def _product_execution(
@@ -336,13 +381,12 @@ def _product_execution(
         )
     )
     unknown_count = int(unknown or 0)
-    discovery = session.scalar(
-        select(ReviewArtifact).where(
-            ReviewArtifact.tenant_id == principal.tenant_id,
-            ReviewArtifact.review_task_id == result.review_task_id,
-            ReviewArtifact.run_id == result.run_id,
-            ReviewArtifact.kind == "llm_candidate_discovery",
-        )
+    discovery = _optional_run_artifact(
+        session,
+        principal,
+        review_task_id=result.review_task_id,
+        run_id=result.run_id,
+        kind="llm_candidate_discovery",
     )
     if discovery is None:
         # Older real-model runs predate the persisted coverage block. If the run actually
@@ -477,6 +521,15 @@ def _assessment_scope(
         raise ValueError("report runtime does not match its frozen result")
     runtime = _runtime_projection(session, run)
     retrieval_runtime = run.snapshot.get("runtime_provenance", {}).get("retrieval", {})
+    related, related_hash = _related_analysis_context(session, principal, result, model_content)
+    omitted_context = 0
+    if related is not None:
+        omitted = related.get("omitted_for_input_capacity", {})
+        if not isinstance(omitted, dict) or any(
+            type(count) is not int or count < 0 for count in omitted.values()
+        ):
+            raise ValueError("report omitted-context counts are invalid")
+        omitted_context = sum(omitted.values())
     return {
         "candidate_discovery_status": discovery_content.get("status", "unknown"),
         "candidate_count": len(discovery_content.get("candidates", [])),
@@ -489,6 +542,7 @@ def _assessment_scope(
         "model_cost_cny": runtime["estimated_cost_cny"],
         "vector_index_item_count": retrieval_runtime.get("vector_index_item_count", 0) or 0,
         "vector_source_item_count": retrieval_runtime.get("vector_source_item_count", 0) or 0,
+        "model_context_capacity_omitted_excerpts": omitted_context,
         "skill_coverage": skill_coverage,
         "legal_framework_confirmed": framework_confirmed,
         "retrieval_status_counts": retrieval_status_counts,
@@ -509,6 +563,7 @@ def _assessment_scope(
             "legal_retrieval": retrieval.content_hash,
             "model_analysis": model.content_hash,
             "project_context": project_context.content_hash,
+            **({"semantic_document_context": related_hash} if related_hash is not None else {}),
         },
     }
 

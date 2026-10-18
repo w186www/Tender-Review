@@ -38,6 +38,7 @@ def _hit(*, eligible: bool, reason: str, version_status: str) -> SimpleNamespace
         version_status=version_status,
         eligible_for_confirmation=eligible,
         law_id="civil-code",
+        title="中华人民共和国民法典",
         version="2020-05-28",
         quote_hash="a" * 64,
         source_uri="https://www.gov.cn/example",
@@ -82,9 +83,7 @@ def _merge(
         "reasoning_summary": "合成夹具。",
     }
     artifacts["model"] = {"content": {"findings": [model_entry]}}
-    hit = verified[0] or _hit(
-        eligible=False, reason="unverified", version_status="unverified"
-    )
+    hit = verified[0] or _hit(eligible=False, reason="unverified", version_status="unverified")
     persisted_hit = {
         "evidence_id": hit.evidence_id,
         "law_id": hit.law_id,
@@ -204,9 +203,7 @@ def test_tampered_or_cross_publication_reference_is_rejected(monkeypatch, failur
     hit = _hit(eligible=False, reason="unverified", version_status="unverified")
     # unreadable_run: the saved run cannot be revalidated at all.
     # quote_mismatch: the clause resolves but its bytes differ from the cited quote.
-    verified = (
-        (None, None) if failure == "unreadable_run" else (hit, "与所引条文不符的文本")
-    )
+    verified = (None, None) if failure == "unreadable_run" else (hit, "与所引条文不符的文本")
     finding = _merge(monkeypatch, selected=True, verified=verified)
 
     assert all(item["kind"] == "document" for item in finding["evidence"])

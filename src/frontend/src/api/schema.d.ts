@@ -1011,6 +1011,8 @@ export interface components {
             recovered_candidate_families?: number;
             unrecovered_candidate_families?: number;
             recovered_source_unit_count?: number;
+            /** @description 已完成父批次提交但细分补扫失败的唯一源单元数，不等于从未处理数 */
+            failed_rescan_units?: number;
         };
         EvidenceRef: {
             evidence_id: string;

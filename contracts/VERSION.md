@@ -1,17 +1,28 @@
 # 开发契约版本与兼容性
 
-当前契约集合：v1alpha11（2026-10-18），尚未对生产消费者发布。
+当前契约集合：v1alpha12（2026-10-19），当前修改尚未验证或部署。
+
+本次新增 `llm-candidate-discovery-v2.schema.json` 和 `semantic-analysis-v2.schema.json`，
+响应版本均为 v1alpha2，仅由新 `task0029-semantic-evidence-v2` 运行选用。
+旧响应 Schema 与旧提示文本保留；历史运行和已发布报告不改写。
+发现输出支持 1—4 个各自连续、各自唯一定位的原文引用；语义输出增加问题身份、
+同源重复代表项、原文条件复核和逐法条关联理由。这些字段是模型建议，仍由服务端验证来源和关系，
+不构成独立法规核验或用户验收。OpenAPI 0.10.5 加法新增可选 `failed_rescan_units`，
+指父批次已成功提交但后续补扫失败的唯一原文单元；报告模板升级为 task0010-v3.4。
+调用状态沿用现有 failed/not_applicable 和 unknown/unknown，无数据库迁移。
+
+本轮未发布 v2 的收口约束：context_review 的复核/反证哈希上限为26（最多20个来源摘录+6个关联摘录），源引用哈希仍至多20。conclusion 与 assessment 的一致性规则及语义缓存/报告引用身份见 docs/development/product-contract-baseline.md；旧模型响应 Schema 不变。
 
 | 契约 | 当前版本 | 本次变化 |
 |---|---|---|
 | EvidenceRef / LegalResult / ReviewReport | v1alpha8 加法 | 新增可选 `adoption_status`、`adopted_evidence`、`adoption_policy_id` 及报告 `legal_adoption_policy`/采用参考计数；采用政策不等于独立法律核验，`citable_evidence` 仍只含原独立核验命中；旧字段和旧报告保持原义 |
-| OpenAPI | 0.10.4 | 在 0.10.3 上为法规参考加可选的法规/版本 ID、官方来源 URI 与哈希、全文哈希/定位、适用框架、资格和采用状态元数据；旧报告仍可读取，新增字段不改变正式证据资格。0.10.3 明确 `Error.details` 可包含结构化字段，用于上下文补正提示；错误包络字段不变且该对象可选，旧消费者可忽略。0.10.2 在 0.10.1 上加法升级：产品执行投影新增候选拒绝尝试/去重数、原因、唯一原文单元和后续恢复统计；旧响应字段与消费者保持有效。0.10.1 在 0.10.0 上新增可选 `product_execution` 覆盖与完整度投影 |
+| OpenAPI | 0.10.5 | 在 0.10.3 上为法规参考加可选的法规/版本 ID、官方来源 URI 与哈希、全文哈希/定位、适用框架、资格和采用状态元数据；旧报告仍可读取，新增字段不改变正式证据资格。0.10.3 明确 `Error.details` 可包含结构化字段，用于上下文补正提示；错误包络字段不变且该对象可选，旧消费者可忽略。0.10.2 在 0.10.1 上加法升级：产品执行投影新增候选拒绝尝试/去重数、原因、唯一原文单元和后续恢复统计；旧响应字段与消费者保持有效。0.10.1 在 0.10.0 上新增可选 `product_execution` 覆盖与完整度投影 |
 | LegalManifest、LegalIndex | Manifest v1alpha3 / Index v1alpha4 | D01条款效力；D07冻结原始字节/PDF字符框映射与显式文本排除；旧索引明确升级，原文与来源字节不变。法律地区归一化 cn-regions-2 增加安徽滁州映射，旧 cn-regions-1 结果仍可读取 |
 | RetrievalQuery、RunSnapshot | Query schema_version=v1alpha3 / 集合v1alpha2 | TASK-0006纠正：地区规范化、持久运行与基准日来源；纯CLI不伪造项目运行 |
 | RetrievalResult | schema_version=v1alpha5 / Query v1alpha3 | D03续建：正式EvidenceRef、同一文本制品URI/hash/locator、citable_evidence与矛盾/引用关联校验。旧result v1alpha1/v1alpha2显式拒绝，不改写追加写历史；无生产数据，不更改表DDL |
 | ParsedDocument、ParserRequest、ParserResponse、Fragment | schema_version=v1alpha1 / 集合v1alpha9 | 闭合字段、定位、哈希、OCR置信度和可选词级 TSV 记录（文档页码、块/段/行/词序、原始像素框/置信度及文档坐标）、封闭问题码、资源策略、结果/错误互斥；解析类型为源并生成验证，OpenAPI 加法字段保持旧片段兼容 |
 | ComplianceReviewState / ComplianceFinding | schema_version=v1alpha2 / 集合v1alpha2 | TASK-0009增加有界Skill汇合/结果引用、result_published和显式冲突；State findings为摘要子集 |
-| SemanticAnalysisResponse | schema_version=v1alpha1 | 新增严格闭合的模型语义响应契约，模型只产生分析建议 |
+| SemanticAnalysisResponse | v1alpha1 / v1alpha2 | 新增严格闭合的模型语义响应契约，模型只产生分析建议 |
 | DevelopmentTask | schema_version=v1alpha2 | 相关需求与局部验收分离，completed逐项需要证据 |
 | EvidenceRef、ModelResponse | 集合v1alpha2 | 格式与内容约束沿用，增加有效正反例 |
 | ErrorCode | 集合v1alpha2 | 明确11个业务码和HTTP_ERROR兜底，未知码被拒绝 |

@@ -1,3 +1,77 @@
+## 当前接续：TASK-0029 发布收尾｜Full 通过，待提交/CI/部署（2026-10-19）
+
+- 当前候选即工作树未提交改动（父提交 `ed0f80faa0198b4c480a112da21139b316bcf8a0`，分支 `work/TASK-0027`）。用户确认并已用官方入口重跑 `.\scripts\verify.ps1 -Mode Full`：七阶段 exit 0；后端 **1066 passed / 0 failed / 0 skipped / 6 warnings**，653.02s；JUnit `.verification/pytest-result.xml`（tests=1066/failures=0/errors=0/skipped=0，SHA-256 `82dd70e2811ab7c84ffe334ba51abe4fad31d9d3d8b288b72f3778e159eca929`）。Full 后未修改代码、契约、测试、配置或依赖；仅更新本记录/CHANGELOG 并跑 Quick。
+- 用户已授权完成 GitHub 提交、PR、普通合并及现有 ECS 部署。发布按既有流程执行：逐路径暂存（排除私人 `question.txt`、未跟踪界面图、`.verification` 私有证据/密钥/真实文件）→ 推送 `work/TASK-0027` → 复用/创建 PR → required CI 成功后普通合并 → 部署前备份及隔离恢复校验 → 仅重建必要应用镜像 → 保留 TLS 叠加层、数据库、MinIO、ClamAV、账本与数据卷。
+- 已知残余边界保留：`_semantic_input_hash` 未绑定 minimizer/路由身份；`no_issue`+`contradicted` 空 counterevidence 作为产品语义建议；legacy 关键词族只影响未发布 v1/在途数据；同句同时引用选中与未选中法条时的条件性参考措辞为已知审查边界。TASK-0029 保持 in_progress；不登记用户验收或正式交付。
+
+## 此前记录：TASK-0029 报告查询夹具已同步（发生时状态，2026-10-19）
+
+2026-10-19 唯一门禁失败接续（夹具已修改，尚未复验）：用户转交原九文件119 passed/1 failed、扩展18文件249 passed/1 failed及静态/契约检查通过的复核报告；唯一失败为test_task0029_report_citations的ReportSession把继承的related_row用于ReviewArtifact查询。现按查询实体分流scalars：ReviewArtifact返回本测试的artifact，其他查询继续父类行为；scalar队列只保留两次Document读取，并断言队列耗尽。保留原文/关联摘录/哈希及定位断言，不改运行时代码或验收标准。
+本会话未执行上述报告中的检查，也未收到新JUnit原始路径；本次未运行pytest、Quick/Focused/Full、完整Ruff/Mypy、CI、模型或部署，仅编辑、导入整理与格式化。前次119/1、249/1保留为用户提供证据，不提前写成120通过。
+最小化器/路由身份及legacy分类覆盖维持已记录边界；counterevidence非空作为后续产品语义建议保留，不在此次夹具修复中新增硬门槛。现有no_issue仍必须满足contradicted、完整已复核引文集合及主文真实性等校验；空counterevidence不代表已经有可验证的反证，不宣称其质量已独立验收。
+下一步：由用户统一重跑原九文件/既有扩展集合，保存新日志和JUnit；通过后按既定门禁推进。TASK-0029保持in_progress，不提交或部署。
+
+## 此前记录（保留发生时状态）
+
+## 当前接续：TASK-0029 扩展复核残余项已修改｜待统一核查（2026-10-19）
+
+2026-10-19 扩展复核残余项收口（代码/回归用例已改，待统一核查）：
+用户提供复核结果：原九文件116 passed/2 failed、扩展18文件227 passed/2 failed，Ruff/Mypy及契约/仓库检查据其报告通过；两项失败均指向法规分类_hit夹具顶层缺title。未提供本次原始日志/JUnit路径，本会话未独立执行上述检查，不把这些结果冒充自测或当前候选已通过。
+- 两个既有失败：_hit顶层补title，与真实LegalHit契约及其evidence内容一致；生产selected_citations不以空字符串掩盖缺失字段。
+- 残余1：v2引用集合在校验前按可信文档位置规范排序、去重，拒绝顺序/身份和恢复族采用稳定主来源；legacy保持原算法。添加双无效、后段无效、未知+无效以及正反顺序/修正后恢复族一致性用例，不放宽原文字符校验。
+- 残余2：条件反证逐字段检查标题、描述、推理摘要和建议；逐句识别局部否定、显式条件和反向事实，不跨字段用否定句遮盖另一处绝对判断。来源中的不允许/不可选用不当成允许入口。新增句子反例与四个字段的图节点连接用例；校验冲突保留待复核，不自动编造修正结论。
+- 残余3：扩展test_model_gateway_security，直接证明preflight/授权/预算拒绝的provider_invoked=False、适配器后输出/超时失败为True、fallback后本地拒绝不清除此前调用标记、独立调用的标记重置。测试均使用既有假传输，不涉及真实供应商；True只表示可能已发送，不能证明供应商收到。
+- 残余4：报告源定位candidate_discovery和覆盖llm_candidate_discovery统一走_optional_run_artifact，校验租户/task/run/kind唯一性及内容哈希；歧义拒绝。覆盖制品缺失时保留模型旧运行unknown/确定性not_applicable回退，未知调用COUNT标量查询不改。添加唯一/歧义/损坏、两个调用入口及历史缺失回退用例。
+- 残余5/6：不新增整仓SHA/路由缓存失效机制，不改legacy分类归并算法；低优先级最小化器/路由溯源建议保留，当前缓存沿已有冻结输入及原始provider/model记录读取，不自动付费重放。legacy只影响未发布在途计算，原始分类/来源留痕；v2仍不走关键词族，已发布记录不重写。
+- 残余7：本条为新的接续记录，前次未运行/第三方核查结果保留其发生时含义。本轮未运行pytest、Quick/Focused/Full、完整Ruff/Mypy、CI、浏览器或模型验证；仅编辑、格式化及导入整理。未提交/推送/合并/部署、未连接服务器；TASK-0029保持in_progress。
+下一核查：复用现有扩展集合，包含test_legal_evidence_classification、test_model_gateway_security、test_task0029_semantic_v2的本次新增/修正内容，保存新日志/JUnit；不要预先把通过数写成固定目标，也不复用此前118 passed作为本候选通过证据。
+
+## 此前记录（保留发生时状态）
+
+## 当前接续：TASK-0029 审查意见统一收口｜已修改，待用户核查（2026-10-19）
+
+2026-10-19 用户审查14项意见统一收口（实现及回归用例已写，未运行）：
+1/2 明确context_review针对疑点，supported/qualified不得配no_issue，contradicted配no_issue，unresolved配uncertain；矛盾保留待复核。提示要求列出实际发送的全部主/关联摘录哈希，v2 context哈希容量26，未发送摘录仍记录容量限制。
+3/11 单批/多批统一semantic_analysis_batch_N，与最终model_analysis分离；记录规范化输入哈希和排序候选ID，绑定提示/Schema/策略，缓存响应同样校验候选集合、响应哈希及服务端调用身份。重试可复用已验证旧尝试，不自动重放未知；缺少绑定的legacy缓存明确拒绝恢复，不改写旧制品或补造哈希。
+4 取消_apply_family_summary和固定事实摘要，保留原有legacy归并与代表项原文、证据及冲突；不把强制品牌改写成允许替代。对应旧测试改为检查真实代表项，不以固定模板句子作为正确性标准。
+5 同步三个逐文件授权拒绝断言为ModelInputError及准确diagnostic_code，不降低鉴权。
+6 增加tests/test_task0029_semantic_v2.py；扩展现有semantic_batching、persisted_model_gateway、real_ai_runtime回归：v2图/最小化器连接、矛盾no_issue人工保留、全哈希复核、重复关系反例、缓存重复/输入变化/旧单批、容量删减、失败发送边界、授权上限和重试、白名单与脱敏、多段精确引文及顺序、报告引用和原文事实保留。全部尚未运行。
+7 报告从model_analysis.related_document_evidence_ref精确读取上下文，核对租户/task/run/快照/内容哈希；同类权威制品不唯一则拒绝，不任选第一条；历史缺引用不补造容量信息。
+8/9 保留DEC-009库内法规采用：仅匹配实际已选支持条文的引用式分析可带条件保留，不自动认定违法；无关法条不能放行其他规范结论。v2条件建议仅用于v2；v1提示/Schema与已发布结果不改写，在途证据安全/事实真实性纠错边界已记录。
+10 v2引文按可信文档位置及字符区间规范排序、去重后算候选身份和展示首定位；跨片段拼接和缺字仍拒绝。
+12/13 保留100候选/100语义批的有界授权登记及既有预算；补最高批次和retry ID、隐私白名单检查及用途说明，不新建授权或预算体系。
+14 同步OpenAPI0.10.5/契约集v1alpha12及关键v2证据入口。
+本次仅源码/测试/文档编辑及格式化、导入整理；未运行pytest/Quick/Focused/Full、完整Ruff/Mypy、CI、浏览器或模型验证，未提交/推送/合并/部署，未连接服务器。用户提供的118 passed/3 failed是第三方核查线索，未冒充本轮结果。TASK-0029继续in_progress，私人question.txt和界面图不动。
+核查入口：原九文件Focused加 tests/test_task0029_semantic_v2.py、tests/test_semantic_batching.py、tests/test_real_ai_runtime.py、tests/test_task0028_persisted_model_gateway.py、tests/test_task0027_per_file_authorization.py、tests/test_task0027_external_authorization_api.py。先统一核查本候选，未通过不得进入发布。
+
+## 以下为此前接续记录（发生时状态，不能当作当前验证结果）
+
+## 当前接续：TASK-0029 根因修正已写入，按用户要求未测试（2026-10-19）
+
+- 最新后端测试接续：2026-10-19 Focused 29项失败接续（仅修正，未复验）：读取本次 pytest-focused-result.xml，117项为29 failed/88 passed。26项涉及旧版本断言、最小化器v2必填上下文/同源候选、无prompt_version的旧graph夹具或错误文本匹配。现同步v2输入和内容无关诊断码断言，旧graph夹具显式冻结fulltext-v1；不在运行时代码中默认为缺失快照补版本。另3项原本调用旧关键词归并路径，现明确提供v2已审查问题身份，仍要求归并数量1/1/2，保留全部证据、独立评审标准，并补不同来源/不同问题不归并、分类冲突和归并来源断言。品牌泛化标题仍作为条件反证拒绝检查；不依靠模板把它改写成已支持结论。法规最小化器同一正例同时覆盖真实直接hits和旧result包络。这些是输入/断言与当前契约的同步，不证明模型能正确产生问题身份，亦不证明真实报告合格。原失败日志和JUnit保留；本会话未运行任何验证/测试、CI或发布，未连接服务器、未提交。下一步由Luna复用原九文件Focused；失败报告完整新JUnit，通过后才进入既定Full/发布门禁。
+
+- 最新 Mypy 接续：依据用户转交的 Luna 复验报告，契约/生成与 Ruff 已通过，Mypy 因 product_runtime 从 real_ai_runtime 间接导入两个未明确重导出的常量停止。现将 DISCOVERY_EVIDENCE_PROMPT_VERSION、FULLTEXT_V1_PROMPT_VERSION 改为从其定义模块 review_contracts 直接导入，常量值和运行时装配不变。本次修正未复验、未改测试/Schema；由 Luna 继续同一组 Focused，历史 Ruff 失败记录保留。
+
+- 最新验证接续：用户转交 Luna 的 Focused 失败报告，称第 1 阶段契约/生成一致性通过，第 2 阶段 Ruff 因 3 处 E501 和 1 处 B023 停止，后续阶段未运行。现已拆分超长字符串（拼接后的文本不变），并以默认参数显式绑定当前候选的 law_relations，未改业务规则/契约/测试。此四处修正尚未复验；由 Luna 按已有授权接续 Focused，通过后再进入原发布流程，本会话未运行 Ruff/测试/Full。
+
+- 用户要求先全部修改代码，随后统一验证。本轮未新增/运行测试，未运行 Quick/Focused/Full、CI、浏览器或模型验证，未提交/推送/PR/合并/部署。仅做源码修改、OpenAPI 客户端生成和代码格式化；旧验证记录不覆盖当前工作区。
+- 目录/分支复用，本地 HEAD 仍为 ed0f80f。接手前已有投影、测试及记录修改，已有内容保留；本轮未改测试文件。私人 question.txt 和未跟踪界面图未读取/修改。未连接服务器，最后交接部署版本为 b69a78f，不声称本轮重新核验。
+- 已修改：法规结果兼容真实直接 result 与旧 envelope，缺失 hits 不再静默吞掉；新语义输入保留冻结项目分类上下文。细分调用身份覆盖初始批次和有界新增批次，服务端重试 ID 同样显式登记。
+- 已修改：明确发送前拒绝记 failed/not_applicable，可能已发送仍 unknown/unknown，并保留无原文/密钥的诊断码；不改写历史四笔 unknown，不改账。饱和按模型返回数（含被拒引文）判断；父批成功/子批失败单列 failed_rescan_units，网页及报告解释一致。
+- 新运行选用 task0029-semantic-evidence-v2 / task0029-discovery-evidence-v2；旧提示文本及 v1 Schema 保留。发现输出支持多段各自精确引用；语义输出要求问题身份、重复代表项、上下文条件复核及逐法条关联理由，服务端核对来源和关系。新去重路径不走旧条款关键词族，归并来源记录在 projection_groups，不强并同段不同问题。
+- 新语义批次按实际出站载荷规划容量；先分批，单候选必要时减少最低排名关联摘录，缺口数量写入报告限制。主文和法规不因容量静默删掉，不新增付费重试；不伪造法规核验、人工签署或验收。
+- OpenAPI 0.10.5 / 契约集 v1alpha12、新增 v2 模型响应 Schema、报告 task0010-v3.4，无数据库迁移。TASK-0029 保持 in_progress；代码实现不等于验证通过。
+- 下一步由用户统一验证：新旧契约及 v2 夹具、真实上游到模型出站的数据连接、28 以上批次及重试授权、发送前失败/发送后未知、跨类别重复/同段不同问题、多片段引文反例、条件反证/法规关联、网页报告限制。历史 Full/CI 不移用于本候选，未经后续指令不自动启动验证或部署。
+
+## 历史接续：TASK-0029 同源重复风险修正（2026-10-18，代码已冻结，PR CI 进行中）
+
+- 只针对部署候选真实运行中第 76 页第 10 行“暂估价第 2 种方式”同一问题在不同候选 ID/严重程度下重复出现作窄修复。仅同一类别、同一文件哈希、同一定位、同一原文，且候选叙述明确指向方式定义/指代不明时归并；同段的确认/批准主体问题仍独立保留。法规检索参考继续沿用现有 `legal_retrieval` 冻结制品，无新增展示逻辑。
+- 实现与回归：`src/bidding_compliance/services/review_projection.py`、`tests/test_task0030_real_rag.py`。Focused 指定文件 25 passed；Ruff、Mypy、契约生成、前端 lint/typecheck、4 文件 14 测试及构建通过。
+- 代码候选已冻结并提交 `ed0f80faa0198b4c480a112da21139b316bcf8a0`，推送到既有 `work/TASK-0027`，PR #8：<https://github.com/w186www/Tender-Review/pull/8>。用户批准的正常本机执行入口下官方 Full 七阶段通过：994 passed、0 failed、0 skipped、2 条既有 pypdf 弃用警告（后端 610.38 秒）；实际 HTTP health 200、匿名 404、请求 ID、登录、项目读写/版本、退出和撤销检查均通过。
+- 第一次沙箱 Full 的 2 个 fresh-checkout 用例失败于 Git for Windows/MSYS 对象创建权限，原 JUnit 保存在 `.verification/pytest-result-full-sandbox-failed-20261018.xml`（SHA-256 `F3E1A9A3B689F08EB505557A839DA81F23DFB32ED19EC1E864727821C7D75983`）；具体为 `NtCreateDirectoryObject(\\BaseNamedObjects\\msys-2.0S5-b491248b697284ab): 0xC0000022`。相同本机 clone 命令在获准的正常执行方式下成功，随后同一官方 Full 完整通过。后续本机 Full 固定从正常执行器运行，不再先用已知失败的沙箱入口跑整套测试；Full 后纯记录更新只跑 Quick。
+- PR CI run `39141643058`：impact、PostgreSQL、ingestion success；baseline 于记录时仍 in progress，quick 按 Full 模式 skipped。CI 全部适用作业成功后普通合并。任务专项部署尚未开始：需先新建服务器备份并通过隔离恢复校验，再部署合并版本，最后对原始 PDF SHA `4fe02d53170581fdec1986e647dfacc6ab530bf6847d52cae5b91c881380924a` 建立新候选并检查网页/导出边界、引文、法规关联、旧 21 项对照和账本。
+- 保护私人 `question.txt` 与未跟踪截图，不读取、修改或提交；TASK-0029 保持 `in_progress`，没有人工决定、专家标签、结果发布或用户最终验收。
+
 ## 当前接续专项：真实 PDF 法规与报告质量修复（2026-10-18，Full 通过，待 PR/部署）
 
 - 基线为 `d963190da70e7972183ca873a48281f565b0c163`，分支 `work/TASK-0027`；候选运行时代码已冻结。提交前工作树包含本轮允许路径修改及私人未跟踪 `question.txt`；该私人文件未读取、修改或提交，未发现其他写入者。服务器只读复核仍为源码/镜像 `task0029-d963190`，工作树干净，PostgreSQL、MinIO、ClamAV 均未触碰。
@@ -634,3 +708,12 @@
 - 不恢复DeepSeek派工或自动代理审批。当前无额外代理运行；保留历史审查的真实发现作为问题清单。
 
 当前TASK-0007验收源码236d2a6e231be030f719b0bbabc3f2b0a50039b3；本地Focused30、Full448/真实集成和远程38516913371适用作业全部成功，任务已完成并归档。TASK-0008验收源码`4d1f59f69143c63c7d4273958a12da19ecf5acdf`（归档前工程记录提交`5b9b9f1bf68b245abb05b75cd855d07d30497d2a`）从归档提交`6edea37c071cfcec6cf8354b9d74f92fbcaba0a5`创建并包含TASK-0007验收源码；原stash@{0}仍保留。Focused54项、Full487项、真实本机后端/身份检查及源码提交远程CI运行`38521959503`（impact/baseline/postgres/ingestion/verify-required全部success）均通过。TASK0008-001/002按正式验收条件完成并归档；详见`docs/development/TASK-0008-validation.md`。生产预算仅实现单进程原子参考ledger，不能支持多进程生产一致性；DEC-002待批准、生产路由保持禁用，真实在线供应商调用未执行。TASK-0009源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`验收通过；源码与验证记录提交远程CI由用户确认成功，归档提交远程CI待核验。TASK-0010源码候选ab878ecd9f5df5d60ea4e27fe7edc451246ca75e本地验收通过，远程CI待执行。
+
+## 2026-10-19 TASK-0029 有限业务核对（停在交接点）
+
+- 已完成：用同一 PDF 的保存响应/制品整理38条可读候选、旧报告21项逐条对照、重复/品牌/引文恢复/法规引用实例及只读预算核对；材料位于 `.verification/completion-20261018/handoff-index-20261019.md`。
+- 当前真实运行 `6ea4f0d3-920b-5d74-b8a8-f7a82ca37ed4` / `b4e709ff-b04e-5460-b641-5f6692253e52` 为 `waiting_human`，`result_id=null`，未发布。38条均 `insufficient_evidence`；49/49法规检索成功，但模型未选法规 ID；发现覆盖 partial（26条 quote_missing_or_ambiguous、100个源单元来自4个 input_invalid batch、procedure/evaluation Skill incomplete）。
+- 预算只读核对：34笔 task reservation settled，charge ¥0.24352240、reserved ¥0；4个 input_invalid 调用保持 unknown，均无 reservation；未重放、释放或重置。tenant-a 账户累计 spent ¥2.48187150，reserved ¥0。
+- Focused 后端JUnit 29项中4个投影断言失败，原始记录 `.verification/pytest-focused-result.xml` 保留。两个 Git/MSYS 沙箱失败仍保留于 `.verification/pytest-result-full-sandbox-failed-20261018.xml`。当前本地 `review_projection.py` 和 `test_task0030_real_rag.py` 的未提交修正未通过本次 Focused，未部署；服务器运行合并版本 `b69a78f`。
+- 本轮按用户指令不启动 Full、PR、部署或付费重跑，不接受/发布风险。固定正常 PowerShell Full 入口：`.\scripts\verify.ps1 -Mode Full`；后续仅在新的明确工作开始后执行。
+- 已知问题：同原文重复风险未跨类别归并；品牌分析未综合等效替代条款；26项定位恢复失败；模型输出未选择检索法规且有未引用的规范性表述；100个源单元未处理。下一步仍应从模型批次输入、结构化分析支持关系、精确证据跨度和统一问题身份投影四层处理，不追加按风险关键词的专用族。

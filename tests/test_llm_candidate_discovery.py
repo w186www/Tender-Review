@@ -19,6 +19,7 @@ from bidding_compliance.model_gateway.contracts import ModelPolicy, ModelRespons
 from bidding_compliance.model_gateway.errors import GatewayErrorCode, ModelGatewayError
 from bidding_compliance.services import evidence_checker
 from bidding_compliance.services import llm_candidate_discovery as llm
+from bidding_compliance.services.review_contracts import FULLTEXT_V1_PROMPT_VERSION
 
 
 def digest(value):
@@ -438,11 +439,17 @@ def graph_harness(monkeypatch, *, fail=False, saturating=False, fail_first=False
         run_id="run-a",
         project_id="project-a",
         snapshot_hash="a" * 64,
-        snapshot={"document_requests": []},
+        snapshot={"document_requests": [], "prompt_version": FULLTEXT_V1_PROMPT_VERSION},
         publication_id="publication-a",
         revision_id="revision-a",
     )
-    frozen = {"document_requests": [], "input_snapshot": snapshot.model_dump(mode="json")}
+    # This harness deliberately returns v1 discovery/semantic responses. Freeze
+    # its version explicitly instead of depending on the current run default.
+    frozen = {
+        "document_requests": [],
+        "input_snapshot": snapshot.model_dump(mode="json"),
+        "prompt_version": FULLTEXT_V1_PROMPT_VERSION,
+    }
 
     class Session:
         def __enter__(self):

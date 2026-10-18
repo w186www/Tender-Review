@@ -31,8 +31,10 @@ from bidding_compliance.services.execution_authorization import (
     require_execution_policy,
 )
 from bidding_compliance.services.real_ai_runtime import (
+    DISCOVERY_EVIDENCE_PROMPT,
     DISCOVERY_PROMPT,
     DISCOVERY_PROMPT_VERSION,
+    FULLTEXT_V1_PROMPT,
     LEGACY_SEMANTIC_PROMPT,
     LEGACY_SEMANTIC_PROMPT_VERSION,
     PREVIOUS_SEMANTIC_PROMPT,
@@ -44,6 +46,10 @@ from bidding_compliance.services.real_ai_runtime import (
     real_ai_policy,
 )
 from bidding_compliance.services.real_embedding_runtime import create_real_retriever_factory
+from bidding_compliance.services.review_contracts import (
+    DISCOVERY_EVIDENCE_PROMPT_VERSION,
+    FULLTEXT_V1_PROMPT_VERSION,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,7 +129,9 @@ def create_product_runtime(
         budgets=budget,
         approved_prompts={
             DISCOVERY_PROMPT_VERSION: DISCOVERY_PROMPT,
+            DISCOVERY_EVIDENCE_PROMPT_VERSION: DISCOVERY_EVIDENCE_PROMPT,
             SEMANTIC_PROMPT_VERSION: SEMANTIC_PROMPT,
+            FULLTEXT_V1_PROMPT_VERSION: FULLTEXT_V1_PROMPT,
             PREVIOUS_SEMANTIC_PROMPT_VERSION: PREVIOUS_SEMANTIC_PROMPT,
             LEGACY_SEMANTIC_PROMPT_VERSION: LEGACY_SEMANTIC_PROMPT,
         },

@@ -32,6 +32,7 @@ from bidding_compliance.model_gateway.authorized_runtime import (
     FULL_CAPABILITY_AUTHORIZATION_ID,
 )
 from bidding_compliance.model_gateway.contracts import DataPolicy
+from bidding_compliance.model_gateway.errors import ModelInputError
 from bidding_compliance.persistence.database import make_engine
 from bidding_compliance.persistence.models import (
     AuditEvent,
@@ -310,8 +311,9 @@ def test_the_confirmation_of_the_uploaded_file_is_what_lets_that_file_leave_the_
         "discovery_sections": [{"section_key": "s000000c000", "text": "合成资格条件原文。"}]
     }
     section["document_sha256"] = other["sha256"]
-    with pytest.raises(ValueError, match="outside authorized scope"):
+    with pytest.raises(ModelInputError) as denied:
         minimizer({"discovery_sections": [section]}, DataPolicy.CONFIDENTIAL)
+    assert denied.value.diagnostic_code == "discovery_section_fields_or_scope_invalid"
 
     # 5) The registry holds exactly one audited row, and the allowlist is exactly one hash:
     #    there is no "allow everything" switch and no implicit approval.

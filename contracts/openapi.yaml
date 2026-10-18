@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: 招标文件智能合规审查 API
-  version: 0.10.4
-  description: v1alpha11 开发契约；错误响应 details 明确允许结构化字段，法规参考新增可选追溯字段，保持既有响应兼容。
+  version: 0.10.5
+  description: v1alpha12 开发契约；执行投影加法区分父批次已提交但细分补扫失败的单元，既有响应字段保持兼容。
 servers:
 - url: /api/v1
 paths:
@@ -2643,6 +2643,7 @@ components:
         recovered_candidate_families: {type: integer, minimum: 0}
         unrecovered_candidate_families: {type: integer, minimum: 0}
         recovered_source_unit_count: {type: integer, minimum: 0}
+        failed_rescan_units: {type: integer, minimum: 0, description: 已完成父批次提交但细分补扫失败的唯一源单元数，不等于从未处理数}
     EvidenceRef:
       type: object
       additionalProperties: false

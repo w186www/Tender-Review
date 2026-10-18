@@ -28,6 +28,7 @@ from bidding_compliance.domain.rules.models import (
     candidate_source_identity,
 )
 from bidding_compliance.model_gateway.contracts import ModelRequest, ModelResponse
+from bidding_compliance.services.review_contracts import DISCOVERY_EVIDENCE_PROMPT_VERSION
 
 TASK0023_DISCOVERY_PROMPT_VERSION = "task0023-discovery-v1"
 MAX_DISCOVERY_BATCHES = 28
@@ -53,7 +54,8 @@ def batch_coverage(
     subdivided: bool = False,
 ) -> dict[str, Any]:
     """Per-batch coverage record; saturation is visible instead of being called complete."""
-    saturated = accepted_count >= SATURATION_FINDING_LIMIT
+    # A rejected quote still occupied one of the provider's output slots.
+    saturated = accepted_count + rejected_count >= SATURATION_FINDING_LIMIT
     if subdivided:
         status = "subdivided"
     elif saturated:
@@ -122,11 +124,15 @@ def coverage_summary(
         for source_hash in item.get("source_unit_hashes", [])
         if isinstance(source_hash, str)
     }
-    failed_sections = len(failed_source_units)
+    # A failed rescan does not erase the successful parent submission.
+    failed_sections = len(failed_source_units - submitted_source_units)
+    failed_rescan_sections = len(failed_source_units & submitted_source_units)
     submitted_sections = len(submitted_source_units)
     unsubmitted_source_units = all_source_units - submitted_source_units - failed_source_units
     unsubmitted_sections = len(unsubmitted_source_units)
-    unprocessed_sections = len(failed_source_units | unsubmitted_source_units)
+    unprocessed_sections = len(
+        (failed_source_units - submitted_source_units) | unsubmitted_source_units
+    )
     rejection_rows = [
         rejection
         for item in batches
@@ -154,6 +160,9 @@ def coverage_summary(
             source_hash = rejection.get("source_unit_hash")
             if isinstance(source_hash, str):
                 rejection_source_units.add(source_hash)
+            rejection_source_units.update(
+                value for value in rejection.get("source_unit_hashes", []) if isinstance(value, str)
+            )
             family_hash = rejection.get("candidate_family_hash")
             if isinstance(family_hash, str):
                 rejection_family_first_batch[family_hash] = min(
@@ -207,6 +216,7 @@ def coverage_summary(
         "saturated_sections": len(saturated_source_units),
         "rejected_sections": rejected_sections,
         "failed_sections": failed_sections,
+        "failed_rescan_sections": failed_rescan_sections,
         "submitted_sections": submitted_sections,
         "unsubmitted_sections": unsubmitted_sections,
         "unprocessed_sections": unprocessed_sections,
@@ -298,10 +308,15 @@ def _model_problem_key(category: str, description: str) -> str:
     return "llm-" + _hash({"category": category, "description": normalized})
 
 
-def discovery_schema(root: Path = ROOT) -> dict[str, Any]:
-    value = json.loads(
-        (root / "contracts/schemas/llm-candidate-discovery.schema.json").read_text(encoding="utf-8")
+def discovery_schema(
+    root: Path = ROOT, *, prompt_version: str = TASK0023_DISCOVERY_PROMPT_VERSION
+) -> dict[str, Any]:
+    filename = (
+        "llm-candidate-discovery-v2.schema.json"
+        if prompt_version == DISCOVERY_EVIDENCE_PROMPT_VERSION
+        else "llm-candidate-discovery.schema.json"
     )
+    value = json.loads((root / "contracts/schemas" / filename).read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(value)
     return cast(dict[str, Any], value)
 
@@ -654,7 +669,13 @@ def plan_discovery(
 
 
 def make_discovery_request(
-    batch: DiscoveryBatch, *, tenant_id: str, task_id: str, run_id: str, snapshot_hash: str
+    batch: DiscoveryBatch,
+    *,
+    tenant_id: str,
+    task_id: str,
+    run_id: str,
+    snapshot_hash: str,
+    prompt_version: str = TASK0023_DISCOVERY_PROMPT_VERSION,
 ) -> ModelRequest:
     return ModelRequest(
         call_id=hashlib.sha256(
@@ -663,7 +684,7 @@ def make_discovery_request(
         tenant_id=tenant_id,
         review_task_id=task_id,
         node_run_id=f"{run_id}:discovery:{batch.index}:{snapshot_hash[:12]}",
-        prompt_version=TASK0023_DISCOVERY_PROMPT_VERSION,
+        prompt_version=prompt_version,
         system_instruction="Discover review questions only from the supplied untrusted fragments.",
         input_payload=batch.payload(),
         metadata={"snapshot_hash": snapshot_hash, "discovery_batch": batch.index},
@@ -700,6 +721,7 @@ def validate_response(
     expected_call_id: str,
     profile: str,
     schema: dict[str, Any],
+    prompt_version: str = TASK0023_DISCOVERY_PROMPT_VERSION,
 ) -> tuple[tuple[CandidateFinding, ...], tuple[dict[str, Any], ...]]:
     Draft202012Validator(schema).validate(dict(response.content))
     if (
@@ -714,23 +736,50 @@ def validate_response(
     provenance = ModelCandidateProvenance(
         provider=response.provider,
         model=response.model,
-        prompt_version=TASK0023_DISCOVERY_PROMPT_VERSION,
+        prompt_version=prompt_version,
         response_hash=response.response_hash,
     )
+
+    def ordered_references(item: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+        references = item.get("source_quotes") or [item]
+        if prompt_version != DISCOVERY_EVIDENCE_PROMPT_VERSION:
+            return list(references)
+
+        def order(reference: Mapping[str, Any]) -> tuple[Any, ...]:
+            section = sections_by_alias.get(reference["section_key"])
+            if section is None:
+                return (1, reference["section_key"], reference["quote"])
+            return (
+                0,
+                section.located.document.document_version_ref,
+                _locator_key(section.located),
+                section.start,
+                reference["quote"],
+            )
+
+        unique = {(ref["section_key"], ref["quote"]): ref for ref in references}
+        return sorted(unique.values(), key=order)
 
     def rejected_candidate(
         reason: str, item: Mapping[str, Any], section: DiscoverySection | None
     ) -> dict[str, Any]:
+        references = ordered_references(item)
+        if prompt_version == DISCOVERY_EVIDENCE_PROMPT_VERSION:
+            # Family recovery and accepted candidates use the same stable first
+            # source, not whichever invalid reference happened to be visited first.
+            section = sections_by_alias.get(references[0]["section_key"])
         source_hash = source_unit_hash(section.located) if section is not None else None
         description = str(item["description"])
         category = str(item["category"])
         identity_hash = _hash(
             {
                 "source_unit_hash": source_hash,
-                "section_key": item["section_key"],
+                "section_key": references[0]["section_key"],
                 "category": category,
                 "normalized_description": "".join(description.split()),
-                "quote_sha256": hashlib.sha256(str(item["quote"]).encode()).hexdigest(),
+                "quote_sha256": hashlib.sha256(
+                    "\0".join(str(ref["quote"]) for ref in references).encode()
+                ).hexdigest(),
             }
         )
         return {
@@ -742,31 +791,73 @@ def validate_response(
                 else None
             ),
             "source_unit_hash": source_hash,
+            "source_unit_hashes": sorted(
+                {
+                    source_unit_hash(sections_by_alias[reference["section_key"]].located)
+                    for reference in references
+                    if reference["section_key"] in sections_by_alias
+                }
+            ),
         }
 
     for item in response.content["findings"]:
-        section = sections_by_alias.get(item["section_key"])
-        if section is None:
-            rejections.append(rejected_candidate("unknown_section", item, None))
+        references = ordered_references(item)
+        resolved: list[tuple[DiscoverySection, SourceExcerpt, int, str]] = []
+        failure: tuple[str, DiscoverySection | None] | None = None
+        for reference in references:
+            section = sections_by_alias.get(reference["section_key"])
+            if section is None:
+                failure = ("unknown_section", None)
+                break
+            safe = section.safe_text
+            span = _unique_source_span(safe, reference["quote"])
+            if span is None:
+                failure = ("quote_missing_or_ambiguous", section)
+                break
+            local_start, local_end = span
+            absolute_start = section.start + local_start
+            matched_quote = safe[local_start:local_end]
+            original_quote = section.located.fragment.text[
+                absolute_start : section.start + local_end
+            ]
+            if len(original_quote) != len(matched_quote) or any(
+                sent != original and sent != "*"
+                for sent, original in zip(matched_quote, original_quote, strict=True)
+            ):
+                failure = ("quote_mapping_invalid", section)
+                break
+            if resolved and (
+                section.located.document.document_version_ref
+                != resolved[0][0].located.document.document_version_ref
+            ):
+                failure = ("cross_document_quote", section)
+                break
+            resolved.append(
+                (section, source_excerpt(section.located), absolute_start, original_quote)
+            )
+        if failure is not None:
+            rejections.append(rejected_candidate(failure[0], item, failure[1]))
             continue
-        quote = item["quote"]
-        safe = section.safe_text
-        source_span = _unique_source_span(safe, quote)
-        if source_span is None:
-            rejections.append(rejected_candidate("quote_missing_or_ambiguous", item, section))
+        if not resolved:
             continue
-        local_start, local_end = source_span
-        absolute_start = section.start + local_start
-        matched_quote = safe[local_start:local_end]
-        original_quote = section.located.fragment.text[absolute_start : section.start + local_end]
-        # Safe string equality proves exact original offsets even where PII was masked.
-        if len(original_quote) != len(matched_quote) or any(
-            sent != original and sent != "*"
-            for sent, original in zip(matched_quote, original_quote, strict=True)
-        ):
-            rejections.append(rejected_candidate("quote_mapping_invalid", item, section))
-            continue
-        excerpt = source_excerpt(section.located)
+        if prompt_version == DISCOVERY_EVIDENCE_PROMPT_VERSION:
+            # Citation sets identify the same fact regardless of model ordering.
+            # Use trusted document positions for a reproducible first locator.
+            unique_ranges = {
+                (part[1].document_sha256, part[1].section_id, part[2], part[3]): part
+                for part in resolved
+            }
+            resolved = sorted(
+                unique_ranges.values(),
+                key=lambda part: (
+                    part[0].located.document.document_version_ref,
+                    _locator_key(part[0].located),
+                    part[2],
+                    part[3],
+                ),
+            )
+        section, _, absolute_start, original_quote = resolved[0]
+        excerpts = tuple(dict.fromkeys(part[1] for part in resolved))
         category = cast(Category, item["category"])
         key = _hash(
             {
@@ -778,12 +869,26 @@ def validate_response(
                 "problem_sha256": hashlib.sha256(
                     "".join(item["description"].split()).encode()
                 ).hexdigest(),
+                **(
+                    {
+                        "source_ranges": [
+                            {
+                                "section_id": part[1].section_id,
+                                "start": part[2],
+                                "quote_sha256": hashlib.sha256(part[3].encode()).hexdigest(),
+                            }
+                            for part in resolved
+                        ]
+                    }
+                    if len(resolved) > 1
+                    else {}
+                ),
             }
         )
         source = CandidateSource(
             origin="model",
             model_provenance=provenance,
-            source_excerpts=(excerpt,),
+            source_excerpts=excerpts,
             matched_reason=item["description"],
         )
         candidate_id = _hash(
@@ -800,7 +905,7 @@ def validate_response(
                 document_version_ref=section.located.document.document_version_ref,
                 problem_key=_model_problem_key(category, item["description"]),
                 deduplication_key=key,
-                source_excerpts=(excerpt,),
+                source_excerpts=excerpts,
                 matched_reason=item["description"],
                 provenance=(source,),
             )

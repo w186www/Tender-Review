@@ -7,6 +7,7 @@ import hashlib
 import json
 from types import SimpleNamespace
 
+import pytest
 from test_rules_skills import freeze
 
 from bidding_compliance.domain.rules.engine import discover
@@ -19,6 +20,8 @@ from bidding_compliance.model_gateway.contracts import (
 )
 from bidding_compliance.model_gateway.errors import GatewayErrorCode, ModelGatewayError
 from bidding_compliance.services import llm_candidate_discovery as llm
+from bidding_compliance.services.real_ai_runtime import AuthorizedTenderMinimizer
+from bidding_compliance.services.review_contracts import SEMANTIC_EVIDENCE_PROMPT_VERSION
 
 
 def digest(value):
@@ -133,6 +136,12 @@ class FakeGateway:
         failure = self.harness.failures.get(index)
         if failure is not None:
             raise failure
+        if self.harness.v2:
+            self.harness.outbound.append(
+                AuthorizedTenderMinimizer(frozenset({"a" * 64}))(
+                    request.input_payload, policy.data_policy
+                )
+            )
         identifiers = [
             item["candidate_id"]
             for item in request.input_payload["document_candidates"]["candidates"]
@@ -154,6 +163,40 @@ class FakeGateway:
                 for identifier in identifiers
             ],
         }
+        if self.harness.v2:
+            content["schema_version"] = "v1alpha2"
+            for finding in content["findings"]:
+                raw = next(
+                    item
+                    for item in request.input_payload["document_candidates"]["candidates"]
+                    if item["candidate_id"] == finding["candidate_id"]
+                )
+                hashes = sorted(
+                    {
+                        item["quote_sha256"]
+                        for item in [
+                            *raw["source_excerpts"],
+                            *request.input_payload["candidate_related_document_evidence"][
+                                finding["candidate_id"]
+                            ],
+                        ]
+                    }
+                )
+                finding.update(
+                    source_quote_sha256=hashes,
+                    issue_identity={
+                        "subject": "付款",
+                        "mechanism": "条件不明",
+                        "condition": "验收后",
+                    },
+                    duplicate_of_candidate_id=None,
+                    context_review={
+                        "reviewed_quote_sha256": hashes,
+                        "counterevidence_quote_sha256": [],
+                        "conclusion": "supported",
+                    },
+                    legal_assessments=[],
+                )
         return ModelResponse(
             call_id=request.call_id,
             provider="unit-provider",
@@ -170,7 +213,31 @@ class FakeGateway:
 class Harness:
     """Minimal graph harness: only the three artifacts the semantic node reads."""
 
-    def __init__(self, *, candidates: int, failures=None, zero_candidates: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        candidates: int,
+        failures=None,
+        zero_candidates: bool = False,
+        v2: bool = False,
+        related=None,
+    ) -> None:
+        self.v2 = v2
+        self.related = related or []
+        self.outbound = []
+        self.context = (
+            {
+                "region": "安徽省滁州市",
+                "procurement_type": "enterprise",
+                "project_type": "工程",
+                "procurement_method": "公开招标",
+                "buyer_type": "企业",
+                "subject_type": "施工",
+                "legal_frameworks": ["tendering"],
+            }
+            if v2
+            else {"procurement_type": "enterprise"}
+        )
         self.calls: list[tuple[int, str]] = []
         self.failures = failures or {}
         self.saved: list[SimpleNamespace] = []
@@ -184,11 +251,14 @@ class Harness:
             "retrieval:ref": {
                 "publication_id": "publication-a",
                 "revision_id": "revision-a",
-                "results": [],
+                "results": [
+                    {"work_item_id": item.candidate_id, "result": {"hits": []}}
+                    for item in discovery.candidates
+                ],
             },
             "context:ref": {
                 "context_sha256": "e" * 64,
-                "context": {"procurement_type": "enterprise"},
+                "context": self.context,
             },
         }
 
@@ -246,20 +316,22 @@ class Harness:
             "_snapshot_inputs",
             lambda *_: (
                 {
-                    "document_requests": [],
+                    "document_requests": [{"raw_source_sha256": "a" * 64}],
                     "input_snapshot": {"documents": []},
                     "model_profile": "unit",
-                    "prompt_version": "unit",
+                    "prompt_version": SEMANTIC_EVIDENCE_PROMPT_VERSION if harness.v2 else "unit",
                     "project_context_sha256": "e" * 64,
                     "model_policy": {"profile": "unit"},
                 },
-                {"procurement_type": "enterprise"},
+                harness.context,
             ),
         )
         monkeypatch.setattr(
             review, "read_artifact", lambda _s, _t, ref, **_: harness.artifacts[ref]
         )
-        monkeypatch.setattr(review, "related_document_context", lambda *_, **__: [])
+        monkeypatch.setattr(
+            review, "related_document_context", lambda *_, **__: list(harness.related)
+        )
         monkeypatch.setattr(review, "put_artifact", store)
         review.build_review_graph(
             session_factory=Session,
@@ -322,7 +394,7 @@ def test_single_batch_keeps_the_historical_call_identity():
     call_id, suffix = review._semantic_call_parts("t", "k", "r", single=True, index=0)
     assert suffix == "semantic"
     assert call_id == hashlib.sha256(b"t:k:r:semantic").hexdigest()
-    assert review._semantic_batch_kind(0, single=True) == "model_analysis"
+    assert review._semantic_batch_kind(0, single=True) == "semantic_analysis_batch_0"
 
     batched_id, batched_suffix = review._semantic_call_parts("t", "k", "r", single=False, index=3)
     assert batched_suffix == "semantic:3"
@@ -388,8 +460,9 @@ def test_resume_reuses_accepted_batches_and_retries_only_the_failure(monkeypatch
     assert len(harness.payload()["content"]["findings"]) == 19
 
 
-def test_repeated_run_is_idempotent_and_costs_nothing(monkeypatch):
-    harness = Harness(candidates=19)
+@pytest.mark.parametrize("count,v2", [(3, False), (19, False), (3, True), (9, True)])
+def test_repeated_run_is_idempotent_and_costs_nothing(monkeypatch, count, v2):
+    harness = Harness(candidates=count, v2=v2)
     asyncio.run(harness.node(monkeypatch))
     harness.calls.clear()
     asyncio.run(harness.node(monkeypatch))
@@ -399,9 +472,7 @@ def test_repeated_run_is_idempotent_and_costs_nothing(monkeypatch):
 def test_provider_contract_failure_keeps_its_code_and_stores_no_aggregate(monkeypatch):
     harness = Harness(
         candidates=3,
-        failures={
-            0: ModelGatewayError(GatewayErrorCode.RESPONSE_INVALID, "unit contract failure")
-        },
+        failures={0: ModelGatewayError(GatewayErrorCode.RESPONSE_INVALID, "unit contract failure")},
     )
     result = asyncio.run(harness.node(monkeypatch))
     assert result["status"] == "failed"
@@ -410,8 +481,29 @@ def test_provider_contract_failure_keeps_its_code_and_stores_no_aggregate(monkey
 
 
 def test_batch_capacity_stays_within_the_authorized_call_budget():
-    assert review.MAX_SEMANTIC_BATCHES <= 13
-    assert review.MAX_SEMANTIC_BATCHES * review.SEMANTIC_BATCH_CANDIDATES >= 100
+    assert review.MAX_SEMANTIC_BATCHES == review.MAX_CANDIDATES_FOR_REVIEW == 100
+    legacy = tuple(SimpleNamespace(candidate_id=f"id-{i:03d}") for i in range(100))
+    assert len(review._semantic_batches(legacy)) == 13
+
+
+def test_cached_batch_refuses_changed_retrieval_inputs_before_any_new_call(monkeypatch):
+    harness = Harness(candidates=3, v2=True)
+    asyncio.run(harness.node(monkeypatch))
+    harness.calls.clear()
+    harness.artifacts["retrieval:ref"]["results"][0]["result"]["changed"] = True
+    with pytest.raises(ValueError, match="cache provenance mismatch"):
+        asyncio.run(harness.node(monkeypatch))
+    assert harness.calls == []
+
+
+def test_legacy_single_aggregate_is_not_mistaken_for_a_bound_batch(monkeypatch):
+    harness = Harness(candidates=3)
+    asyncio.run(harness.node(monkeypatch))
+    harness.saved = [item for item in harness.saved if item.kind != "semantic_analysis_batch_0"]
+    harness.calls.clear()
+    with pytest.raises(ValueError, match="automatic replay is forbidden"):
+        asyncio.run(harness.node(monkeypatch))
+    assert harness.calls == []
 
 
 def test_unknown_and_duplicate_model_references_are_flagged_for_review(monkeypatch):
@@ -457,9 +549,7 @@ def test_unknown_and_duplicate_model_references_are_flagged_for_review(monkeypat
     state.update(discovered, model_findings_ref="model", retrieval_results_ref="retrieval")
     merged = nodes["merge_findings"](state)
     (finding,) = artifacts[merged["rule_findings_ref"]]["findings"]
-    assert "invalid_reference" in {
-        item["assessment"] for item in finding.get("conflicts", [])
-    }
+    assert "invalid_reference" in {item["assessment"] for item in finding.get("conflicts", [])}
     # An unusable model reference is never a conclusion: the candidate still needs review.
     assert finding["evidence_status"] == "insufficient_evidence"
     state.update(merged)

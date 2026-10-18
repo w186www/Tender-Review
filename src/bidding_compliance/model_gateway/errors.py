@@ -30,8 +30,22 @@ class ModelGatewayError(Exception):
         *,
         retryable: bool = False,
         retry_after_seconds: float | None = None,
+        provider_invoked: bool | None = None,
+        diagnostic_code: str | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.retryable = retryable
         self.retry_after_seconds = retry_after_seconds
+        # None means the adapter boundary is unknown. Only the gateway may prove
+        # that no provider was invoked; an error category alone cannot prove it.
+        self.provider_invoked = provider_invoked
+        self.diagnostic_code = diagnostic_code
+
+
+class ModelInputError(ValueError):
+    """A content-free, server-defined reason for rejecting an outbound payload."""
+
+    def __init__(self, diagnostic_code: str) -> None:
+        super().__init__(diagnostic_code)
+        self.diagnostic_code = diagnostic_code

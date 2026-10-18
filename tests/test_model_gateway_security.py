@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
+from dataclasses import replace
 from decimal import Decimal
 
 import httpx
@@ -15,7 +16,11 @@ from bidding_compliance.model_gateway.adapters.anthropic_adapter import Anthropi
 from bidding_compliance.model_gateway.adapters.openai_adapter import OpenAIAdapter
 from bidding_compliance.model_gateway.authorization import AuthorizationPolicy
 from bidding_compliance.model_gateway.budget import InMemoryBudgetLedger
-from bidding_compliance.model_gateway.errors import GatewayErrorCode, ModelGatewayError
+from bidding_compliance.model_gateway.errors import (
+    GatewayErrorCode,
+    ModelGatewayError,
+    ModelInputError,
+)
 from bidding_compliance.model_gateway.gateway import ModelGatewayService
 from bidding_compliance.model_gateway.routing import ModelTarget, ProfileRouter
 
@@ -104,6 +109,7 @@ def test_T0008_002_unapproved_provider_and_restricted_data_never_reach_transport
     with pytest.raises(ModelGatewayError) as error:
         asyncio.run(gateway.generate_structured(REQ, SCHEMA, POLICY))
     assert error.value.code == GatewayErrorCode.PROVIDER_UNAUTHORIZED
+    assert error.value.provider_invoked is False
     assert calls == []
 
     restricted = ModelPolicy("reasoning_review", 2, 1, 10000, 200, 0, DataPolicy.RESTRICTED)
@@ -111,6 +117,7 @@ def test_T0008_002_unapproved_provider_and_restricted_data_never_reach_transport
     with pytest.raises(ModelGatewayError) as error:
         asyncio.run(gateway.generate_structured(REQ, SCHEMA, restricted))
     assert error.value.code == GatewayErrorCode.DATA_POLICY_REJECTED
+    assert error.value.provider_invoked is False
     assert calls == []
 
 
@@ -122,6 +129,7 @@ def test_T0008_002_non_public_data_requires_configured_minimization():
     with pytest.raises(ModelGatewayError) as error:
         asyncio.run(gateway.generate_structured(REQ, SCHEMA, internal))
     assert error.value.code == GatewayErrorCode.DATA_POLICY_REJECTED
+    assert error.value.provider_invoked is False
     assert calls == []
 
     gateway, calls, _ = make_gateway(
@@ -143,6 +151,7 @@ def test_T0008_002_missing_or_exhausted_budget_fails_before_provider_call(ledger
     with pytest.raises(ModelGatewayError) as error:
         asyncio.run(gateway.generate_structured(REQ, SCHEMA, POLICY))
     assert error.value.code == GatewayErrorCode.BUDGET_EXCEEDED
+    assert error.value.provider_invoked is False
     assert calls == []
 
 
@@ -192,6 +201,7 @@ def test_T0008_002_provider_usage_above_configured_token_cap_is_rejected():
     with pytest.raises(ModelGatewayError) as error:
         asyncio.run(gateway.generate_structured(REQ, SCHEMA, POLICY))
     assert error.value.code == GatewayErrorCode.BUDGET_EXCEEDED
+    assert error.value.provider_invoked is True
     assert len(calls) == 1
 
 
@@ -208,10 +218,50 @@ def test_T0008_002_fallback_rechecks_provider_authorization():
         route=(target("openai"), target("anthropic", "fallback-model")),
         handler=rate_limit,
     )
-    with pytest.raises(ModelGatewayError):
+    with pytest.raises(ModelGatewayError) as error:
         asyncio.run(gateway.generate_structured(REQ, SCHEMA, POLICY))
+    # The later unauthorized route must not erase an earlier provider invocation.
+    assert error.value.provider_invoked is True
     assert len(calls) == 1
     assert str(calls[0].url).startswith("https://api.openai.com/")
+
+
+def test_preflight_rejection_records_no_adapter_invocation():
+    ledger = InMemoryBudgetLedger()
+    ledger.set_limit("tenant-x", "task-x", Decimal("1"))
+
+    def reject(payload, data_policy):
+        raise ModelInputError("synthetic_preflight_rejection")
+
+    gateway, calls, _ = make_gateway(budgets=ledger, input_minimizer=reject)
+    with pytest.raises(ModelGatewayError) as error:
+        asyncio.run(gateway.generate_structured(REQ, SCHEMA, POLICY))
+    assert error.value.code == GatewayErrorCode.INPUT_INVALID
+    assert error.value.provider_invoked is False
+    assert error.value.diagnostic_code == "synthetic_preflight_rejection"
+    assert calls == []
+
+
+def test_adapter_timeout_is_possibly_sent_and_dispatch_state_is_per_invocation():
+    ledger = InMemoryBudgetLedger()
+    ledger.set_limit("tenant-x", "task-x", Decimal("1"))
+
+    def interrupted(request):
+        raise httpx.ReadTimeout("Synthetic timeout.", request=request)
+
+    gateway, calls, _ = make_gateway(budgets=ledger, handler=interrupted)
+    policy = replace(POLICY, max_attempts=1)
+    with pytest.raises(ModelGatewayError) as error:
+        asyncio.run(gateway.generate_structured(REQ, SCHEMA, policy))
+    assert error.value.code == GatewayErrorCode.TIMEOUT
+    assert error.value.provider_invoked is True
+    assert len(calls) == 1  # This proves adapter entry, not supplier receipt.
+    with pytest.raises(ModelGatewayError) as rejected:
+        asyncio.run(
+            gateway.generate_structured(replace(REQ, prompt_version="missing"), SCHEMA, policy)
+        )
+    assert rejected.value.provider_invoked is False
+    assert len(calls) == 1
 
 
 def test_T0008_002_untrusted_tenant_and_task_identifiers_do_not_authorize_calls():

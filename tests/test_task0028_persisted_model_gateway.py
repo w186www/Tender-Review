@@ -17,6 +17,7 @@ from bidding_compliance.model_gateway.contracts import (
     ModelResponse,
     ModelUsage,
 )
+from bidding_compliance.model_gateway.errors import GatewayErrorCode, ModelGatewayError
 from bidding_compliance.persistence.models import (
     ReviewEngineRun,
     ReviewModelCall,
@@ -214,6 +215,49 @@ def test_unknown_outcome_is_not_replayed_after_worker_restart(persisted_gateway_
     assert restarted_delegate.calls == 0
 
 
+@pytest.mark.parametrize(
+    "invoked,expected_state,expected_usage",
+    [
+        (False, "failed", "not_applicable"),
+        (True, "unknown", "unknown"),
+        (None, "unknown", "unknown"),
+    ],
+)
+def test_failure_state_depends_on_dispatch_proof_not_the_error_category(
+    persisted_gateway_system,
+    invoked,
+    expected_state,
+    expected_usage,
+):
+    engine, factory, principal, run = persisted_gateway_system
+    request = _request()
+    delegate = FakeGateway(
+        error=ModelGatewayError(
+            GatewayErrorCode.INPUT_INVALID,
+            "Synthetic rejection.",
+            provider_invoked=invoked,
+            diagnostic_code="synthetic_scope_rejection",
+        )
+    )
+    worker = PersistedModelGateway(delegate, session_factory=factory, principal=principal, run=run)
+    with pytest.raises(ModelGatewayError):
+        asyncio.run(worker.generate_structured(request, {"type": "object"}, _policy()))
+    with Session(engine) as session:
+        call = session.get(ReviewModelCall, ("a", request.call_id))
+        assert call.state == expected_state and call.usage_status == expected_usage
+        assert call.error_code == "input_invalid:synthetic_scope_rejection"
+    restored = FakeGateway()
+    restarted = PersistedModelGateway(
+        restored,
+        session_factory=factory,
+        principal=principal,
+        run=run,
+    )
+    with pytest.raises(RuntimeError, match="not eligible for automatic replay"):
+        asyncio.run(restarted.generate_structured(request, {"type": "object"}, _policy()))
+    assert restored.calls == 0
+
+
 def test_superseded_execution_identity_is_rejected_before_model_call(persisted_gateway_system):
     _, factory, _, run = persisted_gateway_system
     old_principal = Principal(
@@ -245,9 +289,7 @@ def test_model_call_cannot_cross_tenant_or_review_task(
 ):
     engine, factory, principal, run = persisted_gateway_system
     delegate = FakeGateway()
-    worker = PersistedModelGateway(
-        delegate, session_factory=factory, principal=principal, run=run
-    )
+    worker = PersistedModelGateway(delegate, session_factory=factory, principal=principal, run=run)
 
     with pytest.raises(ValueError, match="differs from its authorized review run"):
         asyncio.run(

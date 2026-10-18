@@ -1,6 +1,21 @@
 # 产品契约与状态基线
 
-状态：U02 冻结的本地开发契约；由 [ADR-0019](../decisions/ADR-0019-product-execution-and-review-contracts.md)、`contracts/schemas/product-review-execution.schema.json` 与 OpenAPI 0.10.4 共同约束。U04 经用户授权只增加取消操作；U05 增加产品模式逐文件授权绑定字段/撤销操作；TASK-0029 明确错误响应 `details` 承载可忽略的字段级补正提示，并以 [ADR-0021](../decisions/ADR-0021-tenant-execution-authorization-and-budget.md) 明确 PostgreSQL 授权/预算权威源。TASK-0029 后续为法规参考新增可选身份、来源、适用框架和采用状态字段；它们不改变正式证据资格。现有状态和响应 Schema 保持兼容。它不代表生产部署或 D1—D4 的外部授权。
+当前实现契约：OpenAPI 0.10.5 / 契约集合 v1alpha12。下述历史阶段记录保留其发生时版本；不代表当前候选已验收。
+
+## TASK-0029 v2 语义与制品一致性约束（2026-10-19，待验证）
+
+- `context_review.conclusion` 描述上下文对候选疑点的关系：supported/qualified 表示支持原疑点/仅支持较窄疑点，不能配 no_issue；contradicted 配 no_issue；unresolved 配 uncertain。矛盾输出保留待人工复核，不静默抑制。reviewed_quote_sha256 必须列出本次实际发送的全部主文及关联摘录哈希（至多20个来源摘录加6个关联摘录，共26个不同哈希），反证哈希必须属于该集合；未发送摘录不要求模型复核，容量删减单独记录。
+- 语义批次制品统一使用 semantic_analysis_batch_N，最终 model_analysis 仅作为汇总。批次保存规范化输入哈希（含候选、关联摘录、项目分类、同源候选、检索结果、提示/Schema/策略身份）和排序候选 ID；新响应、缓存响应使用相同验证。哈希缺失/不符时停止恢复，不自动付费重放；旧无绑定批次不得补造来源。
+- 报告按实际 model_analysis.related_document_evidence_ref 读取上下文并核对租户、task、run、内容哈希和快照。缺引用的历史分析不补造上下文；不得从同类制品中任选一条。
+- v2 多段引文按冻结文档位置及字符区间规范排序后生成身份和稳定定位，保留全部独立精确引文，不以模型返回顺序决定候选身份。归并保留代表项文本及来源/分类/严重度冲突，不使用固定摘要补写事实。
+- v2 被拒候选同样先规范化引用集合再校验，拒绝身份、错误选择与恢复族主锚点不依赖模型返回顺序；片段内部唯一连续原文校验不放宽。标题、描述、推理摘要、建议分别检查条件反证，否定与显式条件只在本句内解释，不跨字段抵消冲突。
+- 报告/定位中的 candidate_discovery 与 llm_candidate_discovery 制品按租户/task/run/kind 校验唯一性和内容哈希；覆盖制品确实缺失时保留旧运行的 unknown/not_applicable 回退，不在歧义时任选第一条。普通标量计数查询不受影响。
+- v1 提示文本、响应 Schema 和已发布结果不重写。新 v2 上下文关系约束仅用于 v2；证据真实性与安全纠错、禁止摘要补造事实适用于尚未发布的在途计算，须保留原始制品。旧缓存无法核实身份时明确阻塞，不暗中重跑。
+- v2 最多 100 个候选，初始每批 4 个，按容量拆分后最多 100 批。身份登记上限不是费用授权；每次请求仍受实时逐文件授权、租户策略和原子预算约束。
+- 项目分类（地区、采购/项目/主体类型、采购方式、法规框架）与同源候选的疑点描述，仅在既有授权覆盖该文件及其审查用途时发送。最小化器只输出白名单分类字段和脱敏后的描述，用户姓名、备注及任意额外字段不外发；不扩大供应商、文件、用途或预算范围。
+- DEC-009 允许已采用库内条文参与带条件的参考分析和报告引用；参考引用须匹配实际选中的条文及支持关系，不能转为自动违法认定，不能把无关条文作为其他结论的授权。
+
+状态：U02 冻结的本地开发契约；由 [ADR-0019](../decisions/ADR-0019-product-execution-and-review-contracts.md)、`contracts/schemas/product-review-execution.schema.json` 与 OpenAPI 0.10.5 / 契约集 v1alpha12 共同约束。U04 经用户授权只增加取消操作；U05 增加产品模式逐文件授权绑定字段/撤销操作；TASK-0029 明确错误响应 `details` 承载可忽略的字段级补正提示，并以 [ADR-0021](../decisions/ADR-0021-tenant-execution-authorization-and-budget.md) 明确 PostgreSQL 授权/预算权威源。TASK-0029 后续为法规参考新增可选身份、来源、适用框架和采用状态字段；它们不改变正式证据资格。现有状态和响应 Schema 保持兼容。它不代表生产部署或 D1—D4 的外部授权。
 
 ## 1. 生命周期所有权
 
@@ -35,14 +50,14 @@
 
 - 排序相关性、法规版本核验、适用资格、可引用法律证据、Finding 的证据强度、人工决定是五个不同维度。相似度/RRF 分数或模型输出不能提升法律资格。
 - 文件原文引用须能从冻结输入哈希、解析/修订版本、稳定定位符及摘录哈希重核。检索命中但未核验/不适用的法规保留为 `legal_references`，不能计入 `citable_legal_evidence`。只有服务端重核发布快照、版本、生效日期、地区/主体/采购制度和引用后才可计入。
-- 真实 RAG 顺序为受授权候选发现 → 法规检索 → 基于原文与法规候选的分析 → 服务端证据重核。模型只能返回受限引用 ID 与建议；没有可用法条则保留证据不足。当前 D2 未签署时，相关法律资格/专业标签最终验收阻塞，但 Mock/离线协议及内部契约仍可验证。
+- 真实 RAG 顺序为受授权候选发现 → 法规检索 → 基于原文与法规候选的分析 → 服务端证据重核。模型只能返回受限引用 ID 与建议；没有可用法条则保留证据不足。DEC-009 已允许采用库内条文作为参考分析及报告引用，不再以逐条独立核验作为工程交付前置；独立核验状态和专家标签仍须如实呈现，不伪造专业效果指标。
 - 报告 v1/v2 按原 schema 和保存的 result 快照读取；新增 v3 才要求 `assessment_scope.product_execution`，包含完整度、覆盖、未处理、截断/饱和和未知调用摘要。零候选 complete 的 v3 报告必须带人工 `confirm_no_findings`。旧版本不补造缺失信息、不按新规则重算。
 
 ## 5. 兼容与消费矩阵
 
 | 消费者 | 契约责任 | 兼容要求 |
 |---|---|---|
-| API | OpenAPI 0.10.4；逐文件授权为 `POST .../external-authorization`，撤销为 `POST .../external-authorization/revoke`；运行取消为 `POST /review-tasks/{reviewTaskId}/runs/{runId}/cancel` | 0.10.4 为法规参考加可选法规/版本身份、官方来源 URI/hash、文本 hash/定位、适用框架、资格与采用元数据，旧消费者可忽略且不提升证据状态。0.10.3 明确已有可选 `Error.details` 对象可扩展，现用于字段级补正入口；原有错误码/包络保持兼容。0.10.2 增加可选覆盖统计字段；0.10.1 增加 `product_execution` 投影；0.10.0 增加逐文件授权字段和撤销操作。取消语义不变。 |
+| API | OpenAPI 0.10.5；逐文件授权为 `POST .../external-authorization`，撤销为 `POST .../external-authorization/revoke`；运行取消为 `POST /review-tasks/{reviewTaskId}/runs/{runId}/cancel` | 0.10.5 增加可选 failed_rescan_units，表示成功父批的补扫失败，不等于原文从未提交；0.10.4 为法规参考加可选法规/版本身份、官方来源 URI/hash、文本 hash/定位、适用框架、资格与采用元数据，旧消费者可忽略且不提升证据状态。0.10.3 明确已有可选 `Error.details` 对象可扩展，现用于字段级补正入口；原有错误码/包络保持兼容。0.10.2 增加可选覆盖统计字段；0.10.1 增加 `product_execution` 投影；0.10.0 增加逐文件授权字段和撤销操作。取消语义不变。 |
 | Worker/调度 | 新执行 envelope + 当前 DB 状态与 lease | 只处理可领取状态；旧 lease 世代写入被拒；恢复使用冻结快照。 |
 | LangGraph | 现有 `ComplianceReviewState v1alpha2` 是有界 checkpoint 投影 | 本单元不改变其字段或旧枚举含义；未来字段先改 schema 再 `scripts/generate_state.py`。历史 Checkpoint 显式按版本读取，不按新 envelope 重解释。 |
 | Model Gateway | ModelResponse v1alpha2 + 新 call outcome 身份 | 未知调用不伪装失败/成功、不自动重发；完整响应仍执行本地 Schema 验证。 |

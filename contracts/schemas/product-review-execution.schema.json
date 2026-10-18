@@ -522,6 +522,11 @@
           "type": "integer",
           "minimum": 0
         },
+        "failed_rescan_units": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Units already submitted in a successful ancestor batch whose later bounded rescan failed; not units never analyzed."
+        },
         "truncated_batches": {
           "type": "integer",
           "minimum": 0

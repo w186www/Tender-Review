@@ -302,6 +302,11 @@
           "type": "number",
           "minimum": 0
         },
+        "model_context_capacity_omitted_excerpts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Related excerpts not sent because of the bounded semantic input capacity; not a proof that no counterevidence exists."
+        },
         "vector_index_item_count": {
           "type": "integer",
           "minimum": 0
@@ -430,6 +435,10 @@
               "pattern": "^[a-f0-9]{64}$"
             },
             "project_context": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "semantic_document_context": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
             }

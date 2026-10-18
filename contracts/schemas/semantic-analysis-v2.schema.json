@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bidding-compliance.local/schemas/semantic-analysis-v2.schema.json",
+  "title": "SemanticAnalysisResponseV2",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "findings"],
+  "properties": {
+    "schema_version": {"const": "v1alpha2"},
+    "findings": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/finding"}}
+  },
+  "$defs": {
+    "hashes": {"type": "array", "maxItems": 20, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "context_hashes": {"type": "array", "maxItems": 26, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["candidate_id", "assessment", "title", "description", "severity", "source_quote_sha256", "legal_evidence_ids", "recommendation", "reasoning_summary", "issue_identity", "duplicate_of_candidate_id", "context_review", "legal_assessments"],
+      "properties": {
+        "candidate_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "assessment": {"type": "string", "enum": ["potential_issue", "no_issue", "uncertain"]},
+        "title": {"type": "string", "minLength": 1, "maxLength": 300},
+        "description": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+        "source_quote_sha256": {"$ref": "#/$defs/hashes"},
+        "legal_evidence_ids": {"$ref": "#/$defs/hashes"},
+        "recommendation": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "reasoning_summary": {"type": "string", "maxLength": 4000},
+        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "issue_identity": {
+          "type": "object", "additionalProperties": false,
+          "required": ["subject", "mechanism", "condition"],
+          "properties": {
+            "subject": {"type": "string", "minLength": 1, "maxLength": 160},
+            "mechanism": {"type": "string", "minLength": 1, "maxLength": 160},
+            "condition": {"type": "string", "minLength": 1, "maxLength": 160}
+          }
+        },
+        "duplicate_of_candidate_id": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "context_review": {
+          "type": "object", "additionalProperties": false,
+          "required": ["reviewed_quote_sha256", "counterevidence_quote_sha256", "conclusion"],
+          "properties": {
+            "reviewed_quote_sha256": {"$ref": "#/$defs/context_hashes"},
+            "counterevidence_quote_sha256": {"$ref": "#/$defs/context_hashes"},
+            "conclusion": {"type": "string", "enum": ["supported", "qualified", "contradicted", "unresolved"]}
+          }
+        },
+        "legal_assessments": {
+          "type": "array", "maxItems": 6,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["evidence_id", "relation", "reason"],
+            "properties": {
+              "evidence_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "relation": {"type": "string", "enum": ["supports", "conflicts", "not_relevant", "uncertain"]},
+              "reason": {"type": "string", "minLength": 1, "maxLength": 500}
+            }
+          }
+        }
+      }
+    }
+  }
+}
