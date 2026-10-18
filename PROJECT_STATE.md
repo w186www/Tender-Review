@@ -1,4 +1,13 @@
-## 当前接续：TASK-0029 发布收尾｜Full 通过，待提交/CI/部署（2026-10-19）
+## 当前接续：TASK-0029 发布完成｜已合并并部署（2026-10-19）
+
+- 提交与合并：v2 证据闭环 `ba83a52`，CI 阻断修复 `8483937`（报告跟随 `merged_findings` 冻结引用）。PR #9：<https://github.com/w186www/Tender-Review/pull/9>；required CI run `39159508468` 的 impact/postgres/ingestion/baseline/verify-required 全部 success，quick 按 Full 模式 skipped；CI baseline（Full）**1067 passed、2 warnings、742.46s**。已普通合并到 `main`，merge SHA `07f7a62a818ae2956a9551f40d301b593dbf4b8e`。
+- 部署：服务器源码 `07f7a62`；镜像 `tender-review-api:task0029-07f7a62`（`sha256:525d0f32761a675a223572a875e8df1ae4d666948381d825b044c58e11fd3fa7`）与 `tender-review-web:task0029-07f7a62`（`sha256:9bf1b94067142fa5c3a8d2d297d77da0e5e0c0eee0598c932217f014ac60242b`）。仅重建 api/review-worker/worker/nginx；postgres/MinIO/ClamAV、TLS 叠加层、账本和数据卷保持。local/public HTTPS health=200、http=301、匿名项目 401、reviewer 登录及 `/auth/me` 均 200（role=reviewer）。
+- 部署前备份 `/opt/tender-review/backups/20261018T192909Z`（postgres.dump、miniodata.tar.gz、modelstate.tar.gz、manifest、两份受保护 `.env` 副本 600）；官方 `restore.sh --verify` 通过：数据库逐表计数一致（tenant=2…audit_event=1956），MinIO 91 文件校验、modelstate 7 文件校验均 ok，未修改线上数据。回退版本：源码 `b69a78f`，镜像 `task0029-b69a78f`（api `sha256:63e34829…`、web `sha256:b41f1630…`）；回退使用既有镜像/源码和恢复脚本，不重置数据库、账本、索引或授权。
+- 部署后状态：`APP_ENV=staging`、`DEPLOY_REVIEW_MODE=product-postgres`、tenant-a；应用角色 `tender_runtime`、`row_security=on`、34/39 表启用 RLS；迁移 `202610172000`；策略 active（bailian/external_review，¥200/单次 ¥0.25/Embedding 批 ¥0.10/TTL 3600s）；预算账户 limit ¥200、reserved 0、spent ¥2.48187150、709 条 settled；外部授权 active 7/revoked 6；运行 22 已发布/10 waiting_human/4 failed/1 cancelled；模型调用 371 succeeded/7 unknown。部署未新增模型调用或费用。
+- 提示与法规身份：新运行常量 `task0029-semantic-evidence-v2` / `task0029-discovery-evidence-v2`；旧 run 的 18 条 `task0030-semantic-rag-v1`、13 条 `task0023-semantic-v1`、4 条 `task0029-semantic-fulltext-v1`、2 条 `task0011-ui-v1` 原样保留，不改写。DEC-009 采用政策 `ADOPT-2026-10-18`（43 版本/3120 片段，manifest `1cd46d8b…`）与向量 manifest `c7344cac…`（3112/3120、legal snapshot `69d340d6…`）一致。
+- TASK-0029 保持 `in_progress`；用户尚未进行网站真实文件验收，不登记用户验收通过或正式交付。用户操作：新建/进入项目 → 填写项目上下文 → 上传正常 PDF → 确认解析结果 → 按页面完成逐文件外发授权 → 发起审查 → 查看发现、原文定位和法规关联。`waiting_human` 是待人工复核；正式报告下载需要 reviewer 完成人工复核并发布，不绕过状态机。
+
+## 此前记录：TASK-0029 发布收尾（发生时状态，2026-10-19）
 
 - 当前候选即工作树未提交改动（父提交 `ed0f80faa0198b4c480a112da21139b316bcf8a0`，分支 `work/TASK-0027`）。用户确认并已用官方入口重跑 `.\scripts\verify.ps1 -Mode Full`：七阶段 exit 0；后端 **1066 passed / 0 failed / 0 skipped / 6 warnings**，653.02s；JUnit `.verification/pytest-result.xml`（tests=1066/failures=0/errors=0/skipped=0，SHA-256 `82dd70e2811ab7c84ffe334ba51abe4fad31d9d3d8b288b72f3778e159eca929`）。Full 后未修改代码、契约、测试、配置或依赖；仅更新本记录/CHANGELOG 并跑 Quick。
 - CI postgres 首轮在 `check_legal_publications.py` 的报告生成路径失败：同一 run 在失败/重试后存在多个 `legal_retrieval` 制品，报告按 kind 取唯一制品的检查暴露了旧“任选第一条”问题。已改为从 `merged_findings` 的 `discovery_ref`/`retrieval_results_ref`/`model_findings_ref`/`llm_discovery_ref` 读取精确冻结制品，并新增 coverage 引用回归；该修复后的候选需重新通过 CI baseline（Full）后才能合并。
