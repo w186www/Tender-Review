@@ -56,6 +56,7 @@ from bidding_compliance.services.evidence_checker import (
     evidence_status_for_support,
     has_confirmable_legal_support,
     has_unsupported_normative_claim,
+    model_source_quotes_are_verified,
     related_document_context,
     verify_document_excerpt,
     verify_legal_hit,
@@ -97,11 +98,6 @@ MAX_ERRORS = 100
 # provider timeout. Batches are ordered by candidate_id, so the split is reproducible.
 SEMANTIC_BATCH_CANDIDATES = 8
 MAX_SEMANTIC_BATCHES = 13
-# Non-selected retrieval hits are supporting context only; bound the visible list so a
-# finding does not carry ten loosely related statutes into the reviewer/report surface.
-MAX_REFERENCE_ONLY_CLAUSES = 3
-
-
 def _legal_reference_payload(
     hit: Any,
     *,
@@ -1612,11 +1608,13 @@ def build_review_graph(
                         )
                     doc_evidence.append(related_evidence)
                 source_hashes = set(model.get("source_quote_sha256", [])) if model else set()
-                if model and (
-                    not source_hashes
-                    or not source_hashes.issubset(
-                        {item.quote_sha256 for item in candidate.source_excerpts}
-                    )
+                verified_document_quote_hashes = {
+                    hashlib.sha256(str(item.get("quote", "")).encode("utf-8")).hexdigest()
+                    for item in doc_evidence
+                    if item.get("quote")
+                }
+                if model and not model_source_quotes_are_verified(
+                    tuple(source_hashes), verified_document_quote_hashes
                 ):
                     document_valid = False
                 selected_laws = set(model.get("legal_evidence_ids", [])) if model else set()
@@ -1780,25 +1778,10 @@ def build_review_graph(
                         )
                         for hit in confirmable_laws
                     )
-                if candidate_result is not None:
-                    reference_only_count = 0
-                    for hit_payload in candidate_result["result"]["hits"]:
-                        if hit_payload["evidence_id"] in allowed_selected_laws:
-                            continue
-                        if reference_only_count >= MAX_REFERENCE_ONLY_CLAUSES:
-                            break
-                        reference_hit, _ = verify_legal_hit(
-                            session,
-                            principal,
-                            publication_id=row.publication_id or "",
-                            revision_id=row.revision_id or "",
-                            result_payload=candidate_result["result"],
-                            hit_payload=hit_payload,
-                        )
-                        if reference_hit is None:
-                            continue
-                        legal_references.append(reference_payload(reference_hit, selected=False))
-                        reference_only_count += 1
+                # Retrieval hits are supplied to semantic analysis, but an arbitrary
+                # top-ranked hit is not evidence for a finding. Only a clause selected by
+                # the model or explicitly associated with a discovered rule is projected
+                # onto the finding. This avoids padding every finding with unrelated law.
                 # A configured rule-law association is surfaced for the reviewer even when
                 # the model chose not to cite it. It remains a reference, never formal
                 # evidence, and only appears when the exact clause was retrieved.
@@ -1885,7 +1868,14 @@ def build_review_graph(
                     finding["conflicts"] = conflicts
                 mismatched_anchors = claim_evidence_mismatch(
                     f"{finding['title']} {finding['description']}",
-                    [item.quote for item in candidate.source_excerpts],
+                    [
+                        *(item.quote for item in candidate.source_excerpts),
+                        *(
+                            str(item.get("quote", ""))
+                            for item in related_by_candidate.get(candidate.candidate_id, [])
+                            if isinstance(item, dict)
+                        ),
+                    ],
                 )
                 if mismatched_anchors:
                     finding.update(

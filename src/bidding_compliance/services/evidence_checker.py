@@ -32,9 +32,22 @@ _CLAIM_ANCHORS = {
     "machine_identifier": ("机器码", "加密锁号", "加密锁", "锁号", "序列号", "硬件码"),
     "contact_identifier": ("联系人", "联系电话", "电话", "手机号", "联系方式", "通讯录"),
     "brand": ("品牌", "品牌型号", "制造商", "厂商", "产品型号"),
-    "deadline": ("期限", "截止", "开标时间", "投标时间", "工作日", "日历日", "小时"),
-    "scoring": ("评分", "分值", "评分标准", "加分", "扣分", "总分"),
-    "qualification": ("资格", "资质", "业绩", "注册", "社保", "人员"),
+    "deadline": (
+        "期限", "截止", "开标时间", "投标时间", "工作日", "日历日", "小时",
+        "公示期", "公示期限", "天内", "日内", "日历天",
+    ),
+    "scoring": (
+        "评分", "分值", "评分标准", "加分", "扣分", "总分", "基准价",
+        "偏差率", "不得分", "最低档", "j值", "k值",
+    ),
+    # Avoid the generic word "资格": model descriptions often mention qualification
+    # review even when the actual asserted fact concerns a different subject (for
+    # example machine-code identifiers). These anchors name concrete qualification
+    # evidence or restrictions instead.
+    "qualification": (
+        "资格条件", "资格要求", "资质要求", "企业资质", "业绩要求", "注册证书",
+        "社保证明", "本地注册", "本地企业", "地域限制", "人员资格",
+    ),
     "amount": ("金额", "预算", "报价", "合同价款", "保证金", "元"),
 }
 _ACTIONABLE_RECOMMENDATIONS = {
@@ -68,7 +81,7 @@ def _normalized_search_text(value: str) -> str:
 
 
 def claim_evidence_mismatch(claim: str, source_quotes: Sequence[str]) -> tuple[str, ...]:
-    """Flag concrete subject types asserted by a finding but absent from its cited quote."""
+    """Flag concrete subject types asserted by a finding but absent from its evidence set."""
     normalized_claim = _normalized_search_text(claim)
     normalized_source = _normalized_search_text(" ".join(source_quotes))
     return tuple(
@@ -77,6 +90,13 @@ def claim_evidence_mismatch(claim: str, source_quotes: Sequence[str]) -> tuple[s
         if any(anchor in normalized_claim for anchor in anchors)
         and not any(anchor in normalized_source for anchor in anchors)
     )
+
+
+def model_source_quotes_are_verified(
+    source_quote_hashes: Sequence[str], verified_quote_hashes: set[str]
+) -> bool:
+    """Accept model citations only when every hash resolves to a revalidated document quote."""
+    return bool(source_quote_hashes) and set(source_quote_hashes).issubset(verified_quote_hashes)
 
 
 def actionable_recommendation(category: str, recommendation: str) -> str:

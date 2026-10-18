@@ -1,16 +1,12 @@
-# PROJECT_STATE
+## 当前接续专项：真实 PDF 法规与报告质量修复（2026-10-18，Full 通过，待 PR/部署）
 
-更新时间：2026-10-18
-
-## 当前接续专项：真实 PDF 法规与报告质量修复（2026-10-18，代码 Full 通过，待 PR 与部署）
-
-- 基线代码提交 `2088d2cb9f5da66e748e98eb6fd7bba87037bae8`（`fix(TASK-0029): bind review evidence to project context`）已进入当前 main。项目上下文统一作为检索权威源，审查创建前返回字段级补正，文档确认镜像项目值；检索失败与有效零命中分开；全文关联原文进入语义分析并在报告中标为上下文；旧 #21 对象错配、无依据规范性说法、同问题重复和合同 Skill PDF 章节范围已修复。
-- 新代码候选 `521331d`（`fix(TASK-0029): preserve legal references and risk projection`）：法规参考增加可追溯法规 ID/版本/条号、官方来源及哈希、文本定位/哈希、适用框架和采用状态；仅 AI 来源且语义判断 `no_issue` 的候选不再投影成待审风险，规则/Skill 冲突仍送人工；同一文档哈希/定位/引文/类别下合并经识别的公示期限、调查举证和品牌中标后处理重复项，保留不同问题。OpenAPI `0.10.4` / 契约集 `v1alpha11`，无数据库迁移。
-- `scripts/verify.ps1` 官方 Full 七阶段退出码 0：后端 **988 passed、0 failed、0 skipped**，2 条既有 pypdf 弃用警告，607.58 秒；前端 14/14，契约生成、Ruff、Mypy、生产构建通过；真实 loopback health=200、缺失资源=404、登录/项目版本/登出撤权通过。相关 Focused 142 passed。Full 对应当前代码树，JUnit 在 `.verification/pytest-result.xml`。
-- 服务器仍运行源码 `4149a287683207d77087145af5894336a58ae079`（`task0029-4149a28`），工作树干净，HTTPS health=200。已复核 tenant-a 的产品策略存在且 active：policy v1、provider `bailian`、purpose `external_review`、预算上限 ¥200、单次 ¥0.25、Embedding 批 ¥0.10、TTL 3600 秒。早先“无策略”由 PowerShell/SSH 查询把 `$PRODUCT_TENANT_ID` 当字面字符串导致，按运行时容器和 RLS 租户上下文查询后不存在策略丢失或装配回归；未新建账户或重置账本。当前指定文档的逐文件授权于 `2026-10-18 12:32:31 UTC` 到期，新审查前按同文件 SHA/解析版本、同租户、同 provider/purpose、同 policy 正式续登记。
-- 旧缺陷审查 `1719ebbd-75af-56cd-841f-615ee2af33bc` 保留不动。已在旧部署创建的新审查 `4bd1a537-cf35-573f-b77e-2c233d400f13` / run `482ad1c0-a8ac-518a-a2d8-aad1e8cd6c23` 仍为 `waiting_human`、32 项待复核、0 人工决定、0 发布结果；检索 37/37 complete、370 hit、0 正式 citable，法规参考未独立核验。新投影代码尚未部署，需在合并候选上生成下一份新报告，保留旧结果不改写。
-- 下一步：为任务/验证记录提交 Quick；推送 `work/TASK-0027` 并创建正常 PR；CI 通过后普通合并。随后对现有 ECS 做新备份和官方隔离恢复校验，部署合并候选，健康检查及账本核对后按正式 API 续登同一 PDF 授权并运行新审查，再生成仅作人工候选的 DOCX 并完成 21 项对照。
-- 状态边界：TASK-0029 保持 `in_progress`；DEC-009 的项目采用参考不是独立法律核验；未产生专家金标或用户最终验收。新运行不得代提交人工决定或发布；拒绝候选覆盖仍为 partial，不能断言全文无遗漏。
+- 基线为 `d963190da70e7972183ca873a48281f565b0c163`，分支 `work/TASK-0027`；候选运行时代码已冻结。提交前工作树包含本轮允许路径修改及私人未跟踪 `question.txt`；该私人文件未读取、修改或提交，未发现其他写入者。服务器只读复核仍为源码/镜像 `task0029-d963190`，工作树干净，PostgreSQL、MinIO、ClamAV 均未触碰。
+- 此前租户策略不一致报告已查明为 PowerShell/SSH 查询转义错误：tenant-a 的 product-postgres 中现有 active `model_execution_policy` 和 DEC-007 预算账户存在；运行角色非 superuser/非 BYPASSRLS；相关表强制 RLS，`app.tenant_id=tenant-a` 正确。未新建预算账户、重置账本或绕过策略检查。
+- 同一 PDF 旧真实运行 `84dc9894-5079-50e7-9660-0f8617a05263` / `3ab6c4d7-aee2-5bd8-a757-fee95ac4075a` 保持 `waiting_human`，无 result_id、人工决定或发布。其冻结检索制品保留 44/44 检索结果、440 条原始命中和 255 个唯一法规证据身份，并可通过检索制品追溯未选中命中；模型没有选中法规证据，既有项目采用 DEC-009 与独立核验分开。当前代码不再把未选中且无精确规则绑定的 Top-3 命中自动附为每条风险依据，不新增参考展示功能。
+- 实现和回归修复包括：机器码/资格对象锚点误判；将已服务端重新验证的全文关联原文纳入模型引用哈希验证；限定在同类别、文档哈希、定位、原文和已知语义族下合并同事实重复风险；保留同段不同报价评分风险。旧服务器合并制品含修复前投影，未被改写。
+- 修复后 Focused：后端 78 passed；Ruff、Mypy、契约/生成、前端 lint/typecheck、14 项前端测试及生产构建均通过。官方 Full：后端 992 passed、0 failed、0 skipped，2 条既有 pypdf 弃用警告；契约生成、Ruff、Mypy、前端 14/14、构建和真实 HTTP health/login/project/version/logout 检查均通过。Full 退出码 0，JUnit `.verification/pytest-result.xml`，日志由本轮 verify 输出保留。
+- 对保存的真实响应离线复核为 0 新模型调用：39/39 个模型引文哈希可由主文或冻结全文关联摘录重验；投影为 27 项。离线重放仅验证对应引用/投影逻辑，不代替部署后端到端结果。当前分支尚未提交/推送，本轮 PR/CI、备份恢复、部署及同 PDF 新运行均待执行。
+- 下一步：只记录 Full 证据并 Quick；提交、推送、创建普通 PR，等待必需 CI 成功后普通合并。随后先执行现有 ECS 全量备份及隔离 `restore.sh --verify`，部署合并候选；在既有逐文件授权、租户策略和预算内，对相同原 PDF SHA 执行一次新审查并核对候选结果。不得复用旧结果冒充新运行，不代用户决定或发布。TASK-0029 保持 `in_progress`。
 
 ## 当前专项：用户真实 PDF 上传误拒（2026-10-18，已修复部署并通过网页原文件复验）
 

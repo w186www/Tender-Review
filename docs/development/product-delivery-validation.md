@@ -839,3 +839,12 @@
 - 增加同类风险合并、同段不同品牌问题保持分离、AI-only no_issue 抑制、法规命中元数据保留及 Word/PDF 显示元数据的回归测试。
 - 官方 `scripts/verify.ps1 -Mode Full` 全阶段通过：后端 **988 passed、0 failed、0 skipped**，2 条既有 pypdf 弃用警告，607.58 秒；前端 14/14，契约生成、Ruff、Mypy、生产构建通过；真实 loopback health=200、缺失资源=404、登录/项目版本/登出撤权通过。JUnit：`.verification/pytest-result.xml`（gitignored）。Focused 相关路径 142 passed。Windows Git `--no-local` 测试在受限沙箱内遇到 `NtCreateDirectoryObject 0xC0000022`，在保留全量测试的获准验证环境重跑后通过。本地工程门禁不等于线上新运行或用户验收。
 - 本节记录的是本地工程候选；尚须正常 PR/CI/合并、现有 ECS 备份及隔离恢复校验、候选部署，再使用相同授权边界运行指定 PDF 的新审查。法规库只按 DEC-009 作项目采用参考，未独立法律核验；新任务应保持 waiting_human，不能代提交人工决定或发布。
+
+## 2026-10-18 TASK-0029 同一 PDF 真实输出驱动的投影修正（工程候选）
+
+- 延续上一节已部署/已核对的项目上下文、法规检索和同 PDF 真实运行。product-postgres 中 tenant-a 的现有执行策略、租户受限数据库角色、强制 RLS 与 `app.tenant_id=tenant-a` 均实际存在；先前“没有策略记录”来自 PowerShell/SSH 查询转义错误，不是策略丢失或权限缺口。本轮没有新建预算账户、重置账本、绕过策略检查或扩大逐文件授权。
+- 当前真实运行 `84dc9894-5079-50e7-9660-0f8617a05263` / `3ab6c4d7-aee2-5bd8-a757-fee95ac4075a` 在 RAG 44/44 完成，440 个原始命中、255 个唯一法规证据身份，发布快照 `977826ab-948a-4681-9001-4866c7da3bc2` / revision `fa2407bb-1dff-4da8-b828-bcc846df76ad`。法规查询结果进入 5 批真实语义分析；模型未选择法规引用，规则—法规人工绑定未确认，故 36 项投影均保留 `insufficient_evidence`，未形成正式法律支持。法规参考不附入风险以凑数量；项目采用 DEC-009 与独立法律核验继续分栏。
+- 输出对照发现并修复：机器码/加密锁号结论因描述中的泛化“资格审查”被错误降级；把已校验全文关联摘录加入对象一致性检查，并将资格锚点改为具体资格事实；在同一类别、文档哈希、定位及引文下新增信用分缺失、人员变更违约责任、文件冲突顺序、监管管辖、项目经理任职范围、J 值及 K 值的窄语义去重族，两个不同报价评分问题仍分开；不再把未被模型选择、无精确规则绑定的 Top-3 法规命中自动挂到每条风险。
+- 关键回归覆盖机器码与联系人错配、泛化资格描述、评分对象正例、上述同事实重复族及同段不同评分问题。`scripts/verify.ps1 -Mode Focused -TestPaths tests/test_task0029_evidence_quality.py,tests/test_task0030_real_rag.py,tests/test_legal_evidence_classification.py,tests/test_llm_candidate_discovery.py` 通过：后端 78 passed；契约生成、Ruff、Mypy、前端 lint/typecheck、14 项前端测试和生产构建通过。冻结候选的官方 `scripts/verify.ps1 -Mode Full` 退出码 0：后端 992 passed、0 failed、0 skipped、2 条既有 pypdf 弃用警告；真实 HTTP health/login/project/version/logout 检查通过，JUnit `.verification/pytest-result.xml`。Full 后仅更新状态/证据记录，后续 Quick 复核。PR/CI、服务器备份/部署及修复后同一 PDF 新审查尚未完成。
+- 新运行仍须保持 `waiting_human`；采购时间/评分/合同 Skill 实际适用性、被拒候选和覆盖 partial 如实显示。该运行无 result_id、人工决定为 0、发布为 0。
+- 对冻结语义/检索制品的离线复核不产生模型调用：39/39 个模型引文哈希匹配主文或服务端冻结的全文关联摘录；候选风险投影 27 项。旧 `merged_findings` 中修复前自动挂载的 108 条法规参考只作历史状态说明，实际模型选中法规 ID 为 0；完整 44 条检索结果（440 原始命中、255 个唯一证据身份）仍保存在同运行 `legal_retrieval` 制品。离线检查不冒充部署后新运行。其旧报告 21 项映射和 DOCX 版式验收将在修复代码部署后的新候选上完成；不重写旧报告或旧结果。

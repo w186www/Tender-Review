@@ -31,9 +31,31 @@ def _same_issue_family(finding: dict[str, Any]) -> str | None:
         str(finding.get(key, ""))
         for key in ("title", "description", "recommendation")
     )
+    excerpt = finding.get("source_excerpt") or {}
+    if isinstance(excerpt, dict):
+        text += " " + str(excerpt.get("quote", ""))
+    text = text.casefold()
     category = finding.get("category")
     if category == "procedure" and "公示" in text and "期限" in text:
         return "procedure-publicity-period"
+    if (
+        category == "qualification"
+        and any(term in text for term in ("信用分", "信用评分"))
+        and any(term in text for term in ("最低档", "查不到", "没有信用分"))
+    ):
+        return "qualification-missing-credit-score"
+    if (
+        category == "qualification"
+        and any(term in text for term in ("发改委", "发展和改革委员会", "监管部门"))
+        and any(term in text for term in ("管辖", "执法", "处理", "投诉", "职权"))
+    ):
+        return "qualification-enforcement-jurisdiction"
+    if (
+        category == "qualification"
+        and "项目经理" in text
+        and any(term in text for term in ("未完工", "未完成", "多标段", "其他项目"))
+    ):
+        return "qualification-project-manager-unfinished-projects"
     if (
         category == "qualification"
         and "调查" in text
@@ -41,6 +63,27 @@ def _same_issue_family(finding: dict[str, Any]) -> str | None:
         and any(term in text for term in ("举证", "期限", "处理"))
     ):
         return "qualification-investigation-cooperation"
+    if (
+        category == "contract"
+        and any(term in text for term in ("项目经理", "关键人员", "人员变更"))
+        and any(term in text for term in ("变更", "更换"))
+        and any(term in text for term in ("违约金", "违约责任", "处罚"))
+    ):
+        return "contract-personnel-change-liability"
+    if (
+        category == "procedure"
+        and any(term in text for term in ("文件冲突", "同一事项", "组成文件"))
+        and any(term in text for term in ("编排顺序", "后者", "优先顺序"))
+    ):
+        return "procedure-document-precedence"
+    if category == "evaluation" and any(term in text for term in ("j值", "j=", "j＝")):
+        return "evaluation-j-parameter"
+    if (
+        category == "evaluation"
+        and "k值" in text
+        and any(term in text for term in ("抽取", "抽签", "隨機", "随机"))
+    ):
+        return "evaluation-k-draw-process"
     if category == "technical" and any(
         term in text for term in ("主观", "客观", "量化", "裁量")
     ):
@@ -73,6 +116,55 @@ def _apply_family_summary(finding: dict[str, Any], family: str | None) -> None:
             "但此处未明确期限起算点、送达方式及具体后果，可能造成执行口径不一致。",
             "明确调查通知的送达方式、期限起算点、举证材料范围及不配合的处理依据；"
             "只写入经招标人确认并与适用规则一致的时限和后果。",
+        ),
+        "qualification-missing-credit-score": (
+            "信用分缺失时按最低档计分的处理需补充分情形规则",
+            "文件规定查询不到信用分或投标人没有信用分时按最低档计分，"
+            "但未区分无信用记录、查询故障或数据错误，也未写明纠错机会。",
+            "分别明确无信用记录、系统无法查询和信用数据异议的处理方式、"
+            "证明材料及复核期限，并确保评分表与资格、评审条款一致。",
+        ),
+        "qualification-enforcement-jurisdiction": (
+            "投诉或调查处理部门及管辖依据需明确",
+            "同一原文对涉嫌虚假材料、调查处理或投诉监督的机构表述，"
+            "需要与本项目的行政监督职责和地域管辖对应核对。",
+            "按采购项目类型和所在地核对行政监督部门及其法定职责；"
+            "分别写明异议、投诉和违法线索处理渠道，并删除职责依据不明的机构表述。",
+        ),
+        "qualification-project-manager-unfinished-projects": (
+            "项目经理未完工项目限制的范围需明确",
+            "条款限制拟派项目经理在其他未完工项目任职，但未清楚界定本项目其他标段、"
+            "不同项目类别及已获准变更等情形的适用范围。",
+            "明确“其他未完工项目”的认定口径、是否包括本项目其他标段及可适用的例外，"
+            "并列明核验材料和判断时点。",
+        ),
+        "contract-personnel-change-liability": (
+            "项目经理变更条件与违约责任的衔接需明确",
+            "同一合同条款涉及项目经理变更和违约处理，需说明客观变更事由、审批要求"
+            "与违约责任之间的对应关系，避免将获准变更和违约情形混为一谈。",
+            "列明可申请变更的事由、审批程序、替代人员条件及各自责任；"
+            "明确仅在何种未履约情形下承担违约责任，并与被引用的主管部门文件保持一致。",
+        ),
+        "procedure-document-precedence": (
+            "同一事项在招标文件中的冲突优先顺序需明确",
+            "文件规定同一事项不一致时以编排顺序在后者为准，但未说明该规则与合同组成文件"
+            "的专门顺序及澄清、补遗文件之间如何衔接。",
+            "统一招标文件正文、合同组成文件以及澄清或补遗的适用顺序；"
+            "写明适用对象和优先规则，避免仅以排版先后决定实质条款。",
+        ),
+        "evaluation-j-parameter": (
+            "J值的设定依据与评分影响需明确",
+            "评分条款允许招标人按项目情况自行设定J值，并规定触发后的商务标得分结果；"
+            "设定范围、依据和计算影响需要在投标前明确。",
+            "公布J值的取值范围、计算公式、适用条件及对商务标得分的影响，"
+            "并核对其与评分表总分及其他报价评分项的一致性。",
+        ),
+        "evaluation-k-draw-process": (
+            "K值抽取及计算过程需明确",
+            "条款约定招标人在线抽取K值并据此计算F值，需让投标人能够确认抽取规则"
+            "及其与评标基准价公式的对应关系。",
+            "明确K值取值区间、抽取时点、参与人员、记录或见证方式及F值计算公式，"
+            "并在评标办法中保持一致。",
         ),
         "technical-brand-post-award-lock": (
             "替代品牌未通过评审后的中标后处理需明确",
