@@ -3,7 +3,7 @@
   "task_id": "TASK-0011",
   "title": "前端完整业务操作与管理界面",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0010"
   ],

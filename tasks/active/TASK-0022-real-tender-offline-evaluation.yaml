@@ -3,7 +3,7 @@
   "task_id": "TASK-0022",
   "title": "真实招标文件离线基线与受控 Qwen 评测",
   "status": "in_progress",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": ["TASK-0021"],
   "related_requirements": [
     "FR-002", "FR-004", "FR-005", "FR-006", "FR-008", "FR-010", "FR-011",

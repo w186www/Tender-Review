@@ -3,7 +3,7 @@
   "task_id": "TASK-0007",
   "title": "规则引擎与五类 Skill 规范",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0005",
     "TASK-0006"
@@ -109,5 +109,5 @@
   "verify": [
     "./scripts/verify.ps1"
   ],
-  "handoff_notes": "单Codex依ADR-0011实施；TASK-0006源码5347b110为当前分支祖先。五类独立确定性Skill、版本化契约/候选发现、失败关闭覆盖、原文定位、稳定去重、检索主题已完成。源码236d2a6e231be030f719b0bbabc3f2b0a50039b3的Focused 30项、Full 448项本地全过，真实集成/HTTP检查通过；远程CI 38516913371的baseline/PostgreSQL/ingestion/verify-required全部success。TASK-0007已满足局部退出；不代表AC-003全局审查闭环完成。未合入main，未启动TASK-0008。"
+  "handoff_notes": "单写入者依ADR-0011实施；TASK-0006源码5347b110为当前分支祖先。五类独立确定性Skill、版本化契约/候选发现、失败关闭覆盖、原文定位、稳定去重、检索主题已完成。源码236d2a6e231be030f719b0bbabc3f2b0a50039b3的Focused 30项、Full 448项本地全过，真实集成/HTTP检查通过；远程CI 38516913371的baseline/PostgreSQL/ingestion/verify-required全部success。TASK-0007已满足局部退出；不代表AC-003全局审查闭环完成。未合入main，未启动TASK-0008。"
 }

@@ -13,7 +13,7 @@ DEC-002 已获批且唯一一次 Qwen 请求已于 2026-10-15 在本地隔离 Ed
 
 ## 凭据注入
 
-通过 Windows 的“用户环境变量”安全设置为当前用户添加 `DASHSCOPE_API_KEY` 与 `BAILIAN_WORKSPACE_ID`，不要把值输入 PowerShell/CMD 命令行、`.env`、脚本或聊天。Workspace 专属 endpoint 的 Workspace ID 可在百炼控制台“业务空间管理”页面的 API Host 中查看；本次授权使用该专属 endpoint，因此两个变量都必需。优先使用限定到 `qwen3.8-flash` 的短时 API Key；百炼官方文档说明临时 Key 最长 1,800 秒，并建议避免在不可信环境中使用长期有效 Key。配置后完全退出并重启 Codex，使 runner 进程继承环境变量；任务验证完成后删除该 Key。运行前程序只检查变量存在，不显示其内容。缺少任一变量时在线 runner 关闭。
+通过 Windows 的“用户环境变量”安全设置为当前用户添加 `DASHSCOPE_API_KEY` 与 `BAILIAN_WORKSPACE_ID`，不要把值输入 PowerShell/CMD 命令行、`.env`、脚本或聊天。Workspace 专属 endpoint 的 Workspace ID 可在百炼控制台“业务空间管理”页面的 API Host 中查看；本次授权使用该专属 endpoint，因此两个变量都必需。优先使用限定到 `qwen3.8-flash` 的短时 API Key；百炼官方文档说明临时 Key 最长 1,800 秒，并建议避免在不可信环境中使用长期有效 Key。配置后完全退出并重启执行进程，使 runner 进程继承环境变量；任务验证完成后删除该 Key。运行前程序只检查变量存在，不显示其内容。缺少任一变量时在线 runner 关闭。
 
 ## 外发白名单
 

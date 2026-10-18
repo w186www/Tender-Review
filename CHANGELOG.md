@@ -1,5 +1,6 @@
 # Changelog
 
+- 2026-10-19 公开工程文档使用通用职责表述，个人协作原文仅本地保留；更新入口与引用，保留任务和验收事实。
 - 2026-10-19 TASK-0029 发布完成：v2 证据闭环 `ba83a52` + CI 修复 `8483937`，PR #9 普通合并 `07f7a62`；CI run `39159508468` 的 impact/postgres/ingestion/baseline(Full, **1067 passed/2 warnings/742.46s**)/verify-required 全部 success，quick 按 Full 模式 skipped。现有 ECS 已部署源码 `07f7a62`、镜像 `task0029-07f7a62`；health/登录/匿名 401 通过，product-postgres、RLS、迁移、预算、DEC-009 采用与向量快照身份保持不变；部署前备份 `20261018T192909Z` 隔离恢复通过。未新增模型调用或费用；用户网站真实文件验收未发生，TASK-0029 保持 in_progress。
 
 - 2026-10-19 TASK-0029 CI 阻断修复：报告生成不再按制品 kind 任选 `candidate_discovery`/`legal_retrieval`/`model_analysis`/`llm_candidate_discovery`，而是跟随 `merged_findings` 冻结的 `discovery_ref`/`retrieval_results_ref`/`model_findings_ref`/`llm_discovery_ref`；新增 coverage 引用回归。该修复解决 CI postgres 失败，需重新通过 baseline（Full）与 required checks。
@@ -8,7 +9,7 @@
 
 - 2026-10-19 TASK-0029 Mypy 接续：product_runtime 的两个提示版本常量改为直接从 review_contracts 导入，避免隐式重导出；未变更常量值或业务装配，未运行验证。
 
-- 2026-10-19 TASK-0029 静态错误接续：修正 Luna 回报的 3 处 E501 和 1 处 B023，字符串值不变，法规关联映射显式绑定到当前候选。未运行验证，待 Luna 接续 Focused。
+- 2026-10-19 TASK-0029 静态错误接续：修正执行者回报的 3 处 E501 和 1 处 B023，字符串值不变，法规关联映射显式绑定到当前候选。未运行验证，待执行者接续 Focused。
 
 - 2026-10-19 TASK-0029 根因修正（代码实现、未验证）：修复法规结果层级错配、细分批次/重试 ID 未登记及明确发送前失败被记为 unknown；修正饱和计数、父批成功/补扫失败含义。新增版本化多段引文、问题身份/重复代表项、条件反证和逐法条关系契约；v2路径按同源事实与问题身份归并并留记录；工作区保留既有legacy关键词归并，后续收口取消其固定事实摘要。同步出站容量规划、网页和报告限制；OpenAPI 0.10.5、契约集 v1alpha12、报告 v3.4。按用户要求未新增/运行测试、未运行门禁或模型、未提交推送部署，历史证据不覆盖当前工作区。
 
@@ -53,7 +54,7 @@
 核查入口：原九文件Focused加 tests/test_task0029_semantic_v2.py、tests/test_semantic_batching.py、tests/test_real_ai_runtime.py、tests/test_task0028_persisted_model_gateway.py、tests/test_task0027_per_file_authorization.py、tests/test_task0027_external_authorization_api.py。先统一核查本候选，未通过不得进入发布。
 
 ### Added
-- 2026-10-19 Focused 29项失败接续（仅修正，未复验）：读取本次 pytest-focused-result.xml，117项为29 failed/88 passed。26项涉及旧版本断言、最小化器v2必填上下文/同源候选、无prompt_version的旧graph夹具或错误文本匹配。现同步v2输入和内容无关诊断码断言，旧graph夹具显式冻结fulltext-v1；不在运行时代码中默认为缺失快照补版本。另3项原本调用旧关键词归并路径，现明确提供v2已审查问题身份，仍要求归并数量1/1/2，保留全部证据、独立评审标准，并补不同来源/不同问题不归并、分类冲突和归并来源断言。品牌泛化标题仍作为条件反证拒绝检查；不依靠模板把它改写成已支持结论。法规最小化器同一正例同时覆盖真实直接hits和旧result包络。这些是输入/断言与当前契约的同步，不证明模型能正确产生问题身份，亦不证明真实报告合格。原失败日志和JUnit保留；本会话未运行任何验证/测试、CI或发布，未连接服务器、未提交。下一步由Luna复用原九文件Focused；失败报告完整新JUnit，通过后才进入既定Full/发布门禁。
+- 2026-10-19 Focused 29项失败接续（仅修正，未复验）：读取本次 pytest-focused-result.xml，117项为29 failed/88 passed。26项涉及旧版本断言、最小化器v2必填上下文/同源候选、无prompt_version的旧graph夹具或错误文本匹配。现同步v2输入和内容无关诊断码断言，旧graph夹具显式冻结fulltext-v1；不在运行时代码中默认为缺失快照补版本。另3项原本调用旧关键词归并路径，现明确提供v2已审查问题身份，仍要求归并数量1/1/2，保留全部证据、独立评审标准，并补不同来源/不同问题不归并、分类冲突和归并来源断言。品牌泛化标题仍作为条件反证拒绝检查；不依靠模板把它改写成已支持结论。法规最小化器同一正例同时覆盖真实直接hits和旧result包络。这些是输入/断言与当前契约的同步，不证明模型能正确产生问题身份，亦不证明真实报告合格。原失败日志和JUnit保留；本会话未运行任何验证/测试、CI或发布，未连接服务器、未提交。下一步由执行者复用原九文件Focused；失败报告完整新JUnit，通过后才进入既定Full/发布门禁。
 - 2026-10-18 TASK-0029 基于同一 PDF 的真实运行修复风险投影：缩窄对象—证据一致性锚点，避免机器码结论被泛化的“资格审查”描述误降级；把已校验的全文关联摘录纳入对象一致性检查；仅在同一类别、文档哈希、定位及原文下合并已知同事实候选（信用分缺失、人员变更责任、文件冲突顺序、监管管辖、项目经理任职范围、J/K 评分参数），保留同段不同评分问题；未被模型选中且无精确规则绑定的法规命中不再作为风险附件自动填充。回归覆盖见 `tests/test_task0029_evidence_quality.py`、`tests/test_task0030_real_rag.py`。修复后 Focused 后端 78 passed；官方 Full 后端 992 passed、0 failed/skipped，2 条既有 pypdf 弃用警告；契约生成、Ruff、Mypy、前端 14/14、生产构建及真实 HTTP 生命周期检查通过。保存响应离线重验模型引文 39/39、候选投影 27 项、模型调用新增 0。PR/CI、部署及同 PDF 新运行待完成。TASK-0029 继续 `in_progress`，不改变法规独立核验、人工决定或用户验收状态。
 - 2026-10-18 TASK-0029 真实法规审查报告投影修正：法规参考保留法规 ID/版本/条号、官方来源 URI 与哈希、法规文本哈希/定位、生效区间、适用框架、确认资格/原因、采用政策与引用身份；仍不提升正式证据资格。AI-only `no_issue` 候选不再作为待审风险；同原文下仅合并经语义族明确识别的公示期限、调查举证与品牌中标后处理重复项，不合并同段不同问题。OpenAPI 0.10.4 / 契约集 v1alpha11，无数据库迁移。官方 Full 988 passed、0 failed/skipped，2 条既有 pypdf warning；相关 Focused 142 passed。PR、CI、服务器部署和新 PDF 真实运行待完成。
 - 2026-10-18 TASK-0029 真实 PDF 审查质量修复：在统一项目上下文契约下，于审查/付费模型调用前逐字段补正；保留检索快照，区分上下文失败、检索服务失败与有效零命中；把受原文哈希/定位约束的全文关联条款送入语义分析并在 Word/PDF 中标为上下文；增加对象—证据一致性、规范性说法、重复风险、同段多问题、品牌例外和合同 Skill PDF 范围回归。OpenAPI 升至 0.10.3 / v1alpha10。候选 `2088d2c` 本地官方 Full 七阶段通过（985 passed、2 条既有警告）；部署前真实报告验证尚待 CI 与服务器发布。
@@ -192,7 +193,7 @@
 
 - TASK-0017远程PostgreSQL故障定位：旧42份法规的CRLF哈希与Linux默认LF检出不一致。固定跨平台检出字节并增加真实Git克隆/全部语料哈希与定位回归，保留原文及严格哈希断言。
 
-- 用户要求恢复单Codex直接实施/自检/收尾，ADR-0011替代默认跨软件/独立代理审批；既有TASK-0006代码和问题保留。纯记录/归档改动Quick，代码候选Full，取消相同源码反复全测。
+- 用户要求恢复单写入者直接实施/自检/收尾，ADR-0011替代默认跨软件/独立代理审批；既有TASK-0006代码和问题保留。纯记录/归档改动Quick，代码候选Full，取消相同源码反复全测。
 
 - TASK-0006实施者自行归档已撤销；迁移work/TASK-0006并恢复ADR-0009独立审查关卡，正式任务in_progress。
 

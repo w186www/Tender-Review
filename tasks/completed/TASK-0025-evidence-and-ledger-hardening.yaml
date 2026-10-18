@@ -3,7 +3,7 @@
   "task_id": "TASK-0025",
   "title": "证据分类修复、账本回滚防护与 Windows CI 超时",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0024"
   ],

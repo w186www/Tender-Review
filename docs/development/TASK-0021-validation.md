@@ -78,4 +78,4 @@ tests/test_task0021_online_gateway.py
 ./.venv/Scripts/python.exe scripts/run_task0011_e2e.py
 ```
 
-真实供应商流程仅在当前 Codex 进程能看到本机安全注入的北京地域 API Key 与 Workspace ID 后启动；只运行一次在线 Edge E2E，不额外 smoke、不重试、不重跑。见[DEC-002](../decisions/DEC-002-qwen-demo-authorization.md)与[在线演示指南](model-gateway-online-demo.md)。
+真实供应商流程仅在当前执行进程能看到本机安全注入的北京地域 API Key 与 Workspace ID 后启动；只运行一次在线 Edge E2E，不额外 smoke、不重试、不重跑。见[DEC-002](../decisions/DEC-002-qwen-demo-authorization.md)与[在线演示指南](model-gateway-online-demo.md)。

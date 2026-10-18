@@ -90,7 +90,7 @@
 
 - 核对本地、远端跟踪分支、当前 HEAD 和工作区；未切换分支、未 reset、未 stash、未清理成果。
 - 开始前仅有三个未跟踪用户成果：
-  - `docs/development/luna-execution-entry.md` SHA-256 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`
+  - `docs/development/execution-entry.md` SHA-256 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`
   - `docs/development/product-delivery-plan.md` SHA-256 `15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`
   - `question.txt` SHA-256 `DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`
   三者均未覆盖或移动。
@@ -110,7 +110,7 @@
 
 ### 3. 设计与授权
 
-- 依据：用户采纳的 `docs/development/product-delivery-plan.md`、仓库 `AGENTS.md`、现有 roadmap/任务 Schema、ADR-0011 单 Codex规则。
+- 依据：用户采纳的 `docs/development/product-delivery-plan.md`、仓库 `AGENTS.md`、现有 roadmap/任务 Schema、ADR-0011 单写入者规则。
 - 产品规划本身不构成 D1—D4 决策、真实调用、数据外发或线上操作授权。本轮未进行这些活动。
 - 既有 DEC-002/DEC-007 批准仅按其原范围保留，不扩展额度或用途。
 
@@ -282,7 +282,7 @@
 
 ### 5. 集成与成果保护
 
-- 所有变更留在固定 `work/TASK-0027` 工作区，未暂存/提交/推送/合并/部署；复用现有 `.venv` 与 `src/frontend/node_modules`。用户的 `luna-execution-entry.md`、`product-delivery-plan.md` 和 `question.txt` 未修改。
+- 所有变更留在固定 `work/TASK-0027` 工作区，未暂存/提交/推送/合并/部署；复用现有 `.venv` 与 `src/frontend/node_modules`。用户的 `execution-entry.md`、`product-delivery-plan.md` 和 `question.txt` 未修改。
 
 ### 6. 风险与恢复
 
@@ -301,7 +301,7 @@
 
 **执行单元/TASK：** U04 / TASK-0028（TASK0028-003）；U03 / TASK-0019、TASK-0013 的来源恢复继续部分完成；U07 / TASK-0029 继续进行 D2 以外的本地工程验证。U05 未开始，roadmap 前置 U04 尚未完成。
 
-**目录、分支、HEAD 与未提交归属：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；HEAD `9e1a5840970f2c61b8558cf87e8f57398baf80c2`。所有既有未提交改动保留。用户的 `docs/development/luna-execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` SHA-256 仍分别为 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。本次只在原目录写代码与正式状态/证据，无新 worktree、clone 或开发目录。
+**目录、分支、HEAD 与未提交归属：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；HEAD `9e1a5840970f2c61b8558cf87e8f57398baf80c2`。所有既有未提交改动保留。用户的 `docs/development/execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` SHA-256 仍分别为 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。本次只在原目录写代码与正式状态/证据，无新 worktree、clone 或开发目录。
 
 **Docker/环境：** 实际连通 Docker Engine 29.2.1，Linux 容器模式；复用已有 PostgreSQL 16、MinIO、ClamAV 和 parser 镜像，没有拉取镜像或安装依赖。入口 `scripts/run_task0011_e2e.py` 生成本轮唯一命名、标记的临时容器与合成 DOCX；最终容器退出后自动移除。检查确认没有本轮标记容器遗留，既有 `tender-review-demo` 容器、卷及数据未更改。服务只监听回环；环境清除了真实供应商凭据，模型适配器明确为 `scripts/check_review_engine.py::OfflineReviewGateway`。
 
@@ -366,7 +366,7 @@
 
 **执行单元/TASK：** U04 / TASK-0028（`TASK0028-003`）完成；U05 / TASK-0028（`TASK0028-004`）保持 `planned`，尚未开始。U03 / TASK-0019、TASK-0013 的冻结来源缺口继续保持；U07 / TASK-0029 继续进行，D2 内容核验及规则—法规人工绑定未获批准。
 
-**目录、分支、HEAD 与未提交归属：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；HEAD `9e1a5840970f2c61b8558cf87e8f57398baf80c2`。代码与契约保持未提交状态；本次没有 reset、清理、stash、clone 或 worktree。用户的 `docs/development/luna-execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` SHA-256 保持 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。
+**目录、分支、HEAD 与未提交归属：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；HEAD `9e1a5840970f2c61b8558cf87e8f57398baf80c2`。代码与契约保持未提交状态；本次没有 reset、清理、stash、clone 或 worktree。用户的 `docs/development/execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` SHA-256 保持 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。
 
 **U04 代码实现与兼容性：** 新增 `POST /api/v1/review-tasks/{reviewTaskId}/runs/{runId}/cancel` 兼容操作，reviewer 鉴权后通过既有 `cancelled` 语义取消；重复 cancel 幂等、审计只写一次、清理当前 lease，已发布结果返回冲突。PostgreSQL 行锁使 cancel 与 resume/retry 串行，完成后的 worker 不能把 cancelled run 重新排队。OpenAPI 从 0.8.0 升为 0.9.0，契约集从 v1alpha4 升为 v1alpha5；属于新增路径/操作，无旧路径删除、响应重解释、数据库迁移或历史记录重写。`contracts/VERSION.md` 与产品契约基线记录了兼容说明；前端类型由生成器更新。
 
@@ -395,7 +395,7 @@
 
 **执行单元/TASK：** U05 / TASK-0028（`TASK0028-004`）。前置 U02、U04 已完成。
 
-**目录、分支、HEAD 与未提交归属：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；开始 HEAD `9e1a5840970f2c61b8558cf87e8f57398baf80c2`；结束 HEAD `7959d9cc9b526aec9269d7352784d89f1681807d`（用户明确要求的 GitHub 备份提交，包含 U05 完成和 U06 质量切片）。U05 的实现、契约、测试、迁移和部署入口在 Full 时是工作区候选；随后按用户 2026-10-17 的备份要求提交并推送到 `origin/work/TASK-0027`，未合并 main、未部署。没有 reset、stash、清理、clone 或 worktree。用户的 `docs/development/luna-execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` 未被改写，SHA-256 仍为 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。
+**目录、分支、HEAD 与未提交归属：** 固定目录 `D:\自由项目\招标审核\bidding-compliance-agent-TASK-0027`；分支 `work/TASK-0027`；开始 HEAD `9e1a5840970f2c61b8558cf87e8f57398baf80c2`；结束 HEAD `7959d9cc9b526aec9269d7352784d89f1681807d`（用户明确要求的 GitHub 备份提交，包含 U05 完成和 U06 质量切片）。U05 的实现、契约、测试、迁移和部署入口在 Full 时是工作区候选；随后按用户 2026-10-17 的备份要求提交并推送到 `origin/work/TASK-0027`，未合并 main、未部署。没有 reset、stash、清理、clone 或 worktree。用户的 `docs/development/execution-entry.md`、`docs/development/product-delivery-plan.md`、`question.txt` 未被改写，SHA-256 仍为 `BF4AADCDF9A3D91DB4D0A23C4787C0F7FAF899FD41FB39C7F35C489F90F94195`、`15DAFDD856AE13B6376238487A726A296DF596822205FDD386D47977A8FC664A`、`DAB6DC7FBA01721398735A45A985712414B0C6504919B2857ED32A287D1561ED`。
 
 ### 1. 本次完成
 

@@ -1,3 +1,9 @@
+## 公开工程文档整理（2026-10-19）
+
+公开文档统一使用实施、审查和维护职责描述；个人工具安排与原始提示已在本地保全。任务编号、状态、验收条件、提交及 CI 证据保持原有含义。此轮仅整理文档，不改变运行时代码、服务器部署或产品验收结论。
+
+本地原文 SHA-256、任务状态/依赖/验收编号及验证命令一致性核对通过；官方 Quick 和 `git diff --check` 通过。未运行本地运行时测试；远程发布仍遵守适用 CI 门禁。
+
 ## 当前接续：TASK-0029 发布完成｜已合并并部署（2026-10-19）
 
 - 提交与合并：v2 证据闭环 `ba83a52`，CI 阻断修复 `8483937`（报告跟随 `merged_findings` 冻结引用）。PR #9：<https://github.com/w186www/Tender-Review/pull/9>；required CI run `39159508468` 的 impact/postgres/ingestion/baseline/verify-required 全部 success，quick 按 Full 模式 skipped；CI baseline（Full）**1067 passed、2 warnings、742.46s**。已普通合并到 `main`，merge SHA `07f7a62a818ae2956a9551f40d301b593dbf4b8e`。
@@ -58,11 +64,11 @@
 
 ## 当前接续：TASK-0029 根因修正已写入，按用户要求未测试（2026-10-19）
 
-- 最新后端测试接续：2026-10-19 Focused 29项失败接续（仅修正，未复验）：读取本次 pytest-focused-result.xml，117项为29 failed/88 passed。26项涉及旧版本断言、最小化器v2必填上下文/同源候选、无prompt_version的旧graph夹具或错误文本匹配。现同步v2输入和内容无关诊断码断言，旧graph夹具显式冻结fulltext-v1；不在运行时代码中默认为缺失快照补版本。另3项原本调用旧关键词归并路径，现明确提供v2已审查问题身份，仍要求归并数量1/1/2，保留全部证据、独立评审标准，并补不同来源/不同问题不归并、分类冲突和归并来源断言。品牌泛化标题仍作为条件反证拒绝检查；不依靠模板把它改写成已支持结论。法规最小化器同一正例同时覆盖真实直接hits和旧result包络。这些是输入/断言与当前契约的同步，不证明模型能正确产生问题身份，亦不证明真实报告合格。原失败日志和JUnit保留；本会话未运行任何验证/测试、CI或发布，未连接服务器、未提交。下一步由Luna复用原九文件Focused；失败报告完整新JUnit，通过后才进入既定Full/发布门禁。
+- 最新后端测试接续：2026-10-19 Focused 29项失败接续（仅修正，未复验）：读取本次 pytest-focused-result.xml，117项为29 failed/88 passed。26项涉及旧版本断言、最小化器v2必填上下文/同源候选、无prompt_version的旧graph夹具或错误文本匹配。现同步v2输入和内容无关诊断码断言，旧graph夹具显式冻结fulltext-v1；不在运行时代码中默认为缺失快照补版本。另3项原本调用旧关键词归并路径，现明确提供v2已审查问题身份，仍要求归并数量1/1/2，保留全部证据、独立评审标准，并补不同来源/不同问题不归并、分类冲突和归并来源断言。品牌泛化标题仍作为条件反证拒绝检查；不依靠模板把它改写成已支持结论。法规最小化器同一正例同时覆盖真实直接hits和旧result包络。这些是输入/断言与当前契约的同步，不证明模型能正确产生问题身份，亦不证明真实报告合格。原失败日志和JUnit保留；本会话未运行任何验证/测试、CI或发布，未连接服务器、未提交。下一步由执行者复用原九文件Focused；失败报告完整新JUnit，通过后才进入既定Full/发布门禁。
 
-- 最新 Mypy 接续：依据用户转交的 Luna 复验报告，契约/生成与 Ruff 已通过，Mypy 因 product_runtime 从 real_ai_runtime 间接导入两个未明确重导出的常量停止。现将 DISCOVERY_EVIDENCE_PROMPT_VERSION、FULLTEXT_V1_PROMPT_VERSION 改为从其定义模块 review_contracts 直接导入，常量值和运行时装配不变。本次修正未复验、未改测试/Schema；由 Luna 继续同一组 Focused，历史 Ruff 失败记录保留。
+- 最新 Mypy 接续：依据用户转交的执行者复验报告，契约/生成与 Ruff 已通过，Mypy 因 product_runtime 从 real_ai_runtime 间接导入两个未明确重导出的常量停止。现将 DISCOVERY_EVIDENCE_PROMPT_VERSION、FULLTEXT_V1_PROMPT_VERSION 改为从其定义模块 review_contracts 直接导入，常量值和运行时装配不变。本次修正未复验、未改测试/Schema；由执行者继续同一组 Focused，历史 Ruff 失败记录保留。
 
-- 最新验证接续：用户转交 Luna 的 Focused 失败报告，称第 1 阶段契约/生成一致性通过，第 2 阶段 Ruff 因 3 处 E501 和 1 处 B023 停止，后续阶段未运行。现已拆分超长字符串（拼接后的文本不变），并以默认参数显式绑定当前候选的 law_relations，未改业务规则/契约/测试。此四处修正尚未复验；由 Luna 按已有授权接续 Focused，通过后再进入原发布流程，本会话未运行 Ruff/测试/Full。
+- 最新验证接续：用户转交执行者的 Focused 失败报告，称第 1 阶段契约/生成一致性通过，第 2 阶段 Ruff 因 3 处 E501 和 1 处 B023 停止，后续阶段未运行。现已拆分超长字符串（拼接后的文本不变），并以默认参数显式绑定当前候选的 law_relations，未改业务规则/契约/测试。此四处修正尚未复验；由执行者按已有授权接续 Focused，通过后再进入原发布流程，本会话未运行 Ruff/测试/Full。
 
 - 用户要求先全部修改代码，随后统一验证。本轮未新增/运行测试，未运行 Quick/Focused/Full、CI、浏览器或模型验证，未提交/推送/PR/合并/部署。仅做源码修改、OpenAPI 客户端生成和代码格式化；旧验证记录不覆盖当前工作区。
 - 目录/分支复用，本地 HEAD 仍为 ed0f80f。接手前已有投影、测试及记录修改，已有内容保留；本轮未改测试文件。私人 question.txt 和未跟踪界面图未读取/修改。未连接服务器，最后交接部署版本为 b69a78f，不声称本轮重新核验。
@@ -621,7 +627,7 @@
 
 - TASK-0006已完成并归档：43版本/3120片段，D01–D07本期缺陷全部解决/边界保持；效力与条款适用分开、完整HTML/PDF来源映射、独立全局授权、不可变核验/发布/双CAS/回滚/审计，Result5。源码5347b110a8c3561c72086afd455755810de59abf本地/远程Full413项与全部真实集成/汇总成功。旧42文本保持未核实，法规能力不替代最终违规判断。
 
-- TASK-0017：单Codex实施、Quick/Focused/Full与失败关闭CI已完成；修复跨平台CRLF检出，最终源码68d67a80943e9c531f58ced7557d0c24938d84e9本地/远程Full279项与PostgreSQL、ingestion、汇总门禁通过，归档记录用Quick。
+- TASK-0017：单写入者实施、Quick/Focused/Full与失败关闭CI已完成；修复跨平台CRLF检出，最终源码68d67a80943e9c531f58ced7557d0c24938d84e9本地/远程Full279项与PostgreSQL、ingestion、汇总门禁通过，归档记录用Quick。
 
 - TASK-0007已完成并归档：五类无模型确定性Skill、版本化规则与候选发现契约、原文定位/稳定去重及法规检索主题。源码236d2a6e231be030f719b0bbabc3f2b0a50039b3 Focused 30项、最终Full448项本地通过（0失败/错误/跳过），真实HTTP/身份/租户集成检查通过；远程38516913371适用作业及汇总门禁成功。详见TASK-0007-validation.md。
 - TASK-0010已完成并归档：源码候选`ab878ecd9f5df5d60ea4e27fe7edc451246ca75e`本地Full504及PostgreSQL16专项通过；源码CI38556383801、验收记录CI38557180768、归档CI38557509858所有适用作业均成功。复核/审计、不可变Word/PDF报告、引用回查和越权导出审计已实现。生产模型路由仍受DEC-002限制；详见`docs/development/TASK-0010-validation.md`。
@@ -714,8 +720,8 @@
 ## 历史分支与审查基线（截至 2026-10-14）
 
 - 2026-10-14用户新指令覆盖之前的恢复分支限制：实现已保全迁移到work/TASK-0006；git fetch origin main核对最新main=bd2da2da984b6d1c34f3cfdb7da69e21661523be，当前任务分支已包含该提交。无force push/reset --hard，恢复分支和保全stash保留。
-- 用户本次指令由ADR-0011记录，撤销ADR-0009默认跨软件/独立代理关卡；现有实现/问题与法规ADR-0010 proposed保留。Codex按实际验收自行收尾，不能假称独立审查或自动关闭问题。
-- 不恢复DeepSeek派工或自动代理审批。当前无额外代理运行；保留历史审查的真实发现作为问题清单。
+- 用户本次指令由ADR-0011记录，撤销ADR-0009默认跨软件/独立代理关卡；现有实现/问题与法规ADR-0010 proposed保留。执行者按实际验收自行收尾，不能假称独立审查或自动关闭问题。
+- 不恢复原协作执行者派工或自动代理审批。当前无额外代理运行；保留历史审查的真实发现作为问题清单。
 
 当前TASK-0007验收源码236d2a6e231be030f719b0bbabc3f2b0a50039b3；本地Focused30、Full448/真实集成和远程38516913371适用作业全部成功，任务已完成并归档。TASK-0008验收源码`4d1f59f69143c63c7d4273958a12da19ecf5acdf`（归档前工程记录提交`5b9b9f1bf68b245abb05b75cd855d07d30497d2a`）从归档提交`6edea37c071cfcec6cf8354b9d74f92fbcaba0a5`创建并包含TASK-0007验收源码；原stash@{0}仍保留。Focused54项、Full487项、真实本机后端/身份检查及源码提交远程CI运行`38521959503`（impact/baseline/postgres/ingestion/verify-required全部success）均通过。TASK0008-001/002按正式验收条件完成并归档；详见`docs/development/TASK-0008-validation.md`。生产预算仅实现单进程原子参考ledger，不能支持多进程生产一致性；DEC-002待批准、生产路由保持禁用，真实在线供应商调用未执行。TASK-0009源码`c62673e2ff12a810d40aa6b81d19e35e5c73ce1e`验收通过；源码与验证记录提交远程CI由用户确认成功，归档提交远程CI待核验。TASK-0010源码候选ab878ecd9f5df5d60ea4e27fe7edc451246ca75e本地验收通过，远程CI待执行。
 

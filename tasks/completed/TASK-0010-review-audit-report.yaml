@@ -3,7 +3,7 @@
   "task_id": "TASK-0010",
   "title": "人工复核、审计和Word/PDF报告",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0009",
     "TASK-0004"

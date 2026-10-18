@@ -3,7 +3,7 @@
   "task_id": "TASK-0004",
   "title": "身份、租户与核心数据迁移",
   "status": "completed",
-  "owner": "codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0002"
   ],

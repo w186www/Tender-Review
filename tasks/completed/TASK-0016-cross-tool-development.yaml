@@ -1,9 +1,9 @@
 {
   "schema_version": "v1alpha2",
   "task_id": "TASK-0016",
-  "title": "跨软件模型分工、仓库派工与审查交接",
+  "title": "仓库协作、任务分配与审查交接",
   "status": "completed",
-  "owner": "codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0005"
   ],
@@ -17,7 +17,7 @@
     "AGENTS.md",
     "PROJECT_STATE.md",
     "docs/index.md",
-    "docs/development/model-handoff.md"
+    "docs/development/task-handoff.md"
   ],
   "allowed_paths": [
     "AGENTS.md",
@@ -46,7 +46,7 @@
       "description": "另一软件可仅凭仓库确定阶段、负责人、范围、交接和审查方式",
       "evidence": [
         "docs/development/TASK-0016-validation.md",
-        "docs/development/multi-model-workflow.md",
+        "docs/development/collaboration-workflow.md",
         "docs/decisions/ADR-0009-cross-tool-development.md",
         "AGENTS.md"
       ]
@@ -57,9 +57,9 @@
       "evidence": [
         "docs/development/TASK-0016-validation.md",
         "tasks/dispatch/TASK-0006.md",
-        "docs/development/prompts/deepseek-task-0006.md",
-        "docs/development/prompts/gpt-review.md",
-        "docs/development/prompts/deepseek-review-core.md",
+        "docs/development/prompts/task-0006-preparation.md",
+        "docs/development/prompts/review-checklist.md",
+        "docs/development/prompts/review-core.md",
         "tasks/handoffs/template.md",
         "tasks/reviews/template.md"
       ]

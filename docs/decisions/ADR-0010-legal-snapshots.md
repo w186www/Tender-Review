@@ -8,7 +8,7 @@
 
 ## 决策
 
-2026-10-14续建依据ADR-0011由当前Codex实施及自检，不要求额外角色批准。D03结果契约补充：Result为v1alpha3、Query仍v1alpha2；正式EvidenceRef使用同一清洗文本的artifact URI/hash/字符定位，官方URL与原始来源hash独立保留。可引用集合只含对应hit的可确认evidence_id，DTO及冻结索引解析复核关联、资格、日期/范围与制品；旧Result v1alpha2拒绝且不重写历史，无新DDL。下文原D01/D02/D04/D05/D07未完成方案仍proposed，不因这一具体修复自动接受全部长期方案。
+2026-10-14续建依据ADR-0011由当前执行者实施及自检，不要求额外角色批准。D03结果契约补充：Result为v1alpha3、Query仍v1alpha2；正式EvidenceRef使用同一清洗文本的artifact URI/hash/字符定位，官方URL与原始来源hash独立保留。可引用集合只含对应hit的可确认evidence_id，DTO及冻结索引解析复核关联、资格、日期/范围与制品；旧Result v1alpha2拒绝且不重写历史，无新DDL。下文原D01/D02/D04/D05/D07未完成方案仍proposed，不因这一具体修复自动接受全部长期方案。
 
 Manifest/Index维持v1alpha1，Query/RunSnapshot为v1alpha2，Result经D03续建为v1alpha3（闭合契约）；不修改State或现有EvidenceRef。每个版本同时冻结文本与原始来源快照的SHA-256、来源URL、核验说明、核验截止日、半开有效区间[from,to)、地区、采购制度和项目类型。未核实、超出核验截止日、无条号的结果不能支持确定结论。核验截止日不等于失效日；超过该日期只能作为参考。
 

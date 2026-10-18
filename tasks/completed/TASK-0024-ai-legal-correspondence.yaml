@@ -3,7 +3,7 @@
   "task_id": "TASK-0024",
   "title": "AI 风险与法律法规自动对应",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0023"
   ],

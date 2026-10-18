@@ -2,7 +2,7 @@ schema_version: v1alpha2
 task_id: TASK-0015
 title: 修正复查缺陷并建立远程CI实证
 status: completed
-owner: codex
+owner: maintainer
 depends_on: [TASK-0002]
 related_requirements: [SEC-007, NFR-006, NFR-009, NFR-008]
 related_acceptance: [AC-011, AC-012]

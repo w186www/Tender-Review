@@ -2,7 +2,7 @@ schema_version: v1alpha2
 task_id: TASK-0003
 title: 修正契约、编排依赖与工程验收机制
 status: completed
-owner: codex
+owner: maintainer
 depends_on: [TASK-0001]
 related_requirements: [NFR-007, NFR-008, NFR-009, FR-006, FR-007, FR-009, FR-010]
 related_acceptance: [AC-004, AC-010, AC-012]
