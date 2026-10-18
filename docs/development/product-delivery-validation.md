@@ -734,10 +734,13 @@
 - 官方 Focused：`./scripts/verify.ps1 -Mode Focused -TestPaths tests/test_task0029_ocr_structure.py` 退出码 0；后端 7 项通过，新增并保留目录标题页、无标题重复目录、纯数字表格和正文金额反例。Ruff 全过，Mypy 112 个源码文件无问题，前端 OpenAPI/静态/TypeScript/Vitest 14 项/生产构建通过。
 - 真实扫描隔离解析器固定镜像 `sha256:7d3a141c44e106499d7f5b9420f351a64f8dc130380c9d1d2ab3de2a6e858a26`；结果 `quality=passed`、`issues=[]`，低置信数字 3/3 被识别为目录编号，剩余低置信关键数字 0；策略阈值 0.80 未改。耗时 3,084 ms，解析进程峰值 RSS 95,711,232 bytes、容器峰值 155,885,568 bytes。该局部解析不等于网页/真实模型审查验收。
 - 最终代码候选官方 `./scripts/verify.ps1 -Mode Full` 退出码 0：七阶段通过；后端 **945 passed, 0 failed, 0 skipped, 2 existing pypdf deprecation warnings in 629.20s**。真实后端 HTTP health 200、404 与 request ID 一致；真实鉴权登录、项目创建/读取/版本及登出撤权 PASS。证据 `.verification/pytest-result.xml`，不入库。
-- PostgreSQL 16 隔离迁移/RLS/跨租户/并发/回退专项与 TASK-0011 浏览器 E2E 5/5 适用于此前同基线候选 `d0176891cdd05d04b9efc9f1e7fbaf32c1cd09a3`；本次改动仅为 OCR 质量分类与测试，未触及数据库/队列/浏览器产品流程。此前 GitHub Actions run 39095130975 对 `d017689` 全部适用工作成功；本轮新代码候选的推送 CI 尚待核对，不能引用旧 CI 代替。
+- PostgreSQL 16 隔离迁移/RLS/跨租户/并发/回退与 TASK-0011 浏览器 E2E 5/5 有此前同基线候选证据；本轮 GitHub Actions run `39097499595` 的 `postgres` 专项对最新推送候选也成功，覆盖迁移/RLS/租户隔离/并发/回退。
 
 ### 当前状态和剩余验收
 
-- Full 运行时代码与测试文件精确对应提交 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04`（`d017689` 基础上仅改 `quality.py` 与 `test_task0029_ocr_structure.py`）。Full 后只补充 TASK/G3/CHANGELOG 中的候选身份与验证结果，未改代码、契约、数据、配置、依赖、测试或验证脚本；更新后官方 Quick 再次退出码 0。代码提交已生成，分支尚未推送，待核对该代码 SHA 的新 CI。
+- Full 运行时代码与测试文件精确对应提交 `bb85c05fe45a2ac56ae6e10cbc7ac77c03e86b04`（`d017689` 基础上仅改 `quality.py` 与 `test_task0029_ocr_structure.py`）。Full 后只补充状态/身份元数据，未改代码、契约、数据、配置、依赖、测试或验证脚本；更新后 Quick 退出码 0。代码与状态提交均已推送，HEAD `0f498c6ae41dd1230f83b303490243a543e09140` 的 GitHub Actions run `39097499595` 所有适用作业 success（`quick` 按 Full 模式合法 skipped）；候选仍未部署。
+- 服务器只读复核保持旧源码 `d3cb613c1b766239cc14bf6f107c3f1f203cae6f`、`staging/product-postgres`、迁移 `202610172000`、TLS overlay、health 200。最新账本 limit ¥200、spent ¥1.04007020、reserved ¥0，477 笔 reservation 全部 settled；无活跃 engine run/ingestion。新全量备份 `/opt/tender-review/backups/20261018T044240Z` 的官方 `restore.sh --verify` 通过，恢复库与线上计数、MinIO/modelstate 校验一致，未修改生产数据。
+- 部署前通过现有 `default` Workbench 身份快进源码时收到两次 `403 Forbidden.SessionLimit`（request IDs `01A14D57-1EE1-5AD4-B667-D44EF463A7CC`、`01A14D57-F673-54CC-8A6A-E5E056774771`）；本地隐藏 daemon 的 session list 为空，没有关闭未知会话。线上登录使用现有 `deploy/.env` 中 `DEMO_TENANT` 与 admin/auditor/reviewer 配置均返回 401；未输出、重置凭据或换账号。部署与真实文件验收待 Workbench 空闲会话回收及恢复授权登录。
+- U11/U15 针对性官方 Focused（身份/项目、逐文件授权、执行授权、超时找回、调用恢复、法规运行/发布 7 个现有测试文件）退出码 0，117 passed、0 skipped；Ruff、Mypy 112 源文件、前端 14 tests/build 通过。线上仅一个租户，角色账户各一；跨租户安全使用隔离 PostgreSQL/CI 证据，不据单租户线上环境声称已完整实测。
 - 真实扫描 PDF 的 OCR 质量门禁已通过；仍须在服务器部署该候选后完成网页上传、人工上下文、真实模型审查、发布、Word/PDF 下载，并核对报告实际文本、页数、页面布局、服务端哈希与覆盖/拒绝统计。还须采集实际负载耗时/资源；本次 2 页 parser 指标不等于产品容量验收。
 - DOCX/派生文本 PDF 历史风险差异的因果与拒绝源单元恢复关系仍无法从旧制品还原；当前服务器新候选运行需补完整覆盖数据。U11/U15 异常、撤权、多角色/多租户、暂停/恢复、容量、备份和报告矩阵按总体验收继续。专家标签为 0、precision/recall 未测；用户独立验收未发生。
