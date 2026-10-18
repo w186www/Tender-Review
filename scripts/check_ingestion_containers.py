@@ -7,6 +7,7 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from uuid import uuid4
 
@@ -96,9 +97,14 @@ def scanned_pdf() -> bytes:
     return buffer.getvalue()
 
 
-def wait_for_scanner(scanner: ClamAVScanner, timeout_seconds: float = 240) -> None:
+def wait_for_scanner(
+    scanner: ClamAVScanner,
+    timeout_seconds: float = 240,
+    reload_signatures: Callable[[], None] | None = None,
+) -> None:
     """Wait for startup signature updates; never accept an unavailable/stale scanner."""
     deadline = time.monotonic() + timeout_seconds
+    next_reload = 0.0
     while True:
         try:
             scanner.scan(b"Synthetic clean scanner test.")
@@ -108,7 +114,21 @@ def wait_for_scanner(scanner: ClamAVScanner, timeout_seconds: float = 240) -> No
                 raise
             if time.monotonic() >= deadline:
                 raise RuntimeError(f"ClamAV readiness failed: {exc.code}") from exc
+            # freshclam can finish before clamd's socket exists, in which case its
+            # notification is lost and clamd keeps the bundled database. Asking the
+            # running daemon to reload is bounded and still requires a fresh scan.
+            if reload_signatures is not None and time.monotonic() >= next_reload:
+                reload_signatures()
+                next_reload = time.monotonic() + 20
             time.sleep(min(2, max(0, deadline - time.monotonic())))
+
+
+def reload_clamav(container: str) -> None:
+    """Ask the owned clamd to load the database freshclam already updated."""
+    try:
+        docker(["exec", container, "clamdscan", "--reload"])
+    except subprocess.SubprocessError:
+        pass
 
 
 def main() -> None:
@@ -206,7 +226,7 @@ def main() -> None:
         store.client.create_bucket(Bucket=settings.object_storage_bucket)
         print(f"Real MinIO ready; ClamAV image {clam_image}.", flush=True)
         try:
-            wait_for_scanner(scanner)
+            wait_for_scanner(scanner, reload_signatures=lambda: reload_clamav(clam))
         except RuntimeError:
             for command in (
                 ["logs", "--tail", "120", clam],
