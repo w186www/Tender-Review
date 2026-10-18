@@ -706,3 +706,29 @@ def test_missing_legacy_coverage_preserves_its_explicit_fallback(
     result = SimpleNamespace(review_task_id="task-a", run_id="run-a")
     summary = reports._product_execution(Session(), SimpleNamespace(tenant_id="tenant-a"), result)
     assert summary["coverage_status"] == expected
+
+
+def test_product_execution_follows_the_frozen_coverage_reference(monkeypatch):
+    calls = []
+
+    def read(_session, tenant, reference, **scope):
+        calls.append((tenant, reference, scope.get("review_task_id"), scope.get("run_id")))
+        return {"coverage": {}, "batches": []}
+
+    class Session:
+        def scalar(self, _statement):
+            return 0
+
+        def scalars(self, _statement):
+            raise AssertionError("must not select coverage by kind when a frozen reference exists")
+
+    monkeypatch.setattr(reports, "read_artifact", read)
+    result = SimpleNamespace(review_task_id="task-a", run_id="run-a")
+    summary = reports._product_execution(
+        Session(),
+        SimpleNamespace(tenant_id="tenant-a"),
+        result,
+        coverage_ref="coverage-ref",
+    )
+    assert calls == [("tenant-a", "coverage-ref", "task-a", "run-a")]
+    assert summary["coverage_status"] == "complete"

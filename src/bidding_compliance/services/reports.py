@@ -52,6 +52,8 @@ def _source_locations(
     result: ReviewResult,
     run: ReviewEngineRun,
     finding: dict[str, Any],
+    *,
+    discovery_ref: str | None = None,
 ) -> list[dict[str, Any]]:
     return _resolve_source_locations(
         session,
@@ -61,6 +63,7 @@ def _source_locations(
         run_id=result.run_id,
         snapshot=run.snapshot,
         finding=finding,
+        discovery_ref=discovery_ref,
     )
 
 
@@ -73,17 +76,31 @@ def _resolve_source_locations(
     run_id: str,
     snapshot: dict[str, Any],
     finding: dict[str, Any],
+    discovery_ref: str | None = None,
 ) -> list[dict[str, Any]]:
-    discovery_row = _optional_run_artifact(
-        session,
-        principal,
-        review_task_id=review_task_id,
-        run_id=run_id,
-        kind="candidate_discovery",
-    )
-    if discovery_row is None or content_hash(discovery_row.content) != discovery_row.content_hash:
-        raise ValueError("frozen source locator artifact is unavailable")
-    discovery = discovery_row.content
+    if discovery_ref is not None:
+        if not isinstance(discovery_ref, str):
+            raise ValueError("frozen discovery reference is invalid")
+        discovery = read_artifact(
+            session,
+            principal.tenant_id,
+            discovery_ref,
+            review_task_id=review_task_id,
+            run_id=run_id,
+        )
+    else:
+        discovery_row = _optional_run_artifact(
+            session,
+            principal,
+            review_task_id=review_task_id,
+            run_id=run_id,
+            kind="candidate_discovery",
+        )
+        if discovery_row is None or (
+            content_hash(discovery_row.content) != discovery_row.content_hash
+        ):
+            raise ValueError("frozen source locator artifact is unavailable")
+        discovery = discovery_row.content
     if discovery.get("status") == "failed_skill":
         raise ValueError("failed candidate discovery cannot support a formal report")
     candidate = None
@@ -362,6 +379,8 @@ def _product_execution(
     session: Session,
     principal: Principal,
     result: ReviewResult,
+    *,
+    coverage_ref: str | None = None,
 ) -> dict[str, Any]:
     """Project run coverage and unknown-call facts into the immutable report.
 
@@ -381,14 +400,30 @@ def _product_execution(
         )
     )
     unknown_count = int(unknown or 0)
-    discovery = _optional_run_artifact(
-        session,
-        principal,
-        review_task_id=result.review_task_id,
-        run_id=result.run_id,
-        kind="llm_candidate_discovery",
-    )
-    if discovery is None:
+    discovery_content: dict[str, Any] | None = None
+    if coverage_ref is not None:
+        if not isinstance(coverage_ref, str):
+            raise ValueError("report coverage reference is invalid")
+        discovery_content = read_artifact(
+            session,
+            principal.tenant_id,
+            coverage_ref,
+            review_task_id=result.review_task_id,
+            run_id=result.run_id,
+        )
+    else:
+        discovery = _optional_run_artifact(
+            session,
+            principal,
+            review_task_id=result.review_task_id,
+            run_id=result.run_id,
+            kind="llm_candidate_discovery",
+        )
+        if discovery is not None:
+            if content_hash(discovery.content) != discovery.content_hash:
+                raise ValueError("verified model discovery artifact is unavailable or changed")
+            discovery_content = discovery.content
+    if discovery_content is None:
         # Older real-model runs predate the persisted coverage block. If the run actually
         # produced model candidates, unknown coverage must not be reported as "not
         # applicable"; a deterministic-only run legitimately has no model coverage plan.
@@ -410,12 +445,10 @@ def _product_execution(
                 "unknown_model_call_count": unknown_count,
             }
         return project_product_execution(None, unknown_model_call_count=unknown_count)
-    if content_hash(discovery.content) != discovery.content_hash:
-        raise ValueError("verified model discovery artifact is unavailable or changed")
-    coverage = discovery.content.get("coverage")
+    coverage = discovery_content.get("coverage")
     if not isinstance(coverage, dict):
         raise ValueError("model discovery coverage is unavailable")
-    batches = discovery.content.get("batches")
+    batches = discovery_content.get("batches")
     return project_product_execution(
         coverage,
         unknown_model_call_count=unknown_count,
@@ -429,14 +462,43 @@ def _assessment_scope(
     result: ReviewResult,
     *,
     project_context: ReviewArtifact,
+    merged: ReviewArtifact,
 ) -> dict[str, Any]:
-    discovery = _verified_run_artifact(session, principal, result, "candidate_discovery")
-    retrieval = _verified_run_artifact(session, principal, result, "legal_retrieval")
-    model = _verified_run_artifact(session, principal, result, "model_analysis")
+    if content_hash(merged.content) != merged.content_hash:
+        raise ValueError("frozen merged findings hash mismatch")
+    discovery_ref = merged.content.get("discovery_ref")
+    retrieval_ref = merged.content.get("retrieval_results_ref")
+    model_ref = merged.content.get("model_findings_ref")
+    if (
+        not isinstance(discovery_ref, str)
+        or not isinstance(retrieval_ref, str)
+        or not isinstance(model_ref, str)
+    ):
+        raise ValueError("frozen report artifact references are incomplete")
+    discovery_content = read_artifact(
+        session,
+        principal.tenant_id,
+        discovery_ref,
+        review_task_id=result.review_task_id,
+        run_id=result.run_id,
+    )
+    retrieval_content = read_artifact(
+        session,
+        principal.tenant_id,
+        retrieval_ref,
+        review_task_id=result.review_task_id,
+        run_id=result.run_id,
+    )
+    model_content = read_artifact(
+        session,
+        principal.tenant_id,
+        model_ref,
+        review_task_id=result.review_task_id,
+        run_id=result.run_id,
+    )
     if content_hash(project_context.content) != project_context.content_hash:
         raise ValueError("frozen project context hash mismatch")
 
-    discovery_content = discovery.content
     skill_coverage = [
         {
             "skill_id": item.get("skill_id", "unknown"),
@@ -452,7 +514,7 @@ def _assessment_scope(
     retrieval_hit_count = 0
     citable_count = 0
     algorithms: set[str] = set()
-    for item in retrieval.content.get("results", []):
+    for item in retrieval_content.get("results", []):
         payload = item.get("result", {})
         status = payload.get("status", "unknown")
         retrieval_status_counts[status] = retrieval_status_counts.get(status, 0) + 1
@@ -508,7 +570,6 @@ def _assessment_scope(
         if adoption_policy is not None
         else None
     )
-    model_content = model.content
     run = session.get(
         ReviewEngineRun,
         (
@@ -559,9 +620,9 @@ def _assessment_scope(
             no_findings_decision.decision if no_findings_decision is not None else None
         ),
         "source_artifact_hashes": {
-            "candidate_discovery": discovery.content_hash,
-            "legal_retrieval": retrieval.content_hash,
-            "model_analysis": model.content_hash,
+            "candidate_discovery": content_hash(discovery_content),
+            "legal_retrieval": content_hash(retrieval_content),
+            "model_analysis": content_hash(model_content),
             "project_context": project_context.content_hash,
             **({"semantic_document_context": related_hash} if related_hash is not None else {}),
         },
@@ -612,6 +673,7 @@ def resolve_review_finding_citations(
         run_id=run_id,
         snapshot=run.snapshot,
         finding=finding,
+        discovery_ref=artifact.content.get("discovery_ref"),
     )
     audit(session, principal.tenant_id, principal.user_id, "review.citation_resolved", finding_id)
     session.commit()
@@ -639,20 +701,40 @@ def report_payload(
     ):
         raise ValueError("published result input snapshot is unavailable")
     find_project(session, principal, result.content["project_id"])
+    merged = _verified_run_artifact(session, principal, result, "merged_findings")
+    discovery_ref = merged.content.get("discovery_ref")
     findings = []
     for original in result.content["findings"]:
         item = json.loads(canonical_json(original))
         if item.get("evidence_status") == "confirmed":
             raise ValueError("current legal evidence policy does not permit confirmed findings")
         if item["finding_id"] != RESULT_PENDING_ID:
-            item["citations"] = _source_locations(session, principal, result, run, item)
+            item["citations"] = _source_locations(
+                session,
+                principal,
+                result,
+                run,
+                item,
+                discovery_ref=discovery_ref,
+            )
         findings.append(item)
     project_context = _verified_run_artifact(session, principal, result, "project_context")
     if project_context.content.get("context_sha256") != run.snapshot.get("project_context_sha256"):
         raise ValueError("frozen project context does not match the review input snapshot")
     frozen_project_name = project_context.content.get("context", {}).get("name")
-    scope = _assessment_scope(session, principal, result, project_context=project_context)
-    scope["product_execution"] = _product_execution(session, principal, result)
+    scope = _assessment_scope(
+        session,
+        principal,
+        result,
+        project_context=project_context,
+        merged=merged,
+    )
+    scope["product_execution"] = _product_execution(
+        session,
+        principal,
+        result,
+        coverage_ref=merged.content.get("llm_discovery_ref"),
+    )
     return {
         "schema_version": "task0010-report.v3",
         "tenant_id": principal.tenant_id,

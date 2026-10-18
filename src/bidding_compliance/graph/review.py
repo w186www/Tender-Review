@@ -2312,6 +2312,7 @@ def build_review_graph(
             artifact_payload = {
                 "snapshot_hash": row.snapshot_hash,
                 "discovery_ref": state["discovery_ref"],
+                "llm_discovery_ref": state.get("llm_discovery_ref"),
                 "model_findings_ref": state["model_findings_ref"],
                 "retrieval_results_ref": state["retrieval_results_ref"],
                 "findings": findings,

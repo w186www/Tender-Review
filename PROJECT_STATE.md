@@ -1,6 +1,7 @@
 ## 当前接续：TASK-0029 发布收尾｜Full 通过，待提交/CI/部署（2026-10-19）
 
 - 当前候选即工作树未提交改动（父提交 `ed0f80faa0198b4c480a112da21139b316bcf8a0`，分支 `work/TASK-0027`）。用户确认并已用官方入口重跑 `.\scripts\verify.ps1 -Mode Full`：七阶段 exit 0；后端 **1066 passed / 0 failed / 0 skipped / 6 warnings**，653.02s；JUnit `.verification/pytest-result.xml`（tests=1066/failures=0/errors=0/skipped=0，SHA-256 `82dd70e2811ab7c84ffe334ba51abe4fad31d9d3d8b288b72f3778e159eca929`）。Full 后未修改代码、契约、测试、配置或依赖；仅更新本记录/CHANGELOG 并跑 Quick。
+- CI postgres 首轮在 `check_legal_publications.py` 的报告生成路径失败：同一 run 在失败/重试后存在多个 `legal_retrieval` 制品，报告按 kind 取唯一制品的检查暴露了旧“任选第一条”问题。已改为从 `merged_findings` 的 `discovery_ref`/`retrieval_results_ref`/`model_findings_ref`/`llm_discovery_ref` 读取精确冻结制品，并新增 coverage 引用回归；该修复后的候选需重新通过 CI baseline（Full）后才能合并。
 - 用户已授权完成 GitHub 提交、PR、普通合并及现有 ECS 部署。发布按既有流程执行：逐路径暂存（排除私人 `question.txt`、未跟踪界面图、`.verification` 私有证据/密钥/真实文件）→ 推送 `work/TASK-0027` → 复用/创建 PR → required CI 成功后普通合并 → 部署前备份及隔离恢复校验 → 仅重建必要应用镜像 → 保留 TLS 叠加层、数据库、MinIO、ClamAV、账本与数据卷。
 - 已知残余边界保留：`_semantic_input_hash` 未绑定 minimizer/路由身份；`no_issue`+`contradicted` 空 counterevidence 作为产品语义建议；legacy 关键词族只影响未发布 v1/在途数据；同句同时引用选中与未选中法条时的条件性参考措辞为已知审查边界。TASK-0029 保持 in_progress；不登记用户验收或正式交付。
 

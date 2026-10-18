@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-10-19 TASK-0029 CI 阻断修复：报告生成不再按制品 kind 任选 `candidate_discovery`/`legal_retrieval`/`model_analysis`/`llm_candidate_discovery`，而是跟随 `merged_findings` 冻结的 `discovery_ref`/`retrieval_results_ref`/`model_findings_ref`/`llm_discovery_ref`；新增 coverage 引用回归。该修复解决 CI postgres 失败，需重新通过 baseline（Full）与 required checks。
+
 - 2026-10-19 TASK-0029 发布候选 Full 通过：本机官方 `.\scripts\verify.ps1 -Mode Full` 七阶段 exit 0，后端 **1066 passed / 0 failed / 0 skipped / 6 既有 warnings**，653.02s；JUnit `.verification/pytest-result.xml`（tests=1066/failures=0/errors=0/skipped=0，SHA-256 `82dd70e2811ab7c84ffe334ba51abe4fad31d9d3d8b288b72f3778e159eca929`）。Full 后仅更新记录并执行 Quick；随后提交/推送/PR/CI/合并/部署，真实效果由用户自行网站验收，不登记用户验收或正式交付。
 
 - 2026-10-19 TASK-0029 Mypy 接续：product_runtime 的两个提示版本常量改为直接从 review_contracts 导入，避免隐式重导出；未变更常量值或业务装配，未运行验证。

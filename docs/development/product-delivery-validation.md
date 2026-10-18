@@ -1,5 +1,10 @@
 # 产品交付单元验证记录
 
+## TASK-0029 CI 阻断修复｜2026-10-19
+
+- CI postgres 的 `check_legal_publications.py` 在报告生成时发现同一 run 在失败/重试后存在多个 `legal_retrieval` 制品；新唯一性检查正确暴露了旧报告按 kind 任选第一条的问题。已改为从 `merged_findings` 的冻结引用读取 `candidate_discovery`、`legal_retrieval`、`model_analysis` 和 `llm_candidate_discovery` 覆盖制品；旧制品缺少 `llm_discovery_ref` 时保留既有回退，唯一性冲突仍失败关闭。
+- 新增 `test_product_execution_follows_the_frozen_coverage_reference`；扩展 18 文件回归 251 passed。该修复改变运行时代码，旧 1066 Full 不覆盖当前候选，须由新的 CI baseline（Full）和 required checks 重新验证。
+
 ## TASK-0029 发布候选 Full 通过｜2026-10-19
 
 - 用户确认后，本机官方 `.\scripts\verify.ps1 -Mode Full` 七阶段 exit 0：后端 **1066 passed、0 failed、0 skipped、6 条既有 warnings**，653.02 秒；JUnit `.verification/pytest-result.xml`（tests=1066/failures=0/errors=0/skipped=0，SHA-256 `82dd70e2811ab7c84ffe334ba51abe4fad31d9d3d8b288b72f3778e159eca929`）；契约生成、Ruff、Mypy、前端 14/14 及生产构建、真实 HTTP 启动与鉴权生命周期均通过。
