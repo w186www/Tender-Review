@@ -1,6 +1,6 @@
 # 法规摄取、发布与检索启动（TASK-0006）
 
-当前决策：ADR-0011单Codex开发与ADR-0012法规生命周期/来源映射；ADR-0010保留历史方案和长期未实施边界。正式契约由DTO经scripts/generate_legal_contracts.py生成，禁止手改生成文件。Manifest v1alpha3、Index v1alpha4、Query v1alpha3、Result v1alpha5；OpenAPI 0.5.0补充项目上下文。State/EvidenceRef兼容。旧法规契约版本显式拒绝，旧追加写历史保留并需其原版本消费者，不静默改写；无生产数据。迁移202610141600/1700显式执行，见contracts/database/README.md。
+当前决策：ADR-0011单写入者开发与ADR-0012法规生命周期/来源映射；ADR-0010保留历史方案和长期未实施边界。正式契约由DTO经scripts/generate_legal_contracts.py生成，禁止手改生成文件。Manifest v1alpha3、Index v1alpha4、Query v1alpha3、Result v1alpha5；OpenAPI 0.5.0补充项目上下文。State/EvidenceRef兼容。旧法规契约版本显式拒绝，旧追加写历史保留并需其原版本消费者，不静默改写；无生产数据。迁移202610141600/1700显式执行，见contracts/database/README.md。
 
 ## 效力与适用性
 

@@ -13,7 +13,7 @@
 - 网页端到端已完成：登录 → 建项目 → 上传真实标书 → 正式校正 → 上下文确认 → 真实 AI 审查 →
   19 项人工复核 → 结果发布（`result_published`）→ Word/PDF 生成与下载，下载 SHA-256 与服务端
   `content_hash` 完全一致。
-- 浏览器为 ZCode 内置浏览器（IAB），不是 Microsoft Edge（本机唯一可用后端；IAB 不支持原生文件选择器，
+- 浏览器为 执行环境内置浏览器（IAB），不是 Microsoft Edge（本机唯一可用后端；IAB 不支持原生文件选择器，
   文件字节由页面脚本注入标准 `input[type=file]`，其余全部为正式页面操作）。
 - 未提交、未推送、未运行远端 CI。
 

@@ -3,7 +3,7 @@
   "task_id": "TASK-0027",
   "title": "DEC-007 完整能力：真实 Qwen 语义分析、全量法规向量索引与逐文件授权",
   "status": "in_progress",
-  "owner": "ZCode",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0026"
   ],

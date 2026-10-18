@@ -3,7 +3,7 @@
   "task_id": "TASK-0020",
   "title": "工程化 Agent Demo 端到端闭环与演示交付",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0005",
     "TASK-0006",

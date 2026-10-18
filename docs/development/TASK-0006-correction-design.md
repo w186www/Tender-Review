@@ -2,14 +2,14 @@
 
 ## 当前收尾自检入口（2026-10-14）
 
-本轮依据ADR-0011/0012由当前Codex独立实施和自检，不声称独立代理审查。源码5347b110a8c3561c72086afd455755810de59abf已完成D01/D02/D04/D05/D07全部本期必修条件，D03/D06保持并加固；逐项证据见TASK-0006-validation.md当前最终候选节。本地Full413项和真实PostgreSQL/Docker/官方PDF/文件接入均通过。远程38510406707 completed/success，所有适用作业及verify-required成功；下载JUnit413/0/0/0。TASK-0006达到本期退出条件并归档，不合入main、不启动后续任务。历史问题的本期整改结论由当前自检表给出，不改写原审查。
+本轮依据ADR-0011/0012由当前执行者独立实施和自检，不声称独立代理审查。源码5347b110a8c3561c72086afd455755810de59abf已完成D01/D02/D04/D05/D07全部本期必修条件，D03/D06保持并加固；逐项证据见TASK-0006-validation.md当前最终候选节。本地Full413项和真实PostgreSQL/Docker/官方PDF/文件接入均通过。远程38510406707 completed/success，所有适用作业及verify-required成功；下载JUnit413/0/0/0。TASK-0006达到本期退出条件并归档，不合入main、不启动后续任务。历史问题的本期整改结论由当前自检表给出，不改写原审查。
 
 下文旧pending/changes_requested与角色分工均为当时历史记录，原真实问题保留，不恢复已撤销审批。当前状态以本节与正式任务/验证记录为准。
 
 
 ## 历史D03候选设计与具体修复
 
-本节依据ADR-0011由当前Codex设计与自检，覆盖下文已撤销的角色关卡；历史发现和独立审查原文保留。任务仍in_progress。
+本节依据ADR-0011由当前执行者设计与自检，覆盖下文已撤销的角色关卡；历史发现和独立审查原文保留。任务仍in_progress。
 
 已复现DTO与JSON Schema同时接受reason/version_status=unverified而eligible_for_confirmation=true。修复先落正式契约：Result升v1alpha3，Query维持v1alpha2，Manifest/Index维持v1alpha1；新增正式EvidenceRef引用及citable_evidence（evidence_id集合）。Schema拒绝资格/原因/版本状态矛盾；关联字段、引用/文本哈希、字符区间、日期和集合完整性在LegalHit/RetrievalResult服务校验，不能只信Schema结构。
 

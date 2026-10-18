@@ -89,7 +89,7 @@ legal publication: already active (1856e2f4-55cb-43c7-ba29-520d7b0110b3)
 
 ### 2.4 浏览器验收（真实前端）
 
-经 ZCode 内置浏览器访问 `http://127.0.0.1:8080/`：
+经 执行环境内置浏览器访问 `http://127.0.0.1:8080/`：
 
 - 登录页正常渲染，顶部「离线确定性演示」提示可见（`VITE_REVIEW_MODE=offline-deterministic` 编译期注入）。
 - `reviewer` 登录成功，顶栏显示角色「审核员」。

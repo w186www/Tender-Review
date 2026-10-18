@@ -3,7 +3,7 @@
   "task_id": "TASK-0021",
   "title": "真实 Qwen LLM 接入与在线审查 Demo",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": ["TASK-0008", "TASK-0010", "TASK-0011", "TASK-0020"],
   "related_requirements": [
     "FR-007",

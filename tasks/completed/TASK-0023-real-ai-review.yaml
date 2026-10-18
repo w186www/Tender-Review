@@ -3,7 +3,7 @@
   "task_id": "TASK-0023",
   "title": "DEC-005 真实 Qwen 独立风险发现与受控神经检索网页审查",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0021"
   ],

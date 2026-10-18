@@ -3,7 +3,7 @@
   "task_id": "TASK-0018",
   "title": "法规检索评测、云端 Embedding Provider 接口验证、Tesseract OCR 基线及运行版本追溯",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0005",
     "TASK-0006",

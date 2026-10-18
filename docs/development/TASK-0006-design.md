@@ -2,7 +2,7 @@
 
 - 状态：待审定草案（未经设计审查，不是已批准契约，不构成实现）
 - 阶段：discovery（tasks/dispatch/TASK-0006.md）
-- 编写者：DeepSeek V4.1 Flash（另一软件）；设计/最终审查者：GPT-6.1 Sol
+- 编写者：原资料整理执行者；设计/最终审查者：原设计审查执行者
 - 日期：2026-10-14
 - 分支/base：`work/TASK-0006`，base `bd2da2da984b6d1c34f3cfdb7da69e21661523be`
 - 依据：AGENTS.md、ADR-0004、ADR-0005、docs/architecture/{system,data-flow,security,langgraph}.md、docs/requirements/{functional,security,non-functional,acceptance}.md、contracts/schemas/evidence.schema.json、contracts/VERSION.md、evals/thresholds.yaml、knowledge/legal/*

@@ -3,7 +3,7 @@
   "task_id": "TASK-0002",
   "title": "建立后端最小可运行底座",
   "status": "completed",
-  "owner": "codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0003"
   ],

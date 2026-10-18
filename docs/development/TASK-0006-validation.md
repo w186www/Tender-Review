@@ -2,7 +2,7 @@
 
 历史自测日期：2026-10-14，原恢复分支未提交候选。下述215项及旧索引哈希只属于原自测；自审completed已撤销，不能作为本轮独立审查通过证据。
 
-## 当前最终候选验收（2026-10-14，单Codex自检）
+## 当前最终候选验收（2026-10-14，单写入者自检）
 
 源码：5347b110a8c3561c72086afd455755810de59abf，work/TASK-0006。接手实际HEAD为b8ed12d4bbac8836922a80c2816cb975829f679a，工作区干净且与远程一致；不是直接沿用聊天中的f0bd827。D01/D07/D04/D05/D02依赖顺序分别提交d9aa320/4241f4e/baf6ac5/0556869/5347b11。main保持bd2da2da984b6d1c34f3cfdb7da69e21661523be，保全stash不动，无代理、跨软件审批或后续任务。
 
@@ -79,9 +79,9 @@ TASK0006-001通过：未核实、未知上界、超核验日、未知范围、�
 本轮代码候选：a88f5171888a2ede21122332c243451446ad96f4；基线main：bd2da2da984b6d1c34f3cfdb7da69e21661523be。上述251项最终检查针对该候选提交的源文件/契约/测试，候选之后仅补交接/验证/阶段记录；实施者停止写入待独立审查。
 
 
-## 历史D03单Codex续建记录
+## 历史D03单写入者续建记录
 
-本节覆盖历史默认独立代理/跨软件关卡；依据ADR-0011由当前Codex设计、实现、自检。历史真实发现及失败记录保留。TASK-0017先完成：源码68d67a809、远程38496768950全部适用作业/汇总门禁成功，279项远程JUnit0失败/错误/跳过。TASK-0006仍in_progress。
+本节覆盖历史默认独立代理/跨软件关卡；依据ADR-0011由当前执行者设计、实现、自检。历史真实发现及失败记录保留。TASK-0017先完成：源码68d67a809、远程38496768950全部适用作业/汇总门禁成功，279项远程JUnit0失败/错误/跳过。TASK-0006仍in_progress。
 
 - 已实际复现D03：原DTO/正式JSON Schema均接受reason/version_status=unverified、eligible_for_confirmation=true。此次先修Result正式契约至v1alpha3（Query v1alpha2、Manifest/Index v1alpha1不变），引用现有EvidenceRef $id；旧Result v1alpha1/v1alpha2明确拒绝，不重写追加写历史，无生产数据、无DDL变化。
 - LegalHit校验资格/原因/状态、条号/起日、引用UTF-8 SHA-256、字符区间及EvidenceRef所有关联字段。Result校验唯一hit ID、按hits顺序列出的完整可引用集合、参考模式、地区/日期/运行一致性；服务读取增加输入/输出版本关联。任意EvidenceRef、悬空/重复/遗漏/未核实引用、重标资格、错版本/日期等反例保留。
@@ -102,7 +102,7 @@ TASK0006-001通过：未核实、未知上界、超核验日、未知范围、�
 | D06 | 每次独立run，无公共/租户结果缓存 | 启用缓存前须重新设计全部输入键和授权；不声称缓存性能验收 |
 | D07 | 本轮解决EvidenceRef URI/hash/locator同一文本制品，真实引用可解析；原字节哈希/84条/长条切片保留 | HTML清洗到原始字节映射、真实PDF覆盖/目录排除仍未完成 |
 
-此表为当前Codex自检，不虚称独立审查。未关闭项保留具体验收要求，TASK-0006不归档、不合入main、不启动后续任务。
+此表为当前执行者自检，不虚称独立审查。未关闭项保留具体验收要求，TASK-0006不归档、不合入main、不启动后续任务。
 
 本轮D03最终源码候选f0bd8270d990d5e5dc6897f329a770d7db332099（分支work/TASK-0006），本地Full323项及真实PostgreSQL专项绑定该提交中的代码/契约/测试/脚本。远程新运行https://github.com/w186www/Tender-Review/actions/runs/38498549575最终completed/success：impact/baseline/postgres/ingestion/verify-required全部success，quick仅因Full选档不适用。已下载远程baseline-test-results并核验323 tests、0 failures、0 errors、0 skipped。源码之后只更新工程证据，Quick，不重复Full；之前TASK-0017的成功CI不冒作此源码证据。保全stash仍在，main未修改。
 

@@ -1,9 +1,9 @@
 {
   "schema_version": "v1alpha2",
   "task_id": "TASK-0017",
-  "title": "恢复单Codex实施并落实分层测试与CI门禁",
+  "title": "恢复单写入者实施并落实分层测试与CI门禁",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0005",
     "TASK-0016"
@@ -43,14 +43,14 @@
     "docs/reference/*.docx"
   ],
   "steps": [
-    "撤销默认双模型/代理关卡并保留业务成果和问题",
+    "撤销默认跨工具接力关卡并保留业务成果和问题",
     "实现Quick/Focused/Full及失败关闭的CI选档",
     "验证档位边界和完整候选，再按Quick归档记录"
   ],
   "acceptance_checks": [
     {
       "id": "TASK0017-001",
-      "description": "默认单Codex直接实施和自检，原问题不被自动关闭",
+      "description": "默认单写入者直接实施和自检，原问题不被自动关闭",
       "evidence": [
         "AGENTS.md",
         "docs/decisions/ADR-0011-development-and-validation.md",

@@ -3,7 +3,7 @@
   "task_id": "TASK-0019",
   "title": "招标文件审查能力离线基线评测",
   "status": "in_progress",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0005",
     "TASK-0006",

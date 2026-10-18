@@ -3,7 +3,7 @@
   "task_id": "TASK-0001",
   "title": "建立工程治理与初始协议（仅M0基线）",
   "status": "completed",
-  "owner": "codex",
+  "owner": "maintainer",
   "depends_on": [],
   "related_requirements": [
     "NFR-007",

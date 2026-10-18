@@ -1,6 +1,6 @@
-# Codex任务接手
+# 任务接手
 
-默认由单个Codex会话按AGENTS、PROJECT_STATE、docs/index及正式TASK完成设计、实现、排错、验证与收尾。当前工作方式见development-workflow.md。
+默认由单个工作会话按AGENTS、PROJECT_STATE、docs/index及正式TASK完成设计、实现、排错、验证与收尾。当前工作方式见development-workflow.md。
 
 新会话读取必要仓库文件和最新提交，不复制完整聊天；接手时核对分支与未提交内容。结束时只记录已完成、实际验证、未完成问题和下一步。代码最终候选Full；过程改动Focused；普通文档/归档记录Quick。相同源码已有通过证据且无新失败/疑点时不重复全测。
 

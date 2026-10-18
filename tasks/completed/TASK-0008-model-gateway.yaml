@@ -3,7 +3,7 @@
   "task_id": "TASK-0008",
   "title": "模型网关与两个供应商适配器",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0003"
   ],

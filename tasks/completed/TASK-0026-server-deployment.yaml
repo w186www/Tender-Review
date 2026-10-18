@@ -3,7 +3,7 @@
   "task_id": "TASK-0026",
   "title": "Linux 单机容器化部署：编排、持久化、反向代理与本地部署验收",
   "status": "completed",
-  "owner": "ZCode",
+  "owner": "maintainer",
   "depends_on": [
     "TASK-0025"
   ],

@@ -3,7 +3,7 @@
   "task_id": "TASK-0028",
   "title": "产品执行、授权与恢复一致性",
   "status": "completed",
-  "owner": "Codex",
+  "owner": "maintainer",
   "depends_on": [],
   "related_requirements": [
     "FR-007",
